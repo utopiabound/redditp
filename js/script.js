@@ -560,11 +560,11 @@ $(function () {
         $('#navboxTitle').html(photo.title);
         if (photo.subreddit !== undefined && photo.subreddit !== null) {
             $('#navboxSubreddit').attr('href', rp.redditBaseUrl + subreddit).html(subreddit);
-            $('#navboxSubredditP').attr('href', subreddit).text('[P]');
+            $('#navboxSubredditP').attr('href', subreddit).html($('<span />').addClass('redditp').text('[P]'));
         }
         if (photo.author !== undefined) {
             $('#navboxAuthor').attr('href', rp.redditBaseUrl + author).html(author);
-            $('#navboxAuthorP').attr('href', '/user/'+photo.author+'/submitted').text('[P]');
+            $('#navboxAuthorP').attr('href', '/user/'+photo.author+'/submitted').html($('<span />').addClass('redditp').text('[P]'));
         }
         $('#navboxExtra').html((photo.extra !== undefined) ?photo.extra :"");
         $('#navboxLink').attr('href', photo.url).attr('title', photo.title);
@@ -605,13 +605,20 @@ $(function () {
         } else {
             divNode = rp.cache[imageIndex];
         }
+        var isVideo = (rp.photos[imageIndex].type == imageTypes.video);
 
         divNode.prependTo("#pictureSlider");
         $("#pictureSlider div").fadeIn(rp.settings.animationSpeed);
-        if (rp.photos[imageIndex].type == imageTypes.video) {
-            if (rp.photos[imageIndex].duration > rp.settings.timeToNextSlide)
+        if (isVideo) {
+            if (rp.photos[imageIndex].duration === undefined)
+                clearTimeout(rp.session.nextSlideTimeoutId);
+            else if (rp.photos[imageIndex].duration > rp.settings.timeToNextSlide)
                 resetNextSlideTimer(rp.photos[imageIndex].duration);
-            $('#gfyvid').load();
+            var vid = divNode.find('video');
+            if (vid !== undefined) {
+                vid.prop('autoplay', true);
+                vid.load();
+            }
         }
 
         var oldDiv = $("#pictureSlider div:not(:first)");
@@ -671,22 +678,29 @@ $(function () {
 
         // Called with showVideo({'thumbnail': jpgurl, 'mp4': mp4url, 'webm': webmurl})
         var showVideo = function(data) {
-            divNode.html('<video id="gfyvid" class="gfyVid" preload="auto" '+
-                         ((data.thumbnail !== undefined) ?'poster="'+data.thumbnail+'" ' :'')+
-                         ((isVideoMuted()) ?'muted="muted" ' :'')+
-                         'loop="" autoplay="" style="width: 100%; height: 100%;"> '+
-                         ((data.webm !== undefined) ?'<source type="video/webm" src="'+data.webm+'"></source>' :'') +
-                         ((data.mp4 !== undefined) ?'<source type="video/mp4" src="'+data.mp4+'"></source>' :'') +
-                         '</video>');
+            var video = $('<video id="gfyvid" loop class="fullscreen"/>');
+            if (data.thumbnail !== undefined)
+                video.attr('poster', data.thumbnail);
+            if (isVideoMuted())
+                video.prop('muted', true);
+            if (data.webm !== undefined)
+                video.append($('<source type="video/webm" />').attr('src', data.webm));
+            if (data.mp4 !== undefined)
+                video.append($('<source type="video/mp4" />').attr('src', data.mp4));
 
-            var video = divNode.children('video')[0];
+            divNode.append(video);
+
             $(video).bind("loadeddata", function(e) {
-                    photo.duration = e.target.duration + 0.5;
+                    photo.duration = e.target.duration + 0.1;
                     if (rp.settings.debug)
-                        console.log("video metadata.duration: "+e.target.duration );
+                        log("["+imageIndex+"] video metadata.duration: "+e.target.duration );
                     // preload, don't mess with timeout
                     if (imageIndex !== rp.session.activeIndex)
                         return;
+                    if (rp.settings.debug)
+                        log("["+imageIndex+"] Video loadeddata running for active image")
+                    video.prop('autoplay', true);
+                    video[0].play();
                     if (rp.settings.shouldAutoNextSlide && photo.duration > rp.settings.timeToNextSlide)
                         resetNextSlideTimer(photo.duration);
                     else
@@ -721,7 +735,7 @@ $(function () {
                     showVideo({'thumbnail': data.video.thumbnail_url,
                                 'mp4':  data.video.complete_url });
                 else {
-                    log("vid.me failed to load "+shortid+". state:"+data.video.state);
+                    log("["+imageIndex+"] vid.me failed to load "+shortid+". state:"+data.video.state);
                     showImage(data.video.thumbnail_url);
                     if (imageIndex == rp.session.activeIndex)
                         resetNextSlideTimer();
@@ -800,7 +814,7 @@ $(function () {
             } 
 
         } else {
-            console.log('Unknown video site ', hostname);
+            log("["+imageIndex+"]","Unknown video site", hostname);
             return;
         }
 
@@ -971,10 +985,8 @@ $(function () {
         rp.session.loadingNextImages = true;
 
         var jsonUrl = rp.redditBaseUrl + rp.subredditUrl + ".json?" + getVars + rp.session.after;
-        log(jsonUrl);
 
-        //log(jsonUrl);
-         var handleData = function (data) {
+        var handleData = function (data) {
             //redditData = data //global for debugging data
             // NOTE: if data.data.after is null then this causes us to start
             // from the top on the next getRedditImages which is fine.
@@ -988,7 +1000,7 @@ $(function () {
             var re = /(.*?)(\/r\/\w*)\s*\/?([\)\]\}]?)$/;
             $.each(data.data.children, function (i, item) {
                     var title = item.data.title.replace(re, "$1<a href='"+rp.redditBaseUrl+
-                                                        "$2'>$2</a> <a href='$2'>[P]</a>$3");
+                                                        "$2'>$2</a> <a href='$2'><span class='redditp'>[P]</span></a>$3");
                     if (title.length == 0) {
                         title = item.data.title;
                     }
@@ -1047,7 +1059,6 @@ $(function () {
     var getImgurAlbum = function (url) {
         var albumID = url.match(/.*\/(.+?$)/)[1];
         var jsonUrl = 'https://api.imgur.com/3/album/' + albumID;
-        //log(jsonUrl);
 
         var handleData = function (data) {
 

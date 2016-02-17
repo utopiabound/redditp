@@ -158,4 +158,16 @@ input[type=checkbox]:checked + label {
     padding-left: 10px;
     cursor:pointer;
 }
+
+.fullscreen {
+        width: 100%;
+        height: 100%;
+}
+
+.redditp {
+        background: url("/images/favicon.png") no-repeat left center / 16px 16px;
+        display: block;
+        text-indent: -9999px;
+        height: 20px;
+        width: 20px;
 }
