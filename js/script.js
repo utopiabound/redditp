@@ -523,17 +523,19 @@ $(function () {
 
         // If the same number has been chosen, or the index is outside the
         // rp.photos range, or we're already animating, do nothing
-        if (rp.session.activeIndex == imageIndex || imageIndex > rp.photos.length - 1 || imageIndex < 0 || rp.session.isAnimating || rp.photos.length == 0) {
+        if (rp.session.activeIndex == imageIndex ||
+            imageIndex < 0 || imageIndex >= rp.photos.length ||
+            rp.session.isAnimating || rp.photos.length == 0) {
             return;
         }
 
+        var oldIndex = rp.session.activeIndex;
         rp.session.isAnimating = true;
-        animateNavigationBox(imageIndex);
-        slideBackgroundPhoto(imageIndex);
-        preloadNextImage(imageIndex);
-
-        // Set the active index to the used image index
         rp.session.activeIndex = imageIndex;
+        animateNavigationBox(imageIndex, oldIndex);
+        slideBackgroundPhoto(imageIndex);
+
+        preloadNextImage(imageIndex);
 
         if (isLastImage(rp.session.activeIndex) && rp.subredditUrl.indexOf('/imgur') != 0) {
             getRedditImages();
@@ -552,7 +554,7 @@ $(function () {
     //
     // Animate the navigation box
     //
-    var animateNavigationBox = function (imageIndex) {
+    var animateNavigationBox = function (imageIndex, oldIndex) {
         var photo = rp.photos[imageIndex];
         var subreddit = '/r/' + photo.subreddit;
         var author = '/u/' + photo.author;
@@ -570,7 +572,7 @@ $(function () {
         $('#navboxLink').attr('href', photo.url).attr('title', photo.title);
         $('#navboxCommentsLink').attr('href', photo.commentsLink).attr('title', "Comments on reddit");
 
-        toggleNumberButton(rp.session.activeIndex, false);
+        toggleNumberButton(oldIndex, false);
         toggleNumberButton(imageIndex, true);
     };
 
@@ -600,32 +602,36 @@ $(function () {
     //
     var slideBackgroundPhoto = function (imageIndex) {
         var divNode;
-        if (rp.cache[imageIndex] === undefined) {
+        if (rp.cache[imageIndex] === undefined)
             divNode = createDiv(imageIndex);
-        } else {
+        else
             divNode = rp.cache[imageIndex];
-        }
-        var isVideo = (rp.photos[imageIndex].type == imageTypes.video);
 
         divNode.prependTo("#pictureSlider");
         $("#pictureSlider div").fadeIn(rp.settings.animationSpeed);
-        if (isVideo) {
-            if (rp.photos[imageIndex].duration === undefined)
-                clearTimeout(rp.session.nextSlideTimeoutId);
-            else if (rp.photos[imageIndex].duration > rp.settings.timeToNextSlide)
-                resetNextSlideTimer(rp.photos[imageIndex].duration);
-            var vid = divNode.find('video');
-            if (vid !== undefined) {
-                vid.prop('autoplay', true);
-                vid.load();
-            }
-        }
-
         var oldDiv = $("#pictureSlider div:not(:first)");
         oldDiv.fadeOut(rp.settings.animationSpeed, function () {
             oldDiv.remove();
             rp.session.isAnimating = false;
         });
+
+        // Ensure video is started
+        var pic = rp.photos[imageIndex];
+        if (pic.type == imageTypes.video) {
+            // pic.duration isn't set yet, means video hasn't loaded,
+            // so don't time it out
+            if (pic.duration === undefined)
+                clearTimeout(rp.session.nextSlideTimeoutId);
+
+            else if (pic.duration > rp.settings.timeToNextSlide)
+                resetNextSlideTimer(pic.duration);
+
+            var vid = divNode.find('video');
+            if (vid !== undefined) {
+                vid.prop('autoplay', true);
+            }
+        }
+
     }
 
     var createDiv = function(imageIndex) {
@@ -633,11 +639,12 @@ $(function () {
         var photo = rp.photos[imageIndex];
         //log("Creating div for " + imageIndex + " - " + photo.url);
 
-        if (photo === undefined)
-            return null;
-
         // Used by showVideo and showImage
-        var divNode = $("<div />");
+        var divNode = $("<div />").addClass("clouds");
+
+        if (photo === undefined)
+            return divNode;
+
         var cssMap = Object();
         cssMap['display'] = "none";
 
@@ -651,7 +658,7 @@ $(function () {
             cssMap['background-size'] = "contain";
             cssMap['background-position'] = "center";
 
-            divNode.css(cssMap).addClass("clouds");
+            divNode.css(cssMap);
         };
 
         if (photo.type == imageTypes.image) {
@@ -773,14 +780,14 @@ $(function () {
 
         } else if (photo.url.indexOf('webm.land/w/') >= 0) {
             showVideo({'webm': 'http://webm.land/media/'+shortid+".webm"});
-            return;
+            return divNode;
 
         } else if (isVideoExtension(photo.url)) {
             var extention = photo.url.substr(1 + photo.url.lastIndexOf('.'));
             var vid = {};
             vid[extention] = photo.url;
             showVideo(vid);
-            return;
+            return divNode;
 
         } else if (hostname.indexOf('tumblr.com') >= 0) {
             var a = photo.url.split('/');
@@ -815,10 +822,10 @@ $(function () {
 
         } else {
             log("["+imageIndex+"]","Unknown video site", hostname);
-            return;
+            return divNode;
         }
 
-        divNode.css(cssMap).addClass("clouds");
+        divNode.css(cssMap);
 
         $.ajax({
             url: jsonUrl,
