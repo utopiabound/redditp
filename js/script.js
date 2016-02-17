@@ -381,7 +381,7 @@ $(function () {
                 pic.url = betterUrl;
             } else {
                 if (rp.settings.debug) {
-                    log('failed: ' + pic.url);
+                    log('cannot display url as image: ' + pic.url);
                 }
                 return;
             }
@@ -510,7 +510,8 @@ $(function () {
         // Always clear cache - no need for memory bloat.
         // We only keep the next image preloaded.
         rp.cache = {};
-        rp.cache[next] = createDiv(next);
+        if(next < rp.photos.length)
+            rp.cache[next] = createDiv(next);
     };
 
     //
@@ -1025,6 +1026,9 @@ $(function () {
             }
             rp.session.loadingNextImages = false;
         };
+
+        if (rp.settings.debug)
+            log('Ajax requesting: ' + jsonUrl);
 
         // I still haven't been able to catch jsonp 404 events so the timeout
         // is the current solution sadly.
