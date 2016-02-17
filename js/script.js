@@ -560,11 +560,11 @@ $(function () {
         $('#navboxTitle').html(photo.title);
         if (photo.subreddit !== undefined && photo.subreddit !== null) {
             $('#navboxSubreddit').attr('href', rp.redditBaseUrl + subreddit).html(subreddit);
-            $('#navboxSubredditP').attr('href', subreddit).html($('<span />').addClass('redditp').text('[P]'));
+            $('#navboxSubredditP').attr('href', subreddit).html($('<img />', {class: 'redditp', src: '/images/favicon.png'}));
         }
         if (photo.author !== undefined) {
             $('#navboxAuthor').attr('href', rp.redditBaseUrl + author).html(author);
-            $('#navboxAuthorP').attr('href', '/user/'+photo.author+'/submitted').html($('<span />').addClass('redditp').text('[P]'));
+            $('#navboxAuthorP').attr('href', '/user/'+photo.author+'/submitted').html($('<img />', {class: 'redditp', src: '/images/favicon.png'}));
         }
         $('#navboxExtra').html((photo.extra !== undefined) ?photo.extra :"");
         $('#navboxLink').attr('href', photo.url).attr('title', photo.title);
@@ -997,13 +997,13 @@ $(function () {
                 return;
             }
 
-            var re = /(.*?)(\/r\/\w*)\s*\/?([\)\]\}]?)$/;
             $.each(data.data.children, function (i, item) {
-                    var title = item.data.title.replace(re, "$1<a href='"+rp.redditBaseUrl+
-                                                        "$2'>$2</a> <a href='$2'><span class='redditp'>[P]</span></a>$3");
-                    if (title.length == 0) {
-                        title = item.data.title;
-                    }
+                    var title = item.data.title.replace(/\/?(r\/\w+)\s*/g,
+                                                        "<a href='"+rp.redditBaseUrl+"/$1'>/$1</a>"+
+                                                        "<a href='/$1'><img class='redditp' src='/images/favicon.png' /></a>");
+                    title = title.replace(/\/?u\/(\w+)\s*/g, 
+                                          "<a href='"+rp.redditBaseUrl+"/user/$1'>/u/$1</a>"+
+                                          "<a href='/user/$1/submitted'><img class='redditp' src='/images/favicon.png' /></a>");
 
                 addImageSlide({
                     url: item.data.url,
