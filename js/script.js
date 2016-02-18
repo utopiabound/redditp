@@ -212,6 +212,12 @@ $(function () {
         return Cookies.get(c_name);
     };
 
+    var clearSlideTimeout = function() {
+        if (rp.settings.debug)
+            log('clear timout');
+        clearTimeout(rp.session.nextSlideTimeoutId);
+    }
+
     var resetNextSlideTimer = function (timeout) {
         if (timeout === undefined) {
             timeout = rp.settings.timeToNextSlide;
@@ -570,7 +576,7 @@ $(function () {
         }
         $('#navboxExtra').html((photo.extra !== undefined) ?photo.extra :"");
         $('#navboxLink').attr('href', photo.url).attr('title', photo.title);
-        $('#navboxCommentsLink').attr('href', photo.commentsLink).attr('title', "Comments on reddit");
+        $('#navboxCommentsLink').attr('href', photo.commentsLink).attr('title', "Comments");
 
         toggleNumberButton(oldIndex, false);
         toggleNumberButton(imageIndex, true);
@@ -607,31 +613,25 @@ $(function () {
         else
             divNode = rp.cache[imageIndex];
 
+        var pic = rp.photos[imageIndex];
+        if (pic.type == imageTypes.video)
+            clearSlideTimeout();
+
         divNode.prependTo("#pictureSlider");
         $("#pictureSlider div").fadeIn(rp.settings.animationSpeed);
         var oldDiv = $("#pictureSlider div:not(:first)");
         oldDiv.fadeOut(rp.settings.animationSpeed, function () {
             oldDiv.remove();
-            rp.session.isAnimating = false;
-        });
-
-        // Ensure video is started
-        var pic = rp.photos[imageIndex];
-        if (pic.type == imageTypes.video) {
-            // pic.duration isn't set yet, means video hasn't loaded,
-            // so don't time it out
-            if (pic.duration === undefined)
-                clearTimeout(rp.session.nextSlideTimeoutId);
-
-            else if (pic.duration > rp.settings.timeToNextSlide)
-                resetNextSlideTimer(pic.duration);
 
             var vid = divNode.find('video');
-            if (vid !== undefined) {
+            if (vid)
                 vid.prop('autoplay', true);
-            }
-        }
+            // Set timeout here, so that whole clip plays
+            if (pic.duration && pic.duration > rp.settings.timeToNextSlide)
+                resetNextSlideTimer(pic.duration);
 
+            rp.session.isAnimating = false;
+        });
     }
 
     var createDiv = function(imageIndex) {
@@ -668,7 +668,7 @@ $(function () {
         
         // Preloading, don't mess with timeout
         if (imageIndex == rp.session.activeIndex)
-            clearTimeout(rp.session.nextSlideTimeoutId);
+            clearSlideTimeout();
 
         var shortid;
 
