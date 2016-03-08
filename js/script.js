@@ -610,7 +610,7 @@ $(function () {
         console.log(xhr);
         console.log(ajaxOptions);
         console.log(thrownError);
-        alert("Failed ajax, maybe a bad url? Sorry about that :(\n" + xhr.responseText + "\n");
+        //alert("Failed ajax, maybe a bad url? Sorry about that :(\n" + xhr.responseText + "\n");
         failCleanup();
     };
 
