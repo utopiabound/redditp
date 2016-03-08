@@ -365,6 +365,7 @@ $(function () {
         var http_prefix = 'http://';
         var https_prefix = 'https://';
         if (hostname.indexOf('gfycat.com') >= 0 ||
+            hostname.indexOf('pornbot.net') >= 0 ||
             hostname.indexOf('imgur.com') >= 0) {
             pic.url = pic.url.replace(http_prefix, https_prefix);
         }
@@ -386,6 +387,7 @@ $(function () {
                    hostname.indexOf('vid.me') >= 0 ||
                    hostname.indexOf('tumblr.com') >= 0 ||
                    (hostname.indexOf('eroshare.com') >= 0 && rp.use.eroshare) ||
+                   hostname.indexOf('pornbot.net') >= 0 ||
                    pic.url.indexOf('webm.land/w/') >= 0
                    ) {
             pic.type = imageTypes.video;
@@ -819,6 +821,18 @@ $(function () {
         } else if (photo.url.indexOf('webm.land/w/') >= 0) {
             showVideo({'webm': 'http://webm.land/media/'+shortid+".webm"});
             return divNode;
+
+        } else if (hostname.indexOf('pornbot.net') >= 0) {
+            jsonUrl = "https:///pornbot.net/ajax/info.php?v=" + shortid;
+
+            handleData = function(data) {
+                var viddata = {'thumbnail': data.poster };
+                if (data.mp4Url !== undefined)
+                    viddata.mp4 = data.mp4Url;
+                if (data.webmUrl !== undefined)
+                    viddata.webm = data.webmUrl;
+                showVideo(viddata);
+            };
 
         } else if (isVideoExtension(photo.url)) {
             var extention = photo.url.substr(1 + photo.url.lastIndexOf('.'));
