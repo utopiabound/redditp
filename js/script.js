@@ -45,8 +45,9 @@ rp.session = {
 // Sites that can be enabled when they turn on CORS or support jsonp
 rp.use = { eroshare: false, };
 
-rp.api_key = {tumblr: 'sVRWGhAGTVlP042sOgkZ0oaznmUOzD8BRiRwAm5ELlzEaz4kwU',
-              imgur:  'f2edd1ef8e66eaf', };
+rp.api_key = {tumblr:  'sVRWGhAGTVlP042sOgkZ0oaznmUOzD8BRiRwAm5ELlzEaz4kwU',
+              imgur:   'f2edd1ef8e66eaf',
+};
 
 // Variable to store the images we need to set as background
 // which also includes some text and url's.
@@ -146,10 +147,10 @@ $(function () {
     }
 
     var hostnameOf = function(url) {
-        return $('<a>').prop('href', url).prop('hostname');
+        return $('<a>').attr('href', url).prop('hostname');
     }
     var pathnameOf = function(url) {
-        return $('<a>').prop('href', url).prop('pathname');
+        return $('<a>').attr('href', url).prop('pathname');
     }
 
     $("#pictureSlider").touchwipe({
@@ -361,7 +362,10 @@ $(function () {
         hostname = hostnameOf(pic.url);
 
         // Replace HTTP with HTTPS on gfycat and imgur to avoid this:
-        //      Mixed Content: The page at 'https://redditp.com/r/gifs' was loaded over HTTPS, but requested an insecure video 'http://i.imgur.com/LzsnbNU.webm'. This content should also be served over HTTPS.
+        // Mixed Content: The page at 'https://redditp.com/r/gifs' was
+        // loaded over HTTPS, but requested an insecure video
+        // 'http://i.imgur.com/LzsnbNU.webm'. This content should also
+        // be served over HTTPS.
         var http_prefix = 'http://';
         var https_prefix = 'https://';
         if (hostname.indexOf('gfycat.com') >= 0 ||
@@ -388,6 +392,8 @@ $(function () {
                    hostname.indexOf('tumblr.com') >= 0 ||
                    (hostname.indexOf('eroshare.com') >= 0 && rp.use.eroshare) ||
                    hostname.indexOf('pornbot.net') >= 0 ||
+                   hostname.indexOf('youtube.com') >= 0 ||
+                   hostname.indexOf('youtu.be') >= 0 ||
                    pic.url.indexOf('webm.land/w/') >= 0
                    ) {
             pic.type = imageTypes.video;
@@ -398,7 +404,7 @@ $(function () {
                 pic.url = betterUrl;
             } else {
                 if (rp.settings.debug) {
-                    log('cannot display url as image: ' + pic.url);
+                    log('cannot display url [no image]: ' + pic.url);
                 }
                 return;
             }
@@ -714,7 +720,7 @@ $(function () {
 
             divNode.append(video);
 
-            $(video).bind("loadeddata", function(e) {
+            $(video).on("loadeddata", function(e) {
                     photo.duration = e.target.duration + 0.1;
                     if (rp.settings.debug)
                         log("["+imageIndex+"] video metadata.duration: "+e.target.duration );
@@ -731,6 +737,46 @@ $(function () {
                         resetNextSlideTimer();
                 });
         };
+
+        // Called with showEmbed(urlForIframe)
+        var showEmbed = function(url) {
+            var iframe = $('<iframe id="gfyembed" class="fullscreen" frameborder="0" allowfullscreen />')
+
+            $(iframe).bind("load", function() {
+                    var iframe = $('#gfyembed');
+                    var c = $(iframe).contents();
+                    var video = $(c).find("video")[0];
+                    if (!video) {
+                        log("["+imageIndex+"] ERROR! embed video element not found (usually X-Site Protection)");
+                        return;
+                    }
+                    $(video).attr("id", "gfyvid");
+                    updateVideoMute();
+
+                    log("["+imageIndex+"] embed video found: "+video.attr("src"));
+            
+                    $(video).on("loadeddata", function(e) {
+                            photo.duration = e.target.duration + 0.1;
+                            if (rp.settings.debug)
+                                log("["+imageIndex+"] embed video metadata.duration: "+e.target.duration );
+                            // preload, don't mess with timeout
+                            if (imageIndex !== rp.session.activeIndex)
+                                return;
+                            if (rp.settings.debug)
+                                log("["+imageIndex+"] embed video loadeddata running for active image")
+                                    video.prop('autoplay', true);
+                            video[0].play();
+                            if (rp.settings.shouldAutoNextSlide && photo.duration > rp.settings.timeToNextSlide)
+                                resetNextSlideTimer(photo.duration);
+                            else
+                                resetNextSlideTimer();
+                        });
+                });
+            $(iframe).attr('src', url);
+
+            divNode.append(iframe);
+
+        }
 
         var jsonUrl;
         var dataType = 'json';
@@ -871,6 +917,21 @@ $(function () {
                     showVideo(vid);
                 }
             } 
+
+        } else if (hostname.indexOf('youtube.com') >= 0) {
+            var a = photo.url.split('/').pop();
+            shortid = a.match(/.*v=([^&]*)/)[1];
+            
+            showEmbed('https://www.youtube.com/embed/'+shortid+'?autoplay=1');
+            return divNode;
+
+        } else if (hostname.indexOf('youtu.be') >= 0) {
+            var a = photo.url.split('/');
+            if (a[-1] == "")
+                a.pop();
+
+            showEmbed('https://www.youtube.com/embed/'+shortid+'?autoplay=1');
+            return divNode;
 
         } else {
             log("["+imageIndex+"]","Unknown video site", hostname);
@@ -1072,6 +1133,14 @@ $(function () {
             }
 
             $.each(data.data.children, function (i, item) {
+                    // Text entry, no actual media
+                    if (item.data.thumbnail == "self") {
+                        if (rp.settings.debug) {
+                            log('cannot display url [self]: ' + item.data.url);
+                        }
+                        return;
+                    }
+
                     var title = item.data.title.replace(/\/?(r\/\w+)\s*/g,
                                                         "<a href='"+rp.redditBaseUrl+"/$1'>/$1</a>"+
                                                         "<a href='/$1'><img class='redditp' src='/images/favicon.png' /></a>");
@@ -1079,15 +1148,15 @@ $(function () {
                                           "<a href='"+rp.redditBaseUrl+"/user/$1'>/u/$1</a>"+
                                           "<a href='/user/$1/submitted'><img class='redditp' src='/images/favicon.png' /></a>");
 
-                addImageSlide({
-                    url: item.data.url,
-                    title: title,
-                    over18: item.data.over_18,
-                    subreddit: item.data.subreddit,
-                    author: item.data.author,
-                    thumbnail: item.data.thumbnail,
-                    commentsLink: rp.redditBaseUrl + item.data.permalink
-                    });
+                    addImageSlide({
+                        url: item.data.url,
+                        title: title,
+                        over18: item.data.over_18,
+                        subreddit: item.data.subreddit,
+                        author: item.data.author,
+                        thumbnail: item.data.thumbnail,
+                        commentsLink: rp.redditBaseUrl + item.data.permalink
+                        });
                 });
 
             verifyNsfwMakesSense();
