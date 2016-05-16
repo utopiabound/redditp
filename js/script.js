@@ -394,6 +394,7 @@ $(function () {
                    hostname.indexOf('pornbot.net') >= 0 ||
                    hostname.indexOf('youtube.com') >= 0 ||
                    hostname.indexOf('youtu.be') >= 0 ||
+                   hostname.indexOf('vimeo.com') >= 0 ||
                    pic.url.indexOf('webm.land/w/') >= 0
                    ) {
             pic.type = imageTypes.video;
@@ -738,16 +739,18 @@ $(function () {
                 });
         };
 
+        
+
         // Called with showEmbed(urlForIframe)
         var showEmbed = function(url) {
-            var iframe = $('<iframe id="gfyembed" class="fullscreen" frameborder="0" allowfullscreen />')
+            var iframe = $('<iframe id="gfyembed" class="fullscreen" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen />')
 
             $(iframe).bind("load", function() {
                     var iframe = $('#gfyembed');
                     var c = $(iframe).contents();
                     var video = $(c).find("video")[0];
                     if (!video) {
-                        log("["+imageIndex+"] ERROR! embed video element not found (usually X-Site Protection)");
+                        log("["+imageIndex+"] X-Site Protection: Auto-next not triggered");
                         return;
                     }
                     $(video).attr("id", "gfyvid");
@@ -783,6 +786,10 @@ $(function () {
         var handleData;
         var headerData;
         var hostname = hostnameOf(photo.url);
+        var ytExtra = '?autoplay=1&origin='+encodeURI(window.location.protocol + "//" + window.location.host + "/");
+        //var ytExtra = '?enablejsapi=1';
+
+
         if (hostname.indexOf('gfycat.com') >= 0) {
 
             jsonUrl = "https://gfycat.com/cajax/get/" + shortid;
@@ -922,7 +929,7 @@ $(function () {
             var a = photo.url.split('/').pop();
             shortid = a.match(/.*v=([^&]*)/)[1];
             
-            showEmbed('https://www.youtube.com/embed/'+shortid+'?autoplay=1');
+            showEmbed('https://www.youtube.com/embed/'+shortid+ytExtra);
             return divNode;
 
         } else if (hostname.indexOf('youtu.be') >= 0) {
@@ -930,7 +937,12 @@ $(function () {
             if (a[-1] == "")
                 a.pop();
 
-            showEmbed('https://www.youtube.com/embed/'+shortid+'?autoplay=1');
+            showEmbed('https://www.youtube.com/embed/'+shortid+ytExtra);
+            return divNode;
+
+        } else if (hostname.indexOf('vimeo.com') >= 0) {
+
+            showEmbed('https://player.vimeo.com/video/'+shortid+'?autoplay=1');
             return divNode;
 
         } else {
