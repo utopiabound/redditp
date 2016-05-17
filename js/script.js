@@ -20,7 +20,7 @@ rp.settings = {
     cookieDays: 300,
     goodImageExtensions: ['.jpg', '.jpeg', '.gif', '.bmp', '.png'],
     goodVideoExtensions: ['.webm', '.mp4'],
-    nsfw: true
+    nsfw: true,
 };
 
 rp.session = {
@@ -39,11 +39,10 @@ rp.session = {
 
     foundOneImage: false,
 
-    loadingNextImages: false
+    loadingNextImages: false,
+    loadAfter: null,
+    needDedup: true,
 };
-
-// Sites that can be enabled when they turn on CORS or support jsonp
-rp.use = { eroshare: false, };
 
 rp.api_key = {tumblr:  'sVRWGhAGTVlP042sOgkZ0oaznmUOzD8BRiRwAm5ELlzEaz4kwU',
               imgur:   'f2edd1ef8e66eaf',
@@ -55,6 +54,11 @@ rp.photos = [];
 
 // maybe checkout http://engineeredweb.com/blog/09/12/preloading-images-jquery-and-javascript/ for implementing the old precache
 rp.cache = {};
+rp.dedup = {};
+rp.url = {
+    subreddit: "",
+    vars: ""
+};
 
 
 $(function () {
@@ -390,7 +394,6 @@ $(function () {
                    hostname.indexOf('streamable.com') >= 0 ||
                    hostname.indexOf('vid.me') >= 0 ||
                    hostname.indexOf('tumblr.com') >= 0 ||
-                   (hostname.indexOf('eroshare.com') >= 0 && rp.use.eroshare) ||
                    hostname.indexOf('pornbot.net') >= 0 ||
                    hostname.indexOf('youtube.com') >= 0 ||
                    hostname.indexOf('youtu.be') >= 0 ||
@@ -411,7 +414,8 @@ $(function () {
             }
         }
 
-         rp.session.foundOneImage = true;
+        var isFirst = !rp.session.foundOneImage;
+        rp.session.foundOneImage = true;
 
         // Do not preload all images, this is just not performant.
         // Especially in gif or high-res subreddits where each image can be 50 MB.
@@ -435,6 +439,16 @@ $(function () {
         });
         numberButton.addClass("numberButton");
         addNumberButton(numberButton);
+
+        // Check if we're first Image
+        if (isFirst) {
+            // show the first image
+            if (rp.session.activeIndex == -1) {
+                startAnimation(0);
+            }
+
+            rp.session.loadingNextImages = false;            
+        }
     };
 
     var arrow = {
@@ -561,9 +575,8 @@ $(function () {
 
         preloadNextImage(imageIndex);
 
-        if (isLastImage(rp.session.activeIndex) && rp.subredditUrl.indexOf('/imgur') != 0) {
-            getRedditImages();
-        }
+        if (isLastImage(rp.session.activeIndex) && rp.session.loadAfter !== null)
+            rp.session.loadAfter();
     };
 
     var toggleNumberButton = function (imageIndex, turnOn) {
@@ -789,7 +802,6 @@ $(function () {
         var ytExtra = '?autoplay=1&origin='+encodeURI(window.location.protocol + "//" + window.location.host + "/");
         //var ytExtra = '?enablejsapi=1';
 
-
         if (hostname.indexOf('gfycat.com') >= 0) {
 
             jsonUrl = "https://gfycat.com/cajax/get/" + shortid;
@@ -842,22 +854,6 @@ $(function () {
                 }
             };
 
-        } else if (hostname.indexOf('eroshare.com') > 0 && rp.use.eroshare) {
-
-            jsonUrl = "https://c1.eroshare.com/api/v1/albums/" + shortid + ".json";
-
-            handleData = function (data) {
-                if (data.type == "Image") {
-                    showImage(result.items[0].url_full_protocol);
-                    if (imageIndex == rp.session.activeIndex)
-                        resetNextSlideTimer();
-                } else if (data.type == "Video")
-                    showVideo({'thumbnail': result.items[0].url_thumb,
-                                'mp4':  result.items[0].url_mp4 });
-                if (data.items > 1)
-                    $('#navboxExtra').html('<a href="/eroshare/'+shortid+'">[ALBUM]</a>');
-            }
-
         } else if (hostname.indexOf('streamable.com') >= 0) {
 
             jsonUrl = "https://api.streamable.com/videos/" + shortid;
@@ -896,7 +892,7 @@ $(function () {
 
         } else if (hostname.indexOf('tumblr.com') >= 0) {
             var a = photo.url.split('/');
-            if (a[-1] == "")
+            if (a[a.length-1] == "")
                 a.pop();
 
             a.pop(); // remove "pretty" name of post
@@ -909,8 +905,8 @@ $(function () {
                 var post = data.response.posts[0];
 
                 if (post.type == "photo") {
-                    // if (post.photos.length > 1) 
-                    // $('#navboxExtra').html('<a href="/tumblr/'+hostname+'/'+shortid+'">[ALBUM]</a>');
+                    if (post.photos.length > 1) 
+                        photo.extra = '<a href="/tumblr/'+data.response.blog.name+'/'+shortid+'">[ALBUM]</a>';
 
                     showImage(post.photos[0].original_size.url);
                     if (imageIndex == rp.session.activeIndex)
@@ -934,7 +930,7 @@ $(function () {
 
         } else if (hostname.indexOf('youtu.be') >= 0) {
             var a = photo.url.split('/');
-            if (a[-1] == "")
+            if (a[a.length-1] == "")
                 a.pop();
 
             showEmbed('https://www.youtube.com/embed/'+shortid+ytExtra);
@@ -1112,7 +1108,7 @@ $(function () {
         // .htaccess
         // This is a good idea so we can give a quick 404 page when appropriate.
 
-        var regexS = "(/(?:(?:r/)|(?:v/)|(?:imgur/a/)|(?:user/)|(?:domain/)|(?:search)|(?:me))[^&#?]*)[?]?(.*)";
+        var regexS = "(/(?:(?:r/)|(?:v/)|(?:imgur/a/)|(?:tumblr/)|(?:user/)|(?:domain/)|(?:search)|(?:me))[^&#?]*)[?]?(.*)";
         var regex = new RegExp(regexS);
         var results = regex.exec(window.location.href);
         //log(results);
@@ -1131,18 +1127,61 @@ $(function () {
 
         rp.session.loadingNextImages = true;
 
-        var jsonUrl = rp.redditBaseUrl + rp.subredditUrl + ".json?" + getVars + rp.session.after;
+        var jsonUrl = rp.redditBaseUrl + rp.url.subreddit + ".json?" + rp.url.vars + rp.session.after;
+
+        var addImageSlideRedditT3 = function (item) {
+               if (rp.dedup[item.data.subreddit] !== undefined &&
+                    rp.dedup[item.data.subreddit][item.data.id] !== undefined) {
+                    if (rp.settings.debug) {
+                        log('cannot display url [simul-dup:'+
+                            rp.dedup[item.data.subreddit][item.data.id]+']: '+
+                            item.data.url);
+                    }
+                        return;
+                }
+                
+                var title = item.data.title.replace(/\/?(r\/\w+)\s*/g,
+                                                    "<a href='"+rp.redditBaseUrl+"/$1'>/$1</a>"+
+                                                    "<a href='/$1'><img class='redditp' src='/images/favicon.png' /></a>");
+                title = title.replace(/\/?u\/(\w+)\s*/g, 
+                                      "<a href='"+rp.redditBaseUrl+"/user/$1'>/u/$1</a>"+
+                                      "<a href='/user/$1/submitted'><img class='redditp' src='/images/favicon.png' /></a>");
+                addImageSlide({
+                    url: item.data.url,
+                    title: title,
+                    over18: item.data.over_18,
+                    subreddit: item.data.subreddit,
+                    author: item.data.author,
+                    thumbnail: item.data.thumbnail,
+                    commentsLink: rp.redditBaseUrl + item.data.permalink
+                });
+        }
 
         var handleData = function (data) {
             //redditData = data //global for debugging data
             // NOTE: if data.data.after is null then this causes us to start
             // from the top on the next getRedditImages which is fine.
-            rp.session.after = "&after=" + data.data.after;
+            if (data.data.after !== null) {
+                rp.session.after = "&after=" + data.data.after;
+                rp.session.loadAfter = getRedditImages;
+            }
 
             if (data.data.children.length === 0) {
                 alert("No data from this url :(");
                 return;
             }
+
+            var handleEntryData = function(data) {
+                var item = data[0].data.children[0];
+                if (rp.session.needDedup)
+                    $.each(data[1].data.children, function(i, dupe) {
+                            if (rp.dedup[dupe.data.subreddit] == undefined)
+                                rp.dedup[dupe.data.subreddit] = {};
+                            rp.dedup[dupe.data.subreddit][dupe.data.id] = '/r/'+item.data.subreddit+'/'+item.data.id;
+                        });
+
+                addImageSlideRedditT3(item);
+            };
 
             $.each(data.data.children, function (i, item) {
                     // Text entry, no actual media
@@ -1152,46 +1191,36 @@ $(function () {
                         }
                         return;
                     }
-
-                    var title = item.data.title.replace(/\/?(r\/\w+)\s*/g,
-                                                        "<a href='"+rp.redditBaseUrl+"/$1'>/$1</a>"+
-                                                        "<a href='/$1'><img class='redditp' src='/images/favicon.png' /></a>");
-                    title = title.replace(/\/?u\/(\w+)\s*/g, 
-                                          "<a href='"+rp.redditBaseUrl+"/user/$1'>/u/$1</a>"+
-                                          "<a href='/user/$1/submitted'><img class='redditp' src='/images/favicon.png' /></a>");
-
-                    addImageSlide({
-                        url: item.data.url,
-                        title: title,
-                        over18: item.data.over_18,
-                        subreddit: item.data.subreddit,
-                        author: item.data.author,
-                        thumbnail: item.data.thumbnail,
-                        commentsLink: rp.redditBaseUrl + item.data.permalink
+                    
+                    if (rp.dedup[item.data.subreddit] !== undefined &&
+                        rp.dedup[item.data.subreddit][item.data.id] !== undefined) {
+                        if (rp.settings.debug) {
+                            log('cannot display url [duplicate:'+
+                                rp.dedup[item.data.subreddit][item.data.id]+']: '+
+                                item.data.url);
+                        }
+                        return;
+                    }
+                    
+                    if (rp.session.needDedup) {
+                        var url = rp.redditBaseUrl + '/r/' + item.data.subreddit + '/duplicates/' + item.data.id + '.json';
+                        $.ajax({
+                            url: url,
+                            dataType: 'json',
+                            success: handleEntryData,
+                            error: failedAjax,
+                            404: failedAjax,
+                            jsonp: false,
+                            timeout: 5000,
+                            crossDomain: true
                         });
+
+                    } else {
+                        addImageSlideRedditT3(item);
+                    }
                 });
-
+            
             verifyNsfwMakesSense();
-
-            if (!rp.session.foundOneImage) {
-                // Note: the jsonp url may seem malformed but jquery fixes it.
-                //log(jsonUrl);
-                alert("Sorry, no displayable images found in that url :(");
-            }
-
-            // show the first image
-            if (rp.session.activeIndex == -1) {
-                startAnimation(0);
-            }
-
-            if (data.data.after == null) {
-                log("No more pages to load from this subreddit, reloading the start");
-
-                // Show the user we're starting from the top
-                var numberButton = $("<span />").addClass("numberButton").text("-");
-                addNumberButton(numberButton);
-            }
-            rp.session.loadingNextImages = false;
         };
 
         if (rp.settings.debug)
@@ -1271,35 +1300,160 @@ $(function () {
         });
     };
 
-    var setupUrls = function() {
-        rp.urlData = rp.getRestOfUrl();
-        //log(rp.urlData)
-        rp.subredditUrl = rp.urlData[0];
-        getVars = rp.urlData[1];
+    var getTumblrBlog = function (url) {
+        var a = url.split('/');
+        if (a[a.length-1] == "")
+            a.pop();
 
-        if (getVars.length > 0) {
-            getVarsQuestionMark = "?" + getVars;
+        var hostname = a.pop();
+
+        var jsonUrl = 'https://api.tumblr.com/v2/blog/'+hostname+'/posts?api_key='+rp.api_key.tumblr;
+        if (rp.session.after !== "")
+            jsonUrl = jsonUrl+'&offset='+rp.session.after;
+        
+        var handleData = function (data) {
+            $('#subredditUrl').html("<a href='" + data.response.blog.url + "'>" + data.response.blog.name + ".tumblr.com</a>");
+
+            $.each(data.response.posts, function (i, post) {
+                    if (post.type == "photo") {
+                            addImageSlide({
+                                url: post.photos[0].original_size.url,
+                                title: post.summary,
+                                over18: false,
+                                commentsLink: post.post_url,
+                                /* subreddit: undefined, */
+                                /* author: data.data.account_url, */
+                                extra: (post.photos.length > 1) 
+                                        ?'<a href="/tumblr/'+data.response.blog.name+'/'+post.id+'">[ALBUM]</a>' :"",
+                            });
+
+                    } else if (post.type == "video") {
+                        log("Deal with tumblr video post: "+post.post_url);
+
+                    } else if (rp.settings.debug) {
+                        log('cannot display url [not video or photo:'+post.type+']: '+
+                            post.post_url);
+                    }
+
+                });
+
+            verifyNsfwMakesSense();
+
+            if (!rp.session.foundOneImage) {
+                log(jsonUrl);
+                alert("Sorry, no displayable images found in that url :(");
+            }
+
+            // show the first image
+            if (rp.session.activeIndex == -1) {
+                startAnimation(0);
+            }
+
+            rp.session.loadingNextImages = false;
+        };
+        
+        if (rp.settings.debug)
+            log('getTumblrBlog requesting: '+jsonUrl);
+
+        $.ajax({
+            url: jsonUrl,
+            dataType: 'jsonp',
+            success: handleData,
+            error: failedAjax,
+            404: failedAjax,
+            timeout: 5000,
+        });
+    };
+
+    var getTumblrAlbum = function (url) {
+        var a = url.split('/');
+        if (a[a.length-1] == "")
+            a.pop();
+
+        var shortid = a.pop();
+        var hostname = a.pop();
+
+        var jsonUrl = 'https://api.tumblr.com/v2/blog/'+hostname+'/posts?api_key='+rp.api_key.tumblr+'&id='+shortid;
+
+        var handleData = function (data) {
+            $('#subredditUrl').html("<a href='" + data.response.blog.url + "'>" + data.response.blog.name + ".tumblr.com</a>");
+            
+            $.each(data.response.posts, function (i, post) {
+                    $.each(post.photos, function (j, item) {
+                            addImageSlide({
+                                url: item.original_size.url,
+                                title: post.summary,
+                                over18: false,
+                                commentsLink: post.post_url,
+                                /* subreddit: undefined, */
+                                /* author: data.data.account_url, */
+                                /* extra: userextra, */
+                            });
+                    });
+                });
+
+            verifyNsfwMakesSense();
+
+            if (!rp.session.foundOneImage) {
+                log(jsonUrl);
+                alert("Sorry, no displayable images found in that url :(");
+            }
+
+            // show the first image
+            if (rp.session.activeIndex == -1) {
+                startAnimation(0);
+            }
+
+            rp.session.loadingNextImages = false;
+        };
+
+        if (rp.settings.debug)
+            log('getTumblrAlbum requesting: ' + jsonUrl);
+
+        $.ajax({
+            url: jsonUrl,
+            dataType: 'jsonp',
+            success: handleData,
+            error: failedAjax,
+            404: failedAjax,
+            timeout: 5000,
+        });
+    };
+
+    var setupUrls = function() {
+        var urlData = rp.getRestOfUrl();
+        rp.url.subreddit = urlData[0];
+        rp.url.vars = urlData[1];
+
+        if (rp.url.vars.length > 0) {
+            getVarsQuestionMark = "?" + rp.url.vars;
         } else {
             getVarsQuestionMark = "";
         }
 
         // Remove .compact as it interferes with .json (we got "/r/all/.compact.json" which doesn't work).
-        rp.subredditUrl = rp.subredditUrl.replace(/.compact/, "");
+        rp.url.subreddit = rp.url.subreddit.replace(/.compact/, "");
         // Consolidate double slashes to avoid r/all/.compact/ -> r/all//
-        rp.subredditUrl = rp.subredditUrl.replace(/\/{2,}/, "/");
+        rp.url.subreddit = rp.url.subreddit.replace(/\/{2,}/, "/");
 
         var subredditName;
-        if (rp.subredditUrl === "") {
-            rp.subredditUrl = "/";
+        if (rp.url.subreddit === "") {
+            rp.url.subreddit = "/";
             subredditName = "reddit.com" + getVarsQuestionMark;
             //var options = ["/r/aww/", "/r/earthporn/", "/r/foodporn", "/r/pics"];
-            //rp.subredditUrl = options[Math.floor(Math.random() * options.length)];
+            //rp.url.subreddit = options[Math.floor(Math.random() * options.length)];
         } else {
-            subredditName = rp.subredditUrl + getVarsQuestionMark;
+            subredditName = rp.url.subreddit + getVarsQuestionMark;
         }
 
+        // If not limited to single subreddit, use dedup
+        if (rp.url.subreddit.indexOf('/user/') >= 0 ||
+            rp.url.subreddit.indexOf('+') >= 0)
+            rp.session.needDedup = true;
+        else
+            rp.session.needDedup = false;
 
-        var visitSubredditUrl = rp.redditBaseUrl + rp.subredditUrl + getVarsQuestionMark;
+        var visitSubredditUrl = rp.redditBaseUrl + rp.url.subreddit + getVarsQuestionMark;
 
         // truncate and display subreddit name in the control box
         var displayedSubredditName = subredditName;
@@ -1327,8 +1481,15 @@ $(function () {
     // if ever found even 1 image, don't show the error
     rp.session.foundOneImage = false;
 
-    if(rp.subredditUrl.indexOf('/imgur') == 0)
-        getImgurAlbum(rp.subredditUrl);
-    else
+    if (rp.url.subreddit.indexOf('/imgur') == 0)
+        getImgurAlbum(rp.url.subreddit);
+
+    else if (rp.url.subreddit.indexOf('/tumblr') == 0) {
+        if (rp.url.subreddit.split('/').length > 3)
+            getTumblrAlbum(rp.url.subreddit);
+        else
+            getTumblrBlog(rp.url.subreddit);
+
+    } else
         getRedditImages();
     });
