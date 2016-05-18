@@ -352,14 +352,15 @@ $(function () {
     var addImageSlide = function (pic) {
         /*
         var pic = {
-            "title": title,
-            "url": url,
-            "commentsLink": commentsLink,
-            "over18": over18,
-            "type": image_or_video,
-            subreddit: optional,
-            author: optional,
-            extra: optional,
+            "title": title, (text)
+            "url": url, (URL)
+            "commentsLink": commentsLink, (URL)
+            "over18": over18, (BOOLEAN)
+            "type": image_or_video, (from imageTypes)
+            subreddit: optional, (text - /r/$subreddit)
+            author: optional, (text - /u/$author)
+            extra: optional, (HTML)
+            thumbnail: optional, (URL)
         }
         */
         pic.type = imageTypes.image;
@@ -564,6 +565,10 @@ $(function () {
         if (rp.session.activeIndex == imageIndex ||
             imageIndex < 0 || imageIndex >= rp.photos.length ||
             rp.session.isAnimating || rp.photos.length == 0) {
+
+            if (imageIndex >= rp.photos.length &&
+                rp.session.loadAfter !== null)
+                rp.session.loadAfter();
             return;
         }
 
@@ -575,7 +580,12 @@ $(function () {
 
         preloadNextImage(imageIndex);
 
-        if (isLastImage(rp.session.activeIndex) && rp.session.loadAfter !== null)
+        // Load if last image, but not if first image This is because
+        // for dedup, we'll get called by image 0, before other images
+        // have come in.
+        if (isLastImage(rp.session.activeIndex) &&
+            rp.session.loadAfter !== null &&
+            imageIndex != 0)
             rp.session.loadAfter();
     };
 
@@ -887,6 +897,8 @@ $(function () {
             var extention = photo.url.substr(1 + photo.url.lastIndexOf('.'));
             var vid = {};
             vid[extention] = photo.url;
+            if (photo.thumbnail)
+                vid.thumbnail = photo.thumbnail;
             showVideo(vid);
             return divNode;
 
@@ -904,13 +916,16 @@ $(function () {
             handleData = function(data) {
                 var post = data.response.posts[0];
 
+                photo.extra = '<a href="'+data.response.blog.url+'" class="info">'+hostname+'</a>';
+                photo.extra += '<a href="/tumblr/'+data.response.blog.name+'" class="infop"><img class="redditp" src="/images/favicon.png" /></a>';
                 if (post.type == "photo") {
                     if (post.photos.length > 1) 
-                        photo.extra = '<a href="/tumblr/'+data.response.blog.name+'/'+shortid+'">[ALBUM]</a>';
+                        photo.extra += '<a href="/tumblr/'+data.response.blog.name+'/'+shortid+'">[ALBUM]</a>';
 
                     showImage(post.photos[0].original_size.url);
                     if (imageIndex == rp.session.activeIndex)
                         resetNextSlideTimer();
+
                 } else if (post.type == 'video') {
                     var vid = { thumbnail: post.thumbnail_url };
                     if (post.video_url.indexOf('.mp4') > 0)
@@ -919,6 +934,7 @@ $(function () {
                         vid.webm = post.video_url;
                     showVideo(vid);
                 }
+                $('#navboxExtra').html(photo.extra);
             } 
 
         } else if (hostname.indexOf('youtube.com') >= 0) {
@@ -1042,7 +1058,7 @@ $(function () {
                     return "";
 
                 if (result.data.images_count > 1)
-                    pic.extra = '<a href="/imgur/a/'+shortid+'">[ALBUM]</a>';
+                    pic.extra = '<a class="info" href="/imgur/a/'+shortid+'" class="info">[ALBUM]</a>';
 
                 // If this is animated it will return the animated gif
                 if (result.data.cover !== null)
@@ -1275,18 +1291,11 @@ $(function () {
                 alert("Sorry, no displayable images found in that url :(");
             }
 
-            // show the first image
-            if (rp.session.activeIndex == -1) {
-                startAnimation(0);
-            }
-
             //log("No more pages to load from this subreddit, reloading the start");
 
             // Show the user we're starting from the top
             //var numberButton = $("<span />").addClass("numberButton").text("-");
             //addNumberButton(numberButton);
-
-            rp.session.loadingNextImages = false;
         };
 
         $.ajax({
@@ -1315,39 +1324,30 @@ $(function () {
             $('#subredditUrl').html("<a href='" + data.response.blog.url + "'>" + data.response.blog.name + ".tumblr.com</a>");
 
             $.each(data.response.posts, function (i, post) {
+                    var image = { title: post.summary,
+                                  over18: data.response.blog.is_nsfw,
+                                  commentsLink: post.post_url,
+                    };
+
                     if (post.type == "photo") {
-                            addImageSlide({
-                                url: post.photos[0].original_size.url,
-                                title: post.summary,
-                                over18: false,
-                                commentsLink: post.post_url,
-                                /* subreddit: undefined, */
-                                /* author: data.data.account_url, */
-                                extra: (post.photos.length > 1) 
-                                        ?'<a href="/tumblr/'+data.response.blog.name+'/'+post.id+'">[ALBUM]</a>' :"",
-                            });
+                        image.url = post.photos[0].original_size.url;
+                        if (post.photos.length > 1)
+                            image.extra = '<a class="info" href="/tumblr/'+data.response.blog.name+'/'+post.id+'">[ALBUM]</a>';
 
                     } else if (post.type == "video") {
-                        log("Deal with tumblr video post: "+post.post_url);
+                        image.url = post.video_url;
+                        image.thumbnail = post.thumbnail_url;
 
                     } else if (rp.settings.debug) {
                         log('cannot display url [not video or photo:'+post.type+']: '+
                             post.post_url);
+                        return;
                     }
-
+                    
+                    addImageSlide(image);
                 });
 
             verifyNsfwMakesSense();
-
-            if (!rp.session.foundOneImage) {
-                log(jsonUrl);
-                alert("Sorry, no displayable images found in that url :(");
-            }
-
-            // show the first image
-            if (rp.session.activeIndex == -1) {
-                startAnimation(0);
-            }
 
             rp.session.loadingNextImages = false;
         };
@@ -1400,9 +1400,8 @@ $(function () {
             }
 
             // show the first image
-            if (rp.session.activeIndex == -1) {
+            if (rp.session.activeIndex == -1)
                 startAnimation(0);
-            }
 
             rp.session.loadingNextImages = false;
         };
