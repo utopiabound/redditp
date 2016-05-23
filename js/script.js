@@ -1226,6 +1226,11 @@ $(function () {
 
             $.each(data.data.children, function (i, item) {
                 // Text entry, no actual media
+                if (item.kind != "t3") {
+                    debug('cannont display url [not link]: '+item.kind);
+                    return;
+                }
+
                 if (item.data.thumbnail == "self") {
                     debug('cannot display url [self]: ' + item.data.url);
                     return;
