@@ -9,16 +9,14 @@ RewriteCond %{HTTP_HOST} ^www\.(.*)$ [NC]
 RewriteRule ^(.*)$ http://%1/$1 [R=301,L]
 
 RewriteRule ^r/(.*) /index.html
+RewriteRule ^me/(.*) /index.html
 RewriteRule ^user/(.*) /index.html
 RewriteRule ^domain/(.*) /index.html
 RewriteRule ^search(.*) /index.html
-RewriteRule ^imgur(.*) /index.html
-RewriteRule ^tumblr(.*) /index.html
+RewriteRule ^imgur/(.*) /index.html
+RewriteRule ^tumblr/(.*) /index.html
 
 # to hide .git and allow redditp.com/.compact
 RewriteRule ^\.(.*) /index.html
-
-# new multireddits with /me/
-RewriteRule ^me/(.*) /index.html
 
 ErrorDocument 404 /404.html

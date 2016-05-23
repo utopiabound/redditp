@@ -137,7 +137,20 @@ $(function () {
         if (rp.settings.shouldAutoNextSlide) {
             // startAnimation takes care of the setTimeout
             nextSlide();
+            return true;
         }
+        return false;
+    };
+
+    var shouldStillPlay = function(index) {
+        photo = rp.photos[index];
+        if (photo.times == 1) {
+            if (photo.duration < rp.settings.timeToNextSlide)
+                photo.times = Math.ceil(rp.settings.timeToNextSlide/photo.duration);
+            return false;
+        }
+        photo.times -= 1;
+        return true;
     };
 
     function open_in_background(selector){
@@ -244,7 +257,11 @@ $(function () {
         else
             $('#controlsDiv .collapser').css({color: ""});
         setCookie(cookieNames.shouldAutoNextSlideCookie, rp.settings.shouldAutoNextSlide);
-        resetNextSlideTimer();
+        // Check if active image is a video before reseting timer
+        if (rp.session.activeIndex == -1 ||
+            //rp.photos[rp.session.activeIndex].type !== imageTypes.video)
+            rp.photos[rp.session.activeIndex].times === undefined)
+            resetNextSlideTimer();
     };
 
     var toggleFullScreen = function() {
@@ -670,13 +687,6 @@ $(function () {
             var vid = divNode.find('video');
             if (vid)
                 vid.prop('autoplay', true);
-            // Set timeout here, so that whole clip plays
-            if (pic.duration) {
-                if (pic.duration > rp.settings.timeToNextSlide)
-                    resetNextSlideTimer(pic.duration);
-                else
-                    resetNextSlideTimer();
-            }
 
             rp.session.isAnimating = false;
         });
@@ -737,7 +747,8 @@ $(function () {
 
         // Called with showVideo({'thumbnail': jpgurl, 'mp4': mp4url, 'webm': webmurl})
         var showVideo = function(data) {
-            var video = $('<video id="gfyvid" loop class="fullscreen"/>');
+            var video = $('<video id="gfyvid" class="fullscreen"/>');
+
             if (data.thumbnail !== undefined)
                 video.attr('poster', data.thumbnail);
             if (isVideoMuted())
@@ -749,25 +760,57 @@ $(function () {
 
             divNode.append(video);
 
+            // iOS hackary
+            var onCanPlay = function() {
+                var video = $('#gfyvid');
+                video.off('canplaythrough', onCanPlay);
+                video[0].play();
+            };
+
+            $(video).on("ended", function(e) {
+                // TODO: if duration < rp.settings.timeToNextSlide, then count cycles?
+                debug("["+imageIndex+"] video ended");
+                if (shouldStillPlay(imageIndex) || !autoNextSlide())
+                    $('#gfyvid')[0].play();
+            });
+
             $(video).on("loadeddata", function(e) {
-                photo.duration = e.target.duration + 0.1;
-                debug("["+imageIndex+"] video metadata.duration: "+e.target.duration );
+                photo.duration = e.target.duration;
+                if (photo.duration < rp.settings.timeToNextSlide) {
+                    photo.times = Math.ceil(rp.settings.timeToNextSlide/photo.duration);
+                } else {
+                    photo.times = 1;
+                }
+                debug("["+imageIndex+"] Video loadeddata video: "+photo.duration);
                 // preload, don't mess with timeout
                 if (imageIndex !== rp.session.activeIndex)
                     return;
-                debug("["+imageIndex+"] Video loadeddata running for active image");
-                video.prop('autoplay', true);
-                video[0].play();
-                if (rp.settings.shouldAutoNextSlide && photo.duration > rp.settings.timeToNextSlide)
-                    resetNextSlideTimer(photo.duration);
+                $('#gfyvid').prop('autoplay', true);
+                if (vid.readyState === 4) // HAVE_ENOUGH_DATA
+                    onCanPlay();
                 else
-                    resetNextSlideTimer();
+                    $(video).on('canplaythrough', onCanPlay);
+
+            });
+            
+            // iOS devices don't play automatically
+            $(video).on("click", function(e) {
+                var vid = $('#gfyvid')[0];
+                vid.play();
+                if (vid.readyState !== 4) { // HAVE_ENOUGH_DATA
+                    $(video).on('canplaythrough', onCanPlay);
+		    window.setTimeout(function() {
+		        vid.pause(); //block play so it buffers before playing
+		    }, 0.5);
+                }
             });
         };
 
         // Called with showEmbed(urlForIframe)
         var showEmbed = function(url) {
             var iframe = $('<iframe id="gfyembed" class="fullscreen" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen />');
+            // ensure updateAutoNext doesn't reset timer
+            photo.times = 1;
 
             $(iframe).bind("load", function() {
                 var iframe = $('#gfyembed');
@@ -783,7 +826,7 @@ $(function () {
                 log("["+imageIndex+"] embed video found: "+video.attr("src"));
 
                 $(video).on("loadeddata", function(e) {
-                    photo.duration = e.target.duration + 0.1;
+                    photo.duration = e.target.duration;
                     debug("["+imageIndex+"] embed video metadata.duration: "+e.target.duration );
                     // preload, don't mess with timeout
                     if (imageIndex !== rp.session.activeIndex)
@@ -854,6 +897,7 @@ $(function () {
                 if (data.video.state == 'success')
                     showVideo({'thumbnail': data.video.thumbnail_url,
                                'mp4':  data.video.complete_url });
+
                 else {
                     log("["+imageIndex+"] vid.me failed to load "+shortid+". state:"+data.video.state);
                     showImage(data.video.thumbnail_url);
