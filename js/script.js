@@ -1281,8 +1281,8 @@ $(function () {
         });
     };
 
-    var getImgurAlbum = function (url) {
-        var albumID = url.match(/.*\/(.+?$)/)[1];
+    var getImgurAlbum = function () {
+        var albumID = rp.url.subreddit.match(/.*\/(.+?$)/)[1];
         var jsonUrl = 'https://api.imgur.com/3/album/' + albumID;
 
         var handleData = function (data) {
@@ -1332,8 +1332,8 @@ $(function () {
         });
     };
 
-    var getTumblrBlog = function (url) {
-        var a = url.split('/');
+    var getTumblrBlog = function () {
+        var a = rp.url.subreddit.split('/');
         if (a[a.length-1] == "")
             a.pop();
 
@@ -1342,9 +1342,19 @@ $(function () {
         var jsonUrl = 'https://api.tumblr.com/v2/blog/'+hostname+'/posts?api_key='+rp.api_key.tumblr;
         if (rp.session.after !== "")
             jsonUrl = jsonUrl+'&offset='+rp.session.after;
+        else
+            rp.session.after = 0;
 
         var handleData = function (data) {
             $('#subredditUrl').html("<a href='" + data.response.blog.url + "'>" + data.response.blog.name + ".tumblr.com</a>");
+
+            if (rp.session.after < data.response.total_posts) {
+                rp.session.after = rp.session.after + data.response.posts.length;
+                rp.session.loadAfter = getTumblrBlog;
+
+            } else { // Found all posts
+                rp.session.loadAfter = null;
+            }
 
             $.each(data.response.posts, function (i, post) {
                 var image = { title: post.summary,
@@ -1509,13 +1519,13 @@ $(function () {
     rp.session.foundOneImage = false;
 
     if (rp.url.subreddit.indexOf('/imgur') == 0)
-        getImgurAlbum(rp.url.subreddit);
+        getImgurAlbum();
 
     else if (rp.url.subreddit.indexOf('/tumblr') == 0) {
         if (rp.url.subreddit.split('/').length > 3)
-            getTumblrAlbum(rp.url.subreddit);
+            getTumblrAlbum();
         else
-            getTumblrBlog(rp.url.subreddit);
+            getTumblrBlog();
 
     } else {
         getRedditImages();
