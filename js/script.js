@@ -786,7 +786,7 @@ $(function () {
                 if (imageIndex !== rp.session.activeIndex)
                     return;
                 $('#gfyvid').prop('autoplay', true);
-                if (vid.readyState === 4) // HAVE_ENOUGH_DATA
+                if ($('#gfyvid')[0].readyState === 3) // HAVE_ENOUGH_DATA (needed for ios)
                     onCanPlay();
                 else
                     $(video).on('canplaythrough', onCanPlay);
@@ -1205,6 +1205,9 @@ $(function () {
             if (data.data.after !== null) {
                 rp.session.after = "&after=" + data.data.after;
                 rp.session.loadAfter = getRedditImages;
+
+            } else {
+                rp.session.loadAfter = null;                
             }
 
             if (data.data.children.length === 0) {
