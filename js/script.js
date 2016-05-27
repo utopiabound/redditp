@@ -384,6 +384,8 @@ $(function () {
          */
 
         pic.type = imageTypes.image;
+        // Fix URL "quoting" by reddit
+        pic.url = pic.url.replace(/&amp;/gi, '&');
         var hostname = hostnameOf(pic.url);
 
         // Replace HTTP with HTTPS on gfycat and imgur to avoid this:
@@ -408,6 +410,9 @@ $(function () {
                 else
                     pic.url = fixImgurPicUrl(pic.url);
             }
+            // simple image
+
+        } else if (hostname.indexOf('i.reddituploads.com') >= 0) {
             // simple image
 
         } else if (isVideoExtension(pic.url) ||
