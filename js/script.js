@@ -424,6 +424,7 @@ $(function () {
                    hostname.indexOf('youtube.com') >= 0 ||
                    hostname.indexOf('youtu.be') >= 0 ||
                    hostname.indexOf('vimeo.com') >= 0 ||
+                   hostname.indexOf('deviantart.com') >= 0 ||                   
                    pic.url.indexOf('webm.land/w/') >= 0) {
             pic.type = imageTypes.video;
 
@@ -949,6 +950,29 @@ $(function () {
             showVideo(vid);
             return divNode;
 
+        } else if (hostname.indexOf('deviantart.com') >= 0) {
+            jsonUrl = 'https://backend.deviantart.com/oembed?format=jsonp&url=' + encodeURIComponent(photo.url);
+            dataType = 'jsonp';
+
+            handleData = function(data) {
+
+                photo.extra = '<a href="'+data.author_url+'" class="info">'+data.author_name+'</a>';
+
+                if (data.type == 'photo') {
+                    showImage(data.url);
+                    if (imageIndex == rp.session.activeIndex)
+                        resetNextSlideTimer();
+
+                } else if (data.type == 'video') {
+                    showVideo(data.url);
+
+                } else {
+                    log("display failed unknown type "+data.type+" for url: "+photo.url);
+                    if (imageIndex == rp.session.activeIndex)
+                        resetNextSlideTimer();
+                }
+            };
+            
         } else if (hostname.indexOf('tumblr.com') >= 0) {
             a = photo.url.split('/');
             if (a[a.length-1] == "")
@@ -1084,8 +1108,8 @@ $(function () {
                     jsonUrl = "https://api.imgur.com/3/album/" + shortid;
 
                 } else if (url.indexOf('/gallery/') > 0) {
-                    //log('Unsupported gallery: ' + url);
-                    return '';
+                    shortid = pathnameOf(url).split("/")[2];
+                    jsonUrl = "https://api.imgur.com/3/album/" + shortid;
                 }
 
                 $.ajax({
@@ -1222,13 +1246,13 @@ $(function () {
 
             var handleEntryData = function(data) {
                 var item = data[0].data.children[0];
-                if (rp.session.needDedup)
+                if (rp.session.needDedup) {
                     $.each(data[1].data.children, function(i, dupe) {
                         if (rp.dedup[dupe.data.subreddit] == undefined)
                             rp.dedup[dupe.data.subreddit] = {};
                         rp.dedup[dupe.data.subreddit][dupe.data.id] = '/r/'+item.data.subreddit+'/'+item.data.id;
                     });
-
+                }
                 addImageSlideRedditT3(item);
             };
 
