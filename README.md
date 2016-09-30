@@ -8,7 +8,8 @@ http://redditp.com
 Hotkeys
 -------
 
-* a/space - toggles auto-next (play/pause)
+* space - toggles auto-next (play/pause)
+* a - open album in new window
 * t - collapse/uncollapse title
 * c - collapse/uncollapse controls
 * i - open image in a new tab

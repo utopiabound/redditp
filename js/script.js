@@ -158,6 +158,9 @@ $(function () {
         // works on latest chrome, safari and opera
         var link = $(selector)[0];
 
+        if (link === undefined)
+            return;
+
         // Simulating a ctrl key won't trigger a background tab on IE and Firefox ( https://bugzilla.mozilla.org/show_bug.cgi?id=812202 )
         // so we need to open a new window
         if ( navigator.userAgent.match(/msie/i) || navigator.userAgent.match(/trident/i)  || navigator.userAgent.match(/firefox/i) ){
@@ -366,7 +369,8 @@ $(function () {
 
     var imageTypes = {
         image: 'image',
-        video: 'video'
+        video: 'video',
+        album: 'album'
     };
 
     var addImageSlide = function (pic) {
@@ -383,7 +387,8 @@ $(function () {
          * }
          */
 
-        pic.type = imageTypes.image;
+        if (pic.type === undefined)
+            pic.type = imageTypes.image;
         // Fix URL "quoting" by reddit
         pic.url = pic.url.replace(/&amp;/gi, '&');
         var hostname = hostnameOf(pic.url);
@@ -452,9 +457,13 @@ $(function () {
                 .data("index", i)
                 .attr("title", rp.photos[i].title)
                 .attr("id", "numberButton" + (i + 1));
-        if(pic.over18) {
+
+        if (pic.over18)
             numberButton.addClass("over18");
-        }
+
+        if (pic.type == imageTypes.album)
+            numberButton.addClass("album");
+
         numberButton.click(function () {
             // Retrieve the index we need to use
             var imageIndex = $(this).data("index");
@@ -521,8 +530,10 @@ $(function () {
         case T_KEY:
             $('#titleDiv .collapser').click();
             break;
-        case SPACE:
         case A_KEY:
+            open_in_background("#navboxExtra a");
+            break;
+        case SPACE:
             $("#autoNextSlide").prop("checked", !$("#autoNextSlide").is(':checked'));
             updateAutoNext();
             break;
@@ -725,7 +736,7 @@ $(function () {
             divNode.css(cssMap);
         };
 
-        if (photo.type == imageTypes.image) {
+        if (photo.type == imageTypes.image || photo.type == imageTypes.album) {
             showImage(photo.url);
             return divNode;
         }
@@ -990,9 +1001,12 @@ $(function () {
                 photo.extra = '<a href="'+data.response.blog.url+'" class="info">'+hostname+'</a>';
                 photo.extra += '<a href="/tumblr/'+data.response.blog.name+'" class="infop"><img class="redditp" src="/images/favicon.png" /></a>';
                 if (post.type == "photo") {
-                    if (post.photos.length > 1) 
+                    if (post.photos.length > 1) {
                         photo.extra += '<a href="/tumblr/'+data.response.blog.name+'/'+shortid+'">[ALBUM]</a>';
-
+                        photo.type = imageTypes.album;
+                        $('#numberButton'+(imageIndex+1)).addClass('album');
+                    }
+                    
                     showImage(post.photos[0].original_size.url);
                     if (imageIndex == rp.session.activeIndex)
                         resetNextSlideTimer();
@@ -1128,8 +1142,10 @@ $(function () {
                 if (result === undefined)
                     return "";
 
-                if (result.data.images_count > 1)
+                if (result.data.images_count > 1) {
                     pic.extra = '<a class="info" href="/imgur/a/'+shortid+'" class="info">[ALBUM]</a>';
+                    pic.type = imageTypes.album;
+                }
 
                 // If this is animated it will return the animated gif
                 if (result.data.cover !== null)
@@ -1147,6 +1163,8 @@ $(function () {
 
             if (url.indexOf("/r/") >= 0)
                 return url.replace(/r\/[^ \/]+\/(\w+)/, '$1') + '.jpg';
+            else if (isImageExtension(url))
+                return url;
             else
                 return url+".jpg";
         }
@@ -1396,8 +1414,10 @@ $(function () {
 
                 if (post.type == "photo") {
                     image.url = post.photos[0].original_size.url;
-                    if (post.photos.length > 1)
+                    if (post.photos.length > 1) {
                         image.extra = '<a class="info" href="/tumblr/'+data.response.blog.name+'/'+post.id+'">[ALBUM]</a>';
+                        image.type = imageTypes.album;
+                    }
 
                 } else if (post.type == "video") {
                     image.url = post.video_url;

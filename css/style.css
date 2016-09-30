@@ -31,7 +31,7 @@ a:hover {
     float: left;
 
     min-width: 15px;
-    margin-left: 5px;
+    margin-left: 3px;
     text-decoration: none;
     color: #eee;
     
@@ -39,15 +39,22 @@ a:hover {
     text-align: center;
     line-height: 18px; 
     padding: 3px 5px;
+    border: 1px solid transparent;
 }
 .over18 {
     color: #f99;
 }
 
+.album {
+    border-style: solid;
+    border-color: white;
+    border-width: 1px
+}
+
 .navbox ul li a {
     cursor:pointer;
 }
-.numberButtonList ul li a:hover { background:#888; color:#000; border: 0; }
+.numberButtonList ul li a:hover { background:#888; color:#000; border: 1px solid transparent; }
 .numberButtonList ul li a.active:hover {
     color:  #00f;
     cursor: default;
