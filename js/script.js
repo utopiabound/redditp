@@ -22,6 +22,9 @@ rp.settings = {
     cookieDays: 300,
     goodImageExtensions: ['.jpg', '.jpeg', '.gif', '.bmp', '.png'],
     goodVideoExtensions: ['.webm', '.mp4'],
+    // show Embeded Items
+    embed: false,
+    // show NSFW Items
     nsfw: true
 };
 
@@ -225,6 +228,7 @@ $(function () {
 
     var cookieNames = {
         nsfwCookie: "nsfwCookie",
+        embedCookie: "showEmbedCookie",
         shouldAutoNextSlideCookie: "shouldAutoNextSlideCookie",
         timeToNextSlideCookie: "timeToNextSlideCookie"
     };
@@ -312,6 +316,11 @@ $(function () {
         setCookie(cookieNames.nsfwCookie, rp.settings.nsfw);
     };
 
+    var updateEmbed = function () {
+        rp.settings.embed = $("#embed").is(':checked');
+        setCookie(cookieNames.embedCookie, rp.settings.embed);
+    };
+
     var initState = function () {
         var nsfwByCookie = getCookie(cookieNames.nsfwCookie);
         if (nsfwByCookie === undefined) {
@@ -321,6 +330,16 @@ $(function () {
             $("#nsfw").prop("checked", rp.settings.nsfw);
         }
         $('#nsfw').change(updateNsfw);
+
+        var embedByCookie = getCookie(cookieNames.embedCookie);
+        if (embedByCookie === undefined) {
+            updateEmbed();
+        } else {
+            rp.settings.embed = (embedByCookie === "true");
+            $("#embed").prop("checked", rp.settings.embed);
+        }
+        $('#embed').change(updateEmbed);
+        
 
         updateVideoMute();
         $('#mute').change(updateVideoMute);
@@ -426,12 +445,20 @@ $(function () {
                    hostname.indexOf('vid.me') >= 0 ||
                    hostname.indexOf('tumblr.com') >= 0 ||
                    hostname.indexOf('pornbot.net') >= 0 ||
-                   hostname.indexOf('youtube.com') >= 0 ||
-                   hostname.indexOf('youtu.be') >= 0 ||
-                   hostname.indexOf('vimeo.com') >= 0 ||
-                   hostname.indexOf('deviantart.com') >= 0 ||                   
+                   hostname.indexOf('deviantart.com') >= 0 ||
                    pic.url.indexOf('webm.land/w/') >= 0) {
             pic.type = imageTypes.video;
+
+        } else if (hostname.indexOf('youtube.com') >= 0 ||
+                   hostname.indexOf('youtu.be') >= 0 ||
+                   hostname.indexOf('vimeo.com') >= 0) {
+            if (rp.settings.showEmbed) {
+                pic.type = imageTypes.video;
+
+            } else {
+                debug('cannot display url [showEmbed not enabled]: ' + pic.url);
+                return;
+            }
 
         } else {
             var betterUrl = tryConvertPic(pic);
@@ -674,9 +701,9 @@ $(function () {
     };
 
     var failedAjax = function (xhr, ajaxOptions, thrownError) {
-        window.console.log(xhr);
-        window.console.log(ajaxOptions);
-        window.console.log(thrownError);
+        window.console.log("xhr:", xhr);
+        window.console.log("ajaxOptions:", ajaxOptions);
+        window.console.log("error:", thrownError);
         //alert("Failed ajax, maybe a bad url? Sorry about that :(\n" + xhr.responseText + "\n");
         failCleanup();
     };
