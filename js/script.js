@@ -1244,7 +1244,7 @@ $(function () {
 
         rp.session.loadingNextImages = true;
 
-        var jsonUrl = rp.redditBaseUrl + rp.url.subreddit + ".json?" + rp.url.vars + rp.session.after;
+        var jsonUrl = rp.redditBaseUrl + rp.url.subreddit + ".json?jsonp=redditcallback" + rp.url.vars + rp.session.after;
 
         var addImageSlideRedditT3 = function (item) {
             if (rp.dedup[item.data.subreddit] !== undefined &&
@@ -1287,6 +1287,14 @@ $(function () {
             if (data.data.children.length === 0) {
                 alert("No data from this url :(");
                 return;
+            }
+
+            // Watch out for "fake" subreddits
+            if (rp.url.subreddit == '/r/random' ||
+                rp.url.subreddit == '/r/randnsfw') {
+                rp.url.origsubreddit = rp.url.subreddit;
+                rp.url.subreddit = '/r/' + data.data.children[0].data.subreddit;
+                $('#subredditUrl').html("<a href='" + rp.redditBaseUrl + rp.url.subreddit + "'>" + rp.url.subreddit + "</a>");
             }
 
             var handleEntryData = function(data) {
@@ -1344,15 +1352,13 @@ $(function () {
 
         debug('Ajax requesting: ' + jsonUrl);
 
-        // I still haven't been able to catch jsonp 404 events so the timeout
-        // is the current solution sadly.
         $.ajax({
             url: jsonUrl,
-            dataType: 'json',
+            dataType: 'jsonp',
+            jsonpCallback: 'redditcallback',
             success: handleData,
             error: failedAjax,
             404: failedAjax,
-            jsonp: false,
             timeout: 5000,
             crossDomain: true
         });
@@ -1546,6 +1552,7 @@ $(function () {
 
         if (rp.url.vars.length > 0)
             getVarsQuestionMark = "?" + rp.url.vars;
+        rp.url.vars = '&' + rp.url.vars;
 
         // Remove .compact as it interferes with .json (we got "/r/all/.compact.json" which doesn't work).
         rp.url.subreddit = rp.url.subreddit.replace(/.compact/, "");
