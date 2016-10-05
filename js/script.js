@@ -164,6 +164,12 @@ $(function () {
         if (link === undefined)
             return;
 
+        // Pause this windows autonext
+        if (autoNextSlide()) {
+            $("#autoNextSlide").prop("checked", !$("#autoNextSlide").is(':checked'));
+            updateAutoNext();
+        }
+
         // Simulating a ctrl key won't trigger a background tab on IE and Firefox ( https://bugzilla.mozilla.org/show_bug.cgi?id=812202 )
         // so we need to open a new window
         if ( navigator.userAgent.match(/msie/i) || navigator.userAgent.match(/trident/i)  || navigator.userAgent.match(/firefox/i) ){
