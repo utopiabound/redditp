@@ -706,7 +706,7 @@ $(function () {
         $('#recommend').css({'display':'block'});
     };
 
-    var failedAjax = function (xhr, ajaxOptions, thrownError) {
+    var failedAjaxDone = function (xhr, ajaxOptions, thrownError) {
         window.console.log("xhr:", xhr);
         window.console.log("ajaxOptions:", ajaxOptions);
         window.console.log("error:", thrownError);
@@ -714,6 +714,11 @@ $(function () {
         failCleanup();
     };
 
+    var failedAjax = function (xhr, ajaxOptions, thrownError) {
+        window.console.log("xhr:", xhr);
+        window.console.log("ajaxOptions:", ajaxOptions);
+        window.console.log("error:", thrownError);
+    };
     //
     // Slides the background photos
     //
@@ -1414,8 +1419,8 @@ $(function () {
             url: jsonUrl,
             dataType: 'json',
             success: handleData,
-            error: failedAjax,
-            404: failedAjax,
+            error: failedAjaxDone,
+            404: failedAjaxDone,
             timeout: 5000,
             headers: { Authorization: 'Client-ID ' + rp.api_key.imgur }
         });
@@ -1481,8 +1486,8 @@ $(function () {
             url: jsonUrl,
             dataType: 'jsonp',
             success: handleData,
-            error: failedAjax,
-            404: failedAjax,
+            error: failedAjaxDone,
+            404: failedAjaxDone,
             timeout: 5000
         });
     };
@@ -1534,8 +1539,8 @@ $(function () {
             url: jsonUrl,
             dataType: 'jsonp',
             success: handleData,
-            error: failedAjax,
-            404: failedAjax,
+            error: failedAjaxDone,
+            404: failedAjaxDone,
             timeout: 5000
         });
     };
