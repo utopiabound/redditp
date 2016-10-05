@@ -470,6 +470,10 @@ $(function () {
             var betterUrl = tryConvertPic(pic);
             if(betterUrl !== '') {
                 pic.url = betterUrl;
+
+                if (isVideoExtension(pic.url))
+                    pic.type = imageTypes.video;
+
             } else {
                 debug('cannot display url [no image]: ' + pic.url);
                 return;
@@ -1134,6 +1138,9 @@ $(function () {
     var tryConvertPic = function (pic) {
         var url = pic.url;
         var hostname = hostnameOf(url);
+        var shortid;
+        var jsonUrl;
+        var result;
 
         /** IMGUR **/
         if (hostname.indexOf('imgur.com') >= 0) {
@@ -1144,12 +1151,11 @@ $(function () {
                 return fixImgurPicUrl(url);
             }
 
+            /*
+             * Gallery URLs can be either albums or individual pictures
+             */
             if (url.indexOf('/a/') > 0 ||
                 url.indexOf('/gallery/') > 0) {
-
-                var shortid;
-                var jsonUrl;
-                var result;
 
                 if (! rp.api_key.imgur) {
                     return '';
@@ -1177,8 +1183,13 @@ $(function () {
                     async: false
                 });
 
-                if (result === undefined)
-                    return "";
+                if (result === undefined) {
+                    if (url.indexOf('/gallery/') > 0)
+                        return "http://i.imgur.com/"+shortid+".jpg";
+                    else
+                        return "";
+                }
+
 
                 if (result.data.images_count > 1) {
                     pic.extra = '<a class="info" href="/imgur/a/'+shortid+'" class="info">[ALBUM]</a>';
@@ -1205,9 +1216,17 @@ $(function () {
                 return url;
             else
                 return url+".jpg";
+
+        }
+        if (hostname.indexOf('giphy.com') >= 0) {
+            var ar = url.split(/[\/-]/);
+            shortid = ar.pop();
+            if (shortid == "")
+                shortid = ar.pop();
+            
+            return 'https://media.giphy.com/media/'+shortid+'/giphy.mp4';
         }
         //log("Not understood url: "+url);
-
         return '';
     };
 
