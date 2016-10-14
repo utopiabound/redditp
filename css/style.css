@@ -30,15 +30,16 @@ a:hover {
 .numberButton {
     float: left;
 
-    min-width: 15px;
+    min-width: 3ex;
     margin-left: 3px;
+    margin-bottom: 3px;
     text-decoration: none;
     color: #eee;
     
     font: bold 12px Helvetica, Arial, Sans-serif;
     text-align: center;
     line-height: 18px; 
-    padding: 3px 5px;
+    padding: 3px;
     border: 1px solid transparent;
 }
 .over18 {
@@ -86,7 +87,7 @@ a:hover {
 .nbmenu li { text-align: left; padding: 10px 10px; max-width: 300px; overflow: hidden; }
 
 #navboxContents {
-    padding: 10px 25px 10px 0;
+    padding: 0px 28px 2px 0;
     margin:0;
 }
 
@@ -97,7 +98,17 @@ label.checkbox { font-weight: bold; }
 .key { background-image:url("../images/bg_key_txt.png"); }
 .flowers { background-image:url("../images/bg_flowers_txt.png"); }
 
-.collapser { border: solid 1px #555; font-size: 20px; color: #bbb; padding: 0 10px; float:right; cursor: hand; cursor: pointer;}
+/* Computed width: 28px */
+.collapser {
+        border: solid 1px #555;
+        font-size: 20px;
+        font-family: monospace;
+        color: #bbb;
+        padding: 0 7px;
+        float:right;
+        cursor: hand;
+        cursor: pointer;
+}
 .checkbox { cursor: hand; cursor: pointer; }
 
 .prevArrow {
