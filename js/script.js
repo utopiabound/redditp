@@ -18,7 +18,7 @@ rp.settings = {
     // Speed of the animation
     animationSpeed: 1000,
     shouldAutoNextSlide: true,
-    timeToNextSlide: 6,
+    timeToNextSlide: 8,
     cookieDays: 300,
     goodImageExtensions: ['.jpg', '.jpeg', '.gif', '.bmp', '.png'],
     goodVideoExtensions: ['.webm', '.mp4'],
