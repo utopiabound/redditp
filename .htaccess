@@ -15,6 +15,7 @@ RewriteRule ^domain/(.*) /index.html
 RewriteRule ^search(.*) /index.html
 RewriteRule ^imgur/(.*) /index.html
 RewriteRule ^tumblr/(.*) /index.html
+RewriteRule ^eroshare/(.*) /index.html
 
 # to hide .git and allow redditp.com/.compact
 RewriteRule ^\.(.*) /index.html

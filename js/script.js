@@ -452,6 +452,7 @@ $(function () {
                    hostname.indexOf('tumblr.com') >= 0 ||
                    hostname.indexOf('pornbot.net') >= 0 ||
                    hostname.indexOf('deviantart.com') >= 0 ||
+                   hostname.indexOf('eroshare.com') >= 0 ||
                    pic.url.indexOf('webm.land/w/') >= 0) {
             pic.type = imageTypes.video;
 
@@ -1003,6 +1004,45 @@ $(function () {
             showVideo(vid);
             return divNode;
 
+        } else if (hostname.indexOf('eroshare.com') >= 0) {
+            headerData = { 'Origin': document.location.origin };
+
+            var handleEroshareItem = function(item) {
+                if (item.type == 'Image') {
+                    showImage(item.url_full_protocol);
+                    if (imageIndex == rp.session.activeIndex)
+                        resetNextSlideTimer();
+
+                } else if (item.type == 'Video') {
+                    showVideo({ thumbnail: item.url_full_protocol,
+                                mp4: item.url_mp4 });
+
+                } else {
+                    log("display failed unknown type "+item.type+" for url: "+photo.url);
+                    if (imageIndex == rp.session.activeIndex)
+                        resetNextSlideTimer();
+                }
+            };
+
+            // Single Item
+            if (photo.url.indexOf('/i/'+shortid) >= 0) {
+                jsonUrl = 'https://api.eroshare.com/api/v1/items/' + shortid;
+                handleData = handleEroshareItem;
+ 
+
+            } else { // Album
+                jsonUrl = 'https://api.eroshare.com/api/v1/albums/' + shortid + '/items';
+                handleData = function(data) {
+                    var item = data[0];
+                    if (data.length > 1) {
+                        photo.type = imageTypes.album;
+                        $('#numberButton'+(imageIndex+1)).addClass('album');
+                        photo.extra = '<a href="/eroshare/'+shortid+'">[ALBUM]</a>';
+                    }
+                    handleEroshareItem(item);
+                };
+            }
+
         } else if (hostname.indexOf('deviantart.com') >= 0) {
             jsonUrl = 'https://backend.deviantart.com/oembed?format=jsonp&url=' + encodeURIComponent(photo.url);
             dataType = 'jsonp';
@@ -1017,7 +1057,7 @@ $(function () {
                         resetNextSlideTimer();
 
                 } else if (data.type == 'video') {
-                    showVideo(data.url);
+                    showVideo({mp4: data.url});
 
                 } else {
                     log("display failed unknown type "+data.type+" for url: "+photo.url);
@@ -1394,6 +1434,54 @@ $(function () {
         });
     };
 
+    var getEroshareAlbum = function () {
+        var albumID = rp.url.subreddit.match(/.*\/(.+?$)/)[1];
+        var jsonUrl = 'https://api.eroshare.com/api/v1/albums/' + albumID;
+
+        var handleData = function (data) {
+
+            if (data.items.length === 0) {
+                alert("No data from this url :(");
+                return;
+            }
+
+            $.each(data.items, function (i, item) {
+                var isVid = (item.type == 'Video');
+                addImageSlide({
+                    url: (isVid) ?item.url_mp4 :item.url_full_protocol,
+                    title: (item.description !== undefined) ?item.description :"",
+                    over18: true,
+                    commentsLink: data.reddit_submission.permalink,
+                    subreddit: data.reddit_submission.subreddit,
+                    author: data.reddit_submission.author
+                });
+            });
+
+            verifyNsfwMakesSense();
+
+            if (!rp.session.foundOneImage) {
+                log(jsonUrl);
+                alert("Sorry, no displayable images found in that url :(");
+            }
+
+            //log("No more pages to load from this subreddit, reloading the start");
+
+            // Show the user we're starting from the top
+            //var numberButton = $("<span />").addClass("numberButton").text("-");
+            //addNumberButton(numberButton);
+        };
+
+        $.ajax({
+            url: jsonUrl,
+            dataType: 'json',
+            headers: { 'Origin': document.location.origin },
+            success: handleData,
+            error: failedAjaxDone,
+            404: failedAjaxDone,
+            timeout: 5000
+        });
+    };
+
     var getImgurAlbum = function () {
         var albumID = rp.url.subreddit.match(/.*\/(.+?$)/)[1];
         var jsonUrl = 'https://api.imgur.com/3/album/' + albumID;
@@ -1569,7 +1657,7 @@ $(function () {
         // Detect predefined reddit url paths. If you modify this be sure to fix
         // .htaccess
         // This is a good idea so we can give a quick 404 page when appropriate.
-        var regexS = "(/(?:(?:r/)|(?:v/)|(?:imgur/a/)|(?:tumblr/)|(?:user/)|(?:domain/)|(?:search)|(?:me))[^&#?]*)[?]?(.*)";
+        var regexS = "(/(?:(?:r/)|(?:v/)|(?:imgur/a/)|(?:tumblr/)|(?:eroshare/)|(?:user/)|(?:domain/)|(?:search)|(?:me))[^&#?]*)[?]?(.*)";
         var regex = new RegExp(regexS);
         var results = regex.exec(window.location.href);
         //log(results);
@@ -1599,8 +1687,9 @@ $(function () {
             subredditName = rp.url.subreddit + getVarsQuestionMark;
         }
 
-        // If not limited to single subreddit, use dedup
         if (rp.url.subreddit.indexOf('/user/') >= 0 ||
+            rp.url.subreddit.indexOf('/domain/') >= 0 ||
+            rp.url.subreddit.indexOf('/search/') >= 0 ||
             rp.url.subreddit.indexOf('+') >= 0)
             rp.session.needDedup = true;
         else
@@ -1642,6 +1731,9 @@ $(function () {
             getTumblrAlbum();
         else
             getTumblrBlog();
+
+    } else if (rp.url.subreddit.indexOf('/eroshare') == 0) {
+        getEroshareAlbum();
 
     } else {
         getRedditImages();
