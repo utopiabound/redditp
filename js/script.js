@@ -459,7 +459,7 @@ $(function () {
         } else if (hostname.indexOf('youtube.com') >= 0 ||
                    hostname.indexOf('youtu.be') >= 0 ||
                    hostname.indexOf('vimeo.com') >= 0) {
-            if (rp.settings.showEmbed) {
+            if (rp.settings.embed) {
                 pic.type = imageTypes.video;
 
             } else {
@@ -1057,10 +1057,19 @@ $(function () {
                         resetNextSlideTimer();
 
                 } else if (data.type == 'video') {
-                    showVideo({mp4: data.url});
+                    if (rp.settings.embed) {
+                        var f = $.parseHTML(data.html);
+                        showEmbed(f[0].src);
+
+                    } else {
+                        log("["+imageIndex+"] Skipping video showEmbed not enabled: "+photo.url);
+                        showImage(data.thumbnail_url);
+                        if (imageIndex == rp.session.activeIndex)
+                            resetNextSlideTimer();
+                    }
 
                 } else {
-                    log("display failed unknown type "+data.type+" for url: "+photo.url);
+                    log("["+imageIndex+"] display failed unknown type "+data.type+" for url: "+photo.url);
                     if (imageIndex == rp.session.activeIndex)
                         resetNextSlideTimer();
                 }
