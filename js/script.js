@@ -156,6 +156,10 @@ $(function () {
         return true;
     };
 
+    var albumURL = function(url) {
+        return '<a id="album" class="info" href="'+url+'">[ALBUM]</a>';
+    };
+
     function open_in_background(selector){
         // as per https://developer.mozilla.org/en-US/docs/Web/API/event.initMouseEvent
         // works on latest chrome, safari and opera
@@ -463,7 +467,7 @@ $(function () {
                 pic.type = imageTypes.video;
 
             } else {
-                debug('cannot display url [showEmbed not enabled]: ' + pic.url);
+                debug('cannot display url [no embed]: ' + pic.url);
                 return;
             }
 
@@ -569,7 +573,7 @@ $(function () {
             $('#titleDiv .collapser').click();
             break;
         case A_KEY:
-            open_in_background("#navboxExtra a");
+            open_in_background("#album");
             break;
         case SPACE:
             $("#autoNextSlide").prop("checked", !$("#autoNextSlide").is(':checked'));
@@ -779,7 +783,7 @@ $(function () {
             divNode.css(cssMap);
         };
 
-        if (photo.type == imageTypes.image || photo.type == imageTypes.album) {
+        if (photo.type == imageTypes.image) {
             showImage(photo.url);
             return divNode;
         }
@@ -1037,7 +1041,7 @@ $(function () {
                     if (data.length > 1) {
                         photo.type = imageTypes.album;
                         $('#numberButton'+(imageIndex+1)).addClass('album');
-                        photo.extra = '<a href="/eroshare/'+shortid+'">[ALBUM]</a>';
+                        photo.extra = albumURL('/eroshare/'+shortid);
                     }
                     handleEroshareItem(item);
                 };
@@ -1062,14 +1066,14 @@ $(function () {
                         showEmbed(f[0].src);
 
                     } else {
-                        log("["+imageIndex+"] Skipping video showEmbed not enabled: "+photo.url);
+                        debug("cannot display url [no embed]: "+photo.url);
                         showImage(data.thumbnail_url);
                         if (imageIndex == rp.session.activeIndex)
                             resetNextSlideTimer();
                     }
 
                 } else {
-                    log("["+imageIndex+"] display failed unknown type "+data.type+" for url: "+photo.url);
+                    log("cannot display url [unk type "+data.type+"]: "+photo.url);
                     if (imageIndex == rp.session.activeIndex)
                         resetNextSlideTimer();
                 }
@@ -1077,11 +1081,7 @@ $(function () {
             
         } else if (hostname.indexOf('tumblr.com') >= 0) {
             a = photo.url.split('/');
-            if (a[a.length-1] == "")
-                a.pop();
-
-            a.pop(); // remove "pretty" name of post
-            shortid = a.pop();
+            shortid = a[4];
 
             jsonUrl = 'https://api.tumblr.com/v2/blog/'+hostname+'/posts?api_key='+rp.api_key.tumblr+'&id='+shortid;
             dataType = 'jsonp';
@@ -1093,7 +1093,7 @@ $(function () {
                 photo.extra += '<a href="/tumblr/'+data.response.blog.name+'" class="infop"><img class="redditp" src="/images/favicon.png" /></a>';
                 if (post.type == "photo") {
                     if (post.photos.length > 1) {
-                        photo.extra += '<a href="/tumblr/'+data.response.blog.name+'/'+shortid+'">[ALBUM]</a>';
+                        photo.extra += albumURL('/tumblr/'+data.response.blog.name+'/'+shortid);
                         photo.type = imageTypes.album;
                         $('#numberButton'+(imageIndex+1)).addClass('album');
                     }
@@ -1110,7 +1110,6 @@ $(function () {
                         vid.webm = post.video_url;
                     showVideo(vid);
                 }
-                $('#navboxExtra').html(photo.extra);
             };
 
         } else if (hostname.indexOf('youtube.com') >= 0) {
@@ -1140,11 +1139,18 @@ $(function () {
 
         divNode.css(cssMap);
 
+        var wrapHandleData = function(data) {
+            handleData(data);
+            // Refresh navbox
+            if (rp.session.activeIndex == imageIndex)
+                animateNavigationBox(imageIndex, imageIndex);
+        };
+
         $.ajax({
             url: jsonUrl,
             headers: headerData,
             dataType: dataType,
-            success: handleData,
+            success: wrapHandleData,
             error: failedAjax,
             404: failedAjax,
             timeout: 5000,
@@ -1241,7 +1247,7 @@ $(function () {
 
 
                 if (result.data.images_count > 1) {
-                    pic.extra = '<a class="info" href="/imgur/a/'+shortid+'" class="info">[ALBUM]</a>';
+                    pic.extra = albumURL('/imgur/a/'+shortid);
                     pic.type = imageTypes.album;
                 }
 
@@ -1575,7 +1581,7 @@ $(function () {
                 if (post.type == "photo") {
                     image.url = post.photos[0].original_size.url;
                     if (post.photos.length > 1) {
-                        image.extra = '<a class="info" href="/tumblr/'+data.response.blog.name+'/'+post.id+'">[ALBUM]</a>';
+                        image.extra = albumURL('/tumblr/'+data.response.blog.name+'/'+post.id);
                         image.type = imageTypes.album;
                     }
 
@@ -1584,7 +1590,7 @@ $(function () {
                     image.thumbnail = post.thumbnail_url;
 
                 } else {
-                    debug('cannot display url [not video or photo:'+post.type+']: '+post.post_url);
+                    debug('cannot display url [unk type '+post.type+']: '+post.post_url);
                     return;
                 }
 
@@ -1609,7 +1615,7 @@ $(function () {
     };
 
     var getTumblrAlbum = function (url) {
-        var a = url.split('/');
+        var a = rp.url.subreddit.split('/');
         if (a[a.length-1] == "")
             a.pop();
 
@@ -1699,6 +1705,7 @@ $(function () {
         if (rp.url.subreddit.indexOf('/user/') >= 0 ||
             rp.url.subreddit.indexOf('/domain/') >= 0 ||
             rp.url.subreddit.indexOf('/search/') >= 0 ||
+            rp.url.subreddit.indexOf('/r/all') >= 0 ||
             rp.url.subreddit.indexOf('+') >= 0)
             rp.session.needDedup = true;
         else
