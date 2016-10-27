@@ -69,10 +69,10 @@ a:hover {
     filter: progid:DXImageTransform.Microsoft.Shadow(Strength=3, Direction=135, Color='#EEEEEE');
 }
 
-#controlsDiv {position: absolute; bottom: 0; left: 0;right: 0;}
-#titleDiv {position: absolute; top: 0;left: 0;right: 0;}
-.navbox h2 { padding: 10px 20px 10px 10px; font: bold 20px Helvetica, Arial, Sans-serif; }
-.navbox .info { margin:  0px 5px 10px 10px; font: bold 12px Helvetica, Arial, Sans-serif; float: left}
+#controlsDiv {position: absolute; bottom: 0; left: 0; right: 0; }
+#titleDiv { position: absolute; top: 0; left: 0; right: 0; }
+.navbox h2 { padding: 2px; font: bold 20px Helvetica, Arial, Sans-serif; }
+.navbox .info { margin:  0px 1px 5px 5px; font: bold 12px Helvetica, Arial, Sans-serif; float: left}
 .navbox .infop { margin-right: 5px; font: bold 12px Helvetica, Arial, Sans-serif; float: left}
 .navbox p { padding:20px 20px 20px 20px; font-family: "Segoe UI","HelveticaNeue-Light","Helvetica Neue Light","Helvetica Neue",Arial,Tahoma,Verdana,sans-serif; font-size:13px; color:#111; }
 .navbox p.bottom { position:absolute; bottom:5px; right:5px; }
@@ -88,10 +88,24 @@ a:hover {
 
 #navboxContents {
     padding: 0px 28px 2px 0;
-    margin:0;
+    margin: 0;
+}
+#navboxTitleWrapper {
+    padding: 0px 28px 0px 0;
+    margin: 0;
 }
 
 label.checkbox { font-weight: bold; }
+
+.linkflair { 
+        border: 1px solid grey;
+        border-radius: 5px;
+        float: left;
+        font-size: 10px;
+        font-weight: normal;
+        margin: 1px;
+        padding: 1px;
+}
 
 .cam { background-image:url("../images/bg_cam_txt.png"); }
 .clouds {  }

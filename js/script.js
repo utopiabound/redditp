@@ -702,14 +702,14 @@ $(function () {
         toggleNumberButton(imageIndex, true);
     };
 
-    var failCleanup = function() {
+    var failCleanup = function(message = '') {
         if (rp.photos.length > 0) {
             // already loaded images, don't ruin the existing experience
             return;
         }
 
         // remove "loading" title
-        $('#navboxTitle').text('');
+        $('#navboxTitle').text(message);
 
         // display alternate recommendations
         $('#recommend').css({'display':'block'});
@@ -1340,12 +1340,20 @@ $(function () {
                 return;
             }
 
+            // Link to x-posted subreddits
             var title = item.data.title.replace(/\/?(r\/\w+)\s*/g,
                                                 "<a href='"+rp.redditBaseUrl+"/$1'>/$1</a>"+
                                                 "<a href='/$1'><img class='redditp' src='/images/favicon.png' /></a>");
+            // Link to reddit users
             title = title.replace(/\/?u\/(\w+)\s*/g, 
                                   "<a href='"+rp.redditBaseUrl+"/user/$1'>/u/$1</a>"+
                                   "<a href='/user/$1/submitted'><img class='redditp' src='/images/favicon.png' /></a>");
+            // Add flair (but remove if also in title)
+            if (item.data.link_flair_text) {
+                var needle = item.data.link_flair_text.trim();
+                var re = new RegExp('[\\[\\{\\(]'+needle+'[\\]\\}\\)]', "ig");
+                title = '<span class="linkflair">'+needle+'</span>'+title.replace(re, "").trim();
+            }
             addImageSlide({
                 url: item.data.url,
                 title: title,
