@@ -22,6 +22,7 @@ rp.settings = {
     cookieDays: 300,
     goodImageExtensions: ['.jpg', '.jpeg', '.gif', '.bmp', '.png'],
     goodVideoExtensions: ['.webm', '.mp4'],
+    alwaysSecure: true,
     // show Embeded Items
     embed: false,
     // show NSFW Items
@@ -471,7 +472,7 @@ $(function () {
         if (pic.type === undefined)
             pic.type = imageTypes.image;
         // Fix URL "quoting" by reddit
-        pic.url = pic.url.replace(/&amp;/gi, '&');
+        pic.url = secureUrl(pic.url.replace(/&amp;/gi, '&'));
         var hostname = hostnameOf(pic.url);
 
         // Replace HTTP with HTTPS on gfycat and imgur to avoid this:
@@ -481,7 +482,8 @@ $(function () {
         // be served over HTTPS.
         var http_prefix = 'http://';
         var https_prefix = 'https://';
-        if (hostname.indexOf('gfycat.com') >= 0 ||
+        if (rp.settings.alwaysSecure &&
+            hostname.indexOf('gfycat.com') >= 0 ||
             hostname.indexOf('pornbot.net') >= 0 ||
             hostname.indexOf('imgur.com') >= 0) {
             pic.url = pic.url.replace(http_prefix, https_prefix);
@@ -901,7 +903,7 @@ $(function () {
             var video = $('<video id="gfyvid" class="fullscreen"/>');
 
             if (data.thumbnail !== undefined)
-                video.attr('poster', data.thumbnail);
+                video.attr('poster', secureUrl(data.thumbnail));
             if (isVideoMuted())
                 video.prop('muted', true);
             if (data.webm !== undefined)
@@ -1152,9 +1154,9 @@ $(function () {
                         photo.album = [];
                         $.each(data, function(i, item) {
                             pic = { title: (item.description) ?item.description :photo.title,
-                                    thumbnail: secureUrl(item.url_thumb) };
+                                    thumbnail: item.url_thumb };
                             if (item.type == 'Video') {
-                                pic.url = secureUrl(item.url_mp4);
+                                pic.url = item.url_mp4;
                                 pic.type = imageTypes.video;
                             } else {
                                 pic.url = item.url_full_protocol;
@@ -1333,7 +1335,7 @@ $(function () {
     };
 
     var secureUrl = function (url) {
-        if (url.startsWith('//'))
+        if (rp.settings.alwaysSecure && url.startsWith('//'))
             return "https"+url;
         return url;
     };
@@ -1897,14 +1899,13 @@ $(function () {
 
         document.title = "redditP - " + subredditName;
     };
-    rp.redditBaseUrl = "http://www.reddit.com";
-    if (location.protocol === 'https:') {
-        // page is secure
-        rp.redditBaseUrl = "https://www.reddit.com";
-        // TODO: try "//" instead of specifying the protocol
-    }
 
-    var getVars;
+    if (rp.settings.alwaysSecure)
+        rp.redditBaseUrl = "https://www.reddit.com";
+
+    else
+        rp.redditBaseUrl = "//www.reddit.com";
+
     initState();
     setupUrls();
 
