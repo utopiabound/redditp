@@ -108,32 +108,30 @@ $(function () {
     //setupFadeoutOnIdle();
 
     var getNextSlideIndex = function(currentIndex) {
-        if(!rp.settings.nsfw) {
-            // Skip any nsfw if you should
-            for(var i = currentIndex + 1; i < rp.photos.length; i++) {
-                if (!rp.photos[i].over18) {
-                    return i;
-                }
-            }
+        for(var i = currentIndex + 1; i < rp.photos.length; i++) {
+            if (!rp.settings.nsfw && rp.photos[i].over18)
+                continue;
+            if (!rp.settings.embed && rp.photos[i].type == imageTypes.embed)
+                continue;
+            return i;
         }
-        if (isLastImage(getNextSlideIndex) && !rp.session.loadingNextImages) {
-            // The only reason we got here and there aren't more pictures yet
-            // is because there are no more images to load, start over
-            return 0;
-        }
-        // Just go to the next slide, this should be the common case
-        return currentIndex + 1;
+        // If no more "wanted" images, load more and stay here
+        debug("["+currentIndex+"] Couldn't find next index. loading more");
+        if (rp.session.loadAfter !== null && !rp.session.loadingNextImages)
+            rp.session.loadAfter();
+        return currentIndex;
     };
 
     var getPrevSlideIndex = function(currentIndex) {
-        if (!rp.settings.nsfw) {
-            for (var i = currentIndex - 1; i > 0; i--) {
-                if (!rp.photos[i].over18) {
-                    return i;
-                }
-            }
+        for (var i = currentIndex - 1; i >= 0; i--) {
+            if (!rp.settings.nsfw && rp.photos[i].over18)
+                continue;
+            if (!rp.settings.embed && rp.photos[i].type == imageTypes.embed)
+                continue;
+            return i;
         }
-        return currentIndex - 1;
+        debug("["+currentIndex+"] Couldn't find previous index.");
+        return currentIndex;
     };
 
     function nextSlide() {
@@ -452,6 +450,7 @@ $(function () {
     var imageTypes = {
         image: 'image',
         video: 'video',
+        embed: 'embed',
         album: 'album'
     };
 
@@ -514,13 +513,7 @@ $(function () {
         } else if (hostname.indexOf('youtube.com') >= 0 ||
                    hostname.indexOf('youtu.be') >= 0 ||
                    hostname.indexOf('vimeo.com') >= 0) {
-            if (rp.settings.embed) {
-                pic.type = imageTypes.video;
-
-            } else {
-                debug('cannot display url [no embed]: ' + pic.url);
-                return;
-            }
+            pic.type = imageTypes.embed;
 
         } else {
             var betterUrl = tryConvertPic(pic);
@@ -554,6 +547,9 @@ $(function () {
         if (pic.over18)
             numberButton.addClass("over18");
 
+        if (pic.type == imageTypes.embed)
+            numberButton.addClass("embed");
+
         if (pic.type == imageTypes.album)
             numberButton.addClass("album");
 
@@ -566,15 +562,11 @@ $(function () {
         numberButton.addClass("numberButton");
         addNumberButton(numberButton);
 
-        // Check if we're first Image
-        if (isFirst) {
-            // show the first image
-            if (rp.session.activeIndex == -1) {
-                startAnimation(0);
-            }
-
-            rp.session.loadingNextImages = false;            
+        // show the first valid image
+        if (rp.session.activeIndex == -1) {
+            startAnimation(getNextSlideIndex(-1));
         }
+        rp.session.loadingNextImages = false;
     };
 
     var arrow = {
@@ -687,8 +679,9 @@ $(function () {
                 rp.cache[next] = createDiv(next);
 
         } else {
+            // Store album index as -1, -2, -3
             var next = albumIndex+1;
-            rp.cache[-next] = createDiv(imageIndex, next);
+            rp.cache[-next-1] = createDiv(imageIndex, next);
         }
     };
 
@@ -831,7 +824,7 @@ $(function () {
             type = rp.photos[imageIndex].type;
 
         } else {
-            index = -albumIndex;
+            index = -albumIndex-1;
             type = rp.photos[imageIndex].album[albumIndex].type;
         }
 
@@ -840,7 +833,7 @@ $(function () {
         else
             divNode = rp.cache[index];
 
-        if (type == imageTypes.video)
+        if (type == imageTypes.video || type == imageTypes.embed)
             clearSlideTimeout();
 
         divNode.prependTo("#pictureSlider");
@@ -865,6 +858,8 @@ $(function () {
 
         else
             photo = rp.photos[imageIndex].album[albumIndex];
+
+        //debug("createDiv(image:"+imageIndex+", album:"+albumIndex+")");
 
         // Used by showVideo and showImage
         var divNode = $("<div />").addClass("clouds");
@@ -968,7 +963,6 @@ $(function () {
                 vid.thumbnail = photo.thumbnail;
             showVideo(vid);
             return divNode;
-
         }
 
         // Called with showEmbed(urlForIframe)
@@ -1183,6 +1177,9 @@ $(function () {
                         resetNextSlideTimer();
 
                 } else if (data.type == 'video') {
+                    photo.type = imageTypes.embed;
+                    $('#numberButton'+(imageIndex+1)).addClass('embed');
+                    // TODO: suprise load vs. intentional load
                     if (rp.settings.embed) {
                         var f = $.parseHTML(data.html);
                         showEmbed(f[0].src);
@@ -1227,24 +1224,40 @@ $(function () {
                                                 title: (item.caption) ?item.caption :photo.title
                                                 } );
                         });
+                        if (imageIndex == rp.session.activeIndex)
+                            rp.session.activeAlbumIndex = 0;
                     }
-                    
+
                     showImage(post.photos[0].original_size.url);
                     if (imageIndex == rp.session.activeIndex)
                         resetNextSlideTimer();
 
                 } else if (post.type == 'video') {
+                    photo.thumbnail = post.thumbnail_url;
                     if (post.video_type == "youtube") {
+                        photo.type = imageTypes.embed;
+                        $('#numberButton'+(imageIndex+1)).addClass('embed');
+                        photo.url = youtubeURL(post.video.youtube.video_id);
+                        // TODO: suprise load vs. intentional load
                         if (rp.settings.embed)
-                            showEmbed(youtubeURL(post.video.youtube.video_id));
+                            showEmbed(photo.url);
+
+                        else {
+                            debug("cannot display url [no embed]: "+photo.url);
+                            showImage(secureUrl(post.thumbnail_url));
+                            if (imageIndex == rp.session.activeIndex)
+                                resetNextSlideTimer();
+                        }
                         return;
                     }
 
+                    photo.type = imageTypes.video;
                     var vid = { thumbnail: post.thumbnail_url };
                     if (post.video_url.indexOf('.mp4') > 0)
                         vid.mp4 = post.video_url;
                     else if (post.video_url.indexOf('.webm') > 0)
                         vid.webm = post.video_url;
+                    photo.url = vid;
                     showVideo(vid);
                 }
             };
@@ -1268,7 +1281,6 @@ $(function () {
             return divNode;
 
         } else if (hostname.indexOf('vimeo.com') >= 0) {
-
             showEmbed('https://player.vimeo.com/video/'+shortid+'?autoplay=1');
             return divNode;
 
@@ -1754,13 +1766,14 @@ $(function () {
                     }
 
                 } else if (post.type == "video") {
-                    if (post.video_type == "youtube")
-                        if (rp.settings.embed)
-                            image.url = youtubeURL(post.video.youtube.video_id);
-                        else
-                            return;
-                    else
+                    if (post.video_type == "youtube") {
+                        image.type = imageTypes.embed;
+                        image.url = youtubeURL(post.video.youtube.video_id);
+                            
+                    } else {
+                        image.type = imageTypes.video;
                         image.url = post.video_url;
+                    }
                     image.thumbnail = post.thumbnail_url;
 
                 } else {

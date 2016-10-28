@@ -46,6 +46,10 @@ a:hover {
     color: #f99;
 }
 
+.embed {
+    text-decoration: underline overline;
+}
+
 .album {
     border-style: solid;
     border-color: white;
