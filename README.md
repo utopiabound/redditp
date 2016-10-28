@@ -3,6 +3,10 @@ redditp
 
 A full screen reddit presentation or slide show.
 
+http://github.com/utopiabound/redditp
+
+Fork from Ubershmekel's
+
 http://redditp.com
 
 Hotkeys
@@ -17,6 +21,8 @@ Hotkeys
 * f - toggle full screen mode
 * m - unmute/mute videos
 * Arrow keys, pgup/pgdown change slides
+** Up/Down, page-up / page-down - switch Albums
+** left/right - switch pictures within albums (and also to next/previous album)
 * Swipe gestures on phones
 
 Features
@@ -28,18 +34,20 @@ Features
 * Video support (either direct or embeded)
 * Autonext waits for the end of a video (does not work for gif, but does work for gifv)
 * Parsing for a collection of domains including: (see source for complete list)
-	* Imagur (adds album links)
-	* Tumblr (adds album links)
+	* Imgur		(Album support)
+	* Tumblr	(Album support)
+	* Eroshare	(Album support)
 	* Gfycat
-	* vimeo (embed only - no autonext)
-	* Youtube (embed only - no autonext)
+	* vimeo		(embed only - no autonext)
+	* Youtube	(embed only - no autonext)
 * Deduplication support when browsing mulitple reddits (e.g. a multireddit /user/NAME/m/MULTIREDDIT or /r/funny+pics)
+* Albums will display inline for subreddits
 * Browse imgur gallaries/albums (/imgur/a/ID), and tumblr gallaries (/tumblr/DOMAIN/ID), or a whole tumblr blog (/tumblr/DOMAIN)
 * You can save the html file locally and use it, just make sure you add a separator e.g. the question mark in file:///c/myredditp.html?/r/gifs so the browser knows to pick up the right file and go to the right subreddit.
+* Support for /r/random and /r/randnsfw virtual subreddits
 
 Possible future features, depending on feedback:
 * Zoom/Pan for comics
-* Support for /r/random and /r/randnsfw virtual subreddits. These'll be tricky unless I cheat as they contain redirects.
 * Offline access support, though I don't know if this is even possible actually (caching external image resources).
 
 Credits

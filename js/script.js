@@ -32,6 +32,7 @@ rp.session = {
     // 0-based index to set which picture to show first
     // init to -1 until the first image is loaded
     activeIndex: -1,
+    activeAlbumIndex: -1,
 
     // Variable to store if the animation is playing or not
     isAnimating: false,
@@ -77,6 +78,10 @@ $(function () {
     function log(data) {
         window.log(data);
     }
+    function error(data) {
+        window.log(data);
+        window.alert(data);
+    }
 
     var setupFadeoutOnIdle = function () {
         $('.fadeOnIdle').fadeTo('fast', 0);
@@ -119,27 +124,61 @@ $(function () {
         return currentIndex + 1;
     };
 
+    var getPrevSlideIndex = function(currentIndex) {
+        if (!rp.settings.nsfw) {
+            for (var i = currentIndex - 1; i > 0; i--) {
+                if (!rp.photos[i].over18) {
+                    return i;
+                }
+            }
+        }
+        return currentIndex - 1;
+    };
+
     function nextSlide() {
         var next = getNextSlideIndex(rp.session.activeIndex);
         startAnimation(next);
     }
 
-    function prevSlide() {
-        if (!rp.settings.nsfw) {
-            for (var i = rp.session.activeIndex - 1; i > 0; i--) {
-                if (!rp.photos[i].over18) {
-                    startAnimation(i);
-                    return;
-                }
-            }
+    function nextAlbumSlide() {
+        var photo = rp.photos[rp.session.activeIndex];
+        if (photo.type != imageTypes.album ||
+            rp.session.activeAlbumIndex+1 >= photo.album.length) {
+            nextSlide();
+            return;
         }
-        startAnimation(rp.session.activeIndex - 1);
+
+        startAnimation(rp.session.activeIndex, rp.session.activeAlbumIndex + 1);
+    }
+
+    function prevSlide() {
+        var index = getPrevSlideIndex(rp.session.activeIndex);
+        startAnimation(index);
+    }
+
+    function prevAlbumSlide() {
+        if (rp.session.activeAlbumIndex > 0) {
+            startAnimation(rp.session.activeIndex, rp.session.activeAlbumIndex-1);
+            return;
+        }
+
+        var index = getPrevSlideIndex(rp.session.activeIndex);
+        if (index < 0)
+            return;
+
+        var photo = rp.photos[index];
+        if (photo.type != imageTypes.album) {
+            startAnimation(index);
+            return;
+        }
+
+        startAnimation(index, photo.album.length-1);
     }
 
     var autoNextSlide = function () {
         if (rp.settings.shouldAutoNextSlide) {
             // startAnimation takes care of the setTimeout
-            nextSlide();
+            nextAlbumSlide();
             return true;
         }
         return false;
@@ -156,8 +195,21 @@ $(function () {
         return true;
     };
 
-    var albumURL = function(url) {
+    var albumLink = function(url) {
         return '<a id="album" class="info" href="'+url+'">[ALBUM]</a>';
+    };
+
+    var youtubeURL = function(id) {
+        var ytExtra = '?autoplay=1&origin='+encodeURI(window.location.protocol + "//" + window.location.host + "/");
+        //var ytExtra = '?enablejsapi=1';
+        return 'https://www.youtube.com/embed/'+id+ytExtra;
+    };
+
+    var infoLink = function(info, text, infop = null) {
+        var data = '<a href="'+info+'" class="info">'+text+'</a>';
+        if (infop)
+            data += '<a href="'+infop+'" class="infop"><img class="redditp" src="/images/favicon.png" /></a>';
+        return data;
     };
 
     function open_in_background(selector){
@@ -194,8 +246,8 @@ $(function () {
 
     $("#pictureSlider").touchwipe({
         // wipeLeft means the user moved his finger from right to left.
-        wipeLeft: nextSlide,
-        wipeRight: prevSlide,
+        wipeLeft: nextAlbumSlide,
+        wipeRight: prevAlbumSlide,
         wipeUp: nextSlide,
         wipeDown: prevSlide,
         min_move_x: 20,
@@ -380,8 +432,8 @@ $(function () {
 
         $('#timeToNextSlide').keyup(updateTimeToNextSlide);
 
-        $('#prevButton').click(prevSlide);
-        $('#nextButton').click(nextSlide);
+        $('#prevButton').click(prevAlbumSlide);
+        $('#nextButton').click(nextAlbumSlide);
     };
 
     var addNumberButton = function (numberButton) {
@@ -437,14 +489,11 @@ $(function () {
 
         if (isImageExtension(pic.url)) {
             if (hostname.indexOf('imgur.com') >= 0) {
-                // see if there's a useful video url on imgur
-                if (pic.url.indexOf('gifv') >= 0 ||
-                    pic.url.indexOf('gif') >= 0)
+                pic.url = fixImgurPicUrl(pic.url);
+                if (isVideoExtension(pic.url))
                     pic.type = imageTypes.video;
-                else
-                    pic.url = fixImgurPicUrl(pic.url);
             }
-            // simple image
+            // simple image (or converted to video)
 
         } else if (hostname.indexOf('i.reddituploads.com') >= 0) {
             // simple image
@@ -592,14 +641,18 @@ $(function () {
             toggleFullScreen();
             break;
         case PAGEUP:
-        case arrow.left:
         case arrow.up:
             prevSlide();
             break;
+        case arrow.left:
+            prevAlbumSlide();
+            break;
         case PAGEDOWN:
-        case arrow.right:
         case arrow.down:
             nextSlide();
+            break;
+        case arrow.right:
+            nextAlbumSlide();
             break;
         }
     });
@@ -622,26 +675,32 @@ $(function () {
         }
     };
 
-    var preloadNextImage = function(imageIndex) {
-        var next = getNextSlideIndex(imageIndex);
-        // Always clear cache - no need for memory bloat.
-        // We only keep the next image preloaded.
-        rp.cache = {};
-        if(next < rp.photos.length)
-            rp.cache[next] = createDiv(next);
+    var preloadNextImage = function(imageIndex, albumIndex = -1) {
+        if (albumIndex == -1 || albumIndex+1 >= rp.photos[imageIndex].album.length) {
+            var next = getNextSlideIndex(imageIndex);
+            // Always clear cache - no need for memory bloat.
+            // We only keep the next image preloaded.
+            rp.cache = {};
+            if(next < rp.photos.length)
+                rp.cache[next] = createDiv(next);
+
+        } else {
+            var next = albumIndex+1;
+            rp.cache[-next] = createDiv(imageIndex, next);
+        }
     };
 
     //
     // Starts the animation, based on the image index
     //
     // Variable to store if the animation is playing or not
-    var startAnimation = function (imageIndex) {
+    var startAnimation = function (imageIndex, albumIndex = -1) {
+        var needRefresh = false;
         resetNextSlideTimer();
 
         // If the same number has been chosen, or the index is outside the
         // rp.photos range, or we're already animating, do nothing
-        if (rp.session.activeIndex == imageIndex ||
-            imageIndex < 0 || imageIndex >= rp.photos.length ||
+        if (imageIndex < 0 || imageIndex >= rp.photos.length ||
             rp.session.isAnimating || rp.photos.length == 0) {
 
             if (imageIndex >= rp.photos.length &&
@@ -650,13 +709,29 @@ $(function () {
             return;
         }
 
-        var oldIndex = rp.session.activeIndex;
-        rp.session.isAnimating = true;
-        rp.session.activeIndex = imageIndex;
-        animateNavigationBox(imageIndex, oldIndex);
-        slideBackgroundPhoto(imageIndex);
+        if (rp.session.activeIndex == imageIndex) {
+            if (rp.photos[imageIndex].type != imageTypes.album || albumIndex < 0)
+                return;
 
-        preloadNextImage(imageIndex);
+            if (albumIndex >= rp.photos[imageIndex].album.length) {
+                error("["+imageIndex+"] album index ("+albumIndex+") past end of album length:"+rp.photos[imageIndex].album.length);
+                return;
+            }
+            if (rp.session.activeAlbumIndex == albumIndex)
+                return;
+
+        } else if (rp.photos[imageIndex].type == imageTypes.album && albumIndex < 0) {
+            albumIndex = 0;
+        }
+
+        var oldIndex = rp.session.activeIndex;
+        rp.session.activeIndex = imageIndex;
+        rp.session.activeAlbumIndex = albumIndex;
+        rp.session.isAnimating = true;
+
+        animateNavigationBox(imageIndex, oldIndex, albumIndex);
+        slideBackgroundPhoto(imageIndex, albumIndex);
+        preloadNextImage(imageIndex, albumIndex);
 
         // Load if last image, but not if first image This is because
         // for dedup, we'll get called by image 0, before other images
@@ -679,27 +754,41 @@ $(function () {
     //
     // Animate the navigation box
     //
-    var animateNavigationBox = function (imageIndex, oldIndex) {
+    var animateNavigationBox = function (imageIndex, oldIndex, albumIndex = -1) {
         var photo = rp.photos[imageIndex];
         var subreddit = '/r/' + photo.subreddit;
         var author = '/u/' + photo.author;
 
-        $('#navboxTitle').html(photo.title);
+        if (albumIndex < 0) {
+            $('#navboxTitle').html(photo.title);
+            $('#navboxExtra').html((photo.extra !== undefined) ?photo.extra :"");
+            $('#navboxLink').attr('href', photo.url).attr('title', $("<div/>").html(photo.title).text());
+
+        } else {
+            var pic = rp.photos[imageIndex].album[albumIndex];
+            $('#navboxTitle').html(pic.title);
+            // TODO: add text field to jump to albumIndex
+            var extra = (pic.extra) ?pic.extra :"";
+            $('#navboxExtra').html(extra+(albumIndex+1)+"/"+rp.photos[imageIndex].album.length);
+            $('#navboxLink').attr('href', pic.url).attr('title', $("<div/>").html(pic.title).text());
+        }
+
         if (photo.subreddit !== undefined && photo.subreddit !== null) {
             $('#navboxSubreddit').attr('href', rp.redditBaseUrl + subreddit).html(subreddit);
             $('#navboxSubredditP').attr('href', subreddit).html($('<img />', {'class': 'redditp', src: '/images/favicon.png'}));
         }
+
         if (photo.author !== undefined) {
             $('#navboxAuthor').attr('href', rp.redditBaseUrl + author).html(author);
             $('#navboxAuthorP').attr('href', '/user/'+photo.author+'/submitted').html($('<img />', {'class': 'redditp',
                                                                                                     src: '/images/favicon.png'}));
         }
-        $('#navboxExtra').html((photo.extra !== undefined) ?photo.extra :"");
-        $('#navboxLink').attr('href', photo.url).attr('title', photo.title);
         $('#navboxCommentsLink').attr('href', photo.commentsLink).attr('title', "Comments");
 
-        toggleNumberButton(oldIndex, false);
-        toggleNumberButton(imageIndex, true);
+        if (oldIndex != imageIndex) {
+            toggleNumberButton(oldIndex, false);
+            toggleNumberButton(imageIndex, true);
+        }
     };
 
     var failCleanup = function(message = '') {
@@ -731,15 +820,25 @@ $(function () {
     //
     // Slides the background photos
     //
-    var slideBackgroundPhoto = function (imageIndex) {
+    var slideBackgroundPhoto = function (imageIndex, albumIndex = -1) {
         var divNode;
-        if (rp.cache[imageIndex] === undefined)
-            divNode = createDiv(imageIndex);
-        else
-            divNode = rp.cache[imageIndex];
+        var index;
+        var type;
+        if (albumIndex < 0) {
+            index = imageIndex;
+            type = rp.photos[imageIndex].type;
 
-        var pic = rp.photos[imageIndex];
-        if (pic.type == imageTypes.video)
+        } else {
+            index = -albumIndex;
+            type = rp.photos[imageIndex].album[albumIndex].type;
+        }
+
+        if (rp.cache[index] === undefined)
+            divNode = createDiv(imageIndex, albumIndex);
+        else
+            divNode = rp.cache[index];
+
+        if (type == imageTypes.video)
             clearSlideTimeout();
 
         divNode.prependTo("#pictureSlider");
@@ -756,10 +855,14 @@ $(function () {
         });
     };
 
-    var createDiv = function(imageIndex) {
+    var createDiv = function(imageIndex, albumIndex = -1) {
         // Retrieve the accompanying photo based on the index
-        var photo = rp.photos[imageIndex];
-        //log("Creating div for " + imageIndex + " - " + photo.url);
+        var photo;
+        if (albumIndex < 0)
+            photo = rp.photos[imageIndex];
+
+        else
+            photo = rp.photos[imageIndex].album[albumIndex];
 
         // Used by showVideo and showImage
         var divNode = $("<div />").addClass("clouds");
@@ -789,25 +892,9 @@ $(function () {
         }
 
         // Preloading, don't mess with timeout
-        if (imageIndex == rp.session.activeIndex)
+        if (imageIndex == rp.session.activeIndex &&
+            albumIndex == rp.session.activeAlbumIndex)
             clearSlideTimeout();
-
-        var shortid;
-
-        // chomp off last char if it ends in '/'
-        if (photo.url.charAt(photo.url.length-1) == '/') {
-            var surl = photo.url.substr(0, photo.url.length-1);
-            shortid = surl.substr(1 + surl.lastIndexOf('/'));
-
-        } else {
-            shortid = photo.url.substr(1 + photo.url.lastIndexOf('/'));
-        }
-
-        if (shortid.indexOf('#') != -1)
-            shortid = shortid.substr(0, shortid.indexOf('#'));
-
-        if (shortid.indexOf('.') != -1)
-            shortid = shortid.substr(0, shortid.lastIndexOf('.'));
 
         // Called with showVideo({'thumbnail': jpgurl, 'mp4': mp4url, 'webm': webmurl})
         var showVideo = function(data) {
@@ -870,6 +957,18 @@ $(function () {
             });
         };
 
+        // Show Video if it's that easy
+        if (isVideoExtension(photo.url)) {
+            var extention = photo.url.substr(1 + photo.url.lastIndexOf('.'));
+            var vid = {};
+            vid[extention] = photo.url;
+            if (photo.thumbnail)
+                vid.thumbnail = photo.thumbnail;
+            showVideo(vid);
+            return divNode;
+
+        }
+
         // Called with showEmbed(urlForIframe)
         var showEmbed = function(url) {
             var iframe = $('<iframe id="gfyembed" class="fullscreen" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen />');
@@ -914,8 +1013,23 @@ $(function () {
         var handleData;
         var headerData;
         var hostname = hostnameOf(photo.url);
-        var ytExtra = '?autoplay=1&origin='+encodeURI(window.location.protocol + "//" + window.location.host + "/");
-        //var ytExtra = '?enablejsapi=1';
+        var shortid;
+
+        // chomp off last char if it ends in '/'
+        if (photo.url.charAt(photo.url.length-1) == '/') {
+            var surl = photo.url.substr(0, photo.url.length-1);
+            shortid = surl.substr(1 + surl.lastIndexOf('/'));
+
+        } else {
+            shortid = photo.url.substr(1 + photo.url.lastIndexOf('/'));
+        }
+
+        if (shortid.indexOf('#') != -1)
+            shortid = shortid.substr(0, shortid.indexOf('#'));
+
+        if (shortid.indexOf('.') != -1)
+            shortid = shortid.substr(0, shortid.lastIndexOf('.'));
+
 
         if (hostname.indexOf('gfycat.com') >= 0) {
 
@@ -999,15 +1113,6 @@ $(function () {
                 showVideo(viddata);
             };
 
-        } else if (isVideoExtension(photo.url)) {
-            var extention = photo.url.substr(1 + photo.url.lastIndexOf('.'));
-            var vid = {};
-            vid[extention] = photo.url;
-            if (photo.thumbnail)
-                vid.thumbnail = photo.thumbnail;
-            showVideo(vid);
-            return divNode;
-
         } else if (hostname.indexOf('eroshare.com') >= 0) {
             headerData = { 'Origin': document.location.origin };
 
@@ -1037,13 +1142,28 @@ $(function () {
             } else { // Album
                 jsonUrl = 'https://api.eroshare.com/api/v1/albums/' + shortid + '/items';
                 handleData = function(data) {
-                    var item = data[0];
                     if (data.length > 1) {
                         photo.type = imageTypes.album;
+                        if (imageIndex == rp.session.activeIndex)
+                            rp.session.activeAlbumIndex = 0;
                         $('#numberButton'+(imageIndex+1)).addClass('album');
-                        photo.extra = albumURL('/eroshare/'+shortid);
+                        photo.extra = albumLink('/eroshare/'+shortid);
+
+                        photo.album = [];
+                        $.each(data, function(i, item) {
+                            pic = { title: (item.description) ?item.description :photo.title,
+                                    thumbnail: secureUrl(item.url_thumb) };
+                            if (item.type == 'Video') {
+                                pic.url = secureUrl(item.url_mp4);
+                                pic.type = imageTypes.video;
+                            } else {
+                                pic.url = item.url_full_protocol;
+                                pic.type = imageTypes.image;
+                            }
+                            photo.album.push(pic);
+                        });
                     }
-                    handleEroshareItem(item);
+                    handleEroshareItem(data[0]);
                 };
             }
 
@@ -1089,13 +1209,22 @@ $(function () {
             handleData = function(data) {
                 var post = data.response.posts[0];
 
-                photo.extra = '<a href="'+data.response.blog.url+'" class="info">'+hostname+'</a>';
-                photo.extra += '<a href="/tumblr/'+data.response.blog.name+'" class="infop"><img class="redditp" src="/images/favicon.png" /></a>';
+                photo.extra = infoLink(data.response.blog.url, 'tumblr/'+data.response.blog.name, '/tumblr/'+data.response.blog.name);
                 if (post.type == "photo") {
                     if (post.photos.length > 1) {
-                        photo.extra += albumURL('/tumblr/'+data.response.blog.name+'/'+shortid);
+                        photo.extra += albumLink('/tumblr/'+data.response.blog.name+'/'+shortid);
                         photo.type = imageTypes.album;
                         $('#numberButton'+(imageIndex+1)).addClass('album');
+                        photo.album = [];
+                        $.each(post.photos, function(i, item) {
+                            photo.album.push( { url: item.original_size.url,
+                                                type: imageTypes.image,
+                                                extra: infoLink(data.response.blog.url,
+                                                                'tumblr/'+data.response.blog.name,
+                                                                '/tumblr/'+data.response.blog.name),
+                                                title: (item.caption) ?item.caption :photo.title
+                                                } );
+                        });
                     }
                     
                     showImage(post.photos[0].original_size.url);
@@ -1103,6 +1232,12 @@ $(function () {
                         resetNextSlideTimer();
 
                 } else if (post.type == 'video') {
+                    if (post.video_type == "youtube") {
+                        if (rp.settings.embed)
+                            showEmbed(youtubeURL(post.video.youtube.video_id));
+                        return;
+                    }
+
                     var vid = { thumbnail: post.thumbnail_url };
                     if (post.video_url.indexOf('.mp4') > 0)
                         vid.mp4 = post.video_url;
@@ -1113,10 +1248,13 @@ $(function () {
             };
 
         } else if (hostname.indexOf('youtube.com') >= 0) {
+            var b;
             a = photo.url.split('/').pop();
-            shortid = a.match(/.*v=([^&]*)/)[1];
+            b = a.match(/.*v=([^&]*)/);
+            if (b)
+                shortid = b[1];
 
-            showEmbed('https://www.youtube.com/embed/'+shortid+ytExtra);
+            showEmbed(youtubeURL(shortid));
             return divNode;
 
         } else if (hostname.indexOf('youtu.be') >= 0) {
@@ -1124,7 +1262,7 @@ $(function () {
             if (a[a.length-1] == "")
                 a.pop();
 
-            showEmbed('https://www.youtube.com/embed/'+shortid+ytExtra);
+            showEmbed(youtubeURL(shortid));
             return divNode;
 
         } else if (hostname.indexOf('vimeo.com') >= 0) {
@@ -1143,7 +1281,7 @@ $(function () {
             handleData(data);
             // Refresh navbox
             if (rp.session.activeIndex == imageIndex)
-                animateNavigationBox(imageIndex, imageIndex);
+                animateNavigationBox(imageIndex, imageIndex, rp.session.activeAlbumIndex);
         };
 
         $.ajax({
@@ -1187,6 +1325,16 @@ $(function () {
             log("Found ? in url: ", url);
             url = url.replace(/\?[^\.]*/, '');
         }
+        if (url.indexOf("/r/") >= 0)
+                url = url.replace(/r\/[^ \/]+\//, '');
+        // convert gifs to videos
+        url = url.replace(/gifv?$/, "mp4");
+        return url;
+    };
+
+    var secureUrl = function (url) {
+        if (url.startsWith('//'))
+            return "https"+url;
         return url;
     };
 
@@ -1199,13 +1347,6 @@ $(function () {
 
         /** IMGUR **/
         if (hostname.indexOf('imgur.com') >= 0) {
-            if (url.indexOf('gifv') >= 0 ||
-                url.indexOf('gif') >= 0) {
-
-                pic.type = imageTypes.video;
-                return fixImgurPicUrl(url);
-            }
-
             /*
              * Gallery URLs can be either albums or individual pictures
              */
@@ -1247,8 +1388,15 @@ $(function () {
 
 
                 if (result.data.images_count > 1) {
-                    pic.extra = albumURL('/imgur/a/'+shortid);
+                    pic.extra = albumLink('/imgur/a/'+shortid);
                     pic.type = imageTypes.album;
+                    pic.album = [];
+                    $.each(result.data.images, function(i, item) {
+                        pic.album.push( { title: (item.title) ?item.title :(item.description) ?item.description :pic.title,
+                                          url: item.animated ?item.mp4 :item.link,
+                                          type: item.animated ?imageTypes.video :imageTypes.image
+                                          });
+                    });
                 }
 
                 // If this is animated it will return the animated gif
@@ -1265,12 +1413,11 @@ $(function () {
             // regexp removes /r/<sub>/ prefix if it exists
             // E.g. http://imgur.com/r/aww/x9q6yW9
 
-            if (url.indexOf("/r/") >= 0)
-                return url.replace(/r\/[^ \/]+\/(\w+)/, '$1') + '.jpg';
-            else if (isImageExtension(url))
+            if (isImageExtension(url))
                 return url;
-            else
-                return url+".jpg";
+            if (isVideoExtension(url))
+                return url;
+            return url+".jpg";
 
         }
         if (hostname.indexOf('giphy.com') >= 0) {
@@ -1589,12 +1736,29 @@ $(function () {
                 if (post.type == "photo") {
                     image.url = post.photos[0].original_size.url;
                     if (post.photos.length > 1) {
-                        image.extra = albumURL('/tumblr/'+data.response.blog.name+'/'+post.id);
+                        image.extra = albumLink('/tumblr/'+data.response.blog.name+'/'+post.id);
                         image.type = imageTypes.album;
+                        //$('#numberButton'+(imageIndex+1)).addClass('album');
+                        image.album = [];
+                        $.each(post.photos, function(i, item) {
+                            image.album.push( { url: item.original_size.url,
+                                                type: imageTypes.image,
+                                                extra: infoLink(data.response.blog.url,
+                                                                'tumblr/'+data.response.blog.name,
+                                                                '/tumblr/'+data.response.blog.name),
+                                                title: (item.caption) ?item.caption :image.title
+                                                } );
+                        });
                     }
 
                 } else if (post.type == "video") {
-                    image.url = post.video_url;
+                    if (post.video_type == "youtube")
+                        if (rp.settings.embed)
+                            image.url = youtubeURL(post.video.youtube.video_id);
+                        else
+                            return;
+                    else
+                        image.url = post.video_url;
                     image.thumbnail = post.thumbnail_url;
 
                 } else {
