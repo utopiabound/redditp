@@ -98,6 +98,9 @@ a:hover {
     padding: 0px 28px 0px 0;
     margin: 0;
 }
+#albumNumberButtons {
+    border-top: 2px solid grey;
+}
 
 label.checkbox { font-weight: bold; }
 

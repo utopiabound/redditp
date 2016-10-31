@@ -116,9 +116,10 @@ $(function () {
             return i;
         }
         // If no more "wanted" images, load more and stay here
-        debug("["+currentIndex+"] Couldn't find next index. loading more");
-        if (rp.session.loadAfter !== null && !rp.session.loadingNextImages)
+        if (rp.session.loadAfter !== null && !rp.session.loadingNextImages) {
+            debug("["+currentIndex+"] Couldn't find next index. loading more");
             rp.session.loadAfter();
+        }
         return currentIndex;
     };
 
@@ -436,16 +437,50 @@ $(function () {
     };
 
     var addNumberButton = function (numberButton) {
-        var navboxUls = $(".navbox ul");
-        var thisNavboxUl = navboxUls[navboxUls.length - 1];
-
-        var newListItem = $("<li />").appendTo(thisNavboxUl);
+        var buttonUl = $("#allNumberButtons");
+        var newListItem = $("<li />").appendTo(buttonUl);
         numberButton.appendTo(newListItem);
-
-        // so li's have a space between them and can word-wrap in the box
-        navboxUls.append(document.createTextNode(' '));
     };
 
+    var initPhotoAlbum = function (photo, imageIndex = -1) {
+        if (imageIndex >= 0) {
+            $('#numberButton'+(imageIndex+1)).addClass('album');
+
+            // Set correct AlbumIndex if needed
+            if (imageIndex == rp.session.activeIndex)
+                rp.session.activeAlbumIndex = 0;
+        }
+        photo.type = imageTypes.album;
+        photo.album = [];
+        photo.album_ul = $("<ul />");
+    };
+
+    var populateAlbumButtons = function (photo) {
+        // clear old
+        $("#albumNumberButtons").detach();
+
+        if (photo.type == imageTypes.album)
+            $("#navboxContents").append($("<div>", { id: 'albumNumberButtons',
+                                                     class: 'numberButtonList'
+                                                   }).append(photo.album_ul));
+        
+    };
+
+    var addAlbumItem = function (photo, pic, index) {
+        var button = $("<a />", { class: "numberButton",
+                                  title: pic.title,
+                                  id: "albumButton" + (index + 1)
+                                }).data("index", index).html(index + 1);
+        if (photo.over18)
+            button.addClass("over18");
+        button.click(function () {
+            var index = $(this).data("index");
+            var imageIndex = $('#allNumberButtons a.active').data("index");
+            startAnimation(imageIndex, index);
+        });
+        photo.album_ul.append($('<li>').append(button));
+        photo.album.push(pic);
+    };
 
     var imageTypes = {
         image: 'image',
@@ -709,7 +744,8 @@ $(function () {
                 return;
 
             if (albumIndex >= rp.photos[imageIndex].album.length) {
-                error("["+imageIndex+"] album index ("+albumIndex+") past end of album length:"+rp.photos[imageIndex].album.length);
+                error("["+imageIndex+"] album index ("+albumIndex+") past end of album length:"+
+                      rp.photos[imageIndex].album.length);
                 return;
             }
             if (rp.session.activeAlbumIndex == albumIndex)
@@ -720,11 +756,12 @@ $(function () {
         }
 
         var oldIndex = rp.session.activeIndex;
+        var oldAlbumIndex = rp.session.activeAlbumIndex;
         rp.session.activeIndex = imageIndex;
         rp.session.activeAlbumIndex = albumIndex;
         rp.session.isAnimating = true;
 
-        animateNavigationBox(imageIndex, oldIndex, albumIndex);
+        animateNavigationBox(imageIndex, oldIndex, albumIndex, oldAlbumIndex);
         slideBackgroundPhoto(imageIndex, albumIndex);
         preloadNextImage(imageIndex, albumIndex);
 
@@ -738,7 +775,20 @@ $(function () {
     };
 
     var toggleNumberButton = function (imageIndex, turnOn) {
+        if (imageIndex < 0)
+            return;
         var numberButton = $('#numberButton' + (imageIndex + 1));
+        if (turnOn) {
+            numberButton.addClass('active');
+        } else {
+            numberButton.removeClass('active');
+        }
+    };
+
+    var toggleAlbumButton = function (imageIndex, turnOn) {
+        if (imageIndex < 0)
+            return;
+        var numberButton = $('#albumButton' + (imageIndex + 1));
         if (turnOn) {
             numberButton.addClass('active');
         } else {
@@ -749,7 +799,7 @@ $(function () {
     //
     // Animate the navigation box
     //
-    var animateNavigationBox = function (imageIndex, oldIndex, albumIndex = -1) {
+    var animateNavigationBox = function (imageIndex, oldIndex, albumIndex = -1, oldAlbumIndex = -1) {
         var photo = rp.photos[imageIndex];
         var subreddit = '/r/' + photo.subreddit;
         var author = '/u/' + photo.author;
@@ -762,7 +812,6 @@ $(function () {
         } else {
             var pic = rp.photos[imageIndex].album[albumIndex];
             $('#navboxTitle').html(pic.title);
-            // TODO: add text field to jump to albumIndex
             var extra = (pic.extra) ?pic.extra :"";
             $('#navboxExtra').html(extra+(albumIndex+1)+"/"+rp.photos[imageIndex].album.length);
             $('#navboxLink').attr('href', pic.url).attr('title', $("<div/>").html(pic.title).text());
@@ -781,8 +830,13 @@ $(function () {
         $('#navboxCommentsLink').attr('href', photo.commentsLink).attr('title', "Comments");
 
         if (oldIndex != imageIndex) {
-            toggleNumberButton(oldIndex, false);
+            toggleNumberButton(oldIndex, false);            
             toggleNumberButton(imageIndex, true);
+            populateAlbumButtons(photo);
+        }
+        if (albumIndex >= 0 && albumIndex != oldAlbumIndex) {
+            toggleAlbumButton(oldAlbumIndex, false);
+            toggleAlbumButton(albumIndex, true);
         }
     };
 
@@ -859,8 +913,6 @@ $(function () {
         else
             photo = rp.photos[imageIndex].album[albumIndex];
 
-        //debug("createDiv(image:"+imageIndex+", album:"+albumIndex+")");
-
         // Used by showVideo and showImage
         var divNode = $("<div />").addClass("clouds");
 
@@ -916,7 +968,6 @@ $(function () {
             };
 
             $(video).on("ended", function(e) {
-                // TODO: if duration < rp.settings.timeToNextSlide, then count cycles?
                 debug("["+imageIndex+"] video ended");
                 if (shouldStillPlay(imageIndex) || !autoNextSlide())
                     $('#gfyvid')[0].play();
@@ -1139,16 +1190,12 @@ $(function () {
                 jsonUrl = 'https://api.eroshare.com/api/v1/albums/' + shortid + '/items';
                 handleData = function(data) {
                     if (data.length > 1) {
-                        photo.type = imageTypes.album;
-                        if (imageIndex == rp.session.activeIndex)
-                            rp.session.activeAlbumIndex = 0;
-                        $('#numberButton'+(imageIndex+1)).addClass('album');
                         photo.extra = albumLink('/eroshare/'+shortid);
 
-                        photo.album = [];
+                        initPhotoAlbum(photo, imageIndex);
                         $.each(data, function(i, item) {
-                            pic = { title: (item.description) ?item.description :photo.title,
-                                    thumbnail: item.url_thumb };
+                            var pic = { title: (item.description) ?item.description :photo.title,
+                                        thumbnail: item.url_thumb };
                             if (item.type == 'Video') {
                                 pic.url = item.url_mp4;
                                 pic.type = imageTypes.video;
@@ -1156,7 +1203,7 @@ $(function () {
                                 pic.url = item.url_full_protocol;
                                 pic.type = imageTypes.image;
                             }
-                            photo.album.push(pic);
+                            addAlbumItem(photo, pic, i);
                         });
                     }
                     handleEroshareItem(data[0]);
@@ -1185,7 +1232,7 @@ $(function () {
                         showEmbed(f[0].src);
 
                     } else {
-                        debug("cannot display url [no embed]: "+photo.url);
+                        log("cannot display url [no embed]: "+photo.url);
                         showImage(data.thumbnail_url);
                         if (imageIndex == rp.session.activeIndex)
                             resetNextSlideTimer();
@@ -1212,20 +1259,17 @@ $(function () {
                 if (post.type == "photo") {
                     if (post.photos.length > 1) {
                         photo.extra += albumLink('/tumblr/'+data.response.blog.name+'/'+shortid);
-                        photo.type = imageTypes.album;
-                        $('#numberButton'+(imageIndex+1)).addClass('album');
-                        photo.album = [];
+                        
+                        initPhotoAlbum(photo, imageIndex);
                         $.each(post.photos, function(i, item) {
-                            photo.album.push( { url: item.original_size.url,
-                                                type: imageTypes.image,
-                                                extra: infoLink(data.response.blog.url,
-                                                                'tumblr/'+data.response.blog.name,
-                                                                '/tumblr/'+data.response.blog.name),
-                                                title: (item.caption) ?item.caption :photo.title
-                                                } );
+                            addAlbumItem(photo, { url: item.original_size.url,
+                                                  type: imageTypes.image,
+                                                  extra: infoLink(data.response.blog.url,
+                                                                  'tumblr/'+data.response.blog.name,
+                                                                  '/tumblr/'+data.response.blog.name),
+                                                  title: (item.caption) ?item.caption :photo.title
+                                                }, i);
                         });
-                        if (imageIndex == rp.session.activeIndex)
-                            rp.session.activeAlbumIndex = 0;
                     }
 
                     showImage(post.photos[0].original_size.url);
@@ -1243,7 +1287,7 @@ $(function () {
                             showEmbed(photo.url);
 
                         else {
-                            debug("cannot display url [no embed]: "+photo.url);
+                            log("cannot display url [no embed]: "+photo.url);
                             showImage(secureUrl(post.thumbnail_url));
                             if (imageIndex == rp.session.activeIndex)
                                 resetNextSlideTimer();
@@ -1259,6 +1303,12 @@ $(function () {
                         vid.webm = post.video_url;
                     photo.url = vid;
                     showVideo(vid);
+
+                } else {
+                    log("Tumblr post not photo or video: "+post.type+" using thumbnail");
+                    showImage(photo.thumbnail);
+                    if (imageIndex == rp.session.activeIndex)
+                        resetNextSlideTimer();
                 }
             };
 
@@ -1336,7 +1386,7 @@ $(function () {
             url = url.replace(/[\w\.]*imgur.com/i, 'i.imgur.com');
         }
         if (url.indexOf('?') > 0) {
-            log("Found ? in url: ", url);
+            log("Found ? in url: "+url);
             url = url.replace(/\?[^\.]*/, '');
         }
         if (url.indexOf("/r/") >= 0)
@@ -1352,8 +1402,8 @@ $(function () {
         return url;
     };
 
-    var tryConvertPic = function (pic) {
-        var url = pic.url;
+    var tryConvertPic = function (photo) {
+        var url = photo.url;
         var hostname = hostnameOf(url);
         var shortid;
         var jsonUrl;
@@ -1402,14 +1452,15 @@ $(function () {
 
 
                 if (result.data.images_count > 1) {
-                    pic.extra = albumLink('/imgur/a/'+shortid);
-                    pic.type = imageTypes.album;
-                    pic.album = [];
+                    photo.extra = albumLink('/imgur/a/'+shortid);
+
+                    initPhotoAlbum(photo);
                     $.each(result.data.images, function(i, item) {
-                        pic.album.push( { title: (item.title) ?item.title :(item.description) ?item.description :pic.title,
-                                          url: item.animated ?item.mp4 :item.link,
-                                          type: item.animated ?imageTypes.video :imageTypes.image
-                                          });
+                        var pic = { title: (item.title) ?item.title :(item.description) ?item.description :photo.title,
+                                    url: item.animated ?item.mp4 :item.link,
+                                    type: item.animated ?imageTypes.video :imageTypes.image
+                                  };
+                        addAlbumItem(photo, pic, i);
                     });
                 }
 
@@ -1495,7 +1546,7 @@ $(function () {
         var addImageSlideRedditT3 = function (item) {
             if (rp.dedup[item.data.subreddit] !== undefined &&
                 rp.dedup[item.data.subreddit][item.data.id] !== undefined) {
-                debug('cannot display url [simul-dup:'+
+                log('cannot display url [simul-dup:'+
                       rp.dedup[item.data.subreddit][item.data.id]+']: '+
                       item.data.url);
                 return;
@@ -1544,9 +1595,10 @@ $(function () {
             }
 
             // Watch out for "fake" subreddits
-            if (rp.url.subreddit == '/r/random' ||
-                rp.url.subreddit == '/r/randnsfw') {
+            if (rp.url.subreddit.startsWith('/r/random') ||
+                rp.url.subreddit.startsWith('/r/randnsfw')) {
                 rp.url.origsubreddit = rp.url.subreddit;
+                // TODO: add rest of URL to subreddit e.g. /r/random/top
                 rp.url.subreddit = '/r/' + data.data.children[0].data.subreddit;
                 $('#subredditUrl').html("<a href='" + rp.redditBaseUrl + rp.url.subreddit + "'>" + rp.url.subreddit + "</a>");
             }
@@ -1566,18 +1618,18 @@ $(function () {
             $.each(data.data.children, function (i, item) {
                 // Text entry, no actual media
                 if (item.kind != "t3") {
-                    debug('cannont display url [not link]: '+item.kind);
+                    log('cannont display url [not link]: '+item.kind);
                     return;
                 }
 
                 if (item.data.thumbnail == "self") {
-                    debug('cannot display url [self]: ' + item.data.url);
+                    log('cannot display url [self]: ' + item.data.url);
                     return;
                 }
 
                 if (rp.dedup[item.data.subreddit] !== undefined &&
                     rp.dedup[item.data.subreddit][item.data.id] !== undefined) {
-                    debug('cannot display url [duplicate:'+
+                    log('cannot display url [duplicate:'+
                           rp.dedup[item.data.subreddit][item.data.id]+']: '+
                           item.data.url);
                     return;
@@ -1751,17 +1803,16 @@ $(function () {
                     image.url = post.photos[0].original_size.url;
                     if (post.photos.length > 1) {
                         image.extra = albumLink('/tumblr/'+data.response.blog.name+'/'+post.id);
-                        image.type = imageTypes.album;
-                        //$('#numberButton'+(imageIndex+1)).addClass('album');
-                        image.album = [];
+
+                        initPhotoAlbum(image);
                         $.each(post.photos, function(i, item) {
-                            image.album.push( { url: item.original_size.url,
-                                                type: imageTypes.image,
-                                                extra: infoLink(data.response.blog.url,
-                                                                'tumblr/'+data.response.blog.name,
-                                                                '/tumblr/'+data.response.blog.name),
-                                                title: (item.caption) ?item.caption :image.title
-                                                } );
+                            addAlbumItem(image, { url: item.original_size.url,
+                                                  type: imageTypes.image,
+                                                  extra: infoLink(data.response.blog.url,
+                                                                  'tumblr/'+data.response.blog.name,
+                                                                  '/tumblr/'+data.response.blog.name),
+                                                  title: (item.caption) ?item.caption :image.title
+                                                }, i);
                         });
                     }
 
@@ -1777,7 +1828,7 @@ $(function () {
                     image.thumbnail = post.thumbnail_url;
 
                 } else {
-                    debug('cannot display url [unk type '+post.type+']: '+post.post_url);
+                    log('cannot display url [unk type '+post.type+']: '+post.post_url);
                     return;
                 }
 
