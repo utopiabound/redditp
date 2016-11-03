@@ -59,7 +59,8 @@ rp.api_key = {tumblr:  'sVRWGhAGTVlP042sOgkZ0oaznmUOzD8BRiRwAm5ELlzEaz4kwU',
 // which also includes some text and url's.
 rp.photos = [];
 
-// maybe checkout http://engineeredweb.com/blog/09/12/preloading-images-jquery-and-javascript/ for implementing the old precache
+// maybe checkout http://engineeredweb.com/blog/09/12/preloading-images-jquery-and-javascript/
+// for implementing the old precache
 rp.cache = {};
 rp.dedup = {};
 rp.url = {
@@ -70,6 +71,8 @@ rp.url = {
 $(function () {
     $("#subredditUrl").text("Loading Reddit Slideshow");
     $("#navboxTitle").text("Loading Reddit Slideshow");
+
+    var LOAD_PREV_ALBUM = -2;
 
     function debug(data) {
         if (rp.settings.debug)
@@ -141,11 +144,13 @@ $(function () {
     }
 
     function nextAlbumSlide() {
-        var photo = rp.photos[rp.session.activeIndex];
-        if (photo.type != imageTypes.album ||
-            rp.session.activeAlbumIndex+1 >= photo.album.length) {
-            nextSlide();
-            return;
+        if (rp.session.activeIndex >= 0) {
+            var photo = rp.photos[rp.session.activeIndex];
+            if (photo.type != imageTypes.album ||
+                rp.session.activeAlbumIndex+1 >= photo.album.length) {
+                nextSlide();
+                return;
+            }
         }
 
         startAnimation(rp.session.activeIndex, rp.session.activeAlbumIndex + 1);
@@ -168,10 +173,9 @@ $(function () {
 
         var photo = rp.photos[index];
         if (photo.type != imageTypes.album) {
-            startAnimation(index);
+            startAnimation(index, LOAD_PREV_ALBUM);
             return;
         }
-
         startAnimation(index, photo.album.length-1);
     }
 
@@ -185,7 +189,7 @@ $(function () {
     };
 
     var shouldStillPlay = function(index) {
-        photo = rp.photos[index];
+        var photo = rp.photos[index];
         if (photo.times == 1) {
             if (photo.duration < rp.settings.timeToNextSlide)
                 photo.times = Math.ceil(rp.settings.timeToNextSlide/photo.duration);
@@ -208,7 +212,8 @@ $(function () {
     var infoLink = function(info, text, infop = null) {
         var data = '<a href="'+info+'" class="info">'+text+'</a>';
         if (infop)
-            data += '<a href="'+infop+'" class="infop"><img class="redditp" src="/images/favicon.png" /></a>';
+            data += '<a href="'+infop+'" class="infop">'+
+                '<img class="redditp" src="/images/favicon.png" /></a>';
         return data;
     };
 
@@ -226,13 +231,17 @@ $(function () {
             updateAutoNext();
         }
 
-        // Simulating a ctrl key won't trigger a background tab on IE and Firefox ( https://bugzilla.mozilla.org/show_bug.cgi?id=812202 )
+        // Simulating a ctrl key won't trigger a background tab on IE and Firefox
+        // ( https://bugzilla.mozilla.org/show_bug.cgi?id=812202 )
         // so we need to open a new window
-        if ( navigator.userAgent.match(/msie/i) || navigator.userAgent.match(/trident/i)  || navigator.userAgent.match(/firefox/i) ){
+        if ( navigator.userAgent.match(/msie/i) || navigator.userAgent.match(/trident/i)  ||
+             navigator.userAgent.match(/firefox/i) ){
             window.open(link.href,'_blank');
+
         } else {
             var mev = document.createEvent("MouseEvents");
-            mev.initMouseEvent("click", true, true, window, 0, 0, 0, 0, 0, true, false, false, true, 0, null);
+            mev.initMouseEvent("click", true, true, window, 0, 0, 0, 0, 0, true,
+                               false, false, true, 0, null);
             link.dispatchEvent(mev);
         }
     }
@@ -442,17 +451,32 @@ $(function () {
         numberButton.appendTo(newListItem);
     };
 
-    var initPhotoAlbum = function (photo, imageIndex = -1) {
-        if (imageIndex >= 0) {
-            $('#numberButton'+(imageIndex+1)).addClass('album');
-
-            // Set correct AlbumIndex if needed
-            if (imageIndex == rp.session.activeIndex)
-                rp.session.activeAlbumIndex = 0;
-        }
+    var initPhotoAlbum = function (photo) {
         photo.type = imageTypes.album;
         photo.album = [];
         photo.album_ul = $("<ul />");
+    };
+
+    // Call after all addAlbumItem calls
+    // setup number button and session.activeAlbumIndex
+    // returns index of image to display
+    var indexPhotoAlbum = function (photo, imageIndex = -1) {
+        if (imageIndex < 0)
+            return 0;
+
+        if (imageIndex >= 0)
+            $('#numberButton'+(imageIndex+1)).addClass('album');
+
+        if (imageIndex != rp.session.activeIndex)
+            return 0;
+
+        // Set correct AlbumIndex
+        if (rp.session.activeAlbumIndex != LOAD_PREV_ALBUM)
+            rp.session.activeAlbumIndex = 0;
+        else
+            rp.session.activeAlbumIndex = photo.album.length-1;
+
+        return rp.session.activeAlbumIndex;
     };
 
     var populateAlbumButtons = function (photo) {
@@ -505,8 +529,7 @@ $(function () {
 
         if (pic.type === undefined)
             pic.type = imageTypes.image;
-        // Fix URL "quoting" by reddit
-        pic.url = secureUrl(pic.url.replace(/&amp;/gi, '&'));
+        pic.url = fixupUrl(pic.url);
         var hostname = hostnameOf(pic.url);
 
         // Replace HTTP with HTTPS on gfycat and imgur to avoid this:
@@ -618,16 +641,19 @@ $(function () {
     var ENTER = 13;
     var A_KEY = 65;
     var C_KEY = 67;
+    var D_KEY = 68;
     var F_KEY = 70;
     var I_KEY = 73;
     var M_KEY = 77;
     var R_KEY = 82;
+    var S_KEY = 83;
     var T_KEY = 84;
+    var W_KEY = 87;
 
 
     // Register keyboard events on the whole document
     $(document).keyup(function (e) {
-        if (e.ctrlKey) {
+        if (e.ctrlKey || e.altKey || e.metaKey) {
             // ctrl key is pressed so we're most likely switching tabs or doing something
             // unrelated to redditp UI
             return;
@@ -650,9 +676,6 @@ $(function () {
         case T_KEY:
             $('#titleDiv .collapser').click();
             break;
-        case A_KEY:
-            open_in_background("#album");
-            break;
         case SPACE:
             $("#autoNextSlide").prop("checked", !$("#autoNextSlide").is(':checked'));
             updateAutoNext();
@@ -671,16 +694,20 @@ $(function () {
             break;
         case PAGEUP:
         case arrow.up:
+        case W_KEY:
             prevSlide();
             break;
+        case A_KEY:
         case arrow.left:
             prevAlbumSlide();
             break;
         case PAGEDOWN:
+        case S_KEY:
         case arrow.down:
             nextSlide();
             break;
         case arrow.right:
+        case D_KEY:
             nextAlbumSlide();
             break;
         }
@@ -705,19 +732,27 @@ $(function () {
     };
 
     var preloadNextImage = function(imageIndex, albumIndex = -1) {
-        if (albumIndex == -1 || albumIndex+1 >= rp.photos[imageIndex].album.length) {
-            var next = getNextSlideIndex(imageIndex);
-            // Always clear cache - no need for memory bloat.
-            // We only keep the next image preloaded.
+        if (imageIndex < 0)
+            imageIndex = 0;
+        var next = getNextSlideIndex(imageIndex);
+        if (!rp.cache[next]) {
             rp.cache = {};
-            if(next < rp.photos.length)
-                rp.cache[next] = createDiv(next);
-
-        } else {
-            // Store album index as -1, -2, -3
-            var next = albumIndex+1;
-            rp.cache[-next-1] = createDiv(imageIndex, next);
+            rp.cache[next] = createDiv(next);
         }
+
+        if (albumIndex < 0)
+            return;
+
+        // clear cache if at end of list
+        if (next == imageIndex)
+            rp.cache = {};
+
+        next = albumIndex+1;
+        var nextIndex = -next-1;
+        if (next < rp.photos[imageIndex].album.length &&
+            !rp.cache[nextIndex])
+            // Store album index as -1, -2, -3
+            rp.cache[nextIndex] = createDiv(imageIndex, next);
     };
 
     //
@@ -752,7 +787,10 @@ $(function () {
                 return;
 
         } else if (rp.photos[imageIndex].type == imageTypes.album && albumIndex < 0) {
-            albumIndex = 0;
+            if (albumIndex == LOAD_PREV_ALBUM)
+                albumIndex = rp.photos[imageIndex].album.length-1;
+            else
+                albumIndex = 0;
         }
 
         var oldIndex = rp.session.activeIndex;
@@ -762,8 +800,9 @@ $(function () {
         rp.session.isAnimating = true;
 
         animateNavigationBox(imageIndex, oldIndex, albumIndex, oldAlbumIndex);
-        slideBackgroundPhoto(imageIndex, albumIndex);
-        preloadNextImage(imageIndex, albumIndex);
+        slideBackgroundPhoto(imageIndex,  rp.session.activeAlbumIndex);
+        // rp.session.activeAlbumIndex may have changed in createDiv called byy slideBackgroundPhoto5
+        preloadNextImage(imageIndex, rp.session.activeAlbumIndex);
 
         // Load if last image, but not if first image This is because
         // for dedup, we'll get called by image 0, before other images
@@ -831,10 +870,15 @@ $(function () {
 
         if (oldIndex != imageIndex) {
             toggleNumberButton(oldIndex, false);            
+            toggleAlbumButton(oldAlbumIndex, false);
             toggleNumberButton(imageIndex, true);
             populateAlbumButtons(photo);
-        }
-        if (albumIndex >= 0 && albumIndex != oldAlbumIndex) {
+
+        } else if (oldAlbumIndex < 0)
+            populateAlbumButtons(photo);
+
+        if (albumIndex >= 0 &&
+            (albumIndex != oldAlbumIndex || oldIndex != imageIndex)) {
             toggleAlbumButton(oldAlbumIndex, false);
             toggleAlbumButton(albumIndex, true);
         }
@@ -858,7 +902,7 @@ $(function () {
         window.console.log("ajaxOptions:", ajaxOptions);
         window.console.log("error:", thrownError);
         //alert("Failed ajax, maybe a bad url? Sorry about that :(\n" + xhr.responseText + "\n");
-        failCleanup();
+        failCleanup("Failed to get "+rp.url.subreddit+" "+thrownError+" "+xhr.status);
     };
 
     var failedAjax = function (xhr, ajaxOptions, thrownError) {
@@ -907,11 +951,14 @@ $(function () {
     var createDiv = function(imageIndex, albumIndex = -1) {
         // Retrieve the accompanying photo based on the index
         var photo;
-        if (albumIndex < 0)
-            photo = rp.photos[imageIndex];
+        if (albumIndex >= 0)
+            photo = rp.photos[imageIndex].album[albumIndex];
+
+        else if (rp.photos[imageIndex].type == imageTypes.album)
+            photo = rp.photos[imageIndex].album[0];
 
         else
-            photo = rp.photos[imageIndex].album[albumIndex];
+            photo = rp.photos[imageIndex];
 
         // Used by showVideo and showImage
         var divNode = $("<div />").addClass("clouds");
@@ -948,24 +995,34 @@ $(function () {
         // Called with showVideo({'thumbnail': jpgurl, 'mp4': mp4url, 'webm': webmurl})
         var showVideo = function(data) {
             var video = $('<video id="gfyvid" class="fullscreen"/>');
+            var lastsource;
 
             if (data.thumbnail !== undefined)
-                video.attr('poster', secureUrl(data.thumbnail));
+                video.attr('poster', fixupUrl(data.thumbnail));
             if (isVideoMuted())
                 video.prop('muted', true);
             if (data.webm !== undefined)
-                video.append($('<source type="video/webm" />').attr('src', data.webm));
+                lastsource = video.append($('<source type="video/webm" />').attr('src', data.webm));
             if (data.mp4 !== undefined)
-                video.append($('<source type="video/mp4" />').attr('src', data.mp4));
+                lastsource = video.append($('<source type="video/mp4" />').attr('src', data.mp4));
 
             divNode.append(video);
 
             // iOS hackary
             var onCanPlay = function() {
-                var video = $('#gfyvid');
-                video.off('canplaythrough', onCanPlay);
-                video[0].play();
+                $('#gfyvid').off('canplaythrough', onCanPlay);
+                $('#gfyvid')[0].play();
             };
+
+            $(lastsource).on("error", function(e) {
+                debug("["+imageIndex+"] video failed to load source");
+                resetNextSlideTimer();
+            });
+
+            $(video).on("error", function(e) {
+                debug("["+imageIndex+"] video failed to load");
+                resetNextSlideTimer();
+            });
 
             $(video).on("ended", function(e) {
                 debug("["+imageIndex+"] video ended");
@@ -988,7 +1045,7 @@ $(function () {
                 if ($('#gfyvid')[0].readyState === 3) // HAVE_ENOUGH_DATA (needed for ios)
                     onCanPlay();
                 else
-                    $(video).on('canplaythrough', onCanPlay);
+                    $('#gfyvid').on('canplaythrough', onCanPlay);
 
             });
             
@@ -997,7 +1054,7 @@ $(function () {
                 var vid = $('#gfyvid')[0];
                 vid.play();
                 if (vid.readyState !== 4) { // HAVE_ENOUGH_DATA
-                    $(video).on('canplaythrough', onCanPlay);
+                    $('#gfyvid').on('canplaythrough', onCanPlay);
 		    window.setTimeout(function() {
 		        vid.pause(); //block play so it buffers before playing
 		    }, 0.5);
@@ -1136,7 +1193,7 @@ $(function () {
             jsonUrl = "https://api.streamable.com/videos/" + shortid;
 
             handleData = function(data) {
-                var viddata = {'thumbnail': data.thumnail_url };
+                var viddata = {'thumbnail': data.thumbnail_url };
                 if (data.files.mp4 !== undefined)
                     viddata.mp4 = data.files.mp4.url;
                 if (data.files.webm !== undefined)
@@ -1189,10 +1246,11 @@ $(function () {
             } else { // Album
                 jsonUrl = 'https://api.eroshare.com/api/v1/albums/' + shortid + '/items';
                 handleData = function(data) {
+                    var index = 0;
                     if (data.length > 1) {
                         photo.extra = albumLink('/eroshare/'+shortid);
 
-                        initPhotoAlbum(photo, imageIndex);
+                        initPhotoAlbum(photo);
                         $.each(data, function(i, item) {
                             var pic = { title: (item.description) ?item.description :photo.title,
                                         thumbnail: item.url_thumb };
@@ -1205,8 +1263,9 @@ $(function () {
                             }
                             addAlbumItem(photo, pic, i);
                         });
+                        index = indexPhotoAlbum(photo, imageIndex);
                     }
-                    handleEroshareItem(data[0]);
+                    handleEroshareItem(data[index]);
                 };
             }
 
@@ -1257,10 +1316,11 @@ $(function () {
 
                 photo.extra = infoLink(data.response.blog.url, 'tumblr/'+data.response.blog.name, '/tumblr/'+data.response.blog.name);
                 if (post.type == "photo") {
+                    var index = 0;
                     if (post.photos.length > 1) {
                         photo.extra += albumLink('/tumblr/'+data.response.blog.name+'/'+shortid);
                         
-                        initPhotoAlbum(photo, imageIndex);
+                        initPhotoAlbum(photo);
                         $.each(post.photos, function(i, item) {
                             addAlbumItem(photo, { url: item.original_size.url,
                                                   type: imageTypes.image,
@@ -1270,9 +1330,10 @@ $(function () {
                                                   title: (item.caption) ?item.caption :photo.title
                                                 }, i);
                         });
+                        index = indexPhotoAlbum(photo, imageIndex);
                     }
 
-                    showImage(post.photos[0].original_size.url);
+                    showImage(post.photos[index].original_size.url);
                     if (imageIndex == rp.session.activeIndex)
                         resetNextSlideTimer();
 
@@ -1288,7 +1349,7 @@ $(function () {
 
                         else {
                             log("cannot display url [no embed]: "+photo.url);
-                            showImage(secureUrl(post.thumbnail_url));
+                            showImage(fixupUrl(post.thumbnail_url));
                             if (imageIndex == rp.session.activeIndex)
                                 resetNextSlideTimer();
                         }
@@ -1396,7 +1457,9 @@ $(function () {
         return url;
     };
 
-    var secureUrl = function (url) {
+    var fixupUrl = function (url) {
+        // fix reddit bad quoting
+        url = url.replace(/&amp;/gi, '&');
         if (rp.settings.alwaysSecure && url.startsWith('//'))
             return "https"+url;
         return url;
@@ -1572,7 +1635,7 @@ $(function () {
                 over18: item.data.over_18,
                 subreddit: item.data.subreddit,
                 author: item.data.author,
-                thumbnail: item.data.thumbnail,
+                thumbnail: fixupUrl(item.data.preview ?item.data.preview.images[0].source.url :item.data.thumbnail),
                 commentsLink: rp.redditBaseUrl + item.data.permalink
             });
         };
@@ -1598,8 +1661,9 @@ $(function () {
             if (rp.url.subreddit.startsWith('/r/random') ||
                 rp.url.subreddit.startsWith('/r/randnsfw')) {
                 rp.url.origsubreddit = rp.url.subreddit;
-                // TODO: add rest of URL to subreddit e.g. /r/random/top
-                rp.url.subreddit = '/r/' + data.data.children[0].data.subreddit;
+                // add rest of URL to subreddit e.g. /r/random/top
+                var end = rp.url.subreddit.replace(/^\/r\/rand(om|nsfw)/i,'');
+                rp.url.subreddit = '/r/' + data.data.children[0].data.subreddit+end;
                 $('#subredditUrl').html("<a href='" + rp.redditBaseUrl + rp.url.subreddit + "'>" + rp.url.subreddit + "</a>");
             }
 
@@ -1663,8 +1727,8 @@ $(function () {
             dataType: 'jsonp',
             jsonpCallback: 'redditcallback',
             success: handleData,
-            error: failedAjax,
-            404: failedAjax,
+            error: failedAjaxDone,
+            404: failedAjaxDone,
             timeout: 5000,
             crossDomain: true
         });

@@ -13,13 +13,13 @@ Hotkeys
 -------
 
 * space - toggles auto-next (play/pause)
-* a - open album in new window
 * t - collapse/uncollapse title
 * c - collapse/uncollapse controls
 * i - open image in a new tab
 * r - open comments in a new tab
 * f - toggle full screen mode
 * m - unmute/mute videos
+* w a s d - left-handed navigation (same as arrow keys)
 * Arrow keys, pgup/pgdown change slides
 ** Up/Down, page-up / page-down - switch Albums
 ** left/right - switch pictures within albums (and also to next/previous album)
