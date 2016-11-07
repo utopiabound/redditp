@@ -87,6 +87,22 @@ $(function () {
         window.alert(data);
     }
 
+    // takes an integer number of seconds and returns eithe days, hours or minutes
+    function sec2dms(secs) {
+        if (secs >= 31556736)
+            return Math.trunc(secs/31556736)+'y';
+        if (secs >= 604800)
+            return Math.trunc(secs/604800)+'w';
+        if (secs >= 86400)
+            return Math.trunc(secs/86400)+'d';
+        if (secs >= 3600)
+            return Math.trunc(secs/3600)+'h';
+        if (secs > 60)
+            return Math.trunc(secs/60)+'m';
+        else
+            return "1m";
+    }
+
     var setupFadeoutOnIdle = function () {
         $('.fadeOnIdle').fadeTo('fast', 0);
         var navboxVisible = false;
@@ -523,6 +539,7 @@ $(function () {
          *     subreddit: optional, (text - /r/$subreddit)
          *     author: optional, (text - /u/$author)
          *     extra: optional, (HTML)
+         *     date: optional, (unixTime)
          *     thumbnail: optional, (URL)
          * }
          */
@@ -867,6 +884,10 @@ $(function () {
                                                                                                     src: '/images/favicon.png'}));
         }
         $('#navboxCommentsLink').attr('href', photo.commentsLink).attr('title', "Comments");
+        if (photo.date)
+            $('#navboxDate').attr("title", (new Date(photo.date*1000)).toString()).text(sec2dms((Date.now()/1000) - photo.date));
+        else
+            $('#navboxDate').attr("title", "").text("");
 
         if (oldIndex != imageIndex) {
             toggleNumberButton(oldIndex, false);            
@@ -1636,6 +1657,7 @@ $(function () {
                 subreddit: item.data.subreddit,
                 author: item.data.author,
                 thumbnail: fixupUrl(item.data.preview ?item.data.preview.images[0].source.url :item.data.thumbnail),
+                date: item.data.created_utc,
                 commentsLink: rp.redditBaseUrl + item.data.permalink
             });
         };
@@ -1744,6 +1766,8 @@ $(function () {
                 alert("No data from this url :(");
                 return;
             }
+            var d = new Date(data.created_at);
+            var date = Math.trunc(d.toTime()/1000);
 
             $.each(data.items, function (i, item) {
                 var isVid = (item.type == 'Video');
@@ -1753,6 +1777,7 @@ $(function () {
                     over18: true,
                     commentsLink: data.reddit_submission.permalink,
                     subreddit: data.reddit_submission.subreddit,
+                    date: date,
                     author: data.reddit_submission.author
                 });
             });
@@ -1801,6 +1826,7 @@ $(function () {
                     commentsLink: data.data.link,
                     subreddit: data.data.section,
                     /* author: data.data.account_url, */
+                    date: item.datetime,
                     extra: (data.data.account_url !== null) 
                         ?'<a href="http://imgur.com/user/'+data.data.account_url+
                         '">/user/'+data.data.account_url+'</a>'
@@ -1860,6 +1886,7 @@ $(function () {
             $.each(data.response.posts, function (i, post) {
                 var image = { title: post.summary,
                               over18: data.response.blog.is_nsfw,
+                              date: post.timestamp,
                               commentsLink: post.post_url
                             };
 
@@ -1930,11 +1957,13 @@ $(function () {
             $('#subredditUrl').html("<a href='" + data.response.blog.url + "'>" + data.response.blog.name + ".tumblr.com</a>");
 
             $.each(data.response.posts, function (i, post) {
+                var isNsfw = (post.tags.indexOf("nsfw") < 0) ?false :true;
                 $.each(post.photos, function (j, item) {
                     addImageSlide({
                         url: item.original_size.url,
                         title: post.summary,
-                        over18: false,
+                        over18: isNsfw,
+                        date: post.timestamp,
                         commentsLink: post.post_url
                         /* subreddit: undefined, */
                         /* author: data.data.account_url, */
