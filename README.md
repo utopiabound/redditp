@@ -16,7 +16,7 @@ Hotkeys
 * t - collapse/uncollapse title
 * c - collapse/uncollapse controls
 * i - open image in a new tab
-* r - open comments in a new tab
+* o - open comments in a new tab
 * f - toggle full screen mode
 * m - unmute/mute videos
 * w a s d - left-handed navigation (same as arrow keys)

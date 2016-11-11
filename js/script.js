@@ -662,7 +662,7 @@ $(function () {
     var F_KEY = 70;
     var I_KEY = 73;
     var M_KEY = 77;
-    var R_KEY = 82;
+    var O_KEY = 79;
     var S_KEY = 83;
     var T_KEY = 84;
     var W_KEY = 87;
@@ -700,7 +700,7 @@ $(function () {
         case I_KEY:
             open_in_background("#navboxLink");
             break;
-        case R_KEY:
+        case O_KEY:
             open_in_background("#navboxCommentsLink");
             break;
         case M_KEY:
