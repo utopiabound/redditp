@@ -135,7 +135,7 @@ $(function () {
             return i;
         }
         // If no more "wanted" images, load more and stay here
-        if (rp.session.loadAfter !== null && !rp.session.loadingNextImages) {
+        if (rp.session.loadAfter !== null) {
             debug("["+currentIndex+"] Couldn't find next index. loading more");
             rp.session.loadAfter();
         }
@@ -1618,11 +1618,8 @@ $(function () {
     };
 
     var getRedditImages = function () {
-        //if (noMoreToLoad){
-        //    log("No more images to load, will rotate to start.");
-        //    return;
-        //}
-
+        if (rp.session.loadingNextImages)
+            return;
         rp.session.loadingNextImages = true;
 
         var jsonUrl = rp.redditBaseUrl + rp.url.subreddit + ".json?jsonp=redditcallback" + rp.url.vars + rp.session.after;
@@ -1699,6 +1696,13 @@ $(function () {
                     });
                 }
                 addImageSlideRedditT3(item);
+
+                // Place self in dedup list
+                if (rp.session.needDedup) {
+                    if (rp.dedup[item.data.subreddit] === undefined)
+                        rp.dedup[item.data.subreddit] = {};
+                    rp.dedup[item.data.subreddit][item.data.id] = "SELF";
+                }
             };
 
             $.each(data.data.children, function (i, item) {
@@ -1767,7 +1771,7 @@ $(function () {
                 return;
             }
             var d = new Date(data.created_at);
-            var date = Math.trunc(d.toTime()/1000);
+            var date = Math.trunc(d.getTime()/1000);
 
             $.each(data.items, function (i, item) {
                 var isVid = (item.type == 'Video');
@@ -1860,6 +1864,10 @@ $(function () {
     };
 
     var getTumblrBlog = function () {
+        if (rp.session.loadingNextImages)
+            return;
+        rp.session.loadingNextImages = true;
+
         var a = rp.url.subreddit.split('/');
         if (a[a.length-1] == "")
             a.pop();
