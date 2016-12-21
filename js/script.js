@@ -912,14 +912,14 @@ $(function () {
         if (albumIndex < 0) {
             $('#navboxTitle').html(photo.title);
             $('#navboxExtra').html((photo.extra !== undefined) ?photo.extra :"");
-            $('#navboxLink').attr('href', photo.url).attr('title', $("<div/>").html(photo.title).text());
+            $('#navboxLink').attr('href', photo.url).attr('title', $("<div/>").html(photo.title).text()+" (i)").text(photo.type);
 
         } else {
             var pic = rp.photos[imageIndex].album[albumIndex];
             $('#navboxTitle').html(pic.title);
             var extra = (pic.extra) ?pic.extra :"";
             $('#navboxExtra').html(extra+(albumIndex+1)+"/"+rp.photos[imageIndex].album.length);
-            $('#navboxLink').attr('href', pic.url).attr('title', $("<div/>").html(pic.title).text());
+            $('#navboxLink').attr('href', pic.url).attr('title', $("<div/>").html(pic.title).text()+" (i)").text(photo.type);
         }
 
         if (photo.subreddit !== undefined && photo.subreddit !== null) {
@@ -932,7 +932,7 @@ $(function () {
             $('#navboxAuthorP').attr('href', '/user/'+photo.author+'/submitted').html($('<img />', {'class': 'redditp',
                                                                                                     src: '/images/favicon.png'}));
         }
-        $('#navboxCommentsLink').attr('href', photo.commentsLink).attr('title', "Comments");
+        $('#navboxCommentsLink').attr('href', photo.commentsLink).attr('title', "Comments (o)");
         if (photo.date)
             $('#navboxDate').attr("title", (new Date(photo.date*1000)).toString()).text(sec2dms((Date.now()/1000) - photo.date));
         else
