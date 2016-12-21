@@ -74,6 +74,14 @@ $(function () {
 
     var LOAD_PREV_ALBUM = -2;
 
+    var imageTypes = {
+        image: 'image',
+        video: 'video',
+        embed: 'embed',
+        album: 'album',
+        later: 'LOAD...'
+    };
+
     function debug(data) {
         if (rp.settings.debug)
             window.log(data);
@@ -86,6 +94,30 @@ $(function () {
         window.log(data);
         window.alert(data);
     }
+
+    // Take a URL and strip it down to the "shortid"
+    var url2shortid = function(url) {
+        var shortid;
+
+        // chomp off last char if it ends in '/'
+        if (url.charAt(url.length-1) == '/') {
+            var surl = url.substr(0, url.length-1);
+            shortid = surl.substr(1 + surl.lastIndexOf('/'));
+
+        } else {
+            shortid = url.substr(1 + url.lastIndexOf('/'));
+        }
+
+        if (shortid.indexOf('#') != -1)
+            shortid = shortid.substr(0, shortid.indexOf('#'));
+
+        if (shortid.indexOf('.') != -1)
+            shortid = shortid.substr(0, shortid.lastIndexOf('.'));
+
+        shortid = shortid.replace(/\?[^\.]*/, '');
+
+        return shortid;
+    };
 
     // takes an integer number of seconds and returns eithe days, hours or minutes
     function sec2dms(secs) {
@@ -467,6 +499,20 @@ $(function () {
         numberButton.appendTo(newListItem);
     };
 
+    var initPhotoVideo = function (photo, url = undefined) {
+        photo.type = imageTypes.video;
+        photo.video = {};
+        
+        if (url == undefined)
+            url = photo.url;
+
+        var extention = url.substr(1 + url.lastIndexOf('.'));
+        photo.video[extention] = url;
+        
+        if (photo.thumbnail)
+            photo.video.thumbnail = photo.thumbnail;
+    };
+
     var initPhotoAlbum = function (photo) {
         photo.type = imageTypes.album;
         photo.album = [];
@@ -522,15 +568,8 @@ $(function () {
         photo.album.push(pic);
     };
 
-    var imageTypes = {
-        image: 'image',
-        video: 'video',
-        embed: 'embed',
-        album: 'album',
-        other: 'NEEDSCAN'
-    };
-
     var addImageSlide = function (pic) {
+        var shortid;
         /* var pic = {
          *     "title": title, (text)
          *     "url": url, (URL)
@@ -563,46 +602,55 @@ $(function () {
             hostname.indexOf('imgur.com') >= 0) {
             pic.url = pic.url.replace(http_prefix, https_prefix);
         }
+        
+        if (hostname.indexOf('imgur.com') >= 0) {
+            pic.url = fixImgurPicUrl(pic.url);
+            if (pic.url.indexOf("/a/") > 0 ||
+                pic.url.indexOf('/gallery/') > 0)
+                pic.type = imageTypes.later;
 
-        if (isImageExtension(pic.url)) {
-            if (hostname.indexOf('imgur.com') >= 0) {
-                pic.url = fixImgurPicUrl(pic.url);
-                if (isVideoExtension(pic.url))
-                    pic.type = imageTypes.video;
-            }
-            // simple image (or converted to video)
+            else if (isVideoExtension(pic.url))
+                initPhotoVideo(pic);
 
-        } else if (hostname.indexOf('i.reddituploads.com') >= 0) {
+            // otherwise simple image
+
+        } else if (isImageExtension(pic.url) ||
+                   hostname.indexOf('i.reddituploads.com') >= 0) {
             // simple image
 
-        } else if (isVideoExtension(pic.url) ||
-                   hostname.indexOf('gfycat.com') >= 0 ||
+        } else if (isVideoExtension(pic.url)) {
+            initPhotoVideo(pic);
+
+        } else if (hostname.indexOf('gfycat.com') >= 0 ||
                    hostname.indexOf('streamable.com') >= 0 ||
                    hostname.indexOf('vid.me') >= 0 ||
                    hostname.indexOf('tumblr.com') >= 0 ||
                    hostname.indexOf('pornbot.net') >= 0 ||
                    hostname.indexOf('deviantart.com') >= 0 ||
-                   hostname.indexOf('eroshare.com') >= 0 ||
-                   pic.url.indexOf('webm.land/w/') >= 0) {
-            pic.type = imageTypes.video;
+                   hostname.indexOf('eroshare.com') >= 0) {
+            pic.type = imageTypes.later;
 
         } else if (hostname.indexOf('youtube.com') >= 0 ||
                    hostname.indexOf('youtu.be') >= 0 ||
                    hostname.indexOf('vimeo.com') >= 0) {
             pic.type = imageTypes.embed;
 
+        } else if (hostname.indexOf('giphy.com') >= 0) {
+            shortid = url2shortid(pic.url);
+                
+            pic.type = imageTypes.video;
+            pic.video = { mp4: 'https://media.giphy.com/media/'+shortid+'/giphy.mp4',
+                          thumbnail: pic.thumbnail };
+                
+        } else if (pic.url.indexOf('webm.land/w/') >= 0) {
+            shortid = url2shortid(pic.url);
+            pic.type = imageTypes.video;
+            pic.video = { webm: 'http://webm.land/media/'+shortid+".webm",
+                          thumbnail: pic.thumbnail };
+
         } else {
-            var betterUrl = tryConvertPic(pic);
-            if(betterUrl !== '') {
-                pic.url = betterUrl;
-
-                if (isVideoExtension(pic.url))
-                    pic.type = imageTypes.video;
-
-            } else {
-                debug('cannot display url [no image]: ' + pic.url);
-                return;
-            }
+            log('cannot display url [no image]: ' + pic.url);
+            return;
         }
 
         var isFirst = !rp.session.foundOneImage;
@@ -953,7 +1001,8 @@ $(function () {
         else
             divNode = rp.cache[index];
 
-        if (type == imageTypes.video || type == imageTypes.embed)
+        if (type == imageTypes.video || type == imageTypes.embed ||
+            type == imageTypes.later)
             clearSlideTimeout();
 
         divNode.prependTo("#pictureSlider");
@@ -1080,14 +1129,19 @@ $(function () {
             });
         };
 
+        if (photo.type == imageTypes.video) {
+            if (photo.video === undefined) {
+                error("["+imageIndex+"]["+albumIndex+"] type is video but not video element");
+            } else {
+                showVideo(photo.video);
+                return divNode;
+            }
+        }
+
         // Show Video if it's that easy
         if (isVideoExtension(photo.url)) {
-            var extention = photo.url.substr(1 + photo.url.lastIndexOf('.'));
-            var vid = {};
-            vid[extention] = photo.url;
-            if (photo.thumbnail)
-                vid.thumbnail = photo.thumbnail;
-            showVideo(vid);
+            initPhotoVideo(photo);
+            showVideo(photo.video);
             return divNode;
         }
 
@@ -1135,34 +1189,21 @@ $(function () {
         var handleData;
         var headerData;
         var hostname = hostnameOf(photo.url);
-        var shortid;
-
-        // chomp off last char if it ends in '/'
-        if (photo.url.charAt(photo.url.length-1) == '/') {
-            var surl = photo.url.substr(0, photo.url.length-1);
-            shortid = surl.substr(1 + surl.lastIndexOf('/'));
-
-        } else {
-            shortid = photo.url.substr(1 + photo.url.lastIndexOf('/'));
-        }
-
-        if (shortid.indexOf('#') != -1)
-            shortid = shortid.substr(0, shortid.indexOf('#'));
-
-        if (shortid.indexOf('.') != -1)
-            shortid = shortid.substr(0, shortid.lastIndexOf('.'));
-
+        var shortid = url2shortid(photo.url);
 
         if (hostname.indexOf('gfycat.com') >= 0) {
 
             jsonUrl = "https://gfycat.com/cajax/get/" + shortid;
 
             handleData = function (data) {
-                if (typeof data.gfyItem != "undefined")
-                    showVideo({'thumbnail': 'http://thumbs.gfycat.com/'+shortid+'-poster.jpg',
-                               'webm': data.gfyItem.webmUrl,
-                               'mp4':  data.gfyItem.mp4Url});
-                else {
+                if (typeof data.gfyItem != "undefined") {
+                    photo.video = {'thumbnail': 'http://thumbs.gfycat.com/'+shortid+'-poster.jpg',
+                                   'webm': data.gfyItem.webmUrl,
+                                   'mp4':  data.gfyItem.mp4Url};
+                    photo.type = imageTypes.video;
+                    showVideo(photo.video);
+
+                } else {
                     showImage(photo.thumbnail);
                     if (imageIndex == rp.session.activeIndex)
                         resetNextSlideTimer();
@@ -1183,12 +1224,15 @@ $(function () {
                                     url: item.animated ?item.mp4 :item.link,
                                     type: item.animated ?imageTypes.video :imageTypes.image
                                   };
+                        if (item.animated) {
+                            pic.video = { mp4: item.mp4 };
+                        }
                         addAlbumItem(photo, pic, i);
                     });
                     index = indexPhotoAlbum(photo, imageIndex);
 
                     if (photo.album[index].type == imageTypes.video)
-                        showVideo({ mp4: photo.album[index].url });
+                        showVideo(photo.album[index].video);
 
                     else {
                         showImage(photo.album[index].url);
@@ -1201,7 +1245,9 @@ $(function () {
                     if (item.animated) {
                         photo.url = item.mp4;
                         photo.type = imageTypes.video;
-                        showVideo({ thumbnail: photo.thumbnail, mp4: photo.url });
+                        photo.video = { thumbnail: photo.thumbnail,
+                                        mp4: photo.url };
+                        showVideo(photo.video);
 
                     } else {
                         photo.url = item.link;
@@ -1246,11 +1292,12 @@ $(function () {
                         return;
                     }
                     if (data.data.animated == true) {
-                        photo.url = data.data.mp4;
                         photo.type = imageTypes.video;
+                        photo.video = { mp4: data.data.mp4 };
+                        if (data.data.webm !== undefined)
+                            photo.video.webm = data.data.webm;
 
-                        showVideo({'webm': data.data.webm,
-                                   'mp4': data.data.mp4});
+                        showVideo(photo.video);
 
                     } else {
                         photo.url = data.data.link;
@@ -1266,11 +1313,13 @@ $(function () {
         } else if (hostname.indexOf('vid.me') >= 0) {
             jsonUrl = 'https://api.vid.me/videoByUrl/' + shortid;
             handleData = function (data) {
-                if (data.video.state == 'success')
-                    showVideo({'thumbnail': data.video.thumbnail_url,
-                               'mp4':  data.video.complete_url });
+                if (data.video.state == 'success') {
+                    photo.video = { thumbnail: data.video.thumbnail_url,
+                                    mp4:  data.video.complete_url };
+                    photo.type = imageTypes.video;
+                    showVideo(photo.video);
 
-                else {
+                } else {
                     log("["+imageIndex+"] vid.me failed to load "+shortid+". state:"+data.video.state);
                     showImage(data.video.thumbnail_url);
                     if (imageIndex == rp.session.activeIndex)
@@ -1283,42 +1332,46 @@ $(function () {
             jsonUrl = "https://api.streamable.com/videos/" + shortid;
 
             handleData = function(data) {
-                var viddata = {'thumbnail': data.thumbnail_url };
+                photo.type = imageTypes.video;
+                photo.video = {'thumbnail': data.thumbnail_url };
                 if (data.files.mp4 !== undefined)
-                    viddata.mp4 = data.files.mp4.url;
+                    photo.video.mp4 = data.files.mp4.url;
                 if (data.files.webm !== undefined)
-                    viddata.webm = data.files.webm.url;
-                showVideo(viddata);
+                    photo.video.webm = data.files.webm.url;
+                showVideo(photo.video);
             };
-
-        } else if (photo.url.indexOf('webm.land/w/') >= 0) {
-            showVideo({'webm': 'http://webm.land/media/'+shortid+".webm"});
-            return divNode;
 
         } else if (hostname.indexOf('pornbot.net') >= 0) {
             jsonUrl = "https:///pornbot.net/ajax/info.php?v=" + shortid;
 
             handleData = function(data) {
-                var viddata = {'thumbnail': data.poster };
+                photo.type = imageTypes.video;
+                photo.video = {'thumbnail': data.poster };
                 if (data.mp4Url !== undefined)
-                    viddata.mp4 = data.mp4Url;
+                    photo.video.mp4 = data.mp4Url;
                 if (data.webmUrl !== undefined)
-                    viddata.webm = data.webmUrl;
-                showVideo(viddata);
+                    photo.video.webm = data.webmUrl;
+                showVideo(photo.video);
             };
 
         } else if (hostname.indexOf('eroshare.com') >= 0) {
             headerData = { 'Origin': document.location.origin };
 
-            var handleEroshareItem = function(item) {
+            var processEroshareItem = function(item, pic) {
                 if (item.type == 'Image') {
-                    showImage(item.url_full_protocol);
+                    pic.url = item.url_full_protocol;
+                    pic.type = imageTypes.image;
+                    showImage(pic.url);
                     if (imageIndex == rp.session.activeIndex)
                         resetNextSlideTimer();
 
                 } else if (item.type == 'Video') {
-                    showVideo({ thumbnail: item.url_full_protocol,
-                                mp4: item.url_mp4 });
+                    if (pic.video === undefined) {
+                        pic.type = imageTypes.video;
+                        pic.video = { thumbnail: item.url_thumb,
+                                      mp4: item.url_mp4 };
+                    }
+                    showVideo(pic.video);
 
                 } else {
                     log("display failed unknown type "+item.type+" for url: "+photo.url);
@@ -1330,14 +1383,14 @@ $(function () {
             // Single Item
             if (photo.url.indexOf('/i/'+shortid) >= 0) {
                 jsonUrl = 'https://api.eroshare.com/api/v1/items/' + shortid;
-                handleData = handleEroshareItem;
+                handleData = function (data) { processEroshareItem(data, photo); };
  
 
             } else { // Album
                 jsonUrl = 'https://api.eroshare.com/api/v1/albums/' + shortid + '/items';
                 handleData = function(data) {
-                    var index = 0;
                     if (data.length > 1) {
+                        var index;
                         photo.extra = albumLink('/eroshare/'+shortid);
 
                         initPhotoAlbum(photo);
@@ -1347,6 +1400,9 @@ $(function () {
                             if (item.type == 'Video') {
                                 pic.url = item.url_mp4;
                                 pic.type = imageTypes.video;
+                                pic.video = { thumbnail: item.url_thumb,
+                                              mp4: item.url_mp4 };
+
                             } else {
                                 pic.url = item.url_full_protocol;
                                 pic.type = imageTypes.image;
@@ -1354,8 +1410,11 @@ $(function () {
                             addAlbumItem(photo, pic, i);
                         });
                         index = indexPhotoAlbum(photo, imageIndex);
+                        processEroshareItem(data[index], photo.album[index]);
+
+                    } else {
+                        processEroshareItem(data[0], photo);
                     }
-                    handleEroshareItem(data[index]);
                 };
             }
 
@@ -1447,13 +1506,12 @@ $(function () {
                     }
 
                     photo.type = imageTypes.video;
-                    var vid = { thumbnail: post.thumbnail_url };
+                    photo.video = { thumbnail: post.thumbnail_url };
                     if (post.video_url.indexOf('.mp4') > 0)
-                        vid.mp4 = post.video_url;
+                        photo.video.mp4 = post.video_url;
                     else if (post.video_url.indexOf('.webm') > 0)
-                        vid.webm = post.video_url;
-                    photo.url = vid;
-                    showVideo(vid);
+                        photo.video.webm = post.video_url;
+                    showVideo(photo.video);
 
                 } else {
                     log("Tumblr post not photo or video: "+post.type+" using thumbnail");
@@ -1513,7 +1571,6 @@ $(function () {
         return divNode;
     };
 
-
     var verifyNsfwMakesSense = function() {
         // Cases when you forgot NSFW off but went to /r/nsfw
         // can cause strange bugs, let's help the user when over 80% of the
@@ -1539,10 +1596,8 @@ $(function () {
         if (url.indexOf("/r/") >= 0)
                 url = url.replace(/r\/[^ \/]+\//, '');
 
-        if (url.indexOf('?') > 0) {
-            log("Found ? in url: "+url);
+        if (url.indexOf('?') > 0)
             url = url.replace(/\?[^\.]*/, '');
-        }
 
         if (url.indexOf("/a/") > 0 ||
              url.indexOf('/gallery/') > 0)
@@ -1568,36 +1623,6 @@ $(function () {
         if (rp.settings.alwaysSecure && url.startsWith('//'))
             return "https"+url;
         return url;
-    };
-
-    var tryConvertPic = function (photo) {
-        var url = photo.url;
-        var hostname = hostnameOf(url);
-        var shortid;
-        var jsonUrl;
-        var result;
-
-        /** IMGUR **/
-        if (hostname.indexOf('imgur.com') >= 0) {
-            url = fixImgurPicUrl(url);
-            if (url.indexOf("/a/") > 0 ||
-                url.indexOf('/gallery/') > 0)
-                photo.type = imageTypes.other;
-            return url;
-
-        }
-        if (hostname.indexOf('giphy.com') >= 0) {
-            var ar = url.split(/[\/-]/);
-            shortid = ar.pop();
-            if (shortid == "")
-                shortid = ar.pop();
-            // remove arguments
-            shortid = shortid.replace(/\?[^\.]*/, '');
-
-            return 'https://media.giphy.com/media/'+shortid+'/giphy.mp4';
-        }
-        //log("Not understood url: "+url);
-        return '';
     };
 
     var isImageExtension = function (url) {
