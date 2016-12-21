@@ -14,7 +14,7 @@
 var rp = {};
 
 rp.settings = {
-    debug: true,
+    debug: false,
     // Speed of the animation
     animationSpeed: 1000,
     shouldAutoNextSlide: true,
@@ -1086,12 +1086,12 @@ $(function () {
             };
 
             $(lastsource).on("error", function(e) {
-                debug("["+imageIndex+"] video failed to load source");
+                log("["+imageIndex+"] video failed to load source");
                 resetNextSlideTimer();
             });
 
             $(video).on("error", function(e) {
-                debug("["+imageIndex+"] video failed to load");
+                log("["+imageIndex+"] video failed to load");
                 resetNextSlideTimer();
             });
 
