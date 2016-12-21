@@ -526,7 +526,8 @@ $(function () {
         image: 'image',
         video: 'video',
         embed: 'embed',
-        album: 'album'
+        album: 'album',
+        other: 'NEEDSCAN'
     };
 
     var addImageSlide = function (pic) {
@@ -1173,26 +1174,98 @@ $(function () {
             };
 
         } else if (hostname.indexOf('imgur.com') >= 0) {
-            jsonUrl = "https://api.imgur.com/3/image/" + shortid;
             headerData = { Authorization: "Client-ID "+ rp.api_key.imgur };
 
-            handleData = function (data) {
-                if (! data.success ) {
-                    log("["+imageIndex+"] imgur.com failed to load "+shortid+". state:"+data.status);
-                    showImage(photo.url);
-                    if (imageIndex == rp.session.activeIndex)
-                        resetNextSlideTimer();
-                    return;
-                }
-                if (data.data.animated == true)
-                    showVideo({'webm': data.data.webm,
-                               'mp4': data.data.mp4});
-                else {
-                    showImage(data.data.link);
-                    if (imageIndex == rp.session.activeIndex)
-                        resetNextSlideTimer();
+            var imgurHandleAlbum = function (data) {
+                if (data.data.images_count > 1) {
+                    var index;
+                    photo.extra = albumLink('/imgur/a/'+shortid);
+
+                    initPhotoAlbum(photo);
+                    $.each(data.data.images, function(i, item) {
+                        var pic = { title: (item.title) ?item.title :(item.description) ?item.description :photo.title,
+                                    url: item.animated ?item.mp4 :item.link,
+                                    type: item.animated ?imageTypes.video :imageTypes.image
+                                  };
+                        addAlbumItem(photo, pic, i);
+                    });
+                    index = indexPhotoAlbum(photo, imageIndex);
+
+                    if (photo.album[index].type == imageTypes.video)
+                        showVideo({ mp4: photo.album[index].url });
+
+                    else {
+                        showImage(photo.album[index].url);
+                        if (imageIndex == rp.session.activeIndex)
+                            resetNextSlideTimer();
+                    }
+
+                } else { // single image album
+                    var item = data.data.images[0];
+                    if (item.animated) {
+                        photo.url = item.mp4;
+                        photo.type = imageTypes.video;
+                        showVideo({ thumbnail: photo.thumbnail, mp4: photo.url });
+
+                    } else {
+                        photo.url = item.link;
+                        photo.type = imageTypes.image;
+                        showImage(photo.url);
+                        if (imageIndex == rp.session.activeIndex)
+                            resetNextSlideTimer();
+                    }
                 }
             };
+
+            if (photo.url.indexOf('/a/') > 0) {
+                jsonUrl = "https://api.imgur.com/3/album/" + shortid;
+
+                handleData = imgurHandleAlbum;
+
+            } else if (photo.url.indexOf('/gallery/') > 0) {
+                jsonUrl = "https://api.imgur.com/3/album/" + shortid;
+
+                handleData = function (data) {
+                    if (data === undefined) {
+                        photo.url = "http://i.imgur.com/"+shortid+".jpg";
+                        photo.type = imageTypes.image;
+
+                        showImage(photo.url);
+                        if (imageIndex == rp.session.activeIndex)
+                            resetNextSlideTimer();
+                        return;
+                    }
+                    imgurHandleAlbum(data);
+                };
+
+            } else {
+                jsonUrl = "https://api.imgur.com/3/image/" + shortid;
+                
+                handleData = function (data) {
+                    if (! data.success ) {
+                        log("["+imageIndex+"] imgur.com failed to load "+shortid+". state:"+data.status);
+                        showImage(photo.url);
+                        if (imageIndex == rp.session.activeIndex)
+                            resetNextSlideTimer();
+                        return;
+                    }
+                    if (data.data.animated == true) {
+                        photo.url = data.data.mp4;
+                        photo.type = imageTypes.video;
+
+                        showVideo({'webm': data.data.webm,
+                                   'mp4': data.data.mp4});
+
+                    } else {
+                        photo.url = data.data.link;
+                        photo.type = imageTypes.image;
+                        
+                        showImage(data.data.link);
+                        if (imageIndex == rp.session.activeIndex)
+                            resetNextSlideTimer();
+                    }
+                };
+            }
 
         } else if (hostname.indexOf('vid.me') >= 0) {
             jsonUrl = 'https://api.vid.me/videoByUrl/' + shortid;
@@ -1464,17 +1537,32 @@ $(function () {
 
     var fixImgurPicUrl = function (url) {
         var hostname = hostnameOf(url);
-        if (hostname.indexOf('i.') !== 0) {
-            url = url.replace(/[\w\.]*imgur.com/i, 'i.imgur.com');
-        }
+
+        // regexp removes /r/<sub>/ prefix if it exists
+	// E.g. http://imgur.com/r/aww/x9q6yW9
+        if (url.indexOf("/r/") >= 0)
+                url = url.replace(/r\/[^ \/]+\//, '');
+
         if (url.indexOf('?') > 0) {
             log("Found ? in url: "+url);
             url = url.replace(/\?[^\.]*/, '');
         }
-        if (url.indexOf("/r/") >= 0)
-                url = url.replace(/r\/[^ \/]+\//, '');
+
+        if (url.indexOf("/a/") > 0 ||
+             url.indexOf('/gallery/') > 0)
+            return url;
+            
+        // process individual file
+        if (hostname.indexOf('i.') !== 0) {
+            url = url.replace(/[\w\.]*imgur.com/i, 'i.imgur.com');
+        }
         // convert gifs to videos
         url = url.replace(/gifv?$/, "mp4");
+        // imgur is really nice and serves the image with whatever extension
+        // you give it. '.jpg' is arbitrary
+        if (!isImageExtension(url) &&
+            !isVideoExtension(url))
+            url += ".jpg";
         return url;
     };
 
@@ -1495,78 +1583,11 @@ $(function () {
 
         /** IMGUR **/
         if (hostname.indexOf('imgur.com') >= 0) {
-            /*
-             * Gallery URLs can be either albums or individual pictures
-             */
-            if (url.indexOf('/a/') > 0 ||
-                url.indexOf('/gallery/') > 0) {
-
-                if (! rp.api_key.imgur) {
-                    return '';
-                }
-
-                if (url.indexOf('/a/') > 0) {
-                    shortid = pathnameOf(url).split("/")[2];
-                    jsonUrl = "https://api.imgur.com/3/album/" + shortid;
-
-                } else if (url.indexOf('/gallery/') > 0) {
-                    shortid = pathnameOf(url).split("/")[2];
-                    jsonUrl = "https://api.imgur.com/3/album/" + shortid;
-                }
-
-                $.ajax({
-                    url: jsonUrl,
-                    headers: { Authorization: "Client-ID "+ rp.api_key.imgur },
-                    dataType: 'json',
-                    success: function (data) { result = data; },
-                    error: failedAjax,
-                    404: failedAjax,
-                    jsonp: false,
-                    timeout: 5000,
-                    crossDomain: true,
-                    async: false
-                });
-
-                if (result === undefined) {
-                    if (url.indexOf('/gallery/') > 0)
-                        return "http://i.imgur.com/"+shortid+".jpg";
-                    else
-                        return "";
-                }
-
-
-                if (result.data.images_count > 1) {
-                    photo.extra = albumLink('/imgur/a/'+shortid);
-
-                    initPhotoAlbum(photo);
-                    $.each(result.data.images, function(i, item) {
-                        var pic = { title: (item.title) ?item.title :(item.description) ?item.description :photo.title,
-                                    url: item.animated ?item.mp4 :item.link,
-                                    type: item.animated ?imageTypes.video :imageTypes.image
-                                  };
-                        addAlbumItem(photo, pic, i);
-                    });
-                }
-
-                // If this is animated it will return the animated gif
-                if (result.data.cover !== null)
-                    return "http://i.imgur.com/"+result.data.cover+".jpg";
-                else
-                    return result.data.images[0].link;
-            }
-
             url = fixImgurPicUrl(url);
-
-            // imgur is really nice and serves the image with whatever extension
-            // you give it. '.jpg' is arbitrary
-            // regexp removes /r/<sub>/ prefix if it exists
-            // E.g. http://imgur.com/r/aww/x9q6yW9
-
-            if (isImageExtension(url))
-                return url;
-            if (isVideoExtension(url))
-                return url;
-            return url+".jpg";
+            if (url.indexOf("/a/") > 0 ||
+                url.indexOf('/gallery/') > 0)
+                photo.type = imageTypes.other;
+            return url;
 
         }
         if (hostname.indexOf('giphy.com') >= 0) {
@@ -1574,7 +1595,9 @@ $(function () {
             shortid = ar.pop();
             if (shortid == "")
                 shortid = ar.pop();
-            
+            // remove arguments
+            shortid = shortid.replace(/\?[^\.]*/, '');
+
             return 'https://media.giphy.com/media/'+shortid+'/giphy.mp4';
         }
         //log("Not understood url: "+url);
