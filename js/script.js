@@ -1064,11 +1064,7 @@ $(function () {
                 if (imageIndex !== rp.session.activeIndex)
                     return;
                 $('#gfyvid').prop('autoplay', true);
-                if ($('#gfyvid')[0].readyState === 3) // HAVE_ENOUGH_DATA (needed for ios)
-                    onCanPlay();
-                else
-                    $('#gfyvid').on('canplaythrough', onCanPlay);
-
+                $('#gfyvid').on('canplaythrough', onCanPlay);
             });
             
             // iOS devices don't play automatically
@@ -1645,7 +1641,16 @@ $(function () {
             return;
         rp.session.loadingNextImages = true;
 
-        var jsonUrl = rp.redditBaseUrl + rp.url.subreddit + ".json?jsonp=redditcallback" + rp.url.vars + rp.session.after;
+        var jsonUrl = rp.redditBaseUrl + rp.url.subreddit + ".json?";
+        var dataType = 'json';
+
+        if (rp.url.subreddit.startsWith('/r/random') ||
+            rp.url.subreddit.startsWith('/r/randnsfw')) {
+            jsonUrl += "jsonp=redditcallback";
+            dataType = 'jsonp';
+        }
+
+        jsonUrl += rp.url.vars + rp.session.after;
 
         var addImageSlideRedditT3 = function (item) {
             if (rp.dedup[item.data.subreddit] !== undefined &&
@@ -1773,7 +1778,7 @@ $(function () {
 
         $.ajax({
             url: jsonUrl,
-            dataType: 'jsonp',
+            dataType: dataType,
             jsonpCallback: 'redditcallback',
             success: handleData,
             error: failedAjaxDone,
@@ -2037,7 +2042,7 @@ $(function () {
         var regexS = "(/(?:(?:r/)|(?:v/)|(?:imgur/a/)|(?:tumblr/)|(?:eroshare/)|(?:user/)|(?:domain/)|(?:search)|(?:me))[^&#?]*)[?]?(.*)";
         var regex = new RegExp(regexS);
         var results = regex.exec(window.location.href);
-        //log(results);
+        debug('url split results: '+results);
         if (results !== null) {
             rp.url.subreddit = results[1];
             rp.url.vars = decodeUrl(results[2]);
@@ -2047,7 +2052,8 @@ $(function () {
 
         if (rp.url.vars.length > 0)
             getVarsQuestionMark = "?" + rp.url.vars;
-        rp.url.vars = '&' + rp.url.vars;
+        if (rp.url.vars !== '')
+            rp.url.vars = '&' + rp.url.vars;
 
         // Remove .compact as it interferes with .json (we got "/r/all/.compact.json" which doesn't work).
         rp.url.subreddit = rp.url.subreddit.replace(/.compact/, "");
