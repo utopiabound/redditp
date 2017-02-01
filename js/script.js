@@ -2064,7 +2064,7 @@ $(function () {
         // Detect predefined reddit url paths. If you modify this be sure to fix
         // .htaccess
         // This is a good idea so we can give a quick 404 page when appropriate.
-        var regexS = "(/(?:(?:r/)|(?:v/)|(?:imgur/a/)|(?:tumblr/)|(?:eroshare/)|(?:user/)|(?:domain/)|(?:search)|(?:me))[^&#?]*)[?]?(.*)";
+        var regexS = "(/(?:(?:r/)|(?:u/)|(?:v/)|(?:imgur/a/)|(?:tumblr/)|(?:eroshare/)|(?:user/)|(?:domain/)|(?:search)|(?:me))[^&#?]*)[?]?(.*)";
         var regex = new RegExp(regexS);
         var results = regex.exec(window.location.href);
         debug('url split results: '+results);
@@ -2084,6 +2084,8 @@ $(function () {
         rp.url.subreddit = rp.url.subreddit.replace(/.compact/, "");
         // Consolidate double slashes to avoid r/all/.compact/ -> r/all//
         rp.url.subreddit = rp.url.subreddit.replace(/\/{2,}/, "/");
+        // replace /u/ with /user/
+        rp.url.subreddit = rp.url.subreddit.replace(/\/u\//, "/user/");
 
         var subredditName;
         if (rp.url.subreddit === "") {
