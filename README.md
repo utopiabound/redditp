@@ -48,7 +48,12 @@ Features
 
 Possible future features, depending on feedback:
 * Zoom/Pan for comics
-* Offline access support, though I don't know if this is even possible actually (caching external image resources).
+
+Known Issues
+------------
+
+* "Album in comments" items aren't deduped
+* If album link for "album in comments" isn't displayable, whole item is skipped
 
 Credits
 ----------

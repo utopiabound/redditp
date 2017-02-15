@@ -1677,13 +1677,17 @@ $(function () {
 
         jsonUrl += rp.url.vars + rp.session.after;
 
-        var addImageSlideRedditT3 = function (item) {
+        var addImageSlideRedditT3 = function (item, url=null) {
             if (rp.dedup[item.data.subreddit] !== undefined &&
                 rp.dedup[item.data.subreddit][item.data.id] !== undefined) {
                 log('cannot display url [simul-dup:'+
                       rp.dedup[item.data.subreddit][item.data.id]+']: '+
                       item.data.url);
                 return;
+            }
+
+            if (url === null) {
+                url = item.data.url;
             }
 
             // Link to x-posted subreddits
@@ -1701,7 +1705,7 @@ $(function () {
                 title = '<span class="linkflair">'+needle+'</span>'+title.replace(re, "").trim();
             }
             addImageSlide({
-                url: item.data.url,
+                url: url,
                 title: title,
                 over18: item.data.over_18,
                 subreddit: item.data.subreddit,
@@ -1758,7 +1762,59 @@ $(function () {
                 }
             };
 
+            var handleCommentData = function(data) {
+                var item = data[0].data.children[0];
+                var comments = data[1].data.children;
+                
+                for (var i = 0; i < comments.length; ++i) {
+                    if (item.data.author == comments[i].data.author) {
+                        var links = comments[i].data.body.match(/\(([^\)]*)\)/);
+
+                        if (links) {
+                            addImageSlideRedditT3(item, links[1]);
+                            return;
+                        }
+                        links = comments[i].data.body_html.match(/href=\"([^"]*)/);
+                        if (links) {
+                            addImageSlideRedditT3(item, links[1]);
+                            return;
+                        }
+                    }
+                };
+
+                // No album found - process just initial image
+
+                // only need to check duplicate for needDedup, because addImageSlideRedditT3 checks on entry
+                if (rp.session.needDedup) {
+                    if (rp.dedup[item.data.subreddit] !== undefined &&
+                        rp.dedup[item.data.subreddit][item.data.id] !== undefined) {
+                        log('cannot display url [duplicate:'+
+                            rp.dedup[item.data.subreddit][item.data.id]+']: '+
+                            item.data.url);
+                        return;
+                    }
+                
+                    var url = rp.redditBaseUrl + '/r/' + item.data.subreddit + '/duplicates/' + item.data.id + '.json';
+                    $.ajax({
+                        url: url,
+                        dataType: 'json',
+                        success: handleEntryData,
+                        error: failedAjax,
+                        404: failedAjax,
+                        jsonp: false,
+                        timeout: 5000,
+                        crossDomain: true
+                    });
+
+                } else {
+                    addImageSlideRedditT3(item);
+                }
+            };
+
             $.each(data.data.children, function (i, item) {
+                var func = null;
+                var url = rp.redditBaseUrl + '/r/' + item.data.subreddit + '/duplicates/' + item.data.id + '.json';
+
                 // Text entry, no actual media
                 if (item.kind != "t3") {
                     log('cannont display url [not link]: '+item.kind);
@@ -1778,12 +1834,24 @@ $(function () {
                     return;
                 }
 
-                if (rp.session.needDedup) {
-                    var url = rp.redditBaseUrl + '/r/' + item.data.subreddit + '/duplicates/' + item.data.id + '.json';
+                // "Album in Comments"
+                if (item.data.title.match(/[\[\(\{]aic[\]\)\}]/i) ||
+                    item.data.title.match(/album.*in.*comment/i) ) {
+                    func = handleCommentData;
+                    // keep only: /r/SUBREDDIT/comments/ID/TITLE
+                    var p = item.data.permalink.split("/").slice(0,6).join("/");
+                    url = rp.redditBaseUrl + p + '.json?depth=1';
+
+                } else if (rp.session.needDedup) {
+                    func = handleEntryData;
+                    url = rp.redditBaseUrl + '/r/' + item.data.subreddit + '/duplicates/' + item.data.id + '.json';
+                }
+
+                if (func !== null) {
                     $.ajax({
                         url: url,
                         dataType: 'json',
-                        success: handleEntryData,
+                        success: func,
                         error: failedAjax,
                         404: failedAjax,
                         jsonp: false,
