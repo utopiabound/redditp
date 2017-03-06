@@ -48,7 +48,8 @@ rp.session = {
 
     loadingNextImages: false,
     loadAfter: null,
-    needDedup: true
+    // this will be enabled automatically
+    needDedup: false
 };
 
 rp.api_key = {tumblr:  'sVRWGhAGTVlP042sOgkZ0oaznmUOzD8BRiRwAm5ELlzEaz4kwU',
@@ -248,7 +249,7 @@ $(function () {
     };
 
     var albumLink = function(url) {
-        return '<a id="album" class="info" href="'+url+'">[ALBUM]</a>';
+        return '<a id="album" class="info infol" href="'+url+'">[ALBUM]</a>';
     };
 
     var youtubeURL = function(id) {
@@ -258,9 +259,9 @@ $(function () {
     };
 
     var infoLink = function(info, text, infop = null) {
-        var data = '<a href="'+info+'" class="info">'+text+'</a>';
+        var data = '<a href="'+info+'" class="info infol">'+text+'</a>';
         if (infop)
-            data += '<a href="'+infop+'" class="infop">'+
+            data += '<a href="'+infop+'" class="info infop">'+
                 '<img class="redditp" src="/images/favicon.png" /></a>';
         return data;
     };
@@ -317,7 +318,7 @@ $(function () {
         var state = $(this).attr(OPENSTATE_ATTR);
         if (state == "open") {
             // close it
-            $(this).text("+");
+            $(this).html("&rarr;");
             // move to the left just enough so the collapser arrow is visible
             var arrowLeftPoint = $(this).position().left;
             $(this).parent().animate({
@@ -326,10 +327,39 @@ $(function () {
             $(this).attr(OPENSTATE_ATTR, "closed");
         } else {
             // open it
-            $(this).text("-");
+            $(this).html("&larr;");
             $(this).parent().animate({
                 left: "0px"
             });
+            $(this).attr(OPENSTATE_ATTR, "open");
+        }
+    });
+
+    var CONTROLDIV_ATTR="data-controldiv";
+    var OPENSYMBOL_ATTR="data-opensym";
+    var CLOSESYMBOL_ATTR="data-closesym";
+    $('.vcollapser').click(function () {
+        var state = $(this).attr(OPENSTATE_ATTR);
+        var divname = $(this).attr(CONTROLDIV_ATTR);
+        var div = $('#'+divname);
+        var sym;
+        if (state == "open") {
+            // close it
+            sym = $(this).attr(CLOSESYMBOL_ATTR);
+            if (sym)
+                $(this).html(sym);
+            else
+                $(this).html("&darr;"); // down arrow
+            $(div).hide();
+            $(this).attr(OPENSTATE_ATTR, "closed");
+        } else {
+            // open it
+            sym = $(this).attr(OPENSYMBOL_ATTR);
+            if (sym)
+                $(this).html(sym);
+            else
+                $(this).html("&uarr;"); // up arrow
+            $(div).show();
             $(this).attr(OPENSTATE_ATTR, "open");
         }
     });
@@ -545,11 +575,14 @@ $(function () {
         // clear old
         $("#albumNumberButtons").detach();
 
-        if (photo.type == imageTypes.album)
-            $("#navboxContents").append($("<div>", { id: 'albumNumberButtons',
-                                                     class: 'numberButtonList'
-                                                   }).append(photo.album_ul));
-        
+        if (photo.type == imageTypes.album) {
+            var div = $("<div>", { id: 'albumNumberButtons',
+                                   class: 'numberButtonList'
+                                 }).append(photo.album_ul);
+            $("#navboxContents").append(div);
+            if ($('#albumCollapser').attr(OPENSTATE_ATTR) == "closed")
+                $(div).hide();
+        }
     };
 
     var addAlbumItem = function (photo, pic, index) {
@@ -571,8 +604,9 @@ $(function () {
     var addImageSlide = function (pic) {
         var shortid;
         /* var pic = {
-         *     "title": title, (text)
-         *     "url": url, (URL)
+         *     title: title, (text)
+         *     url: url, (URL)
+         *     id: shortid, (text)
          *     "commentsLink": commentsLink, (URL)
          *     "over18": over18, (BOOLEAN)
          *     "type": image_or_video, (from imageTypes)
@@ -580,9 +614,12 @@ $(function () {
          *     author: optional, (text - /u/$author)
          *     extra: optional, (HTML)
          *     date: optional, (unixTime)
+         *     duplicates: optional, [ array of { subreddit, id } ]
          *     thumbnail: optional, (URL)
          * }
          */
+        if (pic.duplicates === undefined)
+            pic.duplicates = [];
 
         if (pic.type === undefined)
             pic.type = imageTypes.image;
@@ -712,8 +749,10 @@ $(function () {
     var I_KEY = 73;
     var M_KEY = 77;
     var O_KEY = 79;
+    var P_KEY = 80;
     var S_KEY = 83;
     var T_KEY = 84;
+    var U_KEY = 85;
     var W_KEY = 87;
 
 
@@ -752,6 +791,9 @@ $(function () {
         case O_KEY:
             open_in_background("#navboxCommentsLink");
             break;
+        case P_KEY:
+            open_in_background("#navboxDuplicatesLink");
+            break;
         case M_KEY:
             $('#mute').click();
             break;
@@ -775,6 +817,9 @@ $(function () {
         case arrow.right:
         case D_KEY:
             nextAlbumSlide();
+            break;
+        case U_KEY:
+            $("#duplicateCollapser").click();
             break;
         }
     });
@@ -932,11 +977,30 @@ $(function () {
             $('#navboxAuthorP').attr('href', '/user/'+photo.author+'/submitted').html($('<img />', {'class': 'redditp',
                                                                                                     src: '/images/favicon.png'}));
         }
-        $('#navboxCommentsLink').attr('href', photo.commentsLink).attr('title', "Comments (o)");
+        $('#navboxCommentsLink').attr('href', photo.commentsLink);
         if (photo.date)
             $('#navboxDate').attr("title", (new Date(photo.date*1000)).toString()).text(sec2dms((Date.now()/1000) - photo.date));
         else
             $('#navboxDate').attr("title", "").text("");
+
+        if (rp.session.needDedup) {
+            $('#navboxDuplicatesLink').attr('href',  rp.redditBaseUrl + '/r/' +
+                                            photo.subreddit + '/duplicates/' + photo.id);
+            $('#duplicateUl').html("");
+            if (photo.duplicates.length > 0) {
+                $('#duplicateDiv').show();
+                $.each(photo.duplicates, function(i, item) {
+                    var subr = '/r/' +item.subreddit;
+                    var li = $("<li>", { class: 'list'}).html(infoLink(rp.redditBaseUrl + subr, subr, subr));
+                    li.append($("<a>", { href: rp.redditBaseUrl + subr + "/comments/"+item.id,
+                                         class: 'info infoc',
+                                         title: 'Comments on reddit'}).text("C"));
+                    $('#duplicateUl').append(li);
+                });
+            } else {
+                $('#duplicateDiv').hide();
+            }
+        }
 
         if (oldIndex != imageIndex) {
             toggleNumberButton(oldIndex, false);            
@@ -1424,7 +1488,7 @@ $(function () {
 
             handleData = function(data) {
 
-                photo.extra = '<a href="'+data.author_url+'" class="info">'+data.author_name+'</a>';
+                photo.extra = '<a href="'+data.author_url+'" class="info infol">'+data.author_name+'</a>';
 
                 if (data.type == 'photo') {
                     showImage(data.url);
@@ -1689,6 +1753,9 @@ $(function () {
             if (url === null) {
                 url = item.data.url;
             }
+            if (item.duplicates === null) {
+                item.duplicates = [];
+            }
 
             // Link to x-posted subreddits
             var title = item.data.title.replace(/\/?(r\/\w+)\s*/g,
@@ -1707,11 +1774,13 @@ $(function () {
             addImageSlide({
                 url: url,
                 title: title,
+                id: item.data.id,
                 over18: item.data.over_18,
                 subreddit: item.data.subreddit,
                 author: item.data.author,
                 thumbnail: fixupUrl(item.data.preview ?item.data.preview.images[0].source.url :item.data.thumbnail),
                 date: item.data.created_utc,
+                duplicates: item.duplicates,
                 commentsLink: rp.redditBaseUrl + item.data.permalink
             });
         };
@@ -1746,10 +1815,13 @@ $(function () {
             var handleEntryData = function(data) {
                 var item = data[0].data.children[0];
                 if (rp.session.needDedup) {
+                    item.duplicates = [];
                     $.each(data[1].data.children, function(i, dupe) {
                         if (rp.dedup[dupe.data.subreddit] == undefined)
                             rp.dedup[dupe.data.subreddit] = {};
                         rp.dedup[dupe.data.subreddit][dupe.data.id] = '/r/'+item.data.subreddit+'/'+item.data.id;
+                        item.duplicates.push({subreddit: dupe.data.subreddit,
+                                              id: dupe.data.id});
                     });
                 }
                 addImageSlideRedditT3(item);
@@ -1898,6 +1970,7 @@ $(function () {
                 var isVid = (item.type == 'Video');
                 addImageSlide({
                     url: (isVid) ?item.url_mp4 :item.url_full_protocol,
+                    id: albumID,
                     title: (item.description !== undefined) ?item.description :"",
                     over18: true,
                     commentsLink: data.reddit_submission.permalink,
@@ -1947,6 +2020,7 @@ $(function () {
                 addImageSlide({
                     url: (item.animated) ?item.gifv :item.link,
                     title: (item.title !== undefined) ?item.title :"",
+                    id: albumID,
                     over18: item.nsfw,
                     commentsLink: data.data.link,
                     subreddit: data.data.section,
@@ -2014,6 +2088,7 @@ $(function () {
 
             $.each(data.response.posts, function (i, post) {
                 var image = { title: post.summary,
+                              id: post.id,
                               over18: data.response.blog.is_nsfw,
                               date: post.timestamp,
                               commentsLink: post.post_url
@@ -2091,6 +2166,7 @@ $(function () {
                     addImageSlide({
                         url: item.original_size.url,
                         title: post.summary,
+                        id: shortid,
                         over18: isNsfw,
                         date: post.timestamp,
                         commentsLink: post.post_url
@@ -2165,14 +2241,23 @@ $(function () {
             subredditName = rp.url.subreddit + getVarsQuestionMark;
         }
 
+        var dupe = $('#duplicateCollapser');
         if (rp.url.subreddit.indexOf('/user/') >= 0 ||
             rp.url.subreddit.indexOf('/domain/') >= 0 ||
             rp.url.subreddit.indexOf('/search/') >= 0 ||
             rp.url.subreddit.indexOf('/r/all') >= 0 ||
-            rp.url.subreddit.indexOf('+') >= 0)
+            rp.url.subreddit == "/" ||
+            rp.url.subreddit.indexOf('+') >= 0) {
             rp.session.needDedup = true;
-        else
+            if ($(dupe).attr(OPENSTATE_ATTR) == "closed")
+                $(dupe).click();
+        } else {
             rp.session.needDedup = false;
+            // close and don't show if we're not loading the info
+            if ($(dupe).attr(OPENSTATE_ATTR) == "open")
+                $(dupe).click();
+            $(dupe).hide();
+        }
 
         var visitSubredditUrl = rp.redditBaseUrl + rp.url.subreddit + getVarsQuestionMark;
 

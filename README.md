@@ -17,6 +17,8 @@ Hotkeys
 * c - collapse/uncollapse controls
 * i - open image in a new tab
 * o - open comments in a new tab
+* p - open duplicates in a new tab
+* u - hide/show duplciates box
 * f - toggle full screen mode
 * m - unmute/mute videos
 * w a s d - left-handed navigation (same as arrow keys)

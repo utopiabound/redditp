@@ -24,7 +24,9 @@
     <div class="nextArrow fadeOnIdle" title="Try the arrow keys too" id="nextButton"></div>
     
     <div id="controlsDiv" class='navbox clouds fadeOnIdle'>
-        <div class="collapser" data-openstate="open">-</div>
+        <div class="collapser" data-openstate="open">&larr;</div>
+	<div id="albumCollapser" class="vcollapser" data-opensym="&#8858;" data-closesym="&otimes;"
+	     data-openstate="open" data-controldiv="albumNumberButtons" title="Show Album Buttons">&#8858;</div>
         <div id="navboxContents">
             <ul class="nbmenu">
                 <li id="subredditUrl"><noscript>No javascript, no gain.</noscript>
@@ -46,13 +48,13 @@
                     every <input type="text" name="timeToNextSlide" id="timeToNextSlide" value="8" size="2" /> seconds
                 </li>
                 <li>
-                    <a id='navboxCommentsLink' href='#' title='Comments on reddit'>comments</a>
+                    <a id='navboxCommentsLink' href='#' title='Comments (o)'>comments</a>
                 </li>
                 <li>
                     <a id='navboxLink' href='#' title='placeholder'>Loading</a>
                 </li>
             </ul>
-            <div class="numberButtonList">
+            <div id="allNumberButtonList" class="numberButtonList">
                 <ul id="allNumberButtons">
                 <!-- Slide number buttons will be injected by jQuery -->
                 </ul>
@@ -61,21 +63,27 @@
         </div>
     </div>
     <div id="titleDiv" class='navbox clouds'>
-        <div class="collapser" data-openstate="open">-</div>
+        <div class="collapser" data-openstate="open">&larr;</div>
 	<div id='navboxTitleWrapper'>
           <h2 id='navboxTitle'>
             <noscript>Javascript is required for redditp to work :(</noscript>
           </h2>
-          <div><a id="navboxSubreddit" class="info" href="http://www.reddit.com">
+          <div><a id="navboxSubreddit" class="info infol" href="http://www.reddit.com">
               <noscript>Javascript is required for redditp to work :(</noscript>
-            </a><a id="navboxSubredditP" class="infop" href="/">&nbsp;</a>
+            </a><a id="navboxSubredditP" class="info infop" href="/">&nbsp;</a>
           </div>
-	  <div><span id="navboxDate" class="info" title=""></span></div>
-          <div><a id="navboxAuthor" class="info" href="http://www.reddit.com">
+	  <div><span id="navboxDate" class="info infod" title=""></span></div>
+          <div><a id="navboxAuthor" class="info infol" href="http://www.reddit.com">
               <noscript>Javascript is required for redditp to work :(</noscript>
-            </a><a id="navboxAuthorP" class="infop" href="/">&nbsp;</a>
+            </a><a id="navboxAuthorP" class="info infop" href="/">&nbsp;</a>
           </div>
           <div id="navboxExtra"></div>
+	</div>
+	<div id="duplicateCollapser" class="vcollapser" data-opensym="&#8858;" data-closesym="&otimes;"
+	     data-openstate="open" data-controldiv="duplicateDiv" title="Hide/Show Duplicates">&#8858;</div>
+	<div id="duplicateDiv" class='navbox'>
+	  <h3><a id='navboxDuplicatesLink' href="#" title="Show Duplciates (p)">Duplicates</a></h3>
+	  <ul id="duplicateUl" />
 	</div>
     </div>
 

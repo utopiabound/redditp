@@ -22,11 +22,8 @@ a:hover {
     opacity: 1.0;
     border-bottom:1px dotted;
 }
-info:hover {
-    opacity: 1.0;
-    border-bottom:1px dotted;
-}
-.navbox { width:450px; max-height: 40%; overflow: auto; position:relative; left: 0px; opacity: 0.9; background-color: rgba(0,0,0,0.7);}
+
+.navbox { width:450px; max-height: 40%; overflow: auto; position:relative; left: 0px; }
 /* 108px so the next row is half-visible */
 .numberButtonList { overflow: auto; max-height: 108px; }
 .navbox ul { list-style-type:none; display:block; margin:0px; right:10px; top:10px; text-align: left;}
@@ -70,18 +67,32 @@ info:hover {
 }
 .numberButtonList ul li a.active {
     color: #00AAAA;
-    -moz-box-shadow: 2px 2px 3px #eee;
-    /* For IE 8 */
-    -ms-filter: "progid:DXImageTransform.Microsoft.Shadow(Strength=3, Direction=135, Color='#EEEEEE')";
-    /* For IE 5.5 - 7 */
-    filter: progid:DXImageTransform.Microsoft.Shadow(Strength=3, Direction=135, Color='#EEEEEE');
+    box-shadow: 2px 2px 3px #ccc;
 }
 
 #controlsDiv {position: absolute; bottom: 0; left: 0; right: 0; }
 #titleDiv { position: absolute; top: 0; left: 0; right: 0; }
+#duplicateDiv { position: relative; top: 0; left: 0; right: 0; }
+
+
 .navbox h2 { padding: 2px; font: bold 20px Helvetica, Arial, Sans-serif; }
-.navbox .info { margin:  0px 1px 5px 5px; font: bold 12px Helvetica, Arial, Sans-serif; float: left}
-.navbox .infop { margin-right: 5px; font: bold 12px Helvetica, Arial, Sans-serif; float: left}
+.navbox h3 { padding: 2px; font: bold 16px Helvetica, Arial, Sans-serif; }
+
+.info { font: bold 12px Helvetica, Arial, Sans-serif; float: left}
+/* info link */
+.infol { margin: 0px 1px 5px 5px; }
+.infol:hover {
+        opacity: 1.0;
+        border-bottom:1px dotted;
+        margin: 0px 1px 4px 5px;
+}
+/* info redditp image */
+.infop { margin-right: 5px; }
+/* info date */
+.infod { margin: 0px 5px 5px 5px; }
+/* info comment link (between infol and infop */
+.infoc { margin-right: 5px; margin-left: -5px; }
+
 .navbox p { padding:20px 20px 20px 20px; font-family: "Segoe UI","HelveticaNeue-Light","Helvetica Neue Light","Helvetica Neue",Arial,Tahoma,Verdana,sans-serif; font-size:13px; color:#111; }
 .navbox p.bottom { position:absolute; bottom:5px; right:5px; }
 
@@ -119,7 +130,7 @@ label.checkbox { font-weight: bold; }
 }
 
 .cam { background-image:url("../images/bg_cam_txt.png"); }
-.clouds {  }
+.clouds { opacity: 0.9; background-color: rgba(0,0,0,0.7); }
 .key { background-image:url("../images/bg_key_txt.png"); }
 .flowers { background-image:url("../images/bg_flowers_txt.png"); }
 
@@ -131,10 +142,20 @@ label.checkbox { font-weight: bold; }
         color: #bbb;
         padding: 0 7px;
         float:right;
-        cursor: hand;
         cursor: pointer;
 }
-.checkbox { cursor: hand; cursor: pointer; }
+
+.vcollapser {
+        border: solid 1px #555;
+        font-size: 20px;
+        font-family: monospace;
+        color: #bbb;
+        padding: 0 7px;
+        float:right;
+        cursor: pointer;
+}
+
+.checkbox { cursor: pointer; }
 
 .prevArrow {
     position: absolute;
@@ -148,8 +169,7 @@ label.checkbox { font-weight: bold; }
     border-right: 30px solid white; 
 
     opacity: 0.8;
-    
-    cursor: hand; cursor: pointer;
+    cursor: pointer;
 }
 
 .nextArrow {
@@ -164,7 +184,7 @@ label.checkbox { font-weight: bold; }
     border-left: 30px solid white; 
     
     opacity: 0.8;
-    cursor: hand; cursor: pointer;
+    cursor: pointer;
 }
 
 input[type=checkbox] {
