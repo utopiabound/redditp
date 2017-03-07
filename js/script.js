@@ -83,17 +83,36 @@ $(function () {
         later: 'LOAD...'
     };
 
+    // try/catch statements in logging functions are to support older IE
     function debug(data) {
         if (rp.settings.debug)
-            window.log(data);
+            try {
+                window.console.log(data);
+            } catch (e) {
+                // IE prior to 10 have iffy console.log implemenations
+                log.history = log.history || []; // store logs to an array for reference
+                log.history.push(arguments);
+            }
     }
 
     function log(data) {
-        window.log(data);
+        try {
+            window.console.log(data);
+        } catch (e) {
+            // IE prior to 10 have iffy console.log implemenations
+            log.history = log.history || []; // store logs to an array for reference
+            log.history.push(arguments);
+        }
     }
-    function error(data) {
-        window.log(data);
-        window.alert(data);
+    function error(data) { 
+        try {
+            window.console.log(data);
+        } catch (e) {
+            // IE prior to 10 have iffy console.log implemenations
+            log.history = log.history || []; // store logs to an array for reference
+            log.history.push(arguments);
+        }
+        alert(data);
     }
 
     // Take a URL and strip it down to the "shortid"
@@ -123,15 +142,15 @@ $(function () {
     // takes an integer number of seconds and returns eithe days, hours or minutes
     function sec2dms(secs) {
         if (secs >= 31556736)
-            return Math.trunc(secs/31556736)+'y';
+            return Math.floor(secs/31556736)+'y';
         if (secs >= 604800)
-            return Math.trunc(secs/604800)+'w';
+            return Math.floor(secs/604800)+'w';
         if (secs >= 86400)
-            return Math.trunc(secs/86400)+'d';
+            return Math.floor(secs/86400)+'d';
         if (secs >= 3600)
-            return Math.trunc(secs/3600)+'h';
+            return Math.floor(secs/3600)+'h';
         if (secs > 60)
-            return Math.trunc(secs/60)+'m';
+            return Math.floor(secs/60)+'m';
         else
             return "1m";
     }
@@ -1031,19 +1050,16 @@ $(function () {
         $('#recommend').css({'display':'block'});
     };
 
+    var failedAjax = function (xhr, ajaxOptions, thrownError) {
+        log("xhr:", xhr);
+        log("ajaxOptions:", ajaxOptions);
+        log("error:", thrownError);
+    };
     var failedAjaxDone = function (xhr, ajaxOptions, thrownError) {
-        window.console.log("xhr:", xhr);
-        window.console.log("ajaxOptions:", ajaxOptions);
-        window.console.log("error:", thrownError);
-        //alert("Failed ajax, maybe a bad url? Sorry about that :(\n" + xhr.responseText + "\n");
+        failedAjax(xhr, ajaxOptions, thrownError);
         failCleanup("Failed to get "+rp.url.subreddit+" "+thrownError+" "+xhr.status);
     };
 
-    var failedAjax = function (xhr, ajaxOptions, thrownError) {
-        window.console.log("xhr:", xhr);
-        window.console.log("ajaxOptions:", ajaxOptions);
-        window.console.log("error:", thrownError);
-    };
     //
     // Slides the background photos
     //
@@ -1491,6 +1507,7 @@ $(function () {
                 photo.extra = '<a href="'+data.author_url+'" class="info infol">'+data.author_name+'</a>';
 
                 if (data.type == 'photo') {
+                    photo.type = imageTypes.image;
                     showImage(data.url);
                     if (imageIndex == rp.session.activeIndex)
                         resetNextSlideTimer();
@@ -1544,6 +1561,10 @@ $(function () {
                                                 }, i);
                         });
                         index = indexPhotoAlbum(photo, imageIndex);
+
+                    } else {
+                        photo.url = post.photos[index].original_size.url;
+                        photo.type = imageTypes.image;
                     }
 
                     showImage(post.photos[index].original_size.url);
@@ -1885,7 +1906,7 @@ $(function () {
 
             $.each(data.data.children, function (i, item) {
                 var func = null;
-                var url = rp.redditBaseUrl + '/r/' + item.data.subreddit + '/duplicates/' + item.data.id + '.json';
+                var url = null;
 
                 // Text entry, no actual media
                 if (item.kind != "t3") {
@@ -1908,32 +1929,33 @@ $(function () {
 
                 // "Album in Comments"
                 if (item.data.title.match(/[\[\(\{]aic[\]\)\}]/i) ||
-                    item.data.title.match(/album.*in.*comment/i) ) {
-                    func = handleCommentData;
+                    item.data.title.match(/album.*in.*comment/i) ||
+                    item.data.title.match(/[\[\(\{]mic[\]\)\}]/i) ||
+                    item.data.title.match(/more.*in.*comment/i) ) {
                     // keep only: /r/SUBREDDIT/comments/ID/TITLE
                     var p = item.data.permalink.split("/").slice(0,6).join("/");
+                    func = handleCommentData;
                     url = rp.redditBaseUrl + p + '.json?depth=1';
 
                 } else if (rp.session.needDedup) {
                     func = handleEntryData;
                     url = rp.redditBaseUrl + '/r/' + item.data.subreddit + '/duplicates/' + item.data.id + '.json';
-                }
 
-                if (func !== null) {
-                    $.ajax({
-                        url: url,
-                        dataType: 'json',
-                        success: func,
-                        error: failedAjax,
-                        404: failedAjax,
-                        jsonp: false,
-                        timeout: 5000,
-                        crossDomain: true
-                    });
-
-                } else {
+                } else { // Don't need dedup, just add and return
                     addImageSlideRedditT3(item);
+                    return;
                 }
+
+                $.ajax({
+                    url: url,
+                    dataType: 'json',
+                    success: func,
+                    error: failedAjax,
+                    404: failedAjax,
+                    jsonp: false,
+                    timeout: 5000,
+                    crossDomain: true
+                });
             });
 
             verifyNsfwMakesSense();
@@ -1964,7 +1986,7 @@ $(function () {
                 return;
             }
             var d = new Date(data.created_at);
-            var date = Math.trunc(d.getTime()/1000);
+            var date = Math.floor(d.getTime()/1000);
 
             $.each(data.items, function (i, item) {
                 var isVid = (item.type == 'Video');

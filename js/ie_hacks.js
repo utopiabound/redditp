@@ -1,6 +1,8 @@
+/* -*- mode: javascript; indent-tabs-mode: nil -*-
+ * Hacks to fix older IE versions, generally prior to IE 9
+ */
 
-// IE doesn't have indexOf, wtf...
-if (!Array.indexOf) {
+if (Array.indexOf == undefined) {
     Array.prototype.indexOf = function (obj) {
         for (var i = 0; i < this.length; i++) {
             if (this[i] == obj) {
@@ -11,13 +13,6 @@ if (!Array.indexOf) {
     };
 }
 
-// IE doesn't have console.log and fails, wtf...
-// usage: log('inside coolFunc',this,arguments);
-// http://paulirish.com/2009/log-a-lightweight-wrapper-for-consolelog/
-window.log = function () {
-    log.history = log.history || []; // store logs to an array for reference
-    log.history.push(arguments);
-    if (this.console) {
-        console.log(Array.prototype.slice.call(arguments).join(" "));
-    }
-};
+if (Date.now == undefined) {
+    Date.now = function() { return +new Date; }; 
+}
