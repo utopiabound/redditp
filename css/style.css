@@ -78,6 +78,7 @@ a:hover {
 .navbox h2 { padding: 2px; font: bold 20px Helvetica, Arial, Sans-serif; }
 .navbox h3 { padding: 2px; font: bold 16px Helvetica, Arial, Sans-serif; }
 
+/* infol infop [infoc]  infod  [infol infop [infoc]] */
 .info { font: bold 12px Helvetica, Arial, Sans-serif; float: left}
 /* info link */
 .infol { margin: 0px 1px 5px 5px; }
@@ -231,5 +232,12 @@ input[type=checkbox]:checked + label {
         height: 16px;
         width: 16px;
         margin: 0;
+        border: 0;
+}
+
+.reddit {
+        height: 24px;
+        width: 24px;
+        margin: -5px;
         border: 0;
 }

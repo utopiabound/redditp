@@ -277,8 +277,8 @@ $(function () {
         return 'https://www.youtube.com/embed/'+id+ytExtra;
     };
 
-    var infoLink = function(info, text, infop = null) {
-        var data = '<a href="'+info+'" class="info infol">'+text+'</a>';
+    var infoLink = function(info, text, infop = null, infoalt = "") {
+        var data = '<a href="'+info+'" class="info infol" title="'+infoalt+'">'+text+'</a>';
         if (infop)
             data += '<a href="'+infop+'" class="info infop">'+
                 '<img class="redditp" src="/images/favicon.png" /></a>';
@@ -286,10 +286,13 @@ $(function () {
     };
 
     function open_in_background(selector){
+        var link = $(selector)[0];
+        open_in_background_url(link);
+    }
+
+    function open_in_background_url(link){
         // as per https://developer.mozilla.org/en-US/docs/Web/API/event.initMouseEvent
         // works on latest chrome, safari and opera
-        var link = $(selector)[0];
-
         if (link === undefined)
             return;
 
@@ -755,12 +758,22 @@ $(function () {
         right: 39,
         down: 40
     };
+    var ZERO_KEY = 58;
     var ONE_KEY = 49;
+    var TWO_KEY = 50;
+    var THREE_KEY = 51;
+    var FOUR_KEY = 52;
+    var FIVE_KEY = 53;
+    var SIX_KEY = 54;
+    var SEVEN_KEY = 55;
+    var EIGHT_KEY = 56;
     var NINE_KEY = 57;
+
     var SPACE = 32;
     var PAGEUP = 33;
     var PAGEDOWN = 34;
     var ENTER = 13;
+
     var A_KEY = 65;
     var C_KEY = 67;
     var D_KEY = 68;
@@ -769,6 +782,7 @@ $(function () {
     var M_KEY = 77;
     var O_KEY = 79;
     var P_KEY = 80;
+    var R_KEY = 82;
     var S_KEY = 83;
     var T_KEY = 84;
     var U_KEY = 85;
@@ -792,6 +806,7 @@ $(function () {
         // More info: http://stackoverflow.com/questions/302122/jquery-event-keypress-which-key-was-pressed
         // http://stackoverflow.com/questions/1402698/binding-arrow-keys-in-js-jquery
         var code = (e.keyCode ? e.keyCode : e.which);
+        var i = 0;
 
         switch (code) {
         case C_KEY:
@@ -812,6 +827,9 @@ $(function () {
             break;
         case P_KEY:
             open_in_background("#navboxDuplicatesLink");
+            break;
+        case R_KEY:
+            open_in_background("#navboxDuplicatesMulti");
             break;
         case M_KEY:
             $('#mute').click();
@@ -839,6 +857,29 @@ $(function () {
             break;
         case U_KEY:
             $("#duplicateCollapser").click();
+            break;
+        case NINE_KEY:
+            ++i;
+        case EIGHT_KEY:
+            ++i;
+        case SEVEN_KEY:
+            ++i;
+        case SIX_KEY:
+            ++i;
+        case FIVE_KEY:
+            ++i;
+        case FOUR_KEY:
+            ++i;
+        case THREE_KEY:
+            ++i;
+        case TWO_KEY:
+            ++i;
+        case ONE_KEY:
+            if ($('#duplicateUl li .infol')[i])
+                open_in_background_url($('#duplicateUl li .infol')[i]);
+            break;
+        case ZERO_KEY:
+            open_in_background('#navboxSubreddit');
             break;
         }
     });
@@ -1008,14 +1049,19 @@ $(function () {
             $('#duplicateUl').html("");
             if (photo.duplicates.length > 0) {
                 $('#duplicateDiv').show();
+                var multi = photo.subreddit;
                 $.each(photo.duplicates, function(i, item) {
                     var subr = '/r/' +item.subreddit;
-                    var li = $("<li>", { class: 'list'}).html(infoLink(rp.redditBaseUrl + subr, subr, subr));
+                    multi += '+'+item.subreddit;
+                    var li = $("<li>", { class: 'list'}).html(infoLink(rp.redditBaseUrl + subr,
+                                                                       subr, subr, "("+(1+i)+")"));
                     li.append($("<a>", { href: rp.redditBaseUrl + subr + "/comments/"+item.id,
                                          class: 'info infoc',
                                          title: 'Comments on reddit'}).text("C"));
                     $('#duplicateUl').append(li);
                 });
+                $('#navboxDuplicatesMulti').attr('href', rp.redditBaseUrl+'/r/'+multi);
+                $('#navboxDuplicatesMultiP').attr('href', '/r/'+multi);
             } else {
                 $('#duplicateDiv').hide();
             }
@@ -2273,6 +2319,8 @@ $(function () {
             rp.session.needDedup = true;
             if ($(dupe).attr(OPENSTATE_ATTR) == "closed")
                 $(dupe).click();
+            // Cleanup subreddit
+            rp.url.subreddit = rp.url.subreddit.replace(/\+$/, "");
         } else {
             rp.session.needDedup = false;
             // close and don't show if we're not loading the info

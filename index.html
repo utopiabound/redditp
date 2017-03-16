@@ -68,7 +68,7 @@
           <h2 id='navboxTitle'>
             <noscript>Javascript is required for redditp to work :(</noscript>
           </h2>
-          <div><a id="navboxSubreddit" class="info infol" href="http://www.reddit.com">
+          <div><a id="navboxSubreddit" class="info infol" title="(0)" href="http://www.reddit.com">
               <noscript>Javascript is required for redditp to work :(</noscript>
             </a><a id="navboxSubredditP" class="info infop" href="/">&nbsp;</a>
           </div>
@@ -82,7 +82,11 @@
 	<div id="duplicateCollapser" class="vcollapser" data-opensym="&#8858;" data-closesym="&otimes;"
 	     data-openstate="open" data-controldiv="duplicateDiv" title="Hide/Show Duplicates">&#8858;</div>
 	<div id="duplicateDiv" class='navbox'>
-	  <h3><a id='navboxDuplicatesLink' href="#" title="Show Duplciates (p)">Duplicates</a></h3>
+	  <h3><a id='navboxDuplicatesLink' href="#" class="infol" title="Show Duplciates (p)">Duplicates
+	    </a><a id='navboxDuplicatesMultiP' href="#" class="infop"><img class="redditp" src="/images/favicon.png" />
+	    </a><a id='navboxDuplicatesMulti' href="#" title="MultiReddit of duplicate subreddits (r)" class="infoc">
+	      <img class="reddit" src="/images/reddit.svg" /></a>
+	  </h3>
 	  <ul id="duplicateUl" />
 	</div>
     </div>
