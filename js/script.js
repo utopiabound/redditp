@@ -724,7 +724,7 @@ $(function () {
         var i = rp.photos.length - 1;
         var numberButton = $("<a />").html(i + 1)
                 .data("index", i)
-                .attr("title", rp.photos[i].title)
+                .attr("title", $('<span />').html(rp.photos[i].title).text())
                 .attr("id", "numberButton" + (i + 1));
 
         if (pic.over18)
@@ -758,7 +758,7 @@ $(function () {
         right: 39,
         down: 40
     };
-    var ZERO_KEY = 58;
+    var ZERO_KEY = 48;
     var ONE_KEY = 49;
     var TWO_KEY = 50;
     var THREE_KEY = 51;
@@ -1257,7 +1257,8 @@ $(function () {
 
         if (photo.type == imageTypes.video) {
             if (photo.video === undefined) {
-                error("["+imageIndex+"]["+albumIndex+"] type is video but not video element");
+                error("["+imageIndex+"]["+albumIndex+"] type is video but no video element");
+
             } else {
                 showVideo(photo.video);
                 return divNode;
@@ -1763,6 +1764,9 @@ $(function () {
             return false;
         }
         var extension = url.substring(dotLocation);
+        var argloc = extension.indexOf('?');
+        if (argloc > 0)
+            extension = extension.substring(0,argloc);
 
         if (rp.settings.goodImageExtensions.indexOf(extension) >= 0) {
             return true;
@@ -1779,6 +1783,9 @@ $(function () {
             return false;
         }
         var extension = url.substring(dotLocation);
+        var argloc = extension.indexOf('?');
+        if (argloc > 0)
+            extension = extension.substring(0,argloc);
 
         if (rp.settings.goodVideoExtensions.indexOf(extension) >= 0) {
             return true;
@@ -1879,7 +1886,7 @@ $(function () {
                 $('#subredditUrl').html("<a href='" + rp.redditBaseUrl + rp.url.subreddit + "'>" + rp.url.subreddit + "</a>");
             }
 
-            var handleEntryData = function(data) {
+            var handleDuplicatesData = function(data) {
                 var item = data[0].data.children[0];
                 if (rp.session.needDedup) {
                     item.duplicates = [];
@@ -1901,7 +1908,7 @@ $(function () {
                 }
             };
 
-            var handleCommentData = function(data) {
+            var handleCommentAlbum = function(data) {
                 var item = data[0].data.children[0];
                 var comments = data[1].data.children;
                 
@@ -1937,9 +1944,8 @@ $(function () {
                     $.ajax({
                         url: url,
                         dataType: 'json',
-                        success: handleEntryData,
+                        success: handleDuplicatesData,
                         error: failedAjax,
-                        404: failedAjax,
                         jsonp: false,
                         timeout: 5000,
                         crossDomain: true
@@ -1960,8 +1966,8 @@ $(function () {
                     return;
                 }
 
-                if (item.data.thumbnail == "self") {
-                    log('cannot display url [self]: ' + item.data.url);
+                if (item.data.is_self) {
+                    log('cannot display url [self-post]: '+item.data.url);
                     return;
                 }
 
@@ -1973,20 +1979,18 @@ $(function () {
                     return;
                 }
 
-                // "Album in Comments"
+                // "Album in Comments" ("More in Comments" is checked in addImageSlideRedditT3())
                 if (item.data.title.match(/[\[\(\{]aic[\]\)\}]/i) ||
-                    item.data.title.match(/album.*in.*comment/i) ||
-                    item.data.title.match(/[\[\(\{]mic[\]\)\}]/i) ||
-                    item.data.title.match(/more.*in.*comment/i) ) {
+                    item.data.title.match(/album.*in.*comment/i) ) {
                     // keep only: /r/SUBREDDIT/comments/ID/TITLE
                     var p = item.data.permalink.split("/").slice(0,6).join("/");
-                    func = handleCommentData;
+                    func = handleCommentAlbum;
                     url = rp.redditBaseUrl + p + '.json?depth=1';
 
                 } else if (rp.session.needDedup) {
-                    func = handleEntryData;
+                    func = handleDuplicatesData;
                     url = rp.redditBaseUrl + '/r/' + item.data.subreddit + '/duplicates/' + item.data.id + '.json';
-
+                    
                 } else { // Don't need dedup, just add and return
                     addImageSlideRedditT3(item);
                     return;
@@ -1997,7 +2001,6 @@ $(function () {
                     dataType: 'json',
                     success: func,
                     error: failedAjax,
-                    404: failedAjax,
                     jsonp: false,
                     timeout: 5000,
                     crossDomain: true
@@ -2015,7 +2018,6 @@ $(function () {
             jsonpCallback: 'redditcallback',
             success: handleData,
             error: failedAjaxDone,
-            404: failedAjaxDone,
             timeout: 5000,
             crossDomain: true
         });
@@ -2068,7 +2070,6 @@ $(function () {
             headers: { 'Origin': document.location.origin },
             success: handleData,
             error: failedAjaxDone,
-            404: failedAjaxDone,
             timeout: 5000
         });
     };
@@ -2120,7 +2121,6 @@ $(function () {
             dataType: 'json',
             success: handleData,
             error: failedAjaxDone,
-            404: failedAjaxDone,
             timeout: 5000,
             headers: { Authorization: 'Client-ID ' + rp.api_key.imgur }
         });
@@ -2210,7 +2210,6 @@ $(function () {
             dataType: 'jsonp',
             success: handleData,
             error: failedAjaxDone,
-            404: failedAjaxDone,
             timeout: 5000
         });
     };
@@ -2266,7 +2265,6 @@ $(function () {
             dataType: 'jsonp',
             success: handleData,
             error: failedAjaxDone,
-            404: failedAjaxDone,
             timeout: 5000
         });
     };
