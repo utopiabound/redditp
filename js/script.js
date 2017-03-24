@@ -592,13 +592,18 @@ $(function () {
         if (imageIndex >= 0)
             $('#numberButton'+(imageIndex+1)).addClass('album');
 
-        if (albumIndex < 0)
-            return 0;
-
         // Set correct AlbumIndex
-        if (imageIndex == rp.session.activeIndex &&
-            rp.session.activeAlbumIndex == LOAD_PREV_ALBUM)
-            rp.session.activeAlbumIndex = photo.album.length-1;
+        if (imageIndex == rp.session.activeIndex) {
+            if (rp.session.activeAlbumIndex == LOAD_PREV_ALBUM)
+                rp.session.activeAlbumIndex = photo.album.length-1;
+            if (rp.session.activeAlbumIndex == -1)
+                rp.session.activeAlbumIndex = 0;
+            if (albumIndex < 0)
+                albumIndex = rp.session.activeAlbumIndex;
+
+        } else if (albumIndex < 0) {
+            return 0;
+        }
 
         return albumIndex;
     };
@@ -924,11 +929,45 @@ $(function () {
         if (imageIndex < 0)
             imageIndex = 0;
         var next = getNextSlideIndex(imageIndex);
+        var prev = getPrevSlideIndex(imageIndex);
         if (rp.cache[next] === undefined) {
+            var oldCache = rp.cache;
             rp.cache = {};
-            rp.cache[next] = {};
-            rp.cache[next][-1] = createDiv(next);
-            rp.cache[next][0] = rp.cache[next][-1];
+            if (oldCache[next])
+                rp.cache[next] = oldCache[next];
+            else
+                rp.cache[next] = {};
+
+            if (rp.cache[next][0] === undefined)
+                rp.cache[next][0] = createDiv(next);
+
+            // save next+1, but don't create it
+            next = getNextSlideIndex(next);
+            if (oldCache[next])
+                 rp.cache[next] = oldCache[next];
+
+            // save previous
+            if (oldCache[prev])
+                rp.cache[prev] = oldCache[prev];
+
+            if (oldCache[rp.session.activeIndex])
+                rp.cache[rp.session.activeIndex] = oldCache[rp.session.activeIndex];
+
+            // save prev-1, but don't create it
+            next = getPrevSlideIndex(prev);
+            if (oldCache[next])
+                 rp.cache[next] = oldCache[next];
+        }
+
+        // Preload previous image
+        if (rp.cache[prev] === undefined) {
+            rp.cache[prev] = {};
+            rp.cache[prev][0] = createDiv(prev);
+        }
+        if (rp.photos[prev].type == imageTypes.album) {
+            var ind = rp.photos[prev].album.length-1;
+            if (rp.cache[prev][ind] === undefined)
+                rp.cache[prev][ind] = createDiv(prev, ind);
         }
 
         if (albumIndex < 0)
@@ -991,7 +1030,7 @@ $(function () {
         rp.session.isAnimating = true;
 
         animateNavigationBox(imageIndex, oldIndex, albumIndex, oldAlbumIndex);
-        slideBackgroundPhoto(imageIndex, rp.session.activeAlbumIndex);
+        slideBackgroundPhoto();
         // rp.session.activeAlbumIndex may have changed in createDiv called by slideBackgroundPhoto
         preloadNextImage(imageIndex, rp.session.activeAlbumIndex);
 
@@ -1128,25 +1167,47 @@ $(function () {
 
     //
     // Slides the background photos
-    //
-    var slideBackgroundPhoto = function (imageIndex, albumIndex = -1) {
+    // Only called with rp.session.activeIndex, rp.session.activeAlbumIndex
+    var slideBackgroundPhoto = function () {
         var divNode;
-        var index;
+        var aIndex = rp.session.activeAlbumIndex;
         var type;
-        if (albumIndex < 0) {
-            type = rp.photos[imageIndex].type;
 
-        } else {
-            type = rp.photos[imageIndex].album[albumIndex].type;
-        }
+        if (rp.session.activeAlbumIndex < 0)
+            aIndex = 0;
 
-        if (rp.cache[imageIndex] === undefined ||
-            rp.cache[imageIndex][albumIndex] === undefined)
-            divNode = createDiv(imageIndex, albumIndex);
-        else
-            divNode = rp.cache[imageIndex][albumIndex];
+        // Look for div in Cache
+        if (rp.cache[rp.session.activeIndex] === undefined ||
+            rp.cache[rp.session.activeIndex][aIndex] === undefined) {
 
-        if (type == imageTypes.video || type == imageTypes.embed ||
+            divNode = createDiv(rp.session.activeIndex, rp.session.activeAlbumIndex);
+
+            // may change from LOAD_PREV_ALBUM
+            if (rp.session.activeAlbumIndex >= 0)
+                aIndex = rp.session.activeAlbumIndex;
+
+            if (rp.cache[rp.session.activeIndex] === undefined)
+                rp.cache[rp.session.activeIndex] = {};
+            rp.cache[rp.session.activeIndex][aIndex] = divNode;
+
+        } else
+            divNode = rp.cache[rp.session.activeIndex][aIndex];
+
+        // Read type here, since it may change during createDiv()
+        if (rp.session.activeAlbumIndex < 0) {
+            type = rp.photos[rp.session.activeIndex].type;
+
+            if (type == imageTypes.album) {
+                rp.session.activeAlbumIndex = 0;
+                type = rp.photos[rp.session.activeIndex].album[rp.session.activeAlbumIndex].type;
+            }
+
+        } else
+            type = rp.photos[rp.session.activeIndex].album[rp.session.activeAlbumIndex].type;
+
+
+        if (type == imageTypes.video ||
+            type == imageTypes.embed ||
             type == imageTypes.later)
             clearSlideTimeout();
 
