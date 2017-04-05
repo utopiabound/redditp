@@ -15,6 +15,7 @@ var rp = {};
 
 rp.settings = {
     debug: false,
+    trace: false,
     // Speed of the animation
     animationSpeed: 1000,
     shouldAutoNextSlide: true,
@@ -86,6 +87,17 @@ $(function () {
     // try/catch statements in logging functions are to support older IE
     function debug(data) {
         if (rp.settings.debug)
+            try {
+                window.console.log(data);
+            } catch (e) {
+                // IE prior to 10 have iffy console.log implemenations
+                log.history = log.history || []; // store logs to an array for reference
+                log.history.push(arguments);
+            }
+    }
+
+    function trace(data) {
+        if (rp.settings.trace)
             try {
                 window.console.log(data);
             } catch (e) {
@@ -414,7 +426,7 @@ $(function () {
     };
 
     var clearSlideTimeout = function() {
-        debug('clear timout');
+        trace('clear timout');
         window.clearTimeout(rp.session.nextSlideTimeoutId);
     };
 
@@ -423,7 +435,7 @@ $(function () {
             timeout = rp.settings.timeToNextSlide;
         }
         timeout *= 1000;
-        debug('set timeout (ms): ' + timeout);
+        trace('set timeout (ms): ' + timeout);
         window.clearTimeout(rp.session.nextSlideTimeoutId);
         rp.session.nextSlideTimeoutId = window.setTimeout(autoNextSlide, timeout);
     };
@@ -991,7 +1003,7 @@ $(function () {
         var needRefresh = false;
         resetNextSlideTimer();
 
-        debug("startAnimation("+imageIndex+", "+albumIndex+")");
+        trace("startAnimation("+imageIndex+", "+albumIndex+")");
 
         // If the same number has been chosen, or the index is outside the
         // rp.photos range, or we're already animating, do nothing
@@ -1237,7 +1249,7 @@ $(function () {
         else
             photo = rp.photos[imageIndex];
 
-        debug("createDiv("+imageIndex+", "+albumIndex+")");
+        trace("createDiv("+imageIndex+", "+albumIndex+")");
 
         // Used by showVideo and showImage
         var divNode = $("<div />").addClass("clouds");
@@ -1249,7 +1261,7 @@ $(function () {
         var showImage = function(url) {
             // `preLoadImages` because making a div with a background css does not cause chrome
             // to preload it :/
-            debug('showImage:['+imageIndex+"]["+albumIndex+"]:"+url);
+            trace('showImage:['+imageIndex+"]["+albumIndex+"]:"+url);
             preLoadImages(url);
             var cssMap = Object();
 
@@ -1577,7 +1589,7 @@ $(function () {
             };
 
         } else if (hostname.indexOf('eroshare.com') >= 0) {
-            headerData = { 'Origin': document.location.origin };
+            //headerData = { 'Origin': document.location.origin };
 
             var processEroshareItem = function(item, pic) {
                 if (item.type == 'Image') {
@@ -1847,7 +1859,7 @@ $(function () {
     var isImageExtension = function (url) {
         var dotLocation = url.lastIndexOf('.');
         if (dotLocation < 0) {
-            log("skipped no dot: " + url);
+            debug("skipped no dot: " + url);
             return false;
         }
         var extension = url.substring(dotLocation);
@@ -1866,7 +1878,7 @@ $(function () {
     var isVideoExtension = function (url) {
         var dotLocation = url.lastIndexOf('.');
         if (dotLocation < 0) {
-            log("skipped no dot: " + url);
+            debug("skipped no dot: " + url);
             return false;
         }
         var extension = url.substring(dotLocation);
@@ -2211,7 +2223,7 @@ $(function () {
         $.ajax({
             url: jsonUrl,
             dataType: 'json',
-            headers: { 'Origin': document.location.origin },
+            //headers: { 'Origin': document.location.origin },
             success: handleData,
             error: failedAjaxDone,
             timeout: 5000
