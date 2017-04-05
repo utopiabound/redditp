@@ -1467,7 +1467,7 @@ $(function () {
                 } else { // single image album
                     var item = data.data.images[0];
                     if (item.animated) {
-                        photo.url = item.mp4;
+                        photo.url = fixImgurPicUrl(item.mp4);
                         photo.type = imageTypes.video;
                         photo.video = { thumbnail: photo.thumbnail,
                                         mp4: photo.url };
@@ -1492,7 +1492,7 @@ $(function () {
                 jsonUrl = "https://api.imgur.com/3/album/" + shortid;
 
                 handleError = function (xhr, ajaxOptions, thrownError) {
-                    photo.url = "http://i.imgur.com/"+shortid+".jpg";
+                    photo.url = "https://i.imgur.com/"+shortid+".jpg";
                     photo.type = imageTypes.image;
                     
                     showImage(photo.url);
@@ -1503,7 +1503,7 @@ $(function () {
 
                 handleData = function (data) {
                     if (data === undefined) {
-                        photo.url = "http://i.imgur.com/"+shortid+".jpg";
+                        photo.url = "https://i.imgur.com/"+shortid+".jpg";
                         photo.type = imageTypes.image;
 
                         showImage(photo.url);
@@ -1527,14 +1527,14 @@ $(function () {
                     }
                     if (data.data.animated == true) {
                         photo.type = imageTypes.video;
-                        photo.video = { mp4: data.data.mp4 };
+                        photo.video = { mp4: fixImgurPicUrl(data.data.mp4) };
                         if (data.data.webm !== undefined)
-                            photo.video.webm = data.data.webm;
+                            photo.video.webm = fixImgurPicUrl(data.data.webm);
 
                         showVideo(photo.video);
 
                     } else {
-                        photo.url = data.data.link;
+                        photo.url = fixImgurPicUrl(data.data.link);
                         photo.type = imageTypes.image;
                         
                         showImage(data.data.link);
@@ -2468,6 +2468,7 @@ $(function () {
             rp.url.subreddit.indexOf('/domain/') >= 0 ||
             rp.url.subreddit.indexOf('/search/') >= 0 ||
             rp.url.subreddit.indexOf('/r/all') >= 0 ||
+            rp.url.subreddit.indexOf('/r/popular') >= 0 ||
             rp.url.subreddit == "/" ||
             rp.url.subreddit.indexOf('+') >= 0) {
             rp.session.needDedup = true;
