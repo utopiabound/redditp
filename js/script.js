@@ -2074,8 +2074,9 @@ $(function () {
                     crossDomain: true
                 });
 
-            } else if (item.data.link_flair_text &&
-                       item.data.link_flair_text.toLowerCase() == 'request') {
+            } else if ((item.data.link_flair_text &&
+                        item.data.link_flair_text.toLowerCase() == 'request') ||
+                       photo.title.match(/[\[\(\{]request[\]\)\}]/i)) {
                 debug("REQ-Process:["+photo.commentsLink+"]:"+photo.url);
 
                 p = photo.commentsLink.split("/").slice(3).join("/");
