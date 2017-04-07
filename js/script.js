@@ -601,12 +601,14 @@ $(function () {
             photo = photo.parent;
             // remove old AlbumItem
             var index = photo.album.indexOf(pic);
-            photo.insertAt = index;
             if (index >= 0) {
                 photo.album.splice(index, 1);
                 photo.album_ul.children(":nth-child("+(index+1)+")").remove();
                 reindexAlbum(photo, index);
             }
+            // don't need to insertAt if image is last element
+            if (index != photo.album.length)
+                photo.insertAt = index;
 
         } else if (photo.album_ul === undefined) {
             photo.type = imageTypes.album;
@@ -660,15 +662,17 @@ $(function () {
 
     var addAlbumItem = function (photo, pic) {
         var index;
-        // check for duplicates
-        for(var i = 0; i < index; ++i) {
-            if (photo.album[i].url == pic.url)
-                return;
-        }
         if (photo.insertAt < 0)
             index = photo.album.length;
         else
             index = photo.insertAt;
+        // check for duplicates
+        for(var i = 0; i < photo.album.length; ++i) {
+            if (photo.album[i].url == pic.url) {
+                log("cannot display url [sub-album dup]: ["+i+"] exists, skip ["+index+"]: "+pic.url);
+                return;
+            }
+        }
 
         var button = $("<a />", { class: "numberButton",
                                   title: pic.title,
@@ -1145,15 +1149,16 @@ $(function () {
 
         if (albumIndex < 0) {
             $('#navboxTitle').html(photo.title);
+            if (photo.flair)
+                $('#navboxTitle').prepend($('<span>', { class: 'linkflair' }).text(photo.flair));
             $('#navboxExtra').html((photo.extra !== undefined) ?photo.extra :"");
-            $('#navboxLink').attr('href', photo.url).attr('title', $("<div/>").html(photo.title).text()+" (i)").text(photo.type);
+            $('#navboxLink').attr('href', photo.url).attr('title', photo.title+" (i)").text(photo.type);
 
         } else {
-            var pic = rp.photos[imageIndex].album[albumIndex];
-            $('#navboxTitle').html(pic.title);
-            var extra = (pic.extra) ?pic.extra :"";
-            $('#navboxExtra').html(extra+(albumIndex+1)+"/"+rp.photos[imageIndex].album.length);
-            $('#navboxLink').attr('href', pic.url).attr('title', $("<div/>").html(pic.title).text()+" (i)").text(photo.type);
+            $('#navboxTitle').html(image.title);
+            var extra = (image.extra) ?'&nbsp;'+image.extra :(photo.extra) ?'&nbsp;'+photo.extra :"";
+            $('#navboxExtra').html((albumIndex+1)+"/"+rp.photos[imageIndex].album.length+extra);
+            $('#navboxLink').attr('href', image.url).attr('title', $("<div/>").html(image.title).text()+" (i)").text(image.type);
         }
 
         if (photo.subreddit !== undefined && photo.subreddit !== null) {
@@ -1286,11 +1291,14 @@ $(function () {
         $("#pictureSlider div").fadeIn(rp.settings.animationSpeed);
         var oldDiv = $("#pictureSlider div:not(:first)");
         oldDiv.fadeOut(rp.settings.animationSpeed, function () {
-            oldDiv.remove();
+            oldDiv.detach();
 
-            var vid = divNode.find('video');
-            if (vid)
+            var vid = $('#gfyvid');
+            if (vid) {
                 vid.prop('autoplay', true);
+                if (vid[0])
+                    vid[0].play();
+            }
 
             rp.session.isAnimating = false;
         });
@@ -1901,6 +1909,10 @@ $(function () {
         }
         // convert gifs to videos
         url = url.replace(/gifv?$/, "mp4");
+
+        if (rp.settings.alwaysSecure)
+            url = url.replace(/^http:/, "https:");
+
         // imgur is really nice and serves the image with whatever extension
         // you give it. '.jpg' is arbitrary
         if (!isImageExtension(url) &&
@@ -1999,16 +2011,19 @@ $(function () {
             title = title.replace(/\/?u\/(\w+)\s*/g, 
                                   "<a href='"+rp.redditBaseUrl+"/user/$1'>/u/$1</a>"+
                                   "<a href='/user/$1/submitted'><img class='redditp' src='/images/favicon.png' /></a>");
+
+            var flair = "";
             // Add flair (but remove if also in title)
             if (item.data.link_flair_text) {
-                var needle = item.data.link_flair_text.trim();
-                var re = new RegExp('[\\[\\{\\(]'+needle+'[\\]\\}\\)]', "ig");
-                title = '<span class="linkflair">'+needle+'</span>'+title.replace(re, "").trim();
+                flair = item.data.link_flair_text.trim();
+                var re = new RegExp('[\\[\\{\\(]'+flair+'[\\]\\}\\)]', "ig");
+                title = title.replace(re, "").trim();
             }
 
             var photo = {
                 url: url,
                 title: title,
+                flair: flair,
                 id: item.data.id,
                 over18: item.data.over_18,
                 subreddit: item.data.subreddit,
@@ -2019,114 +2034,94 @@ $(function () {
                 commentsLink: rp.redditBaseUrl + item.data.permalink
             };
 
-            var p;
-            var json;
+            var p = photo.commentsLink.split("/").slice(3).join("/");
+            var jsonUrl = rp.redditBaseUrl + '/' + p + '.json?depth=1';
 
-            if (photo.title.match(/[\[\(\{]mic[\]\)\}]/i) ||
+            var loadTypes = {
+                OP:     "OP",
+                ALL:    "ALL"
+            };
+
+            var type;
+
+            if (photo.flair.toLowerCase() == 'request' ||
+                photo.title.match(/[\[\(\{]request[\]\)\}]/i) ||
+                photo.title.match(/^psbattle:/i)) {
+
+                type = loadTypes.ALL;
+
+            } else if (photo.title.match(/[\[\(\{]mic[\]\)\}]/i) ||
                 photo.title.match(/[ \[\(\{]MIC[ \]\)\}]/) ||
-                photo.title.match(/more.*in.*comment/i) ) {
+                photo.title.match(/more.*in.*comment/i) ||
+                item.data.title.match(/[\[\(\{]aic[\]\)\}]/i) ||
+                item.data.title.match(/album.*in.*comment/i) ) {
 
-                p = photo.commentsLink.split("/").slice(3).join("/");
-                jsonUrl = rp.redditBaseUrl + '/' + p + '.json?depth=1';
-            
-                debug("MIC-Process:["+photo.commentsLink+"]:"+photo.url);
-
-                var handleMICData = function (data) {
-                    var item = data[0].data.children[0];
-                    var comments = data[1].data.children;
-
-                    for (var i = 0; i < comments.length; ++i) {
-                        if (item.data.author == comments[i].data.author) {
-                            var links = comments[i].data.body.match(/\([^\)]*\)/g);
-                            if (!links)
-                                links = comments[i].data.body_html.match(/href=\"([^"]*)/g);
-                            if (!links)
-                                return;
-
-                            debug("MIC-Try:["+photo.commentsLink+"]:"+photo.url);
-
-                            var img = { title: photo.title,
-                                        url: photo.url,
-                                        type: photo.type };
-                            photo = initPhotoAlbum(photo);
-                            if (processPhoto(img))
-                                addAlbumItem(photo, img);
-                            for(var j = 0; j < links.length; ++j) {
-                                // cleanup previous .match in .replace
-                                img = { title: photo.title,
-                                        url: links[j].replace(/(^\(|^href="|\)$|"$)/g, "")
-                                      };
-                                debug("MIC-Try:["+photo.commentsLink+"]:"+img.url);
-                                if (processPhoto(img))
-                                    addAlbumItem(photo, img);
-                            }
-                        }
-                    };
-                    addImageSlide(photo);
-                };
-
-                $.ajax({
-                    url: jsonUrl,
-                    dataType: 'json',
-                    success: handleMICData,
-                    error: failedAjax,
-                    timeout: 5000,
-                    crossDomain: true
-                });
-
-            } else if ((item.data.link_flair_text &&
-                        item.data.link_flair_text.toLowerCase() == 'request') ||
-                       photo.title.match(/[\[\(\{]request[\]\)\}]/i)) {
-                debug("REQ-Process:["+photo.commentsLink+"]:"+photo.url);
-
-                p = photo.commentsLink.split("/").slice(3).join("/");
-                jsonUrl = rp.redditBaseUrl + '/' + p + '.json?depth=1';
-            
-                var handleRequestData = function (data) {
-                    var item = data[0].data.children[0];
-                    var comments = data[1].data.children;
-
-                    for (var i = 0; i < comments.length; ++i) {
-                        var links = comments[i].data.body.match(/\([^\)]*\)/g);
-                        if (!links)
-                            links = comments[i].data.body_html.match(/href=\"([^"]*)/g);
-                        if (!links)
-                            return;
-
-                        debug("REQ-Try:["+photo.commentsLink+"]:"+photo.url);
-
-                        var img = { title: photo.title,
-                                    url: photo.url,
-                                    type: photo.type };
-                        photo = initPhotoAlbum(photo);
-                        if (processPhoto(img))
-                            addAlbumItem(photo, img);
-                        for(var j = 0; j < links.length; ++j) {
-                            // cleanup previous .match in .replace
-                            img = { title: photo.title,
-                                    author: comments[i].data.author,
-                                    url: links[j].replace(/(^\(|^href="|\)$|"$)/g, "")
-                                  };
-                            debug("REQ-Try:["+photo.commentsLink+"]:"+img.url);
-                            if (processPhoto(img))
-                                addAlbumItem(photo, img);
-                        }
-                    };
-                    addImageSlide(photo);
-                };
-
-                $.ajax({
-                    url: jsonUrl,
-                    dataType: 'json',
-                    success: handleRequestData,
-                    error: failedAjax,
-                    timeout: 5000,
-                    crossDomain: true
-                });                
+                type = loadTypes.OP;
 
             } else {
                 addImageSlide(photo);
+                return;
             }
+
+            var handleCommentData = function (data) {
+                var item = data[0].data.children[0];
+                var comments = data[1].data.children;
+                var img;
+
+                for (var i = 0; i < comments.length; ++i) {
+                    if (type == loadTypes.OP &&
+                        item.data.author != comments[i].data.author)
+                        continue;
+
+                    // match: [TEXT](URL)
+                    var links = comments[i].data.body.match(/\[[^\)]*\)/g);
+                    if (!links)
+                        // match: href="URL"
+                        links = comments[i].data.body_html.match(/href=\"([^"]*)/g);
+
+                    if (!links)
+                            continue;
+
+                    debug(type+"-Found:["+photo.commentsLink+"]:"+photo.url);
+
+                    // Add parent image as first child, to ensure it's shown
+                    photo = initPhotoAlbum(photo);
+                    if (photo.album.length == 0) {
+                        img = { title: photo.title,
+                                flair: photo.flair,
+                                url: photo.url };
+                        if (processPhoto(img))
+                            addAlbumItem(photo, img);
+                    }
+                    for(var j = 0; j < links.length; ++j) {
+                        // cleanup previous .match in .replace
+                        var title = photo.title;
+                        if (links[j][0] == '[')
+                            title = links[j].replace(/\[+([^\]]*)\].*/, "$1");
+                        var url = links[j].replace(/(.*\(|^href="|\).*$|"$)/g, "");
+                        
+                        img = { title: title,
+                                author: comments[i].data.author,
+                                url: url
+                              };
+
+                        debug(type+"-Try:["+photo.commentsLink+"]:"+img.url);
+                        if (processPhoto(img))
+                            addAlbumItem(photo, img);
+                    }
+                };
+                addImageSlide(photo);
+            };
+            
+            $.ajax({
+                url: jsonUrl,
+                dataType: 'json',
+                success: handleCommentData,
+                error: failedAjax,
+                timeout: 5000,
+                crossDomain: true
+            });
+
         };
 
         var handleData = function (data) {
@@ -2178,54 +2173,6 @@ $(function () {
                 }
             };
 
-            var handleCommentAlbum = function(data) {
-                var item = data[0].data.children[0];
-                var comments = data[1].data.children;
-                
-                for (var i = 0; i < comments.length; ++i) {
-                    if (item.data.author == comments[i].data.author) {
-                        var links = comments[i].data.body.match(/\(([^\)]*)\)/);
-
-                        if (links) {
-                            addImageSlideRedditT3(item, links[1]);
-                            return;
-                        }
-                        links = comments[i].data.body_html.match(/href=\"([^"]*)/);
-                        if (links) {
-                            addImageSlideRedditT3(item, links[1]);
-                            return;
-                        }
-                    }
-                };
-
-                // No album found - process just initial image
-
-                // only need to check duplicate for needDedup, because addImageSlideRedditT3 checks on entry
-                if (rp.session.needDedup) {
-                    if (rp.dedup[item.data.subreddit] !== undefined &&
-                        rp.dedup[item.data.subreddit][item.data.id] !== undefined) {
-                        log('cannot display url [duplicate:'+
-                            rp.dedup[item.data.subreddit][item.data.id]+']: '+
-                            item.data.url);
-                        return;
-                    }
-                
-                    var url = rp.redditBaseUrl + '/r/' + item.data.subreddit + '/duplicates/' + item.data.id + '.json';
-                    $.ajax({
-                        url: url,
-                        dataType: 'json',
-                        success: handleDuplicatesData,
-                        error: failedAjax,
-                        jsonp: false,
-                        timeout: 5000,
-                        crossDomain: true
-                    });
-
-                } else {
-                    addImageSlideRedditT3(item);
-                }
-            };
-
             $.each(data.data.children, function (i, item) {
                 var func = null;
                 var url = null;
@@ -2249,15 +2196,7 @@ $(function () {
                     return;
                 }
 
-                // "Album in Comments" ("More in Comments" is checked in addImageSlideRedditT3())
-                if (item.data.title.match(/[\[\(\{]aic[\]\)\}]/i) ||
-                    item.data.title.match(/album.*in.*comment/i) ) {
-                    // keep only: /r/SUBREDDIT/comments/ID/TITLE
-                    var p = item.data.permalink.split("/").slice(0,6).join("/");
-                    func = handleCommentAlbum;
-                    url = rp.redditBaseUrl + p + '.json?depth=1';
-
-                } else if (rp.session.needDedup) {
+               if (rp.session.needDedup) {
                     func = handleDuplicatesData;
                     url = rp.redditBaseUrl + '/r/' + item.data.subreddit + '/duplicates/' + item.data.id + '.json';
                     
@@ -2588,8 +2527,8 @@ $(function () {
             rp.session.needDedup = true;
             if ($(dupe).attr(OPENSTATE_ATTR) == "closed")
                 $(dupe).click();
-            // Cleanup subreddit
-            rp.url.subreddit = rp.url.subreddit.replace(/\+$/, "");
+            // Cleanup trailing '+' from subreddit
+            rp.url.subreddit = rp.url.subreddit.replace(/\+($|\/)/, "$1");
         } else {
             rp.session.needDedup = false;
             // close and don't show if we're not loading the info

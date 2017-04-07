@@ -43,10 +43,14 @@ Features
 	* vimeo		(embed only - no autonext)
 	* Youtube	(embed only - no autonext)
 * Deduplication support when browsing mulitple reddits (e.g. a multireddit /user/NAME/m/MULTIREDDIT or /r/funny+pics)
+* Add '+' to the end of single subreddit to enabled duplicate tracking
 * Albums will display inline for subreddits
 * Browse imgur gallaries/albums (/imgur/a/ID), and tumblr gallaries (/tumblr/DOMAIN/ID), or a whole tumblr blog (/tumblr/DOMAIN)
 * You can save the html file locally and use it, just make sure you add a separator e.g. the question mark in file:///c/myredditp.html?/r/gifs so the browser knows to pick up the right file and go to the right subreddit.
-* Support for /r/random and /r/randnsfw virtual subreddits
+* Support for /r/random, /r/randnsfw, /r/popular virtual subreddits
+* Albums will be detected for title that specify it's in the comments
+* "More in comments" will result in an album of the "more" specified
+* For subreddits that have "requests", responses will be shown as albums, also 'PsBattles:' is similarly special cased
 
 Possible future features, depending on feedback:
 * Zoom/Pan for comics
