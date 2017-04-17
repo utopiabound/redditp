@@ -146,6 +146,9 @@ $(function () {
         if (shortid.indexOf('.') != -1)
             shortid = shortid.substr(0, shortid.lastIndexOf('.'));
 
+        if (shortid.indexOf('-') != -1)
+            shortid = shortid.substr(0, shortid.lastIndexOf('-'));
+
         shortid = shortid.replace(/\?[^\.]*/, '');
 
         return shortid;
@@ -1157,7 +1160,7 @@ $(function () {
         } else {
             $('#navboxTitle').html(image.title);
             var extra = (image.extra) ?'&nbsp;'+image.extra :(photo.extra) ?'&nbsp;'+photo.extra :"";
-            $('#navboxExtra').html((albumIndex+1)+"/"+rp.photos[imageIndex].album.length+extra);
+            $('#navboxExtra').html($('<span>', { class: 'info' }).text((albumIndex+1)+"/"+rp.photos[imageIndex].album.length)).append(extra);
             $('#navboxLink').attr('href', image.url).attr('title', $("<div/>").html(image.title).text()+" (i)").text(image.type);
         }
 
@@ -1694,11 +1697,11 @@ $(function () {
                 handleData = function(data) {
                     if (data.length > 1) {
                         var index;
-                        photo.extra = albumLink('/eroshare/'+shortid);
 
                         photo = initPhotoAlbum(photo);
                         $.each(data, function(i, item) {
                             var pic = { title: (item.description) ?item.description :photo.title,
+                                        extra: extra = albumLink('/eroshare/'+shortid),
                                         thumbnail: item.url_thumb };
                             if (item.type == 'Video') {
                                 pic.url = item.url_mp4;
@@ -1766,11 +1769,11 @@ $(function () {
             handleData = function(data) {
                 var post = data.response.posts[0];
 
-                photo.extra = infoLink(data.response.blog.url, 'tumblr/'+data.response.blog.name, '/tumblr/'+data.response.blog.name);
+                photo.extra = infoLink(data.response.blog.url, 'tumblr/'+data.response.blog.name,
+                                       '/tumblr/'+data.response.blog.name);
                 if (post.type == "photo") {
                     var index = 0;
                     if (post.photos.length > 1) {
-                        photo.extra += albumLink('/tumblr/'+data.response.blog.name+'/'+shortid);
 
                         photo = initPhotoAlbum(photo);
                         $.each(post.photos, function(i, item) {
@@ -1892,12 +1895,14 @@ $(function () {
         var hostname = hostnameOf(url);
 
         // regexp removes /r/<sub>/ prefix if it exists
-	// E.g. http://imgur.com/r/aww/x9q6yW9
-        if (url.indexOf("/r/") >= 0)
-                url = url.replace(/r\/[^ \/]+\//, '');
+	// E.g. http://imgur.com/r/aww/x9q6yW9 or http://imgur.com/t/mashup/YjBiWcL
+        url = url.replace(/[rt]\/[^ \/]+\//, '');
 
         if (url.indexOf('?') > 0)
             url = url.replace(/\?[^\.]*/, '');
+
+        if (rp.settings.alwaysSecure)
+            url = url.replace(/^http:/, "https:");
 
         if (url.indexOf("/a/") > 0 ||
              url.indexOf('/gallery/') > 0)
@@ -1910,9 +1915,6 @@ $(function () {
         // convert gifs to videos
         url = url.replace(/gifv?$/, "mp4");
 
-        if (rp.settings.alwaysSecure)
-            url = url.replace(/^http:/, "https:");
-
         // imgur is really nice and serves the image with whatever extension
         // you give it. '.jpg' is arbitrary
         if (!isImageExtension(url) &&
@@ -1924,8 +1926,17 @@ $(function () {
     var fixupUrl = function (url) {
         // fix reddit bad quoting
         url = url.replace(/&amp;/gi, '&');
-        if (rp.settings.alwaysSecure && url.startsWith('//'))
+        if (!rp.settings.alwaysSecure)
+            return url;
+
+        if (url.startsWith('//'))
             return "https"+url;
+
+        var hostname = hostnameOf(url, true);
+        if (hostname == 'gfycat.com' ||
+            hostname == 'pornbot.net')
+            url = url.replace('http://', 'https://');
+
         return url;
     };
 
