@@ -116,9 +116,10 @@ $(function () {
             log.history.push(arguments);
         }
     }
-    function error(data) { 
+    function error(data) {
+        var err = new Error();
         try {
-            window.console.log(data);
+            window.console.log(data, err.stack);
         } catch (e) {
             // IE prior to 10 have iffy console.log implemenations
             log.history = log.history || []; // store logs to an array for reference
@@ -332,8 +333,14 @@ $(function () {
         }
     }
 
-    var hostnameOf = function(url) {
-        return $('<a>').attr('href', url).prop('hostname');
+    var hostnameOf = function(url, onlysld=false) {
+        var hostname = $('<a>').attr('href', url).prop('hostname');
+        if (onlysld) {
+            var a = hostname.match(/[^\.]*\.[^\.]*$/);
+            if (a)
+                hostname = a[0];
+        }
+        return hostname;
     };
     var pathnameOf = function(url) {
         return $('<a>').attr('href', url).prop('pathname');
@@ -707,29 +714,19 @@ $(function () {
             pic.type = imageTypes.image;
 
         pic.url = fixupUrl(pic.url);
-        var hostname = hostnameOf(pic.url);
-
-        // Replace HTTP with HTTPS on gfycat and imgur to avoid this:
-        // Mixed Content: The page at 'https://redditp.com/r/gifs' was
-        // loaded over HTTPS, but requested an insecure video
-        // 'http://i.imgur.com/LzsnbNU.webm'. This content should also
-        // be served over HTTPS.
-        var http_prefix = 'http://';
-        var https_prefix = 'https://';
-        if (rp.settings.alwaysSecure &&
-            hostname.indexOf('gfycat.com') >= 0 ||
-            hostname.indexOf('pornbot.net') >= 0 ||
-            hostname.indexOf('imgur.com') >= 0) {
-            pic.url = pic.url.replace(http_prefix, https_prefix);
-        }
+        // hostname only: second-level-domain.tld
+        var hostname = hostnameOf(pic.url, true);
 
         // If this already has an album attached
         if (pic.album !== undefined) {
             pic.type = imageTypes.album;
             return true;
         }
+
+        // Process hostname of known sites before checking extention.
+        // this allows us to fix "bad links" to thumbs or such
         
-        if (hostname.indexOf('imgur.com') >= 0) {
+        if (hostname == 'imgur.com') {
             pic.url = fixImgurPicUrl(pic.url);
             if (pic.url.indexOf("/a/") > 0 ||
                 pic.url.indexOf('/gallery/') > 0)
@@ -740,28 +737,16 @@ $(function () {
 
             // otherwise simple image
 
-        } else if (isImageExtension(pic.url) ||
-                   hostname.indexOf('i.reddituploads.com') >= 0) {
-            // simple image
-
-        } else if (isVideoExtension(pic.url)) {
-            initPhotoVideo(pic);
-
-        } else if (hostname.indexOf('gfycat.com') >= 0 ||
-                   hostname.indexOf('streamable.com') >= 0 ||
-                   hostname.indexOf('vid.me') >= 0 ||
-                   hostname.indexOf('tumblr.com') >= 0 ||
-                   hostname.indexOf('pornbot.net') >= 0 ||
-                   hostname.indexOf('deviantart.com') >= 0 ||
-                   hostname.indexOf('eroshare.com') >= 0) {
+        } else if (hostname == 'gfycat.com' ||
+                   hostname == 'streamable.com' ||
+                   hostname == 'vid.me' ||
+                   hostname == 'pornbot.net' ||
+                   hostname == 'deviantart.com') {
+            // These domains should always be processed later
             pic.type = imageTypes.later;
 
-        } else if (hostname.indexOf('youtube.com') >= 0 ||
-                   hostname.indexOf('youtu.be') >= 0 ||
-                   hostname.indexOf('vimeo.com') >= 0) {
-            pic.type = imageTypes.embed;
-
-        } else if (hostname.indexOf('giphy.com') >= 0) {
+        } else if (hostname == 'giphy.com') {
+            // This can be quick processed now
             shortid = url2shortid(pic.url);
                 
             pic.type = imageTypes.video;
@@ -769,10 +754,29 @@ $(function () {
                           thumbnail: pic.thumbnail };
                 
         } else if (pic.url.indexOf('webm.land/w/') >= 0) {
+            // This can be quick processed now
             shortid = url2shortid(pic.url);
             pic.type = imageTypes.video;
             pic.video = { webm: 'http://webm.land/media/'+shortid+".webm",
                           thumbnail: pic.thumbnail };
+
+        } else if (isImageExtension(pic.url) ||
+                    hostnameOf(pic.url) == 'i.reddituploads.com') {
+            // simple image
+
+        } else if (isVideoExtension(pic.url)) {
+            initPhotoVideo(pic);
+
+        } else if (hostname == 'eroshare.com' ||
+                   hostname == 'tumblr.com') {
+            // these domains should be processed later if they aren't
+            // direct image/video link
+            pic.type = imageTypes.later;
+
+        } else if (hostname == 'youtube.com' ||
+                   hostname == 'youtu.be' ||
+                   hostname == 'vimeo.com') {
+            pic.type = imageTypes.embed;
 
         } else {
             log('cannot display url [no image]: ' + pic.url);
@@ -1482,10 +1486,11 @@ $(function () {
         var handleError = failedAjax;
         var url = photo.url;
 
-        var hostname = hostnameOf(url);
+        var hostname = hostnameOf(url, true);
+        var hn;
         var shortid = url2shortid(url);
         
-        if (hostname.indexOf('gfycat.com') >= 0) {
+        if (hostname == 'gfycat.com') {
 
             jsonUrl = "https://gfycat.com/cajax/get/" + shortid;
 
@@ -1504,13 +1509,12 @@ $(function () {
                 showVideo(photo.video);
             };
             
-        } else if (hostname.indexOf('imgur.com') >= 0) {
+        } else if (hostname == 'imgur.com') {
             headerData = { Authorization: "Client-ID "+ rp.api_key.imgur };
             
             var imgurHandleAlbum = function (data) {
                 if (data.data.images_count > 1) {
                     var index;
-                    photo.extra = albumLink('/imgur/a/'+shortid);
                     var author = photo.author;
 
                     photo = initPhotoAlbum(photo);
@@ -1518,6 +1522,7 @@ $(function () {
                         var pic = { title: (item.title) ?item.title :(item.description) ?item.description :photo.title,
                                     url: fixImgurPicUrl(item.animated ?item.mp4 :item.link),
                                     author: author,
+                                    extra: albumLink('/imgur/a/'+shortid),
                                     type: item.animated ?imageTypes.video :imageTypes.image
                                   };
                         if (item.animated)
@@ -1616,7 +1621,7 @@ $(function () {
                 };
             }
 
-        } else if (hostname.indexOf('vid.me') >= 0) {
+        } else if (hostname == 'vid.me') {
             jsonUrl = 'https://api.vid.me/videoByUrl/' + shortid;
             handleData = function (data) {
                 if (data.video.state == 'success') {
@@ -1633,7 +1638,7 @@ $(function () {
                 }
             };
 
-        } else if (hostname.indexOf('streamable.com') >= 0) {
+        } else if (hostname == 'streamable.com') {
 
             jsonUrl = "https://api.streamable.com/videos/" + shortid;
 
@@ -1647,7 +1652,7 @@ $(function () {
                 showVideo(photo.video);
             };
 
-        } else if (hostname.indexOf('pornbot.net') >= 0) {
+        } else if (hostname == 'pornbot.net') {
             jsonUrl = "https:///pornbot.net/ajax/info.php?v=" + shortid;
 
             handleData = function(data) {
@@ -1660,8 +1665,9 @@ $(function () {
                 showVideo(photo.video);
             };
 
-        } else if (hostname.indexOf('eroshare.com') >= 0) {
+        } else if (hostname == 'eroshare.com') {
             //headerData = { 'Origin': document.location.origin };
+
 
             var processEroshareItem = function(item, pic) {
                 if (item.type == 'Image') {
@@ -1724,7 +1730,7 @@ $(function () {
                 };
             }
 
-        } else if (hostname.indexOf('deviantart.com') >= 0) {
+        } else if (hostname == 'deviantart.com') {
             jsonUrl = 'https://backend.deviantart.com/oembed?format=jsonp&url=' + encodeURIComponent(photo.url);
             dataType = 'jsonp';
 
@@ -1759,11 +1765,12 @@ $(function () {
                 }
             };
             
-        } else if (hostname.indexOf('tumblr.com') >= 0) {
+        } else if (hostname == 'tumblr.com') {
             a = photo.url.split('/');
             shortid = a[4];
+            hn = hostnameOf(photo.url);
 
-            jsonUrl = 'https://api.tumblr.com/v2/blog/'+hostname+'/posts?api_key='+rp.api_key.tumblr+'&id='+shortid;
+            jsonUrl = 'https://api.tumblr.com/v2/blog/'+hn+'/posts?api_key='+rp.api_key.tumblr+'&id='+shortid;
             dataType = 'jsonp';
 
             handleData = function(data) {
@@ -1831,7 +1838,7 @@ $(function () {
                 }
             };
 
-        } else if (hostname.indexOf('youtube.com') >= 0) {
+        } else if (hostname == 'youtube.com') {
             var b;
             a = photo.url.split('/').pop();
             b = a.match(/.*v=([^&]*)/);
@@ -1840,14 +1847,14 @@ $(function () {
 
             showEmbed(youtubeURL(shortid));
 
-        } else if (hostname.indexOf('youtu.be') >= 0) {
+        } else if (hostname == 'youtu.be') {
             a = photo.url.split('/');
             if (a[a.length-1] == "")
                 a.pop();
 
             showEmbed(youtubeURL(shortid));
 
-        } else if (hostname.indexOf('vimeo.com') >= 0) {
+        } else if (hostname == 'vimeo.com') {
             showEmbed('https://player.vimeo.com/video/'+shortid+'?autoplay=1');
 
         } else {
@@ -2039,11 +2046,16 @@ $(function () {
                 over18: item.data.over_18,
                 subreddit: item.data.subreddit,
                 author: item.data.author,
-                thumbnail: fixupUrl(item.data.preview ?item.data.preview.images[0].source.url :item.data.thumbnail),
                 date: item.data.created_utc,
                 duplicates: item.duplicates,
                 commentsLink: rp.redditBaseUrl + item.data.permalink
             };
+
+            if (item.data.preview)
+                photo.thumbnail = fixupUrl(item.data.preview.images[0].source.url);
+
+            else if (item.data.thumbnail != 'default')
+                photo.thumbnail = fixupUrl(item.data.thumbnail);
 
             var p = photo.commentsLink.split("/").slice(3).join("/");
             var jsonUrl = rp.redditBaseUrl + '/' + p + '.json?depth=1';
