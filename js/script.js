@@ -57,6 +57,13 @@ rp.api_key = {tumblr:  'sVRWGhAGTVlP042sOgkZ0oaznmUOzD8BRiRwAm5ELlzEaz4kwU',
               imgur:   'f2edd1ef8e66eaf'
              };
 
+rp.favicons = {imgur: 'https://s.imgur.com/images/favicon-16x16.png',
+               gfycat: 'https://gfycat.com/favicon-16x16.png',
+               tumblr: 'https://assets.tumblr.com/images/favicons/favicon.ico',
+               // i.redd.it - reddit hosted images
+               redd: 'https://www.redditstatic.com/favicon.ico'
+              };
+
 // Variable to store the images we need to set as background
 // which also includes some text and url's.
 rp.photos = [];
@@ -689,6 +696,9 @@ $(function () {
                                   id: "albumButton" + (index + 1)
                                 }).data("index", index).html(index + 1);
         pic.parent = photo;
+        var sld = hostnameOf(pic.url, true).match(/[^\.]*/);
+        if (rp.favicons[sld])
+            pic.favicon = rp.favicons[sld];
         if (photo.over18)
             button.addClass("over18");
         button.click(function () {
@@ -723,9 +733,10 @@ $(function () {
             return true;
         }
 
-        // Process hostname of known sites before checking extention.
-        // this allows us to fix "bad links" to thumbs or such
-        
+        var sld = hostname.match(/[^\.]*/);
+        if (rp.favicons[sld])
+            pic.favicon = rp.favicons[sld];
+
         if (hostname == 'imgur.com') {
             pic.url = fixImgurPicUrl(pic.url);
             if (pic.url.indexOf("/a/") > 0 ||
@@ -1167,6 +1178,8 @@ $(function () {
             $('#navboxExtra').html($('<span>', { class: 'info' }).text((albumIndex+1)+"/"+rp.photos[imageIndex].album.length)).append(extra);
             $('#navboxLink').attr('href', image.url).attr('title', $("<div/>").html(image.title).text()+" (i)").text(image.type);
         }
+        if (image.favicon)
+            $('#navboxLink').append($("<img />", {'class': 'redditp favicon', src: image.favicon}));
 
         if (photo.subreddit !== undefined && photo.subreddit !== null) {
             $('#navboxSubreddit').attr('href', rp.redditBaseUrl + subreddit).html(subreddit);

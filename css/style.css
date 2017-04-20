@@ -104,7 +104,12 @@ a:hover {
     font-size:14px;
     
     }
-.nbmenu li { text-align: left; padding: 10px 10px; max-width: 300px; overflow: hidden; }
+.nbmenu li {
+        text-align: left;
+        padding: 10px 5px 10px 10px;
+        max-width: 300px;
+        overflow: hidden;
+}
 
 #navboxContents {
     padding: 0px 28px 2px 0;
@@ -128,6 +133,10 @@ label.checkbox { font-weight: bold; }
         font-weight: normal;
         margin: 1px;
         padding: 1px;
+}
+
+.favicon {
+        float: right;
 }
 
 .cam { background-image:url("../images/bg_cam_txt.png"); }
