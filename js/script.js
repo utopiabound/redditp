@@ -1823,6 +1823,64 @@ $(function () {
                         photo.video.webm = post.video_url;
                     showVideo(photo.video);
 
+                } else if (post.type == 'html') {
+                    var haystack = $('<div />').html(post.description);
+                    var images = haystack.find('img, video');
+                    if (images.length > 1) {
+                        photo = initPhotoAlbum(photo);
+                        $.each(images, function(i, item) {
+                            var pic = { title: (item.alt) ?item.alt :photo.title };
+                            if (item.tagName == 'IMG') {
+                                pic.url = fixupUrl(item.src);
+                                pic.type = imageTypes.image;
+
+                            } else if (item.tagName == 'VIDEO') {
+                                pic.type = imageTypes.video;
+                                pic.video = {};
+                                if (item.poster)
+                                    pic.video.thumbnail = item.poster;
+                                $.each(item.children, function(i, source) {
+                                    if (source.type == 'video/webm')
+                                        pic.video.webm = source.src;
+                                    else if (source.type == 'video/mp4')
+                                        pic.video.mp4 = source.src;
+                                    else
+                                        log("Unknown type: "+source.type+" at: "+source.src);
+                                });
+                            }
+                            addAlbumItem(photo, pic);
+                        });
+                        index = indexPhotoAlbum(photo, imageIndex, albumIndex);
+
+                        showPic(photo.album[index]);
+
+                    } else {
+                        if (images[0].tagName == 'IMG') {
+                            photo.type = imageTypes.image;
+                            photo.url = fixupUrl(images[0].src);
+                            showPic(photo);
+
+                        } else if (images[0].tagName == 'VIDEO') {
+                            photo.type = imageTypes.video;
+                            photo.video = {};
+                            if (images[0].poster)
+                                photo.video.thumbnail = images[0].poster;
+                            $.each(images[0].children, function(i, source) {
+                                if (source.type == 'video/webm')
+                                    photo.video.webm = source.src;
+                                else if (source.type == 'video/mp4')
+                                    photo.video.mp4 = source.src;
+                                else
+                                    log("Unknown type: "+source.type+" at: "+source.src);
+                            });
+                            showVideo(photo.video);
+                            
+                        } else {
+                            log("WTF: "+images[0]);
+                            showImage(photo.thumbnail);
+                        }
+                    }
+
                 } else {
                     log("Tumblr post not photo or video: "+post.type+" using thumbnail");
                     showImage(photo.thumbnail);
