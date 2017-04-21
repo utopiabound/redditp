@@ -1345,7 +1345,7 @@ $(function () {
             return divNode;
 
         // Create a new div and apply the CSS
-        var showImage = function(url) {
+        var showImage = function(url, needreset=true) {
             // `preLoadImages` because making a div with a background css does not cause chrome
             // to preload it :/
             trace('showImage:['+imageIndex+"]["+albumIndex+"]:"+url);
@@ -1358,10 +1358,12 @@ $(function () {
             cssMap['background-position'] = "center";
 
             divNode.css(cssMap);
+            if (needreset && imageIndex == rp.session.activeIndex)
+                resetNextSlideTimer();
         };
 
         if (photo.type == imageTypes.image) {
-            showImage(photo.url);
+            showImage(photo.url, false);
             return divNode;
         }
 
@@ -1434,6 +1436,14 @@ $(function () {
 		    }, 0.5);
                 }
             });
+        };
+
+        var showPic = function(pic) { 
+            if (pic.type == imageTypes.video)
+                showVideo(pic.video);
+            
+            else // Default to image type
+                showImage(pic.url);
         };
 
         if (photo.type == imageTypes.video) {
@@ -1510,8 +1520,6 @@ $(function () {
             handleData = function (data) {
                 if (data.gfyItem === undefined) {
                     showImage(photo.thumbnail);
-                    if (imageIndex == rp.session.activeIndex)
-                        resetNextSlideTimer();
                     return;
                 }
                 
@@ -1545,14 +1553,7 @@ $(function () {
                     });
                     index = indexPhotoAlbum(photo, imageIndex, albumIndex);
 
-                    if (photo.album[index].type == imageTypes.video)
-                        showVideo(photo.album[index].video);
-
-                    else {
-                        showImage(photo.album[index].url);
-                        if (imageIndex == rp.session.activeIndex)
-                            resetNextSlideTimer();
-                    }
+                    showPic(photo.album[index]);
 
                 } else { // single image album
                     var item = data.data.images[0];
@@ -1567,8 +1568,6 @@ $(function () {
                         photo.url = item.link;
                         photo.type = imageTypes.image;
                         showImage(photo.url);
-                        if (imageIndex == rp.session.activeIndex)
-                            resetNextSlideTimer();
                     }
                 }
             };
@@ -1586,8 +1585,6 @@ $(function () {
                     photo.type = imageTypes.image;
                     
                     showImage(photo.url);
-                    if (imageIndex == rp.session.activeIndex)
-                        resetNextSlideTimer();
                     return;
                 };
 
@@ -1597,8 +1594,6 @@ $(function () {
                         photo.type = imageTypes.image;
 
                         showImage(photo.url);
-                        if (imageIndex == rp.session.activeIndex)
-                            resetNextSlideTimer();
                         return;
                     }
                     imgurHandleAlbum(data);
@@ -1611,8 +1606,6 @@ $(function () {
                     if (! data.success ) {
                         log("["+imageIndex+"] imgur.com failed to load "+shortid+". state:"+data.status);
                         showImage(photo.url);
-                        if (imageIndex == rp.session.activeIndex)
-                            resetNextSlideTimer();
                         return;
                     }
                     if (data.data.animated == true) {
@@ -1627,9 +1620,7 @@ $(function () {
                         photo.url = fixImgurPicUrl(data.data.link);
                         photo.type = imageTypes.image;
                         
-                        showImage(data.data.link);
-                        if (imageIndex == rp.session.activeIndex)
-                            resetNextSlideTimer();
+                        showImage(photo.url);
                     }
                 };
             }
@@ -1646,8 +1637,6 @@ $(function () {
                 } else {
                     log("["+imageIndex+"] vid.me failed to load "+shortid+". state:"+data.video.state);
                     showImage(data.video.thumbnail_url);
-                    if (imageIndex == rp.session.activeIndex)
-                        resetNextSlideTimer();
                 }
             };
 
@@ -1679,16 +1668,13 @@ $(function () {
             };
 
         } else if (hostname == 'eroshare.com') {
-            //headerData = { 'Origin': document.location.origin };
-
+            //headerData = { 'Origin': document.location.origin }; 
 
             var processEroshareItem = function(item, pic) {
                 if (item.type == 'Image') {
                     pic.url = item.url_full_protocol;
                     pic.type = imageTypes.image;
                     showImage(pic.url);
-                    if (imageIndex == rp.session.activeIndex)
-                        resetNextSlideTimer();
 
                 } else if (item.type == 'Video') {
                     if (pic.video === undefined) {
@@ -1752,9 +1738,8 @@ $(function () {
 
                 if (data.type == 'photo') {
                     photo.type = imageTypes.image;
+                    photo.url = data.url;
                     showImage(data.url);
-                    if (imageIndex == rp.session.activeIndex)
-                        resetNextSlideTimer();
 
                 } else if (data.type == 'video') {
                     photo.type = imageTypes.embed;
@@ -1767,8 +1752,6 @@ $(function () {
                     } else {
                         log("cannot display url [no embed]: "+photo.url);
                         showImage(data.thumbnail_url);
-                        if (imageIndex == rp.session.activeIndex)
-                            resetNextSlideTimer();
                     }
 
                 } else {
@@ -1797,7 +1780,7 @@ $(function () {
 
                         photo = initPhotoAlbum(photo);
                         $.each(post.photos, function(i, item) {
-                            addAlbumItem(photo, { url: item.original_size.url,
+                            addAlbumItem(photo, { url: fixupUrl(item.original_size.url),
                                                   type: imageTypes.image,
                                                   extra: infoLink(data.response.blog.url,
                                                                   'tumblr/'+data.response.blog.name,
@@ -1806,15 +1789,14 @@ $(function () {
                                                 });
                         });
                         index = indexPhotoAlbum(photo, imageIndex, albumIndex);
+                        showImage(photo.album[index].url);
 
                     } else {
-                        photo.url = post.photos[index].original_size.url;
+                        photo.url = fixupUrl(post.photos[index].original_size.url);
                         photo.type = imageTypes.image;
+                        showImage(photo.url);
                     }
 
-                    showImage(post.photos[index].original_size.url);
-                    if (imageIndex == rp.session.activeIndex)
-                        resetNextSlideTimer();
 
                 } else if (post.type == 'video') {
                     photo.thumbnail = post.thumbnail_url;
@@ -1829,8 +1811,6 @@ $(function () {
                         else {
                             log("cannot display url [no embed]: "+photo.url);
                             showImage(fixupUrl(post.thumbnail_url));
-                            if (imageIndex == rp.session.activeIndex)
-                                resetNextSlideTimer();
                         }
                         return;
                     }
@@ -1846,8 +1826,6 @@ $(function () {
                 } else {
                     log("Tumblr post not photo or video: "+post.type+" using thumbnail");
                     showImage(photo.thumbnail);
-                    if (imageIndex == rp.session.activeIndex)
-                        resetNextSlideTimer();
                 }
             };
 
