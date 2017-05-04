@@ -60,8 +60,9 @@ rp.api_key = {tumblr:  'sVRWGhAGTVlP042sOgkZ0oaznmUOzD8BRiRwAm5ELlzEaz4kwU',
 rp.favicons = {imgur: 'https://s.imgur.com/images/favicon-16x16.png',
                gfycat: 'https://gfycat.com/favicon-16x16.png',
                tumblr: 'https://assets.tumblr.com/images/favicons/favicon.ico',
+               eroshare: 'https://eroshare.com/favicon.png',
                // i.redd.it - reddit hosted images
-               redd: 'https://www.redditstatic.com/favicon.ico'
+               redd: 'https://www.redditstatic.com/icon.png'
               };
 
 // Variable to store the images we need to set as background
@@ -1534,7 +1535,7 @@ $(function () {
             headerData = { Authorization: "Client-ID "+ rp.api_key.imgur };
             
             var imgurHandleAlbum = function (data) {
-                if (data.data.images_count > 1) {
+                if (data.data.images.length > 1) {
                     var index;
                     var author = photo.author;
 
@@ -1952,7 +1953,8 @@ $(function () {
 
         // regexp removes /r/<sub>/ prefix if it exists
 	// E.g. http://imgur.com/r/aww/x9q6yW9 or http://imgur.com/t/mashup/YjBiWcL
-        url = url.replace(/[rt]\/[^ \/]+\//, '');
+        // replace with gallery because it might be an album or a picture
+        url = url.replace(/[rt]\/[^ \/]+\//, 'gallery/');
 
         if (url.indexOf('?') > 0)
             url = url.replace(/\?[^\.]*/, '');
@@ -1961,8 +1963,10 @@ $(function () {
             url = url.replace(/^http:/, "https:");
 
         if (url.indexOf("/a/") > 0 ||
-             url.indexOf('/gallery/') > 0)
+             url.indexOf('/gallery/') > 0) {
+            url = url.replace(/\/new$/, '');
             return url;
+        }
             
         // process individual file
         if (hostname.indexOf('i.') !== 0) {
@@ -1971,9 +1975,13 @@ $(function () {
         // convert gifs to videos
         url = url.replace(/gifv?$/, "mp4");
 
+        if (isImageExtension(url)) {
+            // remove _d.jpg which is thumbnail
+            url = url.replace(/_d(.[^\.\/])/, "$1");
+
         // imgur is really nice and serves the image with whatever extension
         // you give it. '.jpg' is arbitrary
-        if (!isImageExtension(url) &&
+        } else if (!isImageExtension(url) &&
             !isVideoExtension(url))
             url += ".jpg";
         return url;
@@ -2122,8 +2130,9 @@ $(function () {
 
                 type = loadTypes.ALL;
 
-            } else if (photo.title.match(/[\[\(\{]mic[\]\)\}]/i) ||
+            } else if (photo.title.match(/[\[\(\{\d]mic[\]\)\}]/i) ||
                 photo.title.match(/[ \[\(\{]MIC[ \]\)\}]/) ||
+                photo.title.match(/[ \[\(\{]VIC[ \]\)\}]/) ||
                 photo.title.match(/more.*in.*comment/i) ||
                 item.data.title.match(/[\[\(\{]aic[\]\)\}]/i) ||
                 item.data.title.match(/album.*in.*comment/i) ) {
