@@ -1253,6 +1253,7 @@ $(function () {
     };
 
     var failedAjax = function (xhr, ajaxOptions, thrownError) {
+        log("ActiveIndex:["+rp.session.activeIndex+"]["+rp.session.activeAlbumIndex+"]");
         log("xhr:", xhr);
         log("ajaxOptions:", ajaxOptions);
         log("error:", thrownError);
@@ -2154,11 +2155,8 @@ $(function () {
                         item.data.author != comments[i].data.author)
                         continue;
 
-                    // match: [TEXT](URL)
-                    var links = comments[i].data.body.match(/\[[^\)]*\)/g);
-                    if (!links)
-                        // match: href="URL"
-                        links = comments[i].data.body_html.match(/href=\"([^"]*)/g);
+                    // match: [TEXT](URL) or bare http(s) URLs
+                    var links = comments[i].data.body.match(/(\[[^\)]*\)|https?:\/\/[-a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_\+.~#?&//=]*))/g);
 
                     if (!links)
                             continue;
@@ -2179,7 +2177,7 @@ $(function () {
                         var title = photo.title;
                         if (links[j][0] == '[')
                             title = links[j].replace(/\[+([^\]]*)\].*/, "$1");
-                        var url = links[j].replace(/(.*\(|^href="|\).*$|"$)/g, "");
+                        var url = links[j].replace(/(.*\(|\).*$)/g, "");
                         
                         img = { title: title,
                                 author: comments[i].data.author,
