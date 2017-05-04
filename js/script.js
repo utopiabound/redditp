@@ -59,6 +59,7 @@ rp.api_key = {tumblr:  'sVRWGhAGTVlP042sOgkZ0oaznmUOzD8BRiRwAm5ELlzEaz4kwU',
 
 rp.favicons = {imgur: 'https://s.imgur.com/images/favicon-16x16.png',
                gfycat: 'https://gfycat.com/favicon-16x16.png',
+               giphy:  'https://giphy.com/static/img/favicon.png',
                tumblr: 'https://assets.tumblr.com/images/favicons/favicon.ico',
                eroshare: 'https://eroshare.com/favicon.png',
                // i.redd.it - reddit hosted images
@@ -759,10 +760,11 @@ $(function () {
 
         } else if (hostname == 'giphy.com') {
             // This can be quick processed now
-            shortid = url2shortid(pic.url);
+            var url = pic.url.replace(/\/giphy.[^\/]*/, '');
+            shortid = url2shortid(url);
                 
             pic.type = imageTypes.video;
-            pic.video = { mp4: 'https://media.giphy.com/media/'+shortid+'/giphy.mp4',
+            pic.video = { mp4: 'https://i.giphy.com/'+shortid+'.mp4',
                           thumbnail: pic.thumbnail };
                 
         } else if (pic.url.indexOf('webm.land/w/') >= 0) {
@@ -1818,7 +1820,7 @@ $(function () {
                     }
 
                     photo.type = imageTypes.video;
-                    photo.video = { thumbnail: post.thumbnail_url };
+                    photo.video = { thumbnail: fixupUrl(post.thumbnail_url) };
                     if (post.video_url.indexOf('.mp4') > 0)
                         photo.video.mp4 = post.video_url;
                     else if (post.video_url.indexOf('.webm') > 0)
