@@ -76,6 +76,7 @@ rp.cache = {};
 rp.dedup = {};
 rp.url = {
     subreddit: "",
+    base: '',
     vars: ""
 };
 
@@ -292,21 +293,25 @@ $(function () {
         return true;
     };
 
-    var albumLink = function(url) {
-        return '<a id="album" class="info infol" href="'+url+'">[ALBUM]</a>';
-    };
-
     var youtubeURL = function(id) {
-        var ytExtra = '?autoplay=1&origin='+encodeURI(window.location.protocol + "//" + window.location.host + "/");
+        var ytExtra = '?autoplay=1&origin='+encodeURI(window.location.protocol +
+                                                      "//" + window.location.host + "/");
         //var ytExtra = '?enablejsapi=1';
         return 'https://www.youtube.com/embed/'+id+ytExtra;
     };
 
+    // For self links only
+    var albumLink = function(url) {
+        return '<a id="album" class="info infol" href="'+rp.url.base+url+'">[ALBUM]</a>';
+    };
+
+    // info - foreign link
+    // infop - always self-link
     var infoLink = function(info, text, infop = null, infoalt = "") {
         var data = '<a href="'+info+'" class="info infol" title="'+infoalt+'">'+text+'</a>';
         if (infop)
-            data += '<a href="'+infop+'" class="info infop">'+
-                '<img class="redditp" src="/images/favicon.png" /></a>';
+            data += '<a href="'+rp.url.base+infop+'" class="info infop">'+
+                '<img class="redditp" src="images/favicon.png" /></a>';
         return data;
     };
 
@@ -1186,14 +1191,15 @@ $(function () {
 
         if (photo.subreddit !== undefined && photo.subreddit !== null) {
             $('#navboxSubreddit').attr('href', rp.redditBaseUrl + subreddit).html(subreddit);
-            $('#navboxSubredditP').attr('href', subreddit).html($('<img />', {'class': 'redditp', src: '/images/favicon.png'}));
+            $('#navboxSubredditP').attr('href', rp.url.base+subreddit)
+                .html($('<img />', {'class': 'redditp', src: 'images/favicon.png'}));
         }
 
         if (authName !== undefined) {
             var authLink = '/u/' + authName;
             $('#navboxAuthor').attr('href', rp.redditBaseUrl + authLink).html(authLink);
-            $('#navboxAuthorP').attr('href', '/user/'+authName+'/submitted').html($('<img />', {'class': 'redditp',
-                                                                                                    src: '/images/favicon.png'}));
+            $('#navboxAuthorP').attr('href', rp.url.base+'/user/'+authName+'/submitted')
+                .html($('<img />', {'class': 'redditp', src: 'images/favicon.png'}));
         }
         $('#navboxCommentsLink').attr('href', photo.commentsLink);
         if (photo.date)
@@ -1219,7 +1225,7 @@ $(function () {
                     $('#duplicateUl').append(li);
                 });
                 $('#navboxDuplicatesMulti').attr('href', rp.redditBaseUrl+'/r/'+multi);
-                $('#navboxDuplicatesMultiP').attr('href', '/r/'+multi);
+                $('#navboxDuplicatesMultiP').attr('href', rp.url.base+'/r/'+multi);
             } else {
                 $('#duplicateDiv').hide();
             }
@@ -1738,7 +1744,7 @@ $(function () {
             dataType = 'jsonp';
 
             handleData = function(data) {
-                photo.extra = '<a href="'+data.author_url+'" class="info infol">'+data.author_name+'</a>';
+                photo.extra = infoLink(data.author_url, data.author_name);
 
                 if (data.type == 'photo') {
                     photo.type = imageTypes.image;
@@ -2084,11 +2090,13 @@ $(function () {
             // Link to x-posted subreddits
             var title = item.data.title.replace(/\/?(r\/\w+)\s*/g,
                                                 "<a href='"+rp.redditBaseUrl+"/$1'>/$1</a>"+
-                                                "<a href='/$1'><img class='redditp' src='/images/favicon.png' /></a>");
+                                                "<a href='"+rp.url.base+"/$1'>"+
+                                                "<img class='redditp' src='images/favicon.png' /></a>");
             // Link to reddit users
             title = title.replace(/\/?u\/(\w+)\s*/g, 
                                   "<a href='"+rp.redditBaseUrl+"/user/$1'>/u/$1</a>"+
-                                  "<a href='/user/$1/submitted'><img class='redditp' src='/images/favicon.png' /></a>");
+                                  "<a href='"+rp.url.base+"/user/$1/submitted'>"+
+                                  "<img class='redditp' src='images/favicon.png' /></a>");
 
             var flair = "";
             // Add flair (but remove if also in title)
@@ -2229,7 +2237,7 @@ $(function () {
                 // add rest of URL to subreddit e.g. /r/random/top
                 var end = rp.url.subreddit.replace(/^\/r\/rand(om|nsfw)/i,'');
                 rp.url.subreddit = '/r/' + data.data.children[0].data.subreddit+end;
-                $('#subredditUrl').html("<a href='" + rp.redditBaseUrl + rp.url.subreddit + "'>" + rp.url.subreddit + "</a>");
+                $('#subredditUrl').html($("<a>", { href: rp.redditBaseUrl + rp.url.subreddit }).text(rp.url.subreddit));
             }
 
             var handleDuplicatesData = function(data) {
@@ -2386,9 +2394,9 @@ $(function () {
                     /* author: data.data.account_url, */
                     date: item.datetime,
                     extra: (data.data.account_url !== null) 
-                        ?'<a href="http://imgur.com/user/'+data.data.account_url+
-                        '">/user/'+data.data.account_url+'</a>'
-                    :""
+                        ?infoLink("http://imgur.com/user/"+data.data.account_url,
+                                  '/user/'+data.data.account_url)
+                        :""
                 });
             });
 
@@ -2434,7 +2442,7 @@ $(function () {
             rp.session.after = 0;
 
         var handleData = function (data) {
-            $('#subredditUrl').html("<a href='" + data.response.blog.url + "'>" + data.response.blog.name + ".tumblr.com</a>");
+            $('#subredditUrl').html($("<a>", { href: data.response.blog.url }).text(data.response.blog.name + ".tumblr.com"));
 
             if (rp.session.after < data.response.total_posts) {
                 rp.session.after = rp.session.after + data.response.posts.length;
@@ -2515,7 +2523,7 @@ $(function () {
         var jsonUrl = 'https://api.tumblr.com/v2/blog/'+hostname+'/posts?api_key='+rp.api_key.tumblr+'&id='+shortid;
 
         var handleData = function (data) {
-            $('#subredditUrl').html("<a href='" + data.response.blog.url + "'>" + data.response.blog.name + ".tumblr.com</a>");
+            $('#subredditUrl').html($("<a>", { href: data.response.blog.url }).text(data.response.blog.name + ".tumblr.com"));
 
             $.each(data.response.posts, function (i, post) {
                 var isNsfw = (post.tags.indexOf("nsfw") < 0) ?false :true;
@@ -2575,6 +2583,10 @@ $(function () {
 
         var getVarsQuestionMark = "";
 
+        // Set prefix for self links, if in subdirectory
+        if (window.location.pathname != '/')
+            rp.url.base = window.location.pathname + '?';
+
         if (rp.url.vars.length > 0)
             getVarsQuestionMark = "?" + rp.url.vars;
         if (rp.url.vars !== '')
@@ -2628,7 +2640,7 @@ $(function () {
         if(displayedSubredditName.length > capsize) {
             displayedSubredditName = displayedSubredditName.substr(0,capsize) + "&hellip;";
         }
-        $('#subredditUrl').html("<a href='" + visitSubredditUrl + "'>" + displayedSubredditName + "</a>");
+        $('#subredditUrl').html($("<a>", { href:visitSubredditUrl }).html(displayedSubredditName));
 
         document.title = "redditP - " + subredditName;
     };

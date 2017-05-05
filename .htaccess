@@ -1,12 +1,16 @@
-Action php54-cgi /php54.cgi
-AddHandler php54-cgi .php
-
 # Updates here should coincide with rp.getRestOfUrl()
 RewriteEngine On
 
 RewriteBase /
-RewriteCond %{HTTP_HOST} ^www\.(.*)$ [NC]
-RewriteRule ^(.*)$ http://%1/$1 [R=301,L]
+#RewriteCond %{HTTP_HOST} ^www\.(.*)$ [NC]
+#RewriteRule ^(.*)$ http://%1/$1 [R=301,L]
+
+# Allow relative links for css and javascript
+RewriteCond %{REQUEST_URI} ^.*/(js/.*)$ [OR]
+RewriteCond %{REQUEST_URI} ^.*/(images/.*)$ [OR]
+RewriteCond %{REQUEST_URI} ^.*/(css/.*)$ 
+RewriteCond %{DOCUMENT_ROOT}/%1 -f
+RewriteRule ^.*$ %1 [L]
 
 RewriteRule ^r/(.*) /index.html
 RewriteRule ^u/(.*) /index.html

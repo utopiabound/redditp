@@ -55,11 +55,44 @@ Features
 Possible future features, depending on feedback:
 * Zoom/Pan for comics
 
+Installation
+------------
+* Can be setup to use base url:
+
+Just git checkout in /PATH/TO/, and then setup an apache .conf file as below:
+
+        <VirtualHost *:80>
+        	ServerName redditp.example.com
+        	DocumentRoot "/PATH/TO/redditp"
+        	ServerAdmin hostmaster@example.com
+        	<Location />
+        		Order allow,deny
+        		Allow from all
+        		Deny from none
+        	</Location>
+        </VirtualHost>
+
+Access via:
+
+http://redditp.example.com/r/popular
+
+
+* Can be setup in subdirectory without rewriting
+
+Checkout in a directory available via the web, or have an Alias added to apache:
+
+        Alias /redditp /PATH/TO/redditp
+
+Access via standard CGI format:
+
+http://utopiabound.github.io/redditp/?/r/popular or
+http://utopiabound.github.io/redditp/index.html?/r/popular
+
 Known Issues
 ------------
 
-* "Album in comments" items aren't deduped
-* If album link for "album in comments" isn't displayable, whole item is skipped
+* iPad/iPhone support is iffy
+* access via http://HOST/redditp/r/aww fails due to the rewrite rules
 
 Credits
 ----------
