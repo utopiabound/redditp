@@ -2584,11 +2584,13 @@ $(function () {
         var getVarsQuestionMark = "";
 
         // Set prefix for self links, if in subdirectory
-        if (window.location.pathname != '/')
+        if (window.location.pathname != '/' &&
+            window.location.pathname != rp.url.subreddit)
             rp.url.base = window.location.pathname + '?';
 
         if (rp.url.vars.length > 0)
             getVarsQuestionMark = "?" + rp.url.vars;
+
         if (rp.url.vars !== '')
             rp.url.vars = '&' + rp.url.vars;
 
@@ -2598,16 +2600,6 @@ $(function () {
         rp.url.subreddit = rp.url.subreddit.replace(/\/{2,}/, "/");
         // replace /u/ with /user/
         rp.url.subreddit = rp.url.subreddit.replace(/\/u\//, "/user/");
-
-        var subredditName;
-        if (rp.url.subreddit === "") {
-            rp.url.subreddit = "/";
-            subredditName = "reddit.com" + getVarsQuestionMark;
-            //var options = ["/r/aww/", "/r/earthporn/", "/r/foodporn", "/r/pics"];
-            //rp.url.subreddit = options[Math.floor(Math.random() * options.length)];
-        } else {
-            subredditName = rp.url.subreddit + getVarsQuestionMark;
-        }
 
         var dupe = $('#duplicateCollapser');
         if (rp.url.subreddit.indexOf('/user/') >= 0 ||
@@ -2630,10 +2622,21 @@ $(function () {
             $(dupe).hide();
         }
 
+        var subredditName;
+        if (rp.url.subreddit === "") {
+            rp.url.subreddit = "/";
+            subredditName = "reddit.com" + getVarsQuestionMark;
+            //var options = ["/r/aww/", "/r/earthporn/", "/r/foodporn", "/r/pics"];
+            //rp.url.subreddit = options[Math.floor(Math.random() * options.length)];
+        } else {
+            subredditName = rp.url.subreddit + getVarsQuestionMark;
+        }
+
         var visitSubredditUrl = rp.redditBaseUrl + rp.url.subreddit + getVarsQuestionMark;
 
         // truncate and display subreddit name in the control box
         var displayedSubredditName = subredditName;
+
         // empirically tested capsize, TODO: make css rules to verify this is enough.
         // it would make the "nsfw" checkbox be on its own line :(
         var capsize = 19;

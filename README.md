@@ -5,6 +5,8 @@ A full screen reddit presentation or slide show.
 
 http://github.com/utopiabound/redditp
 
+Useable Link: https://utopiabound.github.io/redditp/?/r/popular
+
 Fork from Ubershmekel's
 
 http://redditp.com
@@ -85,8 +87,8 @@ Checkout in a directory available via the web, or have an Alias added to apache:
 
 Access via standard CGI format:
 
-http://utopiabound.github.io/redditp/?/r/popular or
-http://utopiabound.github.io/redditp/index.html?/r/popular
+https://utopiabound.github.io/redditp/?/r/popular or
+https://utopiabound.github.io/redditp/index.html?/r/popular
 
 Known Issues
 ------------
