@@ -16,6 +16,8 @@ var rp = {};
 rp.settings = {
     debug: false,
     trace: false,
+    // JSON/JSONP timeout in milliseconds
+    ajaxTimeout: 10000,
     // Speed of the animation
     animationSpeed: 1000,
     shouldAutoNextSlide: true,
@@ -62,6 +64,7 @@ rp.favicons = {imgur: 'https://s.imgur.com/images/favicon-16x16.png',
                giphy:  'https://giphy.com/static/img/favicon.png',
                tumblr: 'https://assets.tumblr.com/images/favicons/favicon.ico',
                eroshare: 'https://eroshare.com/favicon.png',
+               pornhub: 'https://ci.phncdn.com/www-static/favicon.ico',
                // i.redd.it - reddit hosted images
                redd: 'https://www.redditstatic.com/icon.png'
               };
@@ -794,6 +797,7 @@ $(function () {
 
         } else if (hostname == 'youtube.com' ||
                    hostname == 'youtu.be' ||
+                   hostname == 'pornhub.com' ||
                    hostname == 'vimeo.com') {
             pic.type = imageTypes.embed;
 
@@ -1512,7 +1516,7 @@ $(function () {
             divNode.append(iframe);
         };
 
-        var jsonUrl, a;
+        var jsonUrl, a, b;
         var dataType = 'json';
         var handleData;
         var headerData;
@@ -1898,7 +1902,6 @@ $(function () {
             };
 
         } else if (hostname == 'youtube.com') {
-            var b;
             a = photo.url.split('/').pop();
             b = a.match(/.*v=([^&]*)/);
             if (b)
@@ -1912,6 +1915,23 @@ $(function () {
                 a.pop();
 
             showEmbed(youtubeURL(shortid));
+
+        } else if (hostname == 'pornhub.com') {
+            // JSON Info about video
+            // 'https://www.pornhub.com/webmasters/video_by_id?id='+shortid
+            a = {};
+            b = $('<a>').attr('href', photo.url).prop('search').substring(1);
+            $.map(b.split('&'), function(val, i) {
+                var arr = val.split('=');
+                a[arr[0]] = arr[1];
+            });
+
+            shortid = a.viewkey;
+            
+            if (a.pkey)
+                photo.extra = infoLink('https://www.pornhub.com/playlist/'+a.pkey, 'Playlist');
+
+            showEmbed('https://www.pornhub.com/embed/'+shortid+'?autoplay=1');
 
         } else if (hostname == 'vimeo.com') {
             showEmbed('https://player.vimeo.com/video/'+shortid+'?autoplay=1');
@@ -1933,7 +1953,7 @@ $(function () {
             dataType: dataType,
             success: wrapHandleData,
             error: handleError,
-            timeout: 5000,
+            timeout: rp.settings.ajaxTimeout,
             crossDomain: true
         });
 
@@ -2007,6 +2027,7 @@ $(function () {
 
         var hostname = hostnameOf(url, true);
         if (hostname == 'gfycat.com' ||
+            hostname == 'pornhub.com' ||
             hostname == 'pornbot.net')
             url = url.replace('http://', 'https://');
 
@@ -2141,11 +2162,10 @@ $(function () {
 
                 type = loadTypes.ALL;
 
-            } else if (photo.title.match(/[\[\(\{\d]mic[\]\)\}]/i) ||
-                photo.title.match(/[ \[\(\{]MIC[ \]\)\}]/) ||
-                photo.title.match(/[ \[\(\{]VIC[ \]\)\}]/) ||
+            } else if (photo.title.match(/[\[\(\{\d\s]mic([\]\)\}]|$)/i) ||
+                photo.title.match(/[\s\[\(\{]vic([\s\]\)\}]|$)/i) ||
                 photo.title.match(/more.*in.*comment/i) ||
-                item.data.title.match(/[\[\(\{]aic[\]\)\}]/i) ||
+                item.data.title.match(/[\[\(\{\d\s]aic([\]\)\}]|$)/i) ||
                 item.data.title.match(/album.*in.*comment/i) ) {
 
                 type = loadTypes.OP;
@@ -2207,7 +2227,7 @@ $(function () {
                 dataType: 'json',
                 success: handleCommentData,
                 error: failedAjax,
-                timeout: 5000,
+                timeout: rp.settings.ajaxTimeout,
                 crossDomain: true
             });
 
@@ -2287,7 +2307,8 @@ $(function () {
 
                if (rp.session.needDedup) {
                     func = handleDuplicatesData;
-                    url = rp.redditBaseUrl + '/r/' + item.data.subreddit + '/duplicates/' + item.data.id + '.json';
+                    url = rp.redditBaseUrl + '/r/' + item.data.subreddit + '/duplicates/' +
+                       item.data.id + '.json';
                     
                 } else { // Don't need dedup, just add and return
                     addImageSlideRedditT3(item);
@@ -2300,7 +2321,7 @@ $(function () {
                     success: func,
                     error: failedAjax,
                     jsonp: false,
-                    timeout: 5000,
+                    timeout: rp.settings.ajaxTimeout,
                     crossDomain: true
                 });
             });
@@ -2316,7 +2337,7 @@ $(function () {
             jsonpCallback: 'redditcallback',
             success: handleData,
             error: failedAjaxDone,
-            timeout: 5000,
+            timeout: rp.settings.ajaxTimeout,
             crossDomain: true
         });
     };
@@ -2368,7 +2389,7 @@ $(function () {
             //headers: { 'Origin': document.location.origin },
             success: handleData,
             error: failedAjaxDone,
-            timeout: 5000
+            timeout: rp.settings.ajaxTimeout
         });
     };
 
@@ -2419,7 +2440,7 @@ $(function () {
             dataType: 'json',
             success: handleData,
             error: failedAjaxDone,
-            timeout: 5000,
+            timeout: rp.settings.ajaxTimeout,
             headers: { Authorization: 'Client-ID ' + rp.api_key.imgur }
         });
     };
@@ -2508,7 +2529,7 @@ $(function () {
             dataType: 'jsonp',
             success: handleData,
             error: failedAjaxDone,
-            timeout: 5000
+            timeout: rp.settings.ajaxTimeout
         });
     };
 
@@ -2563,7 +2584,7 @@ $(function () {
             dataType: 'jsonp',
             success: handleData,
             error: failedAjaxDone,
-            timeout: 5000
+            timeout: rp.settings.ajaxTimeout
         });
     };
 
