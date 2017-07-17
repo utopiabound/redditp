@@ -13,6 +13,7 @@
     <meta name="referrer" content="no-referrer" />
     <link rel="shortcut icon" href="images/favicon.png" />
     <link rel="stylesheet" type="text/css" href="css/style.css" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons" />
     <script type="text/javascript" src="https://code.jquery.com/jquery-2.2.3.js"></script>
     <script type="text/javascript" src="js/jquery.touchwipe.js"></script>
     <script type="text/javascript" src="js/js.cookie.js"></script>
@@ -32,13 +33,20 @@
                 <li id="subredditUrl"><noscript>No javascript, no gain.</noscript>
                 </li>
                 <li>
-                    <input class="checkbox txttoggle" type="checkbox" name="nsfw" id="nsfw" value="Auto" checked />
-                    <label class="checkbox over18" for="nsfw">nsfw</label>
-                    <input class="checkbox txttoggle" type="checkbox" name="mute (m)" id="mute" value="Auto" checked />
-                    <label class="checkbox mute" for="mute">mute</label>
-                    <input class="checkbox txttoggle" type="checkbox" name="embed" id="embed" value="Auto" />
-                    <label class="checkbox embed" for="embed">embed</label>
-                    <img src="images/fullscreen.png" id="fullScreenButton" alt="Fullscreen (f)" />
+                    <input class="checkbox" type="checkbox" name="nsfw" id="nsfw" value="Auto" checked />
+                    <label class="checkbox over18" for="nsfw" title="toggle showing NSFW content">nsfw</label>
+                </li>
+                <li>
+                    <input class="checkbox" type="checkbox" name="embed" id="embed" value="Auto" />
+                    <label class="checkbox embed" for="embed" title="toggle showing embeded content">embed</label>
+                </li>
+                <li>
+                    <input class="checkbox" type="checkbox" name="mute" id="mute" value="Auto" checked />
+                    <label class="icontoggle mute" for="mute" title="toggle video sound (m)"><i class="material-icons">volume_off</i></label>
+                </li>
+                <li>
+		    <input class="checkbox" type="checkbox" name="fullscreen" id="fullscreen" value="Auto" />
+                    <label class="icontoggle fullscreen" for="fullscreen" title="toggle fullscreen (f)"><i class="material-icons">fullscreen</i></label>
                 </li>
             </ul>
             <ul class="nbmenu">

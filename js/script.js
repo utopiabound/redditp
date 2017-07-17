@@ -485,6 +485,7 @@ $(function () {
         var elem = document.getElementById('page');
         if (document.fullscreenElement || // alternative standard method
             document.mozFullScreenElement || document.webkitFullscreenElement || document.msFullscreenElement) { // current working methods
+            $('label[for="fullscreen"] i').text("fullscreen");
             if (document.exitFullscreen) {
                 document.exitFullscreen();
             } else if (document.msExitFullscreen) {
@@ -495,6 +496,7 @@ $(function () {
                 document.webkitExitFullscreen();
             }
         } else {
+            $('label[for="fullscreen"] i').text("fullscreen_exit");
             if (elem.requestFullscreen) {
                 elem.requestFullscreen();
             } else if (elem.msRequestFullscreen) {
@@ -514,11 +516,15 @@ $(function () {
     var updateVideoMute = function() {
         var vid = $('#gfyvid');
         var videoMuted = isVideoMuted();
-        if (vid !== undefined)
-            if (videoMuted)
+        if (videoMuted) {
+            $('label[for="mute"] i').text("volume_off");
+            if (vid !== undefined)
                 vid.prop('muted', true);
-        else
-            vid.prop('muted', false);
+        } else {
+            $('label[for="mute"] i').text("volume_up");
+            if (vid !== undefined)
+                vid.prop('muted', false);
+        }
     };
 
     var updateNsfw = function () {
@@ -576,7 +582,7 @@ $(function () {
             $('#timeToNextSlide').val(timeByCookie);
         }
 
-        $('#fullScreenButton').click(toggleFullScreen);
+        $('#fullscreen').change(toggleFullScreen);
 
         $('#timeToNextSlide').keyup(updateTimeToNextSlide);
 
@@ -953,7 +959,7 @@ $(function () {
             $('#mute').click();
             break;
         case F_KEY:
-            toggleFullScreen();
+            $('#fullscreen').click();
             break;
         case PAGEUP:
         case arrow.up:
@@ -1186,6 +1192,8 @@ $(function () {
 
         } else {
             $('#navboxTitle').html(image.title);
+            if (image.flair)
+                $('#navboxTitle').prepend($('<span>', { class: 'linkflair' }).text(image.flair));
             var extra = (image.extra) ?'&nbsp;'+image.extra :(photo.extra) ?'&nbsp;'+photo.extra :"";
             $('#navboxExtra').html($('<span>', { class: 'info' }).text((albumIndex+1)+"/"+rp.photos[imageIndex].album.length)).append(extra);
             $('#navboxLink').attr('href', image.url).attr('title', $("<div/>").html(image.title).text()+" (i)").text(image.type);
@@ -1258,7 +1266,7 @@ $(function () {
         }
 
         // remove "loading" title
-        $('#navboxTitle').text(message);
+        $('#navboxTitle').html(message);
 
         // display alternate recommendations
         $('#recommend').css({'display':'block'});
@@ -1272,7 +1280,14 @@ $(function () {
     };
     var failedAjaxDone = function (xhr, ajaxOptions, thrownError) {
         failedAjax(xhr, ajaxOptions, thrownError);
-        failCleanup("Failed to get "+rp.url.subreddit+" "+thrownError+" "+xhr.status);
+        var text;
+        if (xhr.status == 0)
+            text = "<br> Check tracking protection";
+        else
+            text = ": "+thrownError+" "+xhr.status;
+        failCleanup($('<span>',
+                      { class: 'error' }).html("Failed to get "+rp.url.subreddit+text));
+
     };
 
     //
@@ -2110,13 +2125,13 @@ $(function () {
 
             // Link to x-posted subreddits
             var title = item.data.title.replace(/\/?(r\/\w+)\s*/g,
-                                                "<a href='"+rp.redditBaseUrl+"/$1'>/$1</a>"+
-                                                "<a href='"+rp.url.base+"/$1'>"+
+                                                "<a class='infol' href='"+rp.redditBaseUrl+"/$1'>/$1</a>"+
+                                                "<a class='infop' href='"+rp.url.base+"/$1'>"+
                                                 "<img class='redditp' src='images/favicon.png' /></a>");
             // Link to reddit users
             title = title.replace(/\/?u\/(\w+)\s*/g, 
-                                  "<a href='"+rp.redditBaseUrl+"/user/$1'>/u/$1</a>"+
-                                  "<a href='"+rp.url.base+"/user/$1/submitted'>"+
+                                  "<a class='infol' href='"+rp.redditBaseUrl+"/user/$1'>/u/$1</a>"+
+                                  "<a class='infop' href='"+rp.url.base+"/user/$1/submitted'>"+
                                   "<img class='redditp' src='images/favicon.png' /></a>");
 
             var flair = "";
@@ -2163,10 +2178,11 @@ $(function () {
                 type = loadTypes.ALL;
 
             } else if (photo.title.match(/[\[\(\{\d\s]mic([\]\)\}]|$)/i) ||
-                photo.title.match(/[\s\[\(\{]vic([\s\]\)\}]|$)/i) ||
-                photo.title.match(/more.*in.*comment/i) ||
-                item.data.title.match(/[\[\(\{\d\s]aic([\]\)\}]|$)/i) ||
-                item.data.title.match(/album.*in.*comment/i) ) {
+                       photo.title.match(/[\s\[\(\{]vic([\s\]\)\}]|$)/i) ||
+                       photo.title.match(/more.*in.*comment/i) ||
+                       photo.flair.match(/more.*in.*comment/i) ||
+                       item.data.title.match(/[\[\(\{\d\s]aic([\]\)\}]|$)/i) ||
+                       item.data.title.match(/album.*in.*comment/i) ) {
 
                 type = loadTypes.OP;
 
