@@ -309,10 +309,13 @@ $(function () {
     };
 
     // info - foreign link
-    // infop - always self-link
-    var infoLink = function(info, text, infop = null, infoalt = "") {
+    // infop - always self-link (optional)
+    // infoalt - alt text (optional)
+    var infoLink = function(info, text, infop, infoalt) {
+        if (infoalt === undefined)
+            infoalt = "";
         var data = '<a href="'+info+'" class="info infol" title="'+infoalt+'">'+text+'</a>';
-        if (infop)
+        if (infop !== undefined)
             data += '<a href="'+rp.url.base+infop+'" class="info infop">'+
                 '<img class="redditp" src="images/favicon.png" /></a>';
         return data;
@@ -350,8 +353,11 @@ $(function () {
         }
     }
 
-    var hostnameOf = function(url, onlysld=false) {
+    // onlysld (optional)
+    var hostnameOf = function(url, onlysld) {
         var hostname = $('<a>').attr('href', url).prop('hostname');
+        if (onlysld === undefined)
+            onlysld=false;
         if (onlysld) {
             var a = hostname.match(/[^\.]*\.[^\.]*$/);
             if (a)
@@ -596,11 +602,11 @@ $(function () {
         numberButton.appendTo(newListItem);
     };
 
-    var initPhotoVideo = function (photo, url = undefined) {
+    var initPhotoVideo = function (photo, url) {
         photo.type = imageTypes.video;
         photo.video = {};
         
-        if (url == undefined)
+        if (url === undefined)
             url = photo.url;
 
         var extention = url.substr(1 + url.lastIndexOf('.'));
@@ -611,7 +617,9 @@ $(function () {
     };
 
     // re-index Album elements starting from index
-    var reindexAlbum = function(photo, index=0) {
+    var reindexAlbum = function(photo, index) {
+        if (index === undefined)
+            index = 0;
         var photoindex = rp.photos.indexOf(photo);
         for (var i = index; i < photo.album.length; ++i) {
             var a = photo.album_ul.children(":nth-child("+(i+1)+")").children();
@@ -1026,7 +1034,9 @@ $(function () {
         }
     };
 
-    var preloadNextImage = function(imageIndex, albumIndex = -1) {
+    var preloadNextImage = function(imageIndex, albumIndex) {
+        if (albumIndex === undefined)
+            albumIndex = -1;
         if (imageIndex < 0)
             imageIndex = 0;
         var next = getNextSlideIndex(imageIndex);
@@ -1088,7 +1098,9 @@ $(function () {
     // Starts the animation, based on the image index
     //
     // Variable to store if the animation is playing or not
-    var startAnimation = function (imageIndex, albumIndex = -1) {
+    var startAnimation = function (imageIndex, albumIndex) {
+        if (albumIndex === undefined)
+            albumIndex = -1;
         var needRefresh = false;
         resetNextSlideTimer();
 
@@ -1169,7 +1181,11 @@ $(function () {
     //
     // Animate the navigation box
     //
-    var animateNavigationBox = function (imageIndex, oldIndex, albumIndex = -1, oldAlbumIndex = -1) {
+    var animateNavigationBox = function (imageIndex, oldIndex, albumIndex, oldAlbumIndex) {
+        if (albumIndex === undefined)
+            albumIndex = -1;
+        if (oldAlbumIndex === undefined)
+            oldAlbumIndex = -1;
         var photo = rp.photos[imageIndex];
         var image = photo;
         if (albumIndex >= 0)
@@ -1259,7 +1275,9 @@ $(function () {
         }
     };
 
-    var failCleanup = function(message = '') {
+    var failCleanup = function(message) {
+        if (message === undefined)
+            message = '';
         if (rp.photos.length > 0) {
             // already loaded images, don't ruin the existing experience
             return;
@@ -1353,7 +1371,9 @@ $(function () {
         });
     };
 
-    var createDiv = function(imageIndex, albumIndex = -1) {
+    var createDiv = function(imageIndex, albumIndex) {
+        if (albumIndex === undefined)
+            albumIndex = -1;
         // Retrieve the accompanying photo based on the index
         var photo;
         if (albumIndex >= 0)
@@ -1374,7 +1394,9 @@ $(function () {
             return divNode;
 
         // Create a new div and apply the CSS
-        var showImage = function(url, needreset=true) {
+        var showImage = function(url, needreset) {
+            if (needreset === undefined)
+                needreset = true;
             // `preLoadImages` because making a div with a background css does not cause chrome
             // to preload it :/
             trace('showImage:['+imageIndex+"]["+albumIndex+"]:"+url);
@@ -1403,13 +1425,14 @@ $(function () {
 
         // Called with showVideo({'thumbnail': jpgurl, 'mp4': mp4url, 'webm': webmurl})
         var showVideo = function(data) {
-            var video = $('<video id="gfyvid" class="fullscreen"/>');
+            var video = $('<video id="gfyvid" class="fullscreen" playsinline />');
             var lastsource;
 
+            video.prop('playsinline', '');
             if (data.thumbnail !== undefined)
                 video.attr('poster', fixupUrl(data.thumbnail));
             if (isVideoMuted())
-                video.prop('muted', true);
+                video.attr('muted', '');
             if (data.webm !== undefined)
                 lastsource = video.append($('<source type="video/webm" />').attr('src', data.webm));
             if (data.mp4 !== undefined)
@@ -2107,7 +2130,7 @@ $(function () {
 
         jsonUrl += rp.url.vars + rp.session.after;
 
-        var addImageSlideRedditT3 = function (item, url=null) {
+        var addImageSlideRedditT3 = function (item, url) {
             if (rp.dedup[item.data.subreddit] !== undefined &&
                 rp.dedup[item.data.subreddit][item.data.id] !== undefined) {
                 log('cannot display url [simul-dup:'+
@@ -2116,7 +2139,7 @@ $(function () {
                 return;
             }
 
-            if (url === null) {
+            if (url === undefined) {
                 url = item.data.url;
             }
             if (item.duplicates === null) {
