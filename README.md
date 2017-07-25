@@ -40,7 +40,6 @@ Features
 * Parsing for a collection of domains including: (see source for complete list)
 	* Imgur		(Album support)
 	* Tumblr	(Album support)
-	* Eroshare	(Album support)
 	* Gfycat
 	* vimeo		(embed only - no autonext)
 	* Youtube	(embed only - no autonext)
