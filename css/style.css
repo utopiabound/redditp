@@ -23,7 +23,7 @@ a:hover {
     border-bottom:1px dotted;
 }
 
-.navbox { width:450px; max-height: 40%; overflow: auto; position:relative; left: 0px; }
+.navbox { width:450px; max-height: 40%; overflow: auto; position:relative; }
 /* 108px so the next row is half-visible */
 .numberButtonList { overflow: auto; max-height: 108px; }
 .navbox ul { list-style-type:none; display:block; margin:0px; right:10px; top:10px; text-align: left;}
@@ -110,7 +110,7 @@ a:hover {
 
 .nbmenu li {
     text-align: left;
-    padding: 10px 5px 10px 10px;
+    padding: 10px 5px 10px 5px;
     max-width: 300px;
     overflow: hidden;
 }
@@ -155,7 +155,7 @@ label.checkbox { font-weight: bold; }
     font-family: monospace;
     color: #bbb;
     padding: 0 7px;
-    float:right;
+    float: right;
     cursor: pointer;
 }
 
@@ -165,7 +165,7 @@ label.checkbox { font-weight: bold; }
     font-family: monospace;
     color: #bbb;
     padding: 0 7px;
-    float:right;
+    float: right;
     cursor: pointer;
 }
 
@@ -205,7 +205,11 @@ input[type=checkbox] {
     display: none;
 }
 
-input[type=checkbox]:checked + label {
+input[type=checkbox]:checked + label.colortoggle {
+    color: red;
+}
+
+.unset {
     color: red;
 }
 

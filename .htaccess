@@ -14,13 +14,19 @@ RewriteRule ^.*$ %1 [L]
 
 RewriteRule ^r/(.*) /index.html
 RewriteRule ^u/(.*) /index.html
-RewriteRule ^me/(.*) /index.html
 RewriteRule ^user/(.*) /index.html
 RewriteRule ^domain/(.*) /index.html
 RewriteRule ^search(.*) /index.html
 RewriteRule ^imgur/(.*) /index.html
 RewriteRule ^tumblr/(.*) /index.html
 RewriteRule ^eroshare/(.*) /index.html
+# Authed interface
+RewriteRule ^auth(.*) /index.html
+RewriteRule ^me/(.*) /index.html
+RewriteRule ^top(.*) /index.html
+RewriteRule ^new(.*) /index.html
+RewriteRule ^rising(.*) /index.html
+RewriteRule ^controversial(.*) /index.html
 
 # to hide .git and allow redditp.com/.compact
 RewriteRule ^\.(.*) /index.html

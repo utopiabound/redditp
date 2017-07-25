@@ -2,7 +2,7 @@
 <html>
 <head>
     <!--
-        https://github.com/ubershmekel/redditp
+        https://github.com/utopiabound/redditp
     -->
     <meta http-equiv="content-type" content="text/html;charset=utf-8" />
     <title>redditP</title>
@@ -32,27 +32,31 @@
             <ul class="nbmenu">
                 <li id="subredditUrl"><noscript>No javascript, no gain.</noscript>
                 </li>
+		<li><a id="loginUsername" class="info infol" href="/"><i class="unset material-icons">account_box</i></a></li>
                 <li>
                     <input class="checkbox" type="checkbox" name="nsfw" id="nsfw" value="Auto" checked />
-                    <label class="checkbox over18" for="nsfw" title="toggle showing NSFW content">nsfw</label>
+                    <label class="checkbox colortoggle over18" for="nsfw" title="toggle showing NSFW content">nsfw</label>
                 </li>
                 <li>
-                    <input class="checkbox" type="checkbox" name="embed" id="embed" value="Auto" />
-                    <label class="checkbox embed" for="embed" title="toggle showing embeded content">embed</label>
+                    <input class="checkbox" type="checkbox" name="embed" id="embed" value="Auto" checked />
+                    <label class="icontoggle colortoggle embed" for="embed" title="toggle embeded content">
+		      <i class="material-icons">cloud_off</i></label>
                 </li>
                 <li>
                     <input class="checkbox" type="checkbox" name="mute" id="mute" value="Auto" checked />
-                    <label class="icontoggle mute" for="mute" title="toggle video sound (m)"><i class="material-icons">volume_off</i></label>
+                    <label class="icontoggle colortoggle mute" for="mute" title="toggle video sound (m)">
+		      <i class="material-icons">volume_off</i></label>
                 </li>
                 <li>
 		    <input class="checkbox" type="checkbox" name="fullscreen" id="fullscreen" value="Auto" />
-                    <label class="icontoggle fullscreen" for="fullscreen" title="toggle fullscreen (f)"><i class="material-icons">fullscreen</i></label>
+                    <label class="icontoggle fullscreen" for="fullscreen" title="toggle fullscreen (f)">
+		      <i class="material-icons">fullscreen</i></label>
                 </li>
             </ul>
             <ul class="nbmenu">
                 <li>
                     <input class="checkbox" type="checkbox" name="autoNextSlide" id="autoNextSlide" value="Auto" checked />
-                    <label class="checkbox" for="autoNextSlide">Auto-next</label>
+                    <label class="checkbox colortoggle" for="autoNextSlide">Auto-next</label>
                     every <input type="text" name="timeToNextSlide" id="timeToNextSlide" value="8" size="2" /> seconds
                 </li>
                 <li>
@@ -79,6 +83,7 @@
           <div><a id="navboxSubreddit" class="info infol" title="(0)" href="http://www.reddit.com">
               <noscript>Javascript is required for redditp to work :(</noscript>
             </a><a id="navboxSubredditP" class="info infop" href="/">&nbsp;</a>
+	    <a id="navboxSubredditC" class="info infoc" title="Comments (c)" href="/">&nbsp;</a>
           </div>
 	  <div><span id="navboxDate" class="info infod" title=""></span></div>
           <div><a id="navboxAuthor" class="info infol" href="http://www.reddit.com">
