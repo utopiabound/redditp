@@ -167,9 +167,6 @@ $(function () {
         if (shortid.indexOf('.') != -1)
             shortid = shortid.substr(0, shortid.lastIndexOf('.'));
 
-        if (shortid.indexOf('-') != -1)
-            shortid = shortid.substr(0, shortid.lastIndexOf('-'));
-
         shortid = shortid.replace(/\?[^\.]*/, '');
 
         return shortid;
@@ -657,7 +654,7 @@ $(function () {
         numberButton.appendTo(newListItem);
     };
 
-    var initPhotoVideo = function (photo, url) {
+    var initPhotoVideo = function (photo, url, thumbnail) {
         photo.type = imageTypes.video;
         photo.video = {};
         
@@ -667,7 +664,10 @@ $(function () {
         var extention = url.substr(1 + url.lastIndexOf('.'));
         photo.video[extention] = url;
         
-        if (photo.thumbnail)
+        if (thumbnail !== undefined)
+            photo.video.thumbnail = thumbnail;
+
+        else if (photo.thumbnail)
             photo.video.thumbnail = photo.thumbnail;
     };
 
@@ -835,21 +835,26 @@ $(function () {
             // These domains should always be processed later
             pic.type = imageTypes.later;
 
+        } else if (hostname == 'gifs.com') {
+            shortid = url2shortid(pic.url);
+            if (shortid.indexOf('-') != -1)
+                shortid = shortid.substr(shortid.lastIndexOf('-')+1);
+
+            pic.type = imageTypes.video;
+            pic.video = { mp4s: [ 'https://j.gifs.com/'+shortid+'@large.mp4',
+                                  'https://j.gifs.com/'+shortid+'.mp4' ],
+                          thumbnail: 'https://j.gifs.com/'+shortid+'.jpg' };
+
         } else if (hostname == 'giphy.com') {
             // This can be quick processed now
             var url = pic.url.replace(/\/giphy.[^\/]*/, '');
             shortid = url2shortid(url);
-                
-            pic.type = imageTypes.video;
-            pic.video = { mp4: 'https://i.giphy.com/'+shortid+'.mp4',
-                          thumbnail: pic.thumbnail };
+            initPhotoVideo(pic, 'https://i.giphy.com/'+shortid+'.mp4');
                 
         } else if (pic.url.indexOf('webm.land/w/') >= 0) {
             // This can be quick processed now
             shortid = url2shortid(pic.url);
-            pic.type = imageTypes.video;
-            pic.video = { webm: 'http://webm.land/media/'+shortid+".webm",
-                          thumbnail: pic.thumbnail };
+            initPhotoVideo(pic, 'http://webm.land/media/'+shortid+".webm");
 
         } else if (isImageExtension(pic.url) ||
                     hostnameOf(pic.url) == 'i.reddituploads.com') {
@@ -857,6 +862,32 @@ $(function () {
 
         } else if (isVideoExtension(pic.url)) {
             initPhotoVideo(pic);
+
+        } else if (hostname == 'gyazo.com') {
+            shortid = url2shortid(pic.url);
+            pic.url = 'https://i.gyazo.com/'+shortid+'.png';
+
+
+        } else if (hostname == 'vidble.com') {
+            if (pic.url.indexOf("/watch?v=") > 0) {
+                shortid = /[#?&]v=([^&#=]*)/.exec(pic.url);
+                if (shortid === undefined || shortid === null) {
+                    error("Failed to parse vidble url: "+pic.url);
+                    return false;
+                }
+                shortid = shortid[1];
+                initPhotoVideo(pic, 'https://www.vidble.com/'+shortid+'.mp4',
+                               'https://www.vidble.com/'+shortid+'.png');
+
+            } else if (pic.url.indexOf("/album/") > 0) {
+                // TODO : figure out /album/ on vidble.com/api
+                log("cannot display url [no album processing]: "+pic.url);
+                return false;
+  
+            } else { 
+                shortid = url2shortid(pic.url);
+                pic.url = 'https://www.vidble.com/'+shortid+'.jpg';
+            }
 
         } else if (hostname == 'tumblr.com') {
             // these domains should be processed later if they aren't
@@ -1492,6 +1523,10 @@ $(function () {
                 video.prop('muted', true);
             if (data.webm !== undefined)
                 lastsource = video.append($('<source type="video/webm" />').attr('src', data.webm));
+            if (data.mp4s !== undefined)
+                $.each(data.mp4s, function (i, item) {
+                    lastsource = video.append($('<source type="video/mp4" />').attr('src', item));
+                });
             if (data.mp4 !== undefined)
                 lastsource = video.append($('<source type="video/mp4" />').attr('src', data.mp4));
 
@@ -1623,6 +1658,9 @@ $(function () {
         var shortid = url2shortid(url);
         
         if (hostname == 'gfycat.com') {
+            // Strip everything trailing '-'
+            if (shortid.indexOf('-') != -1)
+                shortid = shortid.substr(0, shortid.lastIndexOf('-'));
 
             jsonUrl = "https://gfycat.com/cajax/get/" + shortid;
 
