@@ -2320,7 +2320,7 @@ $(function () {
             }
 
             if (data.data.children.length === 0) {
-                alert("No data from this url :(");
+                log("No more data");
                 return;
             }
 
@@ -2380,19 +2380,19 @@ $(function () {
                     return;
                 }
 
-               if (rp.session.needDedup) {
-                    func = handleDuplicatesData;
-                    url = rp.url.get + '/r/' + item.data.subreddit + '/duplicates/' +
-                       item.data.id + '.json';
-                    
-                } else { // Don't need dedup, just add and return
+                if (!rp.session.needDedup) {
                     addImageSlideRedditT3(item);
                     return;
                 }
 
+                func = handleDuplicatesData;
+                url = rp.redditBaseUrl + '/r/' + item.data.subreddit + '/duplicates/' +
+                    item.data.id + '.json';
+
+                // Don't use oauth'd API for this, if oauth has expired, lots of failures happen,
+                // and oauth adds nothing here.
                 $.ajax({
                     url: url,
-                    headers: rp.session.redditHdr,
                     dataType: 'json',
                     success: func,
                     error: failedAjax,
