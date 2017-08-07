@@ -54,6 +54,8 @@ rp.session = {
     // this will be enabled automatically
     needDedup: false,
 
+    is_ios: false,
+    is_pre10ios: false,
     redditHdr: {}
 };
 
@@ -609,17 +611,27 @@ $(function () {
             $('#timeToNextSlide').val(timeByCookie);
         }
 
-        // Hide useless "fullscreen" button on iOS safari
-        if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
-            $('#fullscreen').parent().hide();
-        }
-
         $('#fullscreen').change(toggleFullScreen);
 
         $('#timeToNextSlide').keyup(updateTimeToNextSlide);
 
         $('#prevButton').click(prevAlbumSlide);
         $('#nextButton').click(nextAlbumSlide);
+
+        // OS/Browser Specific
+        if (/iPad|iPhone|iPod/.test(navigator.platform)) {
+            rp.session.is_ios = true;
+            var v = (navigator.appVersion).match(/OS (\d+)/);
+            if (parseInt(v[1], 10) < 10) {
+                debug("User Agent is pre-10 iOS");
+                rp.session.is_pre10ios = true;
+            } else {
+                debug("User Agent is 10+ iOS");
+            }
+            // Hide useless "fullscreen" button on iOS safari
+            $('#fullscreen').parent().hide();
+        }
+
     };
 
     var addNumberButton = function (numberButton) {
@@ -1512,12 +1524,6 @@ $(function () {
 
             divNode.append(video);
 
-            // iOS hackary
-            var onCanPlay = function() {
-                $('#gfyvid').off('canplaythrough', onCanPlay);
-                $('#gfyvid')[0].play();
-            };
-
             $(lastsource).on("error", function(e) {
                 log("["+imageIndex+"] video failed to load source");
                 resetNextSlideTimer();
@@ -1534,30 +1540,41 @@ $(function () {
                     $('#gfyvid')[0].play();
             });
 
+            $(video).on("loadeddata", function(e) {
+                photo.duration = e.target.duration;
+                if (photo.duration < rp.settings.timeToNextSlide) {
+                    photo.times = Math.ceil(rp.settings.timeToNextSlide/photo.duration);
+                } else {
+                    photo.times = 1;
+                }
+                debug("["+imageIndex+"] Video loadeddata video: "+photo.duration+" playing "+photo.times);
+            });
+            
             // Set Autoplay for iOS devices
-            if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
-                debug('iOS device detected setting autoplay');
-                $(video).attr('autoplay', true);
+            if (rp.session.is_ios) {
+                // iOS version < 10 do not autoplay, so timeout
+                if (rp.session.is_pre10ios && imageIndex == rp.session.activeIndex) {
+                    debug('iOS pre-10 detected, setting timmer');
+                    resetNextSlideTimer();
+                } else {
+                    debug('iOS device detected setting autoplay');
+                    $(video).attr('autoplay', true);
+                }
 
             } else {
-                $(video).on("loadeddata", function(e) {
-                    photo.duration = e.target.duration;
-                    if (photo.duration < rp.settings.timeToNextSlide) {
-                        photo.times = Math.ceil(rp.settings.timeToNextSlide/photo.duration);
-                    } else {
-                        photo.times = 1;
-                    }
-                    debug("["+imageIndex+"] Video loadeddata video: "+photo.duration);
-                    // preload, don't mess with timeout
-                    if (imageIndex !== rp.session.activeIndex)
-                        return;
-                    $('#gfyvid').on('canplaythrough', onCanPlay);
-                });
+                var onCanPlay = function() {
+                    $('#gfyvid').off('canplaythrough', onCanPlay);
+                    $('#gfyvid')[0].play();
+                };
+                $('#gfyvid').on('canplaythrough', onCanPlay);
             }
-            
-            // iOS devices don't play automatically
+
+            // iOS devices < 10 don't play automatically
             $(video).on("click", function(e) {
                 var vid = $('#gfyvid')[0];
+                // if we're pre-10, then the tiemr is active
+                if (rp.session.is_pre10ios && imageIndex == rp.session.activeIndex)
+                    clearSlideTimeout();
                 vid.play();
             });
         };
