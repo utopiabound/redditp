@@ -867,6 +867,10 @@ $(function () {
             shortid = url2shortid(pic.url);
             pic.url = 'https://i.gyazo.com/'+shortid+'.png';
 
+        } else if (hostname == 'sendvid.com') {
+            shortid = url2shortid(pic.url);
+            initPhotoVideo(pic, 'https://cache-1.sendvid.com/'+shortid+'.mp4',
+                           'https://cache-1.sendvid.com/'+shortid+'.jpg');
 
         } else if (hostname == 'vidble.com') {
             if (pic.url.indexOf("/watch?v=") > 0) {
@@ -897,6 +901,8 @@ $(function () {
         } else if (hostname == 'youtube.com' ||
                    hostname == 'youtu.be' ||
                    hostname == 'pornhub.com' ||
+                   hostname == 'xhamster.com' ||
+                   hostname == 'youporn.com' ||
                    hostname == 'vimeo.com') {
             pic.type = imageTypes.embed;
 
@@ -2004,29 +2010,54 @@ $(function () {
 
             showEmbed('https://www.pornhub.com/embed/'+shortid+'?autoplay=1');
 
+        } else if (hostname == 'youporn.com') {
+            // https://www.youporn.com/watch/SHORTID/TEXT-NAME-IN-URL/
+            shortid = /\/watch\/(.*)/.exec(photo.url);
+            
+            showEmbed("https://www.youporn.com/embed/"+shortid[1]+'?autoplay=1');
+
+        } else if (hostname == 'xhamster.com') {
+            // https://xhamster.com/videos/NAME-OF-VIDEO-SHORTID
+            // https://xhamster.com/movies/SHORID/NAME_OF_VIDEO.html
+            if (photo.url.indexOf('/videos/') > 0) {
+                shortid = url2shortid(photo.url);
+                shortid = shortid.substr(shortid.lastIndexOf('-')+1);
+
+            } else if (photo.url.indexOf('/movies/') > 0) {
+                shortid = /\/movies\/([^\/]*)/.exec(photo.url)[1];
+            } 
+
+            if (shortid)
+                showEmbed("https://xhamster.com/xembed.php?video="+shortid+'&autoplay=1');
+
+            else
+                log ("cannot parse url [unknown format]: "+photo.url);
+
         } else if (hostname == 'vimeo.com') {
             showEmbed('https://player.vimeo.com/video/'+shortid+'?autoplay=1');
 
         } else {
-            log("["+imageIndex+"]","Unknown video site", hostname);
+            log("["+imageIndex+"] Unknown video site: "+hostname);
         }
 
-        var wrapHandleData = function(data) {
-            handleData(data);
-            // Refresh navbox
-            if (rp.session.activeIndex == imageIndex)
-                animateNavigationBox(imageIndex, imageIndex, rp.session.activeAlbumIndex);
-        };
+        if (jsonUrl !== undefined) {
+            var wrapHandleData = function(data) {
+                handleData(data);
+                // Refresh navbox
+                if (rp.session.activeIndex == imageIndex)
+                    animateNavigationBox(imageIndex, imageIndex, rp.session.activeAlbumIndex);
+            };
 
-        $.ajax({
-            url: jsonUrl,
-            headers: headerData,
-            dataType: dataType,
-            success: wrapHandleData,
-            error: handleError,
-            timeout: rp.settings.ajaxTimeout,
-            crossDomain: true
-        });
+            $.ajax({
+                url: jsonUrl,
+                headers: headerData,
+                dataType: dataType,
+                success: wrapHandleData,
+                error: handleError,
+                timeout: rp.settings.ajaxTimeout,
+                crossDomain: true
+            });
+        }
 
         return divNode;
     };
@@ -2099,6 +2130,8 @@ $(function () {
         var hostname = hostnameOf(url, true);
         if (hostname == 'gfycat.com' ||
             hostname == 'pornhub.com' ||
+            hostname == 'xhamster.com' ||
+            hostname == 'youporn.com' ||
             hostname == 'pornbot.net')
             url = url.replace('http://', 'https://');
 
