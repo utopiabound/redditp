@@ -614,32 +614,6 @@ $(function () {
             $('#fullscreen').parent().hide();
         }
 
-        // Only enable login where it will work
-        if ($('<a>').attr('href', rp.redirect).prop('origin') == window.location.origin) {
-            var bearer = getCookie(cookieNames.redditBearer);
-            var by = getCookie(cookieNames.redditRefreshBy);
-            $('#loginUsername').attr('href', rp.redditBaseUrl + '/api/v1/authorize?' + 
-                                     ['client_id=' + rp.api_key.reddit,
-                                      'response_type=token',
-                                      'state='+encodeURIComponent(window.location.href),
-                                      'redirect_uri='+encodeURIComponent(rp.redirect),
-                                      // read - /r/ALL, /me/m/ALL
-                                      // history - /user/USER/submitted
-                                      'scope=identity,read,history'].join('&'));
-            if (bearer !== undefined && by-20 > Date.now()/1000) {
-                rp.session.redditHdr = { Authorization: 'bearer '+bearer };
-                $('#loginUsername').html(googleIcon('verified_user'));
-                rp.url.get = 'https://oauth.reddit.com';
-                
-            } else {
-                log("Clearing bearer:"+bearer+" is obsolete EOL:"+by+" < now:"+Date.now()/1000);
-                clearCookie(cookieNames.redditBearer);
-                clearCookie(cookieNames.redditRefreshBy);
-            }
-        } else {
-            $('#loginUsername').parent().hide();
-        }
-
         $('#fullscreen').change(toggleFullScreen);
 
         $('#timeToNextSlide').keyup(updateTimeToNextSlide);
@@ -2185,6 +2159,36 @@ $(function () {
             return;
         rp.session.loadingNextImages = true;
 
+        // Only enable login where it will work
+        if ($('<a>').attr('href', rp.redirect).prop('origin') == window.location.origin) {
+            var bearer = getCookie(cookieNames.redditBearer);
+            var by = parseInt(getCookie(cookieNames.redditRefreshBy), 10);
+            $('#loginUsername').attr('href', rp.redditBaseUrl + '/api/v1/authorize?' + 
+                                     ['client_id=' + rp.api_key.reddit,
+                                      'response_type=token',
+                                      'state='+encodeURIComponent(window.location.href),
+                                      'redirect_uri='+encodeURIComponent(rp.redirect),
+                                      // read - /r/ALL, /me/m/ALL
+                                      // history - /user/USER/submitted
+                                      'scope=identity,read,history'].join('&'));
+            if (bearer !== undefined && by-30 > Date.now()/1000) {
+                var d = new Date(by*1000);
+                rp.session.redditHdr = { Authorization: 'bearer '+bearer };
+                $('#loginUsername').html(googleIcon('verified_user'));
+                $('#loginUsername').attr('title', 'Expires at '+d);
+                rp.url.get = 'https://oauth.reddit.com';
+                
+            } else {
+                rp.url.get = rp.redditBaseUrl;
+                $('#loginUsername').html(googleIcon('account_box'));
+                log("Clearing bearer:"+bearer+" is obsolete EOL:"+by+" < now:"+Date.now()/1000);
+                clearCookie(cookieNames.redditBearer);
+                clearCookie(cookieNames.redditRefreshBy);
+            }
+
+            $('#loginUsername').parent().show();
+        }
+
         var jsonUrl = rp.url.get + rp.url.subreddit + ".json?";
         var dataType = 'json';
 
@@ -2692,9 +2696,8 @@ $(function () {
 
             matches = /[#?&]expires_in=([^&#=]*)/.exec(window.location.href);
             // if failed to process, default to an hour
-            var time = decodeURIComponent(matches[1]);
-            if (time === undefined || time < 20)
-                time = 60*60;
+            var time = parseInt(decodeURIComponent(matches[1]), 10);
+
             setCookie(cookieNames.redditRefreshBy, (time+Math.ceil(Date.now()/1000)));
 
             matches = /[#?&]state=([^&#=]*)/.exec(window.location.href);
