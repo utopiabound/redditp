@@ -1319,7 +1319,8 @@ $(function () {
                                             photo.subreddit + '/duplicates/' + photo.id);
             $('#duplicateUl').html("");
             if (photo.duplicates.length > 0) {
-                $('#duplicateDiv').show();
+                if ($('#duplicateCollapser').attr(OPENSTATE_ATTR) == "open")
+                    $('#duplicateDiv').show();
                 var multi = photo.subreddit;
                 $.each(photo.duplicates, function(i, item) {
                     var subr = '/r/' +item.subreddit;
