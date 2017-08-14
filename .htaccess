@@ -19,6 +19,7 @@ RewriteRule ^domain/(.*) /index.html
 RewriteRule ^search(.*) /index.html
 RewriteRule ^imgur/(.*) /index.html
 RewriteRule ^tumblr/(.*) /index.html
+RewriteRule ^wp/(.*) /index.html
 
 # Authed interface
 RewriteRule ^auth(.*) /index.html

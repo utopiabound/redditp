@@ -58,7 +58,11 @@ a:hover {
 .album {
     border-style: solid;
     border-color: white;
-    border-width: 1px
+    border-width: 1px;
+}
+
+.failed {
+    text-decoration: line-through;
 }
 
 .navbox ul li a {

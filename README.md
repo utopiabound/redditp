@@ -38,11 +38,13 @@ Features
 * Video support (either direct or embeded)
 * Autonext waits for the end of a video (does not work for gif, but does work for gifv)
 * Parsing for a collection of domains including: (see source for complete list)
-	* Imgur		(Album support)
-	* Tumblr	(Album support)
+	* Imgur		(Album support) /imgur/a/<ALBUMID>
+	* Tumblr	(Album support) /tumblr/<HOSTNAME>
+	* WordPress	(Album support) /wp/<HOSTNAME>
 	* Gfycat
 	* vimeo		(embed only - no autonext)
 	* Youtube	(embed only - no autonext)
+	* Many Others...
 * Deduplication support when browsing mulitple reddits (e.g. a multireddit /user/NAME/m/MULTIREDDIT or /r/funny+pics)
 * Add '+' to the end of single subreddit to enabled duplicate tracking
 * Albums will display inline for subreddits
