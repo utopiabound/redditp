@@ -653,7 +653,7 @@ $(function () {
         photo.video[extention] = url;
         
         if (thumbnail !== undefined)
-            photo.video.thumbnail = thumbnail;
+            photo.video.thumbnail = fixupUrl(thumbnail);
 
         else if (photo.thumbnail)
             photo.video.thumbnail = photo.thumbnail;
@@ -965,9 +965,10 @@ $(function () {
                 pic.url = 'https://www.vidble.com/'+shortid+'.jpg';
             }
 
-        } else if (hostname == 'tumblr.com') {
-            // these domains should be processed later if they aren't
-            // direct image/video link
+        } else if (hostname == 'tumblr.com' &&
+                   pic.url.indexOf('/post/') > 0) {
+            // Don't process bare tumblr blogs, nor /day/YYYY/MM/DD/ format
+            // only BLOGNAME.tumblr.com/post/SHORTID/...
             pic.type = imageTypes.later;
 
         } else if (hostname == 'youtube.com' ||
@@ -1960,70 +1961,12 @@ $(function () {
             dataType = 'jsonp';
 
             handleData = function(data) {
-                var post = data.response.posts[0];
-
-                photo.extra = infoLink(data.response.blog.url, 'tumblr/'+data.response.blog.name,
+                photo.extra = infoLink(data.response.blog.url,
+                                       'tumblr:'+data.response.blog.name,
                                        '/tumblr/'+data.response.blog.name);
-                if (post.type == "photo") {
-                    var index = 0;
-                    if (post.photos.length > 1) {
 
-                        photo = initPhotoAlbum(photo);
-                        $.each(post.photos, function(i, item) {
-                            addAlbumItem(photo, { url: fixupUrl(item.original_size.url),
-                                                  type: imageTypes.image,
-                                                  extra: infoLink(data.response.blog.url,
-                                                                  'tumblr/'+data.response.blog.name,
-                                                                  '/tumblr/'+data.response.blog.name),
-                                                  title: (item.caption) ?item.caption :photo.title
-                                                });
-                        });
-                        index = indexPhotoAlbum(photo, imageIndex, albumIndex);
-                        showImage(photo.album[index].url);
-
-                    } else {
-                        photo.url = fixupUrl(post.photos[index].original_size.url);
-                        photo.type = imageTypes.image;
-                        showImage(photo.url);
-                    }
-
-
-                } else if (post.type == 'video') {
-                    photo.thumbnail = post.thumbnail_url;
-                    if (post.video_type == "youtube") {
-                        photo.type = imageTypes.embed;
-                        $('#numberButton'+(imageIndex+1)).addClass('embed');
-                        photo.url = youtubeURL(post.video.youtube.video_id);
-                        // TODO: suprise load vs. intentional load
-                        if (rp.settings.embed)
-                            showEmbed(photo.url);
-
-                        else {
-                            log("cannot display url [no embed]: "+photo.url);
-                            showImage(fixupUrl(post.thumbnail_url));
-                        }
-                        return;
-                    }
-
-                    photo.type = imageTypes.video;
-                    photo.video = { thumbnail: fixupUrl(post.thumbnail_url) };
-                    if (post.video_url.indexOf('.mp4') > 0)
-                        photo.video.mp4 = post.video_url;
-                    else if (post.video_url.indexOf('.webm') > 0)
-                        photo.video.webm = post.video_url;
-                    showVideo(photo.video);
-
-                } else if (post.type == 'html') {
-                    if (processHaystack(photo, post.description))
-                        showPic(photo);
-                    else
-                        showImage(photo.thumbnail);
-
-                } else {
-                    log("Tumblr post not photo or video: "+post.type+" using thumbnail");
-                    laterPhotoFailed(photo);
-                    showImage(photo.thumbnail);
-                }
+                processTumblrPost(photo, data.response.posts[0]);
+                showPic(photo);
             };
 
         } else if (hostname == 'wordpress.com') {
@@ -2738,6 +2681,52 @@ $(function () {
         });
     };
 
+    var processTumblrPost = function(photo, post) {
+        var rc = false;
+        if (post.type == "photo") {
+            var index = 0;
+            if (post.photos.length > 1) {
+                photo = initPhotoAlbum(photo);
+                $.each(post.photos, function(i, item) {
+                    addAlbumItem(photo, { url: fixupUrl(item.original_size.url),
+                                          type: imageTypes.image,
+                                          title: (item.caption) ?item.caption :photo.title
+                                        });
+                });
+                rc = true;
+
+            } else {
+                photo.url = fixupUrl(post.photos[index].original_size.url);
+                photo.type = imageTypes.image;
+                rc = true;
+            }
+
+        } else if (post.type == 'video') {
+            photo.thumbnail = post.thumbnail_url;
+            if (post.video_type == "youtube") {
+                photo.type = imageTypes.embed;
+                if (photo.index !== undefined)
+                    $('#numberButton'+(photo.index+1)).addClass('embed');
+                photo.url = youtubeURL(post.video.youtube.video_id);
+
+            } else {
+                initPhotoVideo(photo, post.video_url, post.thumbnail_url);
+            }
+            rc = true;
+
+        } else if (post.type == 'html') {
+            rc = processHaystack(photo, post.description);
+
+        }
+
+        if (!rc) {
+            log("cannot display url [bad Tumblr post type "+post.type+"]: "+photo.url);
+            laterPhotoFailed(photo);
+        }
+
+        return rc;
+    };
+
     var getTumblrBlog = function () {
         if (rp.session.loadingNextImages)
             return;
@@ -2771,102 +2760,20 @@ $(function () {
                               id: post.id,
                               over18: data.response.blog.is_nsfw,
                               date: post.timestamp,
+                              url: post.post_url,
+                              extra: infoLink(data.response.blog.url, 'tumblr/'+data.response.blog.name,
+                                               '/tumblr/'+data.response.blog.name),
                               commentsLink: post.post_url
                             };
+                if (processTumblrPost(image, post))
+                    addImageSlide(image);
 
-                if (post.type == "photo") {
-                    image.url = post.photos[0].original_size.url;
-                    if (post.photos.length > 1) {
-                        image.extra = albumLink('/tumblr/'+data.response.blog.name+'/'+post.id);
-
-                        image = initPhotoAlbum(image);
-                        $.each(post.photos, function(i, item) {
-                            addAlbumItem(image, { url: item.original_size.url,
-                                                  type: imageTypes.image,
-                                                  extra: infoLink(data.response.blog.url,
-                                                                  'tumblr/'+data.response.blog.name,
-                                                                  '/tumblr/'+data.response.blog.name),
-                                                  title: (item.caption) ?item.caption :image.title
-                                                });
-                        });
-                    }
-
-                } else if (post.type == "video") {
-                    if (post.video_type == "youtube") {
-                        image.type = imageTypes.embed;
-                        image.url = youtubeURL(post.video.youtube.video_id);
-                            
-                    } else {
-                        image.type = imageTypes.video;
-                        image.url = post.video_url;
-                    }
-                    image.thumbnail = post.thumbnail_url;
-
-                } else {
-                    log('cannot display url [unk type '+post.type+']: '+post.post_url);
-                    return;
-                }
-
-                addImageSlide(image);
             });
 
             rp.session.loadingNextImages = false;
         };
 
         debug('getTumblrBlog requesting: '+jsonUrl);
-
-        $.ajax({
-            url: jsonUrl,
-            dataType: 'jsonp',
-            success: handleData,
-            error: failedAjaxDone,
-            timeout: rp.settings.ajaxTimeout
-        });
-    };
-
-    var getTumblrAlbum = function (url) {
-        var a = rp.url.subreddit.split('/');
-        if (a[a.length-1] == "")
-            a.pop();
-
-        var shortid = a.pop();
-        var hostname = a.pop();
-
-        var jsonUrl = 'https://api.tumblr.com/v2/blog/'+hostname+'/posts?api_key='+rp.api_key.tumblr+'&id='+shortid;
-
-        var handleData = function (data) {
-            $('#subredditUrl').html($("<a>", { href: data.response.blog.url }).text(data.response.blog.name + ".tumblr.com"));
-
-            $.each(data.response.posts, function (i, post) {
-                var isNsfw = (post.tags.indexOf("nsfw") < 0) ?false :true;
-                $.each(post.photos, function (j, item) {
-                    addImageSlide({
-                        url: item.original_size.url,
-                        title: post.summary,
-                        id: shortid,
-                        over18: isNsfw,
-                        date: post.timestamp,
-                        commentsLink: post.post_url
-                        /* subreddit: undefined, */
-                        /* author: data.data.account_url, */
-                        /* extra: userextra, */
-                    });
-                });
-            });
-
-            if (!rp.session.foundOneImage) {
-                log(jsonUrl);
-                alert("Sorry, no displayable images found in that url :(");
-            }
-
-            // show the first image
-            if (rp.session.activeIndex == -1)
-                startAnimation(0);
-
-            rp.session.loadingNextImages = false;
-        };
-
-        debug('getTumblrAlbum requesting: ' + jsonUrl);
 
         $.ajax({
             url: jsonUrl,
@@ -2994,10 +2901,7 @@ $(function () {
         getImgurAlbum();
 
     else if (rp.url.subreddit.startsWith('/tumblr/')) {
-        if (rp.url.subreddit.split('/').length > 3)
-            getTumblrAlbum();
-        else
-            getTumblrBlog();
+        getTumblrBlog();
 
     } else if (rp.url.subreddit.startsWith('/wp/')) {
         getWordPressBlog();
