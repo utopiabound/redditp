@@ -131,6 +131,10 @@ a:hover {
     border-top: 2px solid grey;
 }
 
+#navboxOrigLink i {
+    font-size: 18px;
+}
+
 label.checkbox { font-weight: bold; }
 
 .linkflair { 

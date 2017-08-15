@@ -73,6 +73,7 @@ rp.favicons = {imgur: 'https://s.imgur.com/images/favicon-16x16.png',
                tumblr: 'https://assets.tumblr.com/images/favicons/favicon.ico',
                pornhub: 'https://ci.phncdn.com/www-static/favicon.ico',
 	       wordpress: 'https://s1.wp.com/i/favicon.ico',
+               deviantart: 'https://i.deviantart.net/icons/da_favicon.ico',
                // i.redd.it - reddit hosted images
                redd: 'https://www.redditstatic.com/icon.png'
               };
@@ -1005,6 +1006,9 @@ $(function () {
         if (photo.duplicates === undefined)
             photo.duplicates = [];
 
+        if (photo.orig_url === undefined)
+            photo.orig_url = photo.url;
+
         if (!processPhoto(photo))
             return;
 
@@ -1378,8 +1382,12 @@ $(function () {
             $('#navboxExtra').html($('<span>', { class: 'info' }).text((albumIndex+1)+"/"+rp.photos[imageIndex].album.length)).append(extra);
             $('#navboxLink').attr('href', image.url).attr('title', $("<div/>").html(image.title).text()+" (i)").html(googleIcon(image.type));
         }
+        
+        $('#navboxOrigLink').attr('href', photo.orig_url);
         if (image.favicon)
-            $('#navboxLink').append($("<img />", {'class': 'redditp favicon', src: image.favicon}));
+            $('#navboxOrigLink').html($("<img />", {'class': 'redditp favicon', src: image.favicon}));
+        else
+            $('#navboxOrigLink').html(googleIcon("link"));
 
         if (photo.subreddit !== undefined && photo.subreddit !== null) {
             $('#navboxSubreddit').attr('href', rp.redditBaseUrl + subreddit).html(subreddit);
@@ -2180,7 +2188,7 @@ $(function () {
                                       'redirect_uri='+encodeURIComponent(rp.redirect),
                                       // read - /r/ALL, /me/m/ALL
                                       // history - /user/USER/submitted
-                                      'scope=identity,read,history'].join('&'));
+                                      'scope=read,history'].join('&'));
             if (bearer !== undefined && by-30 > Date.now()/1000) {
                 var d = new Date(by*1000);
                 rp.session.redditHdr = { Authorization: 'bearer '+bearer };
@@ -2204,7 +2212,7 @@ $(function () {
 
         if (rp.url.subreddit.startsWith('/r/random') ||
             rp.url.subreddit.startsWith('/r/randnsfw')) {
-            jsonUrl += "jsonp=redditcallback";
+            jsonUrl = rp.redditBaseUrl + rp.url.subreddit + ".json?jsonp=redditcallback";
             dataType = 'jsonp';
         }
 
