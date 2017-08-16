@@ -975,6 +975,7 @@ $(function () {
         } else if (hostname == 'youtube.com' ||
                    hostname == 'youtu.be' ||
                    hostname == 'pornhub.com' ||
+                   hostname == 'redtube.com' ||
                    hostname == 'xhamster.com' ||
                    hostname == 'youporn.com' ||
                    hostname == 'vimeo.com') {
@@ -1902,7 +1903,6 @@ $(function () {
             };
 
         } else if (hostname == 'streamable.com') {
-
             jsonUrl = "https://api.streamable.com/videos/" + shortid;
 
             handleData = function(data) {
@@ -1916,13 +1916,18 @@ $(function () {
             };
 
         } else if (hostname == 'pornbot.net') {
-            jsonUrl = "https:///pornbot.net/ajax/info.php?v=" + shortid;
+            // Strip everything trailing '_'
+            if (shortid.indexOf('_') != -1)
+                shortid = shortid.substr(0, shortid.lastIndexOf('_'));
+            
+            jsonUrl = "https://pornbot.net/ajax/info.php?v=" + shortid;
 
             handleData = function(data) {
                 photo.type = imageTypes.video;
                 photo.video = {'thumbnail': data.poster };
                 if (data.mp4Url !== undefined)
-                    photo.video.mp4 = data.mp4Url;
+                    // weirdism, 720pb.mp4 always fail while 720p.mp4 work
+                    photo.video.mp4 = data.mp4Url.replace(/pb.mp4$/, 'p.mp4');
                 if (data.webmUrl !== undefined)
                     photo.video.webm = data.webmUrl;
                 showVideo(photo.video);
@@ -2022,6 +2027,12 @@ $(function () {
                 photo.extra = infoLink('https://www.pornhub.com/playlist/'+a.pkey, 'Playlist');
 
             showEmbed('https://www.pornhub.com/embed/'+shortid+'?autoplay=1');
+
+        } else if (hostname == 'redtube.com') {
+            shortid = url2shortid(photo.url);
+
+            showEmbed('https://embed.redtube.com/?bgcolor=000000&autoplay=1&id='+shortid);
+
 
         } else if (hostname == 'youporn.com') {
             // https://www.youporn.com/watch/SHORTID/TEXT-NAME-IN-URL/
