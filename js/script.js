@@ -692,8 +692,10 @@ $(function () {
         if (url === undefined)
             url = photo.url;
 
-        var extention = url.substr(1 + url.lastIndexOf('.'));
-        photo.video[extention] = url;
+        if (isVideoExtension(url)) {
+            var extention = url.substr(1 + url.lastIndexOf('.'));
+            photo.video[extention] = url;
+        }
         
         if (thumbnail !== undefined)
             photo.video.thumbnail = fixupUrl(thumbnail);
@@ -909,12 +911,17 @@ $(function () {
         pic.url = fixupUrl(pic.url);
         // hostname only: second-level-domain.tld
         var hostname = hostnameOf(pic.url, true);
+        var fqdn = hostnameOf(pic.url);
 
         // If this already has an album attached
-        if (pic.album !== undefined) {
-            pic.type = imageTypes.album;
+        if (pic.type == imageTypes.album &&
+            pic.album !== undefined)
             return true;
-        }
+
+        // return if already setup as video
+        if (pic.type == imageTypes.video &&
+            pic.video !== undefined)
+            return true;
 
         var sld = hostname.match(/[^\.]*/);
         if (rp.favicons[sld])
@@ -978,7 +985,7 @@ $(function () {
             initPhotoVideo(pic, 'http://webm.land/media/'+shortid+".webm");
 
         } else if (isImageExtension(pic.url) ||
-                    hostnameOf(pic.url) == 'i.reddituploads.com') {
+                   fqdn == 'i.reddituploads.com') {
             // simple image
 
         } else if (isVideoExtension(pic.url)) {
@@ -1827,7 +1834,7 @@ $(function () {
         var url = photo.url;
 
         var hostname = hostnameOf(url, true);
-        var hn;
+        var fqdn = hostnameOf(url);
         var shortid = url2shortid(url);
         
         if (hostname == 'gfycat.com') {
@@ -2026,9 +2033,8 @@ $(function () {
         } else if (hostname == 'tumblr.com') {
             a = photo.url.split('/');
             shortid = a[4];
-            hn = hostnameOf(photo.url);
 
-            jsonUrl = 'https://api.tumblr.com/v2/blog/'+hn+'/posts?api_key='+rp.api_key.tumblr+'&id='+shortid;
+            jsonUrl = 'https://api.tumblr.com/v2/blog/'+fqdn+'/posts?api_key='+rp.api_key.tumblr+'&id='+shortid;
             dataType = 'jsonp';
 
             handleData = function(data) {
@@ -2043,11 +2049,10 @@ $(function () {
         } else if (hostname == 'wordpress.com') {
             photo.url = photo.url.replace(/\/amp\/?$/, '');
             shortid = url2shortid(photo.url);
-            hn = hostnameOf(photo.url);
-            var first = hn.split('.')[0];
-            photo.extra = infoLink('https://'+hn, 'wp:'+first, '/wp/'+hn);
+            var first = fqdn.split('.')[0];
+            photo.extra = infoLink('https://'+fqdn, 'wp:'+first, '/wp/'+fqdn);
 
-            jsonUrl = 'https://public-api.wordpress.com/rest/v1.1/sites/'+hn+'/posts/slug:'+shortid;
+            jsonUrl = 'https://public-api.wordpress.com/rest/v1.1/sites/'+fqdn+'/posts/slug:'+shortid;
 
             handleData = function(data) {
                 processWordPressPost(photo, data);
@@ -2341,6 +2346,21 @@ $(function () {
 
             else if (item.data.thumbnail != 'default')
                 photo.thumbnail = fixupUrl(item.data.thumbnail);
+
+            // Reddit hosted videos
+            if (item.data.domain == 'v.redd.it') {
+                initPhotoVideo(photo);
+                if (item.data.media.reddit_video !== undefined) {
+                    if (item.data.media.reddit_video.fallback_url.indexOf('/DASH_') > 0)
+                        photo.video.mp4 = item.data.media.reddit_video.fallback_url;
+                    else {
+                        error(photo.id+": cannot display video [bad fallback_url]: "+item.data.media.reddit_video.fallback_url);
+                        return;
+                    }
+                } else {
+                    error(photo.id+": cannot display video [no reddit_video]: "+photo.url);
+                }
+            }            
 
             var p = photo.commentsLink.split("/").slice(3).join("/");
             var jsonUrl = rp.url.get + '/' + p + '.json?depth=1';
