@@ -1706,7 +1706,7 @@ $(function () {
 
             $(video).on("ended", function(e) {
                 debug("["+imageIndex+"] video ended");
-                if (shouldStillPlay(imageIndex) || !autoNextSlide())
+                if ($.contains(document, $(video)[0]) && (shouldStillPlay(imageIndex) || !autoNextSlide()))
                     $(video)[0].play();
             });
 
@@ -1734,7 +1734,8 @@ $(function () {
             } else {
                 var onCanPlay = function() {
                     $(video).off('canplaythrough', onCanPlay);
-                    $(video)[0].play();
+                    if ($.contains(document, $(video)[0]))
+                        $(video)[0].play();
                 };
                 $(video).on('canplaythrough', onCanPlay);
             }
