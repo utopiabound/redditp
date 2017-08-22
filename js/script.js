@@ -257,7 +257,12 @@ $(function () {
         if (inalbum === undefined || inalbum == false) {
             albumIndex = -1; // need to increment
             index = getNextSlideIndex(rp.session.activeIndex);
-
+            if (index == rp.session.activeIndex) {
+                if (rp.session.loadAfter !== null)
+                    rp.session.loadAfter();
+                return;
+            }
+            
         } else {
             albumIndex = rp.session.activeAlbumIndex;
             index = rp.session.activeIndex;
@@ -278,7 +283,14 @@ $(function () {
                 return;
             }
 
-            index = getNextSlideIndex(index);
+            albumIndex = getNextSlideIndex(index);
+            if (albumIndex == index) {
+                if (rp.session.loadAfter !== null)
+                    rp.session.loadAfter();
+                return;
+            }
+
+            index = albumIndex;
             albumIndex = -1;
         }
     }
@@ -1251,24 +1263,6 @@ $(function () {
         }
     });
 
-    var isLastImage = function(imageIndex) {
-        if(rp.settings.nsfw) {
-            if(imageIndex == rp.photos.length - 1) {
-                return true;
-            } else {
-                return false;
-            }
-        } else {
-            // look for remaining sfw images
-            for(var i = imageIndex + 1; i < rp.photos.length; i++) {
-                if(!rp.photos[i].over18) {
-                    return false;
-                }
-            }
-            return true;
-        }
-    };
-
     var preloadNextImage = function(imageIndex, albumIndex) {
         if (albumIndex === undefined)
             albumIndex = -1;
@@ -1276,7 +1270,15 @@ $(function () {
             imageIndex = 0;
         var next = getNextSlideIndex(imageIndex);
         var prev = getPrevSlideIndex(imageIndex);
-        if (rp.cache[next] === undefined) {
+        if (next == imageIndex) {
+            // Load if last image, but not if first image This is because
+            // for dedup, we'll get called by image 0, before other images
+            // have come in.
+            if (rp.session.loadAfter !== null && imageIndex != 0)
+                rp.session.loadAfter();
+            return;
+
+        } else if (rp.cache[next] === undefined) {
             var oldCache = rp.cache;
             rp.cache = {};
             if (oldCache[next])
@@ -1288,9 +1290,9 @@ $(function () {
                 rp.cache[next][0] = createDiv(next);
 
             // save next+1, but don't create it
-            next = getNextSlideIndex(next);
-            if (oldCache[next])
-                 rp.cache[next] = oldCache[next];
+            var newnext = getNextSlideIndex(next);
+            if (newnext != next && oldCache[newnext])
+                rp.cache[newnext] = oldCache[newnext];
 
             // save previous
             if (oldCache[prev])
@@ -1382,13 +1384,6 @@ $(function () {
         // rp.session.activeAlbumIndex may have changed in createDiv called by slideBackgroundPhoto
         preloadNextImage(imageIndex, rp.session.activeAlbumIndex);
 
-        // Load if last image, but not if first image This is because
-        // for dedup, we'll get called by image 0, before other images
-        // have come in.
-        if (isLastImage(rp.session.activeIndex) &&
-            rp.session.loadAfter !== null &&
-            imageIndex != 0)
-            rp.session.loadAfter();
     };
 
     var toggleNumberButton = function (imageIndex, turnOn) {
@@ -2198,7 +2193,7 @@ $(function () {
             return url;
 
         if (url.startsWith('//'))
-            return "https"+url;
+            return "https:"+url;
 
         var hostname = hostnameOf(url, true);
         if (hostname == 'gfycat.com' ||
@@ -3003,7 +2998,7 @@ $(function () {
             rp.cache = {};
             rp.dedup = {};
             rp.session.after = '';
-            rp.session.loadAfter = '';
+            rp.session.loadAfter = null;
             rp.session.activeIndex = -1;
             rp.session.activeAlbumIndex = -1;
 
