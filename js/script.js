@@ -94,7 +94,6 @@ rp.url = {
 };
 
 $(function () {
-    $("#subredditUrl").text("Loading Reddit Slideshow");
     $("#navboxTitle").text("Loading Reddit Slideshow");
 
     var LOAD_PREV_ALBUM = -2;
@@ -393,19 +392,7 @@ $(function () {
             updateAutoNext();
         }
 
-        // Simulating a ctrl key won't trigger a background tab on IE and Firefox
-        // ( https://bugzilla.mozilla.org/show_bug.cgi?id=812202 )
-        // so we need to open a new window
-        if ( navigator.userAgent.match(/msie/i) || navigator.userAgent.match(/trident/i)  ||
-             navigator.userAgent.match(/firefox/i) ){
-            window.open(link.href,'_blank');
-
-        } else {
-            var mev = document.createEvent("MouseEvents");
-            mev.initMouseEvent("click", true, true, window, 0, 0, 0, 0, 0, true,
-                               false, false, true, 0, null);
-            link.dispatchEvent(mev);
-        }
+        window.open(link.href, '_blank');
     }
 
     // onlysld (optional)
@@ -546,7 +533,6 @@ $(function () {
         setCookie(cookieNames.shouldAutoNextSlideCookie, rp.settings.shouldAutoNextSlide);
         // Check if active image is a video before reseting timer
         if (rp.session.activeIndex == -1 ||
-            //rp.photos[rp.session.activeIndex].type !== imageTypes.video)
             rp.photos[rp.session.activeIndex].times === undefined)
             resetNextSlideTimer();
     };
@@ -662,6 +648,21 @@ $(function () {
 
         $('#prevButton').click(prevAlbumSlide);
         $('#nextButton').click(nextAlbumSlide);
+
+        $('#subredditForm').on('submit', function (event) {
+            if (event) {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+            }
+            processUrls($('#subredditUrl').val());
+        });
+        $('#subredditUrl').keyup(function (event) {
+            // don't forward keyup to document
+            if (event) {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+            }
+        });
 
         // OS/Browser Specific
         if (/iPad|iPhone|iPod/.test(navigator.platform)) {
@@ -1541,6 +1542,7 @@ $(function () {
     };
     var failedAjaxDone = function (xhr, ajaxOptions, thrownError) {
         failedAjax(xhr, ajaxOptions, thrownError);
+        rp.session.loadingNextImages = false;
         var text;
         if (xhr.status == 0)
             text = "<br> Check tracking protection";
@@ -2475,7 +2477,9 @@ $(function () {
                 // add rest of URL to subreddit e.g. /r/random/top
                 var end = rp.url.subreddit.replace(/^\/r\/rand(om|nsfw)/i,'');
                 rp.url.subreddit = '/r/' + data.data.children[0].data.subreddit+end;
-                $('#subredditUrl').html($("<a>", { href: rp.redditBaseUrl + rp.url.subreddit }).text(rp.url.subreddit));
+
+                $('#subredditLink').prop('href', rp.redditBaseUrl + rp.url.subreddit);
+                $('#subredditUrl').val(rp.url.subreddit);
             }
 
             var handleDuplicatesData = function(data) {
@@ -2728,7 +2732,8 @@ $(function () {
         if (hostname.indexOf('.') < 0)
             hostname += '.wordpress.com';
 
-        $('#subredditUrl').html($("<a>", { href: 'https://'+hostname }).text(hostname));
+        $('#subredditLink').prop('href', 'https://'+hostname);
+        $('#subredditUrl').val('wp/'+hostname);
 
         var jsonUrl = 'https://public-api.wordpress.com/rest/v1.1/sites/'+hostname+'/posts?order_by=date&order='+urlorder;
         if (rp.url.vars)
@@ -2845,7 +2850,8 @@ $(function () {
             rp.session.after = 0;
 
         var handleData = function (data) {
-            $('#subredditUrl').html($("<a>", { href: data.response.blog.url }).text(data.response.blog.name + ".tumblr.com"));
+            $('#subredditLink').prop('href', data.response.blog.url);
+            $('#subredditUrl').val('tumblr/'+data.response.blog.name);
 
             if (rp.session.after < data.response.total_posts) {
                 rp.session.after = rp.session.after + data.response.posts.length;
@@ -2884,7 +2890,7 @@ $(function () {
         });
     };
 
-    var setupUrls = function() {
+    var processUrls = function(path, setbase) {
         // Separate to before the question mark and after
         // Detect predefined reddit url paths. If you modify this be sure to fix
         // .htaccess
@@ -2892,7 +2898,12 @@ $(function () {
         var regexS = "(/(?:(?:imgur/a/)|(?:tumblr/)|(?:wp/)|(?:auth)|"+
             "(?:r/)|(?:u/)|(?:user/)|(?:domain/)|(?:search)|(?:me)|(?:top)|(?:new)|(?:rising)|(?:controversial)"+
             ")[^&#?]*)[?]?(.*)";
-        var path = window.location.href.substr(window.location.origin.length);
+
+        if (path === undefined)
+            path = $('#subredditUrl').val();
+        if (setbase === undefined)
+            setbase = false;
+
         var regex = new RegExp(regexS);
         var results = regex.exec(path);
 
@@ -2900,14 +2911,20 @@ $(function () {
         if (results !== null) {
             rp.url.subreddit = results[1];
             rp.url.vars = decodeUrl(results[2]);
+
+        } else {
+            rp.url.vars = '';
+            rp.url.subreddit = '/';
         }
 
-        var getVarsQuestionMark = "";
-
         // Set prefix for self links, if in subdirectory
-        if (window.location.pathname != '/' &&
+        if (setbase &&
             window.location.pathname != rp.url.subreddit)
             rp.url.base = window.location.pathname + '?';
+
+        debug("path: "+path+" base: "+rp.url.base);
+
+        var getVarsQuestionMark = "";
 
         if (rp.url.vars.length > 0)
             getVarsQuestionMark = "?" + rp.url.vars;
@@ -2922,7 +2939,7 @@ $(function () {
         // replace /u/ with /user/
         rp.url.subreddit = rp.url.subreddit.replace(/\/u\//, "/user/");
 
-        // Auth Response
+        // Auth Response - only ever uses window.location
         if (rp.url.subreddit == "/auth") {
             var matches = /[#?&]access_token=([^&#=]*)/.exec(window.location.href);
             setCookie(cookieNames.redditBearer, matches[1]);
@@ -2935,15 +2952,10 @@ $(function () {
 
             matches = /[#?&]state=([^&#=]*)/.exec(window.location.href);
             window.location.href = decodeURIComponent(matches[1]);
+            
         }
 
-        var subredditName;
-        if (rp.url.subreddit === "") {
-            rp.url.subreddit = "/";
-            subredditName = "reddit.com" + getVarsQuestionMark;
-        } else {
-            subredditName = rp.url.subreddit + getVarsQuestionMark;
-        }
+        var subredditName = rp.url.subreddit + getVarsQuestionMark;
 
         var dupe = $('#duplicateCollapser');
         if (rp.url.subreddit.indexOf('/user/') >= 0 ||
@@ -2960,6 +2972,8 @@ $(function () {
                 $(dupe).click();
             // Cleanup trailing '+' from subreddit
             rp.url.subreddit = rp.url.subreddit.replace(/\+($|\/)/, "$1");
+            $(dupe).show();
+
         } else {
             rp.session.needDedup = false;
             // close and don't show if we're not loading the info
@@ -2968,20 +2982,47 @@ $(function () {
             $(dupe).hide();
         }
 
-        var visitSubredditUrl = rp.redditBaseUrl + rp.url.subreddit + getVarsQuestionMark;
+        var visitSubreddit = rp.redditBaseUrl + rp.url.subreddit + getVarsQuestionMark;
 
-        // truncate and display subreddit name in the control box
-        var displayedSubredditName = subredditName;
-
-        // empirically tested capsize, TODO: make css rules to verify this is enough.
-        // it would make the "nsfw" checkbox be on its own line :(
-        var capsize = 19;
-        if(displayedSubredditName.length > capsize) {
-            displayedSubredditName = displayedSubredditName.substr(0,capsize) + "&hellip;";
-        }
-        $('#subredditUrl').html($("<a>", { href:visitSubredditUrl }).html(displayedSubredditName));
+        $('#subredditLink').prop('href', visitSubreddit);
+        $('#subredditUrl').val(subredditName);
 
         document.title = "redditP - " + subredditName;
+
+        // if ever found even 1 image, don't show the error
+        rp.session.foundOneImage = false;
+        $('#recommend').hide();
+        // Nuke old data
+        if (rp.photos.length != 0) {
+            clearSlideTimeout();
+            var vid = $('#gfyvid')[0];
+            if (vid !== undefined)
+                vid.pause();
+            rp.photos = [];
+            rp.cache = {};
+            rp.dedup = {};
+            rp.session.after = '';
+            rp.session.loadAfter = '';
+            rp.session.activeIndex = -1;
+            rp.session.activeAlbumIndex = -1;
+
+            // destroy old Number Buttons
+            $("#allNumberButtons").detach();
+            $("#albumNumberButtons").detach();
+            $('#allNumberButtonList').append($("<ul/>", { id: 'allNumberButtons' }));
+        }
+
+        if (rp.url.subreddit.startsWith('/imgur/'))
+            getImgurAlbum();
+
+        else if (rp.url.subreddit.startsWith('/tumblr/'))
+            getTumblrBlog();
+
+        else if (rp.url.subreddit.startsWith('/wp/'))
+            getWordPressBlog();
+
+        else
+            getRedditImages();
     };
 
     if (rp.settings.alwaysSecure)
@@ -2992,21 +3033,8 @@ $(function () {
     rp.url.get = rp.redditBaseUrl;
 
     initState();
-    setupUrls();
 
-    // if ever found even 1 image, don't show the error
-    rp.session.foundOneImage = false;
+    var path = window.location.href.substr(window.location.origin.length);
 
-    if (rp.url.subreddit.startsWith('/imgur/'))
-        getImgurAlbum();
-
-    else if (rp.url.subreddit.startsWith('/tumblr/')) {
-        getTumblrBlog();
-
-    } else if (rp.url.subreddit.startsWith('/wp/')) {
-        getWordPressBlog();
-
-    } else {
-        getRedditImages();
-    }
+    processUrls(path, true);
 });

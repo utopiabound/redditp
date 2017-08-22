@@ -81,7 +81,7 @@ a:hover {
 #controlsDiv {position: absolute; bottom: 0; left: 0; right: 0; }
 #titleDiv { position: absolute; top: 0; left: 0; right: 0; }
 #duplicateDiv { position: relative; top: 0; left: 0; right: 0; }
-
+#subredditUrl { border: 1px dashed; background-color: black; color: white; }
 
 .navbox h2 { padding: 2px; font: bold 20px Helvetica, Arial, Sans-serif; }
 .navbox h3 { padding: 2px; font: bold 16px Helvetica, Arial, Sans-serif; }
