@@ -667,6 +667,7 @@ $(function () {
                 event.stopImmediatePropagation();
             }
             processUrls($('#subredditUrl').val());
+            $('#subredditUrl').blur();
         });
         $('#subredditUrl').keyup(function (event) {
             // don't forward keyup to document
@@ -1046,6 +1047,8 @@ $(function () {
                    hostname == 'redtube.com' ||
                    hostname == 'xhamster.com' ||
                    hostname == 'youporn.com' ||
+                   hostname == 'spankbang.com' ||
+                   hostname == 'keezmovies.com' ||
                    hostname == 'vimeo.com') {
             pic.type = imageTypes.embed;
 
@@ -1128,7 +1131,6 @@ $(function () {
         if (rp.session.activeIndex == -1) {
             startAnimation(getNextSlideIndex(-1));
         }
-        rp.session.loadingNextImages = false;
     };
 
     var arrow = {
@@ -1483,7 +1485,8 @@ $(function () {
                     var subr = '/r/' +item.subreddit;
                     multi += '+'+item.subreddit;
                     var li = $("<li>", { class: 'list'}).html(infoLink(rp.redditBaseUrl + subr,
-                                                                       subr, subr, "("+(1+i)+")"));
+                                                                       subr, subr,
+                                                                       item.title+" ("+(i+1)+")"));
                     li.append($("<a>", { href: rp.redditBaseUrl + subr + "/comments/"+item.id,
                                          class: 'info infoc',
                                          title: 'Comments'
@@ -1842,6 +1845,9 @@ $(function () {
 
             jsonUrl = "https://gfycat.com/cajax/get/" + shortid;
 
+            // set photo url to sane value (incase it's originally a thumb link)
+            photo.url = 'https://gfycat.com/'+shortid;
+
             handleData = function (data) {
                 if (data.gfyItem === undefined) {
                     showImage(photo.thumbnail);
@@ -2093,6 +2099,19 @@ $(function () {
             shortid = url2shortid(photo.url);
 
             showEmbed('https://embed.redtube.com/?bgcolor=000000&autoplay=1&id='+shortid);
+
+        } else if (hostname == 'keezmovies.com') {
+            shortid = url2shortid(photo.url);
+
+            // no autostart
+            showEmbed('https://www.keezemovies.com/embed/'+shortid);
+
+        } else if (hostname == 'spankbang.com') {
+            a = photo.url.split('/');
+            shortid = a[3];
+
+            // no autostart
+            showEmbed('https://spankbang.com/embed/'+shortid);
 
 
         } else if (hostname == 'youporn.com') {
@@ -2378,10 +2397,11 @@ $(function () {
 
             } else if (photo.title.match(/[\[\(\{\d\s]mic([\]\)\}]|$)/i) ||
                        photo.title.match(/[\s\[\(\{]vic([\s\]\)\}]|$)/i) ||
-                       photo.title.match(/more.*in.*comment/i) ||
-                       photo.flair.match(/more.*in.*comment/i) ||
+                       photo.title.match(/more.*in.*com/i) ||
+                       photo.flair.match(/more.*in.*com/i) ||
+                       item.data.title.match(/source.*in.*com/i) ||
                        item.data.title.match(/[\[\(\{\d\s]aic([\]\)\}]|$)/i) ||
-                       item.data.title.match(/album.*in.*comment/i) ) {
+                       item.data.title.match(/album.*in.*com/i) ) {
 
                 type = loadTypes.OP;
 
@@ -2488,6 +2508,8 @@ $(function () {
                         rp.dedup[dupe.data.subreddit][dupe.data.id] = '/r/'+item.data.subreddit+'/'+item.data.id;
                         item.duplicates.push({subreddit: dupe.data.subreddit,
                                               commentCount: dupe.data.num_comments,
+                                              title: dupe.data.title,
+                                              date: dupe.data.created,
                                               id: dupe.data.id});
                     });
                 }
@@ -2545,6 +2567,7 @@ $(function () {
                     crossDomain: true
                 });
             });
+            rp.session.loadingNextImages = false;
         };
 
         debug('Ajax requesting: ' + jsonUrl);
@@ -2948,7 +2971,7 @@ $(function () {
 
             matches = /[#?&]state=([^&#=]*)/.exec(window.location.href);
             window.location.href = decodeURIComponent(matches[1]);
-            
+            return;
         }
 
         var subredditName = rp.url.subreddit + getVarsQuestionMark;
@@ -2988,25 +3011,24 @@ $(function () {
         // if ever found even 1 image, don't show the error
         rp.session.foundOneImage = false;
         $('#recommend').hide();
-        // Nuke old data
-        if (rp.photos.length != 0) {
-            clearSlideTimeout();
-            var vid = $('#gfyvid')[0];
-            if (vid !== undefined)
-                vid.pause();
-            rp.photos = [];
-            rp.cache = {};
-            rp.dedup = {};
-            rp.session.after = '';
-            rp.session.loadAfter = null;
-            rp.session.activeIndex = -1;
-            rp.session.activeAlbumIndex = -1;
 
-            // destroy old Number Buttons
-            $("#allNumberButtons").detach();
-            $("#albumNumberButtons").detach();
-            $('#allNumberButtonList').append($("<ul/>", { id: 'allNumberButtons' }));
-        }
+        // Always nuke old data
+        clearSlideTimeout();
+        var vid = $('#gfyvid')[0];
+        if (vid !== undefined)
+            vid.pause();
+        rp.photos = [];
+        rp.cache = {};
+        rp.dedup = {};
+        rp.session.after = '';
+        rp.session.loadAfter = null;
+        rp.session.activeIndex = -1;
+        rp.session.activeAlbumIndex = -1;
+
+        // destroy old Number Buttons
+        $("#allNumberButtons").detach();
+        $("#albumNumberButtons").detach();
+        $('#allNumberButtonList').append($("<ul/>", { id: 'allNumberButtons' }));
 
         if (rp.url.subreddit.startsWith('/imgur/'))
             getImgurAlbum();
