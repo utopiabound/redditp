@@ -367,11 +367,15 @@ $(function () {
     };
 
     // info - foreign link
+    // text - Text of foreign link
     // infop - always self-link (optional)
     // infoalt - alt text (optional)
     var infoLink = function(info, text, infop, infoalt) {
         if (infoalt === undefined)
             infoalt = "";
+        var sld = hostnameOf(info, true).match(/[^\.]*/);
+        if (rp.favicons[sld])
+            text = '<img class="redditp favicon" src="'+rp.favicons[sld]+'" />'+text;
         var data = '<a href="'+info+'" class="info infol" title="'+infoalt+'">'+text+'</a>';
         if (infop !== undefined)
             data += '<a href="'+rp.url.base+infop+'" class="info infop">'+
@@ -915,7 +919,6 @@ $(function () {
     };
 
     var processPhoto = function(pic) {
-        var shortid;
         if (pic === undefined)
             return false;
 
@@ -925,7 +928,10 @@ $(function () {
         pic.url = fixupUrl(pic.url);
         // hostname only: second-level-domain.tld
         var hostname = hostnameOf(pic.url, true);
-        var fqdn = hostnameOf(pic.url);
+        var sld = hostname.match(/[^\.]*/);
+
+        if (rp.favicons[sld])
+            pic.favicon = rp.favicons[sld];
 
         // If this already has an album attached
         if (pic.type == imageTypes.album &&
@@ -937,9 +943,8 @@ $(function () {
             pic.video !== undefined)
             return true;
 
-        var sld = hostname.match(/[^\.]*/);
-        if (rp.favicons[sld])
-            pic.favicon = rp.favicons[sld];
+        var shortid;
+        var fqdn = hostnameOf(pic.url);
 
         if (hostname == 'imgur.com') {
             pic.url = fixImgurPicUrl(pic.url);
@@ -1206,6 +1211,7 @@ $(function () {
         case O_KEY:
             open_in_background("#navboxCommentsLink");
             break;
+        case D_KEY:
         case P_KEY:
             open_in_background("#navboxDuplicatesLink");
             break;
@@ -1220,20 +1226,16 @@ $(function () {
             break;
         case PAGEUP:
         case arrow.up:
-        case W_KEY:
             prevSlide();
             break;
-        case A_KEY:
         case arrow.left:
             prevAlbumSlide();
             break;
         case PAGEDOWN:
-        case S_KEY:
         case arrow.down:
             nextSlide();
             break;
         case arrow.right:
-        case D_KEY:
             nextAlbumSlide();
             break;
         case U_KEY:
@@ -1853,6 +1855,11 @@ $(function () {
                     showImage(photo.thumbnail);
                     return;
                 }
+
+                if (data.gfyItem.userName != 'anonymous')
+                    photo.extra = infoLink('https://gfycat.com/@'+data.gfyItem.userName,
+                                           data.gfyItem.userName,
+                                           '/gfycat/u/'+data.gfyItem.userName);
                 
                 photo.video = {'thumbnail': data.gfyItem.posterUrl,
                                'webm': data.gfyItem.webmUrl,
@@ -2043,7 +2050,7 @@ $(function () {
 
             handleData = function(data) {
                 photo.extra = infoLink(data.response.blog.url,
-                                       'tumblr:'+data.response.blog.name,
+                                       data.response.blog.name,
                                        '/tumblr/'+data.response.blog.name);
 
                 processTumblrPost(photo, data.response.posts[0]);
@@ -2054,7 +2061,7 @@ $(function () {
             photo.url = photo.url.replace(/\/amp\/?$/, '');
             shortid = url2shortid(photo.url);
             var first = fqdn.split('.')[0];
-            photo.extra = infoLink('https://'+fqdn, 'wp:'+first, '/wp/'+fqdn);
+            photo.extra = infoLink('https://'+fqdn, first, '/wp/'+fqdn);
 
             jsonUrl = 'https://public-api.wordpress.com/rest/v1.1/sites/'+fqdn+'/posts/slug:'+shortid;
 
@@ -2607,7 +2614,7 @@ $(function () {
                     date: item.datetime,
                     extra: (data.data.account_url !== null) 
                         ?infoLink("http://imgur.com/user/"+data.data.account_url,
-                                  '/user/'+data.data.account_url)
+                                  data.data.account_url)
                         :""
                 });
             });
@@ -2780,7 +2787,7 @@ $(function () {
                               over18: false,
                               date: d.valueOf(),
                               commentsLink: post.URL,
-                              extra: infoLink(post.author.URL, 'wordpress:'+post.author.name,
+                              extra: infoLink(post.author.URL, post.author.name,
                                               '/wp/'+hostnameOf(post.author.URL)),
                               thumbnail: post.post_thumbnail
                             };
@@ -2886,7 +2893,7 @@ $(function () {
                               over18: data.response.blog.is_nsfw,
                               date: post.timestamp,
                               url: post.post_url,
-                              extra: infoLink(data.response.blog.url, 'tumblr/'+data.response.blog.name,
+                              extra: infoLink(data.response.blog.url, data.response.blog.name,
                                                '/tumblr/'+data.response.blog.name),
                               commentsLink: post.post_url
                             };
@@ -2909,12 +2916,60 @@ $(function () {
         });
     };
 
+    var getGfycatUser = function() {
+        if (rp.session.loadingNextImages)
+            return;
+        rp.session.loadingNextImages = true;
+
+        var a = rp.url.subreddit.split('/');
+        if (a[a.length-1] == "")
+            a.pop();
+
+        var user = a.pop();
+
+        var jsonUrl = 'https://api.gfycat.com/v1/users/'+user+'/gfycats';
+
+        var handleData = function (data) {            
+            if (data.gfycats.length)
+                $.each(data.gfycats, function (i, post) {
+                    var image = { url: 'https://gfycat.com/'+post.gfyName,
+                                  over18: (post.nsfw != 0),
+                                  title: post.title || post.description || post.tags.pop(),
+                                  type: imageTypes.video,
+                                  video: { thumbnail: post.posterUrl,
+                                           webm: post.webmUrl,
+                                           mp4: post.mp4Url
+                                         },
+                                  date: post.createDate
+                                };
+                    if (post.userName != 'anonymous')
+                        image.extra = infoLink('https://gfycat.com/@'+post.userName,
+                                               post.userName,
+                                               '/gfycat/u/'+post.userName);
+                    addImageSlide(image);
+                });
+            else
+                failCleanup('No public gfycats for user @'+user);
+
+            rp.session.loadingNextImages = false;
+        };
+
+        $.ajax({
+            url: jsonUrl,
+            dataType: 'json',
+            success: handleData,
+            error: failedAjaxDone,
+            timeout: rp.settings.ajaxTimeout,
+            crossDomain: true
+        });
+    };
+
     var processUrls = function(path, setbase) {
         // Separate to before the question mark and after
         // Detect predefined reddit url paths. If you modify this be sure to fix
         // .htaccess
         // This is a good idea so we can give a quick 404 page when appropriate.
-        var regexS = "(/(?:(?:imgur/a/)|(?:tumblr/)|(?:wp/)|(?:auth)|"+
+        var regexS = "(/(?:(?:imgur/a/)|(?:gfycat/u/)|(?:tumblr/)|(?:wp/)|(?:auth)|"+
             "(?:r/)|(?:u/)|(?:user/)|(?:domain/)|(?:search)|(?:me)|(?:top)|(?:new)|(?:rising)|(?:controversial)"+
             ")[^&#?]*)[?]?(.*)";
 
@@ -3038,6 +3093,9 @@ $(function () {
 
         else if (rp.url.subreddit.startsWith('/wp/'))
             getWordPressBlog();
+
+        else if (rp.url.subreddit.startsWith('/gfycat/user/'))
+            getGfycatUser();
 
         else
             getRedditImages();

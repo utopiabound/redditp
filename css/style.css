@@ -147,9 +147,7 @@ label.checkbox { font-weight: bold; }
     padding: 1px;
 }
 
-.favicon {
-    float: right;
-}
+.favicon {}
 
 .cam { background-image:url("../images/bg_cam_txt.png"); }
 .clouds { opacity: 0.9; background-color: rgba(0,0,0,0.7); }
