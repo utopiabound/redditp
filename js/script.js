@@ -702,6 +702,24 @@ $(function () {
         var newListItem = $("<li />").appendTo(buttonUl);
         numberButton.appendTo(newListItem);
     };
+    
+    var initPhotoFailed = function(photo) {
+        if (processPhoto(photo) &&
+            photo.type == imageTypes.later)
+            photo.type = imageTypes.fail;
+
+        // Update classes of number button
+        if (photo.index !== undefined)
+            $('#numberButton'+(photo.index+1)).removeClass('album embed').addClass('failed');
+    };
+
+    var initPhotoEmbed = function(photo, url) {
+        photo.type = imageTypes.embed;
+        if (url !== undefined)
+            photo.url = url;
+        if (photo.index !== undefined)
+            $('#numberButton'+(photo.index+1)).addClass('embed');
+    };
 
     var initPhotoVideo = function (photo, url, thumbnail) {
         photo.type = imageTypes.video;
@@ -743,7 +761,8 @@ $(function () {
     };
 
     var checkPhotoAlbum = function(photo) {
-        if (photo.album.length != 1)
+        if (photo.type != imageTypes.album ||
+            photo.album.length != 1)
             return;
 
         var pic = photo.album[0];
@@ -760,7 +779,7 @@ $(function () {
             error("Delete of bad type:"+pic.type+" for photo: "+photo.url);
             return;
         }
-        log("moved primary to first album item: "+photo.url);
+        log("moved first album to primary item: "+photo.url);
         
         delete photo.album;
         delete photo.album_ul; // @@ should this do a .detech()/.remove() first?        
@@ -826,12 +845,8 @@ $(function () {
         
         delete photo.album;
         delete photo.album_ul; // @@ should this do a .detech()/.remove() first?
-        if (processPhoto(photo) &&
-            photo.type == imageTypes.later)
-            photo.type = imageTypes.fail;
-        // Update classes of number button
-        if (photo.index !== undefined)
-            $('#numberButton'+(photo.index+1)).removeClass('album embed').addClass('failed');
+
+        initPhotoFailed(photo);
     };
 
 
@@ -1852,6 +1867,10 @@ $(function () {
 
             handleData = function (data) {
                 if (data.gfyItem === undefined) {
+                    if (data.error !== undefined) {
+                        log("failed to display gfycat [error]: "+data.error);
+                        initPhotoFailed(photo);
+                    }
                     showImage(photo.thumbnail);
                     return;
                 }
@@ -1921,7 +1940,7 @@ $(function () {
                 handleError = function (xhr, ajaxOptions, thrownError) {
                     photo.url = "https://i.imgur.com/"+shortid+".jpg";
                     photo.type = imageTypes.image;
-                    
+
                     showImage(photo.url);
                     return;
                 };
@@ -1939,13 +1958,8 @@ $(function () {
 
             } else {
                 jsonUrl = "https://api.imgur.com/3/image/" + shortid;
-                
+
                 handleData = function (data) {
-                    if (! data.success ) {
-                        log("["+imageIndex+"] imgur.com failed to load "+shortid+". state:"+data.status);
-                        showImage(photo.url);
-                        return;
-                    }
                     if (data.data.animated == true) {
                         photo.type = imageTypes.video;
                         photo.video = { mp4: fixImgurPicUrl(data.data.mp4) };
@@ -1957,7 +1971,6 @@ $(function () {
                     } else {
                         photo.url = fixImgurPicUrl(data.data.link);
                         photo.type = imageTypes.image;
-                        
                         showImage(photo.url);
                     }
                 };
@@ -1973,7 +1986,8 @@ $(function () {
                     showVideo(photo.video);
 
                 } else {
-                    log("["+imageIndex+"] vid.me failed to load "+shortid+". state:"+data.video.state);
+                    log("failed to load video [error:"+shortid+"]: "+data.video.state);
+                    initPhotoFailed(photo);
                     showImage(data.video.thumbnail_url);
                 }
             };
@@ -1999,6 +2013,13 @@ $(function () {
             jsonUrl = "https://pornbot.net/ajax/info.php?v=" + shortid;
 
             handleData = function(data) {
+                if (data.error !== undefined) {
+                    log("failed to load video [error]: "+data.error);
+                    initPhotoFailed(photo);
+                    showImage(photo.thumbnail);
+                    return;
+                }
+
                 photo.type = imageTypes.video;
                 photo.video = {'thumbnail': data.poster };
                 if (data.mp4Url !== undefined)
@@ -2022,18 +2043,12 @@ $(function () {
                     showImage(data.url);
 
                 } else if (data.type == 'video') {
-                    photo.type = imageTypes.embed;
-                    $('#numberButton'+(imageIndex+1)).addClass('embed');
-                    // TODO: suprise load vs. intentional load
-                    if (rp.settings.embed) {
-                        var f = $.parseHTML(data.html);
-                        showEmbed(f[0].src);
+                    var prevtype = photo.type;
+                    var f = $.parseHTML(data.html);
 
-                    } else {
-                        log("cannot display url [no embed]: "+photo.url);
-                        showImage(data.thumbnail_url);
-                    }
-
+                    initPhotoEmbed(photo, f[0].src);
+                    showEmbed(photo.url);
+                    
                 } else {
                     log("cannot display url [unk type "+data.type+"]: "+photo.url);
                     if (imageIndex == rp.session.activeIndex)
@@ -2075,15 +2090,17 @@ $(function () {
             b = a.match(/.*v=([^&]*)/);
             if (b)
                 shortid = b[1];
-
-            showEmbed(youtubeURL(shortid));
+            
+            initPhotoEmbed(photo, youtubeURL(shortid));
+            showEmbed(photo.url);
 
         } else if (hostname == 'youtu.be') {
             a = photo.url.split('/');
             if (a[a.length-1] == "")
                 a.pop();
 
-            showEmbed(youtubeURL(shortid));
+            initPhotoEmbed(photo, youtubeURL(shortid));
+            showEmbed(photo.url);
 
         } else if (hostname == 'pornhub.com') {
             // JSON Info about video
@@ -2100,32 +2117,36 @@ $(function () {
             if (a.pkey)
                 photo.extra = infoLink('https://www.pornhub.com/playlist/'+a.pkey, 'Playlist');
 
-            showEmbed('https://www.pornhub.com/embed/'+shortid+'?autoplay=1');
+            initPhotoEmbed(photo, 'https://www.pornhub.com/embed/'+shortid+'?autoplay=1');
+            showEmbed(photo.url);
 
         } else if (hostname == 'redtube.com') {
             shortid = url2shortid(photo.url);
 
-            showEmbed('https://embed.redtube.com/?bgcolor=000000&autoplay=1&id='+shortid);
+            initPhotoEmbed(photo, 'https://embed.redtube.com/?bgcolor=000000&autoplay=1&id='+shortid);
+            showEmbed(photo.url);
 
         } else if (hostname == 'keezmovies.com') {
             shortid = url2shortid(photo.url);
 
             // no autostart
-            showEmbed('https://www.keezemovies.com/embed/'+shortid);
+            initPhotoEmbed(photo, 'https://www.keezemovies.com/embed/'+shortid);
+            showEmbed(photo.url);
 
         } else if (hostname == 'spankbang.com') {
             a = photo.url.split('/');
             shortid = a[3];
 
             // no autostart
-            showEmbed('https://spankbang.com/embed/'+shortid);
-
+            initPhotoEmbed(photo, 'https://spankbang.com/embed/'+shortid);
+            showEmbed(photo.url);
 
         } else if (hostname == 'youporn.com') {
             // https://www.youporn.com/watch/SHORTID/TEXT-NAME-IN-URL/
             shortid = /\/watch\/(.*)/.exec(photo.url);
             
-            showEmbed("https://www.youporn.com/embed/"+shortid[1]+'?autoplay=1');
+            initPhotoEmbed(photo, "https://www.youporn.com/embed/"+shortid[1]+'?autoplay=1');
+            showEmbed(photo.url);
 
         } else if (hostname == 'xhamster.com') {
             // https://xhamster.com/videos/NAME-OF-VIDEO-SHORTID
@@ -2138,14 +2159,17 @@ $(function () {
                 shortid = /\/movies\/([^\/]*)/.exec(photo.url)[1];
             } 
 
-            if (shortid)
-                showEmbed("https://xhamster.com/xembed.php?video="+shortid+'&autoplay=1');
+            if (shortid) {
+                initPhotoEmbed(photo, "https://xhamster.com/xembed.php?video="+shortid+'&autoplay=1');
+                showEmbed(photo.url);
 
-            else
+            } else {
                 log ("cannot parse url [unknown format]: "+photo.url);
+            }
 
         } else if (hostname == 'vimeo.com') {
-            showEmbed('https://player.vimeo.com/video/'+shortid+'?autoplay=1');
+            initPhotoEmbed(photo, 'https://player.vimeo.com/video/'+shortid+'?autoplay=1');
+            showEmbed(photo.url);
 
         } else {
             log("["+imageIndex+"] Unknown video site: "+hostname);
@@ -2461,6 +2485,7 @@ $(function () {
                             addAlbumItem(photo, img);
                     }
                 };
+                checkPhotoAlbum(photo);
                 addImageSlide(photo);
             };
             
@@ -2835,9 +2860,7 @@ $(function () {
                     photo.type = imageTypes.fail;
                     return false;
                 }
-                photo.type = imageTypes.embed;
-                if (photo.index !== undefined)
-                    $('#numberButton'+(photo.index+1)).addClass('embed');
+                initPhotoEmbed(photo);
                 photo.url = youtubeURL(post.video.youtube.video_id);
 
             } else {
@@ -2847,7 +2870,6 @@ $(function () {
 
         } else if (post.type == 'html') {
             rc = processHaystack(photo, post.description);
-
         }
 
         if (!rc) {
@@ -2996,7 +3018,7 @@ $(function () {
             window.location.pathname != rp.url.subreddit)
             rp.url.base = window.location.pathname + '?';
 
-        debug("path: "+path+" base: "+rp.url.base);
+        log("LOADING: "+path);
 
         var getVarsQuestionMark = "";
 
