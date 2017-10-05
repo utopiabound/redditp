@@ -402,11 +402,9 @@ $(function () {
         if (link === undefined)
             return;
 
-        // Pause this windows autonext
-        if (autoNextSlide()) {
-            $("#autoNextSlide").prop("checked", !$("#autoNextSlide").is(':checked'));
-            updateAutoNext();
-        }
+        // Pause Auto-Next
+        if (rp.settings.shouldAutoNextSlide)
+            $("#autoNextSlide").click();
 
         window.open(link.href, '_blank');
     }
@@ -534,9 +532,9 @@ $(function () {
         if (timeout === undefined) {
             timeout = rp.settings.timeToNextSlide;
         }
-        timeout *= 1000;
-        trace('set timeout (ms): ' + timeout);
+        timeout *= 1000;        
         window.clearTimeout(rp.session.nextSlideTimeoutId);
+        trace('set timeout (ms): ' + timeout);
         rp.session.nextSlideTimeoutId = window.setTimeout(autoNextSlide, timeout);
     };
 
@@ -1218,8 +1216,7 @@ $(function () {
             $('#titleDiv .collapser').click();
             break;
         case SPACE:
-            $("#autoNextSlide").prop("checked", !$("#autoNextSlide").is(':checked'));
-            updateAutoNext();
+            $("#autoNextSlide").click();
             break;
         case I_KEY:
             open_in_background("#navboxLink");
