@@ -60,7 +60,7 @@ rp.session = {
 };
 
 rp.api_key = {tumblr:  'sVRWGhAGTVlP042sOgkZ0oaznmUOzD8BRiRwAm5ELlzEaz4kwU',
-              imgur:   'f2edd1ef8e66eaf'
+              imgur:   'ae493e76de2e724'
              };
 
 // CHANGE THESE FOR A DIFFERENT Reddit Application
@@ -1069,6 +1069,7 @@ $(function () {
                    hostname == 'youporn.com' ||
                    hostname == 'spankbang.com' ||
                    hostname == 'keezmovies.com' ||
+                   hostname == 'txxx.com' ||
                    hostname == 'vimeo.com') {
             pic.type = imageTypes.embed;
 
@@ -2167,6 +2168,14 @@ $(function () {
                 log ("cannot parse url [unknown format]: "+photo.url);
             }
 
+        } else if (hostname == 'txxx.com') {
+            a = photo.url.split('/');
+            shortid = a[4];
+
+            // no autostart
+            initPhotoEmbed(photo, 'https://m.txxx.com/embed/'+shortid);
+            showEmbed(photo.url);
+
         } else if (hostname == 'vimeo.com') {
             initPhotoEmbed(photo, 'https://player.vimeo.com/video/'+shortid+'?autoplay=1');
             showEmbed(photo.url);
@@ -2192,6 +2201,10 @@ $(function () {
                 timeout: rp.settings.ajaxTimeout,
                 crossDomain: true
             });
+
+        } else if (rp.session.activeIndex == imageIndex) {
+            // refresh navbox
+            animateNavigationBox(imageIndex, imageIndex, rp.session.activeAlbumIndex);
         }
 
         return divNode;
@@ -2688,7 +2701,11 @@ $(function () {
                     else
                         log("Unknown type: "+source.type+" at: "+source.src);
                 });
+
+            } else {
+                return false;
             }
+            return true;
         };
 
         var rc = false;
@@ -2754,8 +2771,10 @@ $(function () {
             }
         }
 
-        if (!rc)
+        if (!rc) {
+            log("cannot display wp [no content]: "+photo.url);
             laterPhotoFailed(photo);
+        }
 
         return rc;
     };
