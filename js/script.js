@@ -1423,6 +1423,8 @@ $(function () {
         var numberButton = $('#numberButton' + (imageIndex + 1));
         if (turnOn) {
             numberButton.addClass('active');
+            if (numberButton[0].scrollIntoView !== undefined)
+                numberButton[0].scrollIntoView();
         } else {
             numberButton.removeClass('active');
         }
@@ -1434,6 +1436,8 @@ $(function () {
         var numberButton = $('#albumButton' + (imageIndex + 1));
         if (turnOn) {
             numberButton.addClass('active');
+            if (numberButton[0].scrollIntoView !== undefined)
+                numberButton[0].scrollIntoView();
         } else {
             numberButton.removeClass('active');
         }
