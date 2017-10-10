@@ -72,6 +72,7 @@ rp.favicons = {imgur: 'https://s.imgur.com/images/favicon-16x16.png',
                giphy:  'https://giphy.com/static/img/favicon.png',
                tumblr: 'https://assets.tumblr.com/images/favicons/favicon.ico',
                pornhub: 'https://ci.phncdn.com/www-static/favicon.ico',
+               tube8: 'https://es.t8cdn.com/images/favicon.ico',
 	       wordpress: 'https://s1.wp.com/i/favicon.ico',
                deviantart: 'https://i.deviantart.net/icons/da_favicon.ico',
                // i.redd.it - reddit hosted images
@@ -749,6 +750,9 @@ $(function () {
 
             a.attr('id', "albumButton" + (i+1)).data('index', i).text(i+1);
 
+            a.removeClass('embed');
+            addButtonClass(a, photo.album[i]);
+
             // Update rp.cache when re-indexing if required
             if (rp.cache[photoindex] !== undefined &&
                 rp.cache[photoindex][oldindex] !== undefined) {
@@ -1006,10 +1010,19 @@ $(function () {
                           thumbnail: 'https://j.gifs.com/'+shortid+'.jpg' };
 
         } else if (hostname == 'giphy.com') {
-            // This can be quick processed now
-            var url = pic.url.replace(/\/giphy.[^\/]*/, '');
-            shortid = url2shortid(url);
-            initPhotoVideo(pic, 'https://i.giphy.com/'+shortid+'.mp4');
+            //giphy.com/gifs/NAME-OF-VIDEO-SHORTID
+            //media.giphy.com/media/SHORTID/giphy.TYPE
+            //i.giphy.com/SHORTID.TYPE
+            shortid = pathnameOf(pic.url).split('/')[2];
+            if (shortid)
+                shortid = shortid.substr(shortid.lastIndexOf('-')+1);
+            else
+                shortid = url2shortid(pic.url);
+
+            if (shortid)
+                initPhotoVideo(pic, 'https://i.giphy.com/media/'+shortid+'/giphy.mp4');
+            else
+                log("cannot display video [error parsing]: "+pic.url);                
                 
         } else if (pic.url.indexOf('webm.land/w/') >= 0) {
             // This can be quick processed now
@@ -1068,6 +1081,7 @@ $(function () {
                    hostname == 'spankbang.com' ||
                    hostname == 'keezmovies.com' ||
                    hostname == 'txxx.com' ||
+                   hostname == 'tube8.com' ||
                    hostname == 'vimeo.com') {
             pic.type = imageTypes.embed;
 
@@ -2164,6 +2178,12 @@ $(function () {
             } else {
                 log ("cannot parse url [unknown format]: "+photo.url);
             }
+
+        } else if (hostname == 'tube8.com') {
+            shortid = pathnameOf(photo.url);
+
+            initPhotoEmbed(photo, 'https://www.tube8.com/embed'+shortid+'?autoplay=1');
+            showEmbed(photo.url);
 
         } else if (hostname == 'txxx.com') {
             a = photo.url.split('/');
