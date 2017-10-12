@@ -59,6 +59,8 @@ rp.session = {
     redditHdr: {}
 };
 
+rp.history = window.history;
+
 rp.api_key = {tumblr:  'sVRWGhAGTVlP042sOgkZ0oaznmUOzD8BRiRwAm5ELlzEaz4kwU',
               imgur:   'ae493e76de2e724'
              };
@@ -91,6 +93,7 @@ rp.url = {
     subreddit: "",
     base: '',
     get: '',
+    path: '',
     vars: ""
 };
 
@@ -213,9 +216,7 @@ $(function () {
     //setupFadeoutOnIdle();
 
     var getNextPhotoOk = function(pic) {
-        var photo = pic;
-        if (pic.parent !== undefined)
-            photo = pic.parent;
+        var photo = photoParent(pic);
         
         if (!rp.settings.nsfw && photo.over18)
             return false;
@@ -743,9 +744,14 @@ $(function () {
     var reindexAlbum = function(photo, index) {
         if (index === undefined)
             index = 0;
-        var photoindex = rp.photos.indexOf(photo);
+
+        // if photo.index isn't in rp.photos or photo isn't active, we don't care
+        if (photo.index === undefined ||
+            photo.index != rp.session.activeIndex)
+            return;
+
         for (var i = index; i < photo.album.length; ++i) {
-            var a = photo.album_ul.children(":nth-child("+(i+1)+")").children();
+            var a = $('#albumNumberButtons ul').children(":nth-child("+(i+1)+")").children();
             var oldindex = a.data('index');
 
             a.attr('id', "albumButton" + (i+1)).data('index', i).text(i+1);
@@ -754,18 +760,26 @@ $(function () {
             addButtonClass(a, photo.album[i]);
 
             // Update rp.cache when re-indexing if required
-            if (rp.cache[photoindex] !== undefined &&
-                rp.cache[photoindex][oldindex] !== undefined) {
-                rp.cache[photoindex][i] = rp.cache[photoindex][oldindex];
-                rp.cache[photoindex][oldindex] = undefined;
+            if (rp.cache[photo.index] !== undefined &&
+                rp.cache[photo.index][oldindex] !== undefined) {
+                rp.cache[photo.index][i] = rp.cache[photo.index][oldindex];
+                rp.cache[photo.index][oldindex] = undefined;
             }
         }
     };
 
+    // unwind albumifcation if album has only 1 element.
     var checkPhotoAlbum = function(photo) {
         if (photo.type != imageTypes.album ||
-            photo.album.length != 1)
+            photo.album.length > 1)
             return;
+
+        // creating album failed
+        if (photo.album.length == 0) {
+            delete photo.album;
+            photo.type = imageTypes.fail;
+            return;
+        }
 
         var pic = photo.album[0];
         if (pic.type == imageTypes.image ||
@@ -784,28 +798,29 @@ $(function () {
         log("moved first album to primary item: "+photo.url);
         
         delete photo.album;
-        delete photo.album_ul; // @@ should this do a .detech()/.remove() first?        
     };
 
-    var initPhotoAlbum = function (photo, keepfirst) {
-        var pic = photo;
+    var initPhotoAlbum = function (pic, keepfirst) {
+        var photo = photoParent(pic);
         if (keepfirst === undefined)
             keepfirst = true;
 
-        if (photo.parent) {
-            photo = photo.parent;
+        if (photo !== pic) {
             // remove old AlbumItem
             var index = photo.album.indexOf(pic);
             if (index >= 0) {
                 photo.album.splice(index, 1);
-                photo.album_ul.children(":nth-child("+(index+1)+")").remove();
-                reindexAlbum(photo, index);
+                if (photo.index !== undefined &&
+                    photo.index == rp.session.activeIndex) {
+                    $('#allNumberButtons ul').children(":nth-child("+(index+1)+")").remove();
+                    reindexAlbum(photo, index);
+                }
             }
             // don't need to insertAt if image is last element
             if (index != photo.album.length)
                 photo.insertAt = index;
 
-        } else if (photo.album_ul === undefined) {
+        } else if (photo.album === undefined) {
             var img;
             if (photo.type == imageTypes.image ||
                 photo.type == imageTypes.embed ||
@@ -826,7 +841,6 @@ $(function () {
             photo.type = imageTypes.album;
             photo.insertAt = -1;
             photo.album = [];
-            photo.album_ul = $("<ul />");
 
             if (keepfirst && processPhoto(img)) {
                 log("moved primary to first album item: "+img.url);
@@ -846,7 +860,6 @@ $(function () {
         }
         
         delete photo.album;
-        delete photo.album_ul; // @@ should this do a .detech()/.remove() first?
 
         initPhotoFailed(photo);
     };
@@ -879,18 +892,48 @@ $(function () {
         return albumIndex;
     };
 
+    var albumButtonLi = function (pic, index) {
+        var button = $("<a />", { class: "numberButton albumButton",
+                                  title: pic.title,
+                                  id: "albumButton" + (index + 1)
+                                }).data("index", index).html(index + 1);
+        addButtonClass(button, pic);
+        return $('<li>').append(button);
+    };
+
     var populateAlbumButtons = function (photo) {
         // clear old
         $("#albumNumberButtons").detach();
 
         if (photo.type == imageTypes.album) {
+            var ul = $("<ul />");
+
+            $.each(photo.album, function(index, pic) {
+                ul.append(albumButtonLi(pic, index));
+            });
+
             var div = $("<div>", { id: 'albumNumberButtons',
                                    class: 'numberButtonList'
-                                 }).append(photo.album_ul);
+                                 }).append(ul);
             $("#navboxContents").append(div);
             if ($('#albumCollapser').attr(OPENSTATE_ATTR) == "closed")
                 $(div).hide();
         }
+    };
+
+    var photoParent = function(pic) {
+        if (pic.parentIndex !== undefined)
+            return rp.photos[pic.parentIndex];
+        if (pic.parent !== undefined)
+            return pic.parent;
+        return pic;
+    };
+
+    var addPhotoParent = function(pic, parent) {
+        if (parent.index !== undefined)
+            pic.parentIndex = parent.index;
+        else
+            pic.parent = parent;
     };
 
     var addAlbumItem = function (photo, pic) {
@@ -907,31 +950,26 @@ $(function () {
             }
         }
 
-        var button = $("<a />", { class: "numberButton",
-                                  title: pic.title,
-                                  id: "albumButton" + (index + 1)
-                                }).data("index", index).html(index + 1);
-        pic.parent = photo;
+        addPhotoParent(pic, photo);
         var sld = hostnameOf(pic.url, true).match(/[^\.]*/);
         if (rp.favicons[sld])
             pic.favicon = rp.favicons[sld];
 
-        addButtonClass(button, pic);
-
-        button.click(function () {
-            startAnimation($('#allNumberButtons a.active').data("index"),
-                           $(this).data("index"));
-        });
         if (photo.insertAt < 0) {
-            photo.album_ul.append($('<li>').append(button));
             photo.album.push(pic);
+            if (photo.index !== undefined &&
+                photo.index == rp.session.activeIndex)
+                $('#allNumberButtons ul').append(albumButtonLi(pic));
 
         } else {
             ++photo.insertAt;
             photo.album.splice(index, 0, pic);
-            photo.album_ul.children(":nth-child("+(index+1)+")")
-                .after($('<li>').append(button));
-            reindexAlbum(photo, index);
+            if (photo.index !== undefined &&
+                photo.index == rp.session.activeIndex) {
+                $('#allNumberButtons ul').children(":nth-child("+(index+1)+")")
+                .after(albumButtonLi(pic));
+                reindexAlbum(photo, index);
+            }
         }
     };
 
@@ -941,6 +979,9 @@ $(function () {
 
         if (pic.type === undefined)
             pic.type = imageTypes.image;
+
+        else if (pic.type == imageTypes.fail)
+            return false;
 
         pic.url = fixupUrl(pic.url);
         // hostname only: second-level-domain.tld
@@ -1093,9 +1134,7 @@ $(function () {
     };
 
     var addButtonClass = function(button, pic) {
-        var photo = pic;
-        if (pic.parent)
-            photo = pic.parent;
+        var photo = photoParent(pic);
 
         if (photo.over18)
             button.addClass("over18");
@@ -1136,12 +1175,14 @@ $(function () {
         var isFirst = !rp.session.foundOneImage;
         rp.session.foundOneImage = true;
 
-        // Do not preload all images, this is just not performant.
-        // Especially in gif or high-res subreddits where each image can be 50 MB.
-        // My high-end desktop browser was unresponsive at times.
-        //preLoadImages(pic.url);
         var index = rp.photos.push(photo)-1;
         photo.index = index;
+        if (photo.album && photo.album.length) {
+            for(var i = 0; i < photo.album.length; ++i) {
+                photo.album[i].parentIndex = index;
+                delete photo.album[i].parent;
+            }
+        }
 
         var numberButton = $("<a />").html(index + 1)
                 .data("index", index)
@@ -1294,6 +1335,35 @@ $(function () {
         }
     });
 
+    // Capture all clicks on infop links (links that direct locally
+    $(document).on('click', 'a.infop', function (event) {
+        if (event) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+        }
+
+        var path = $(this).prop('pathname').slice(rp.url.base.length)+$(this).prop('search');
+        processUrls(path);
+    });
+
+    // Capture clicks on AlbumButtons
+    $(document).on('click', 'a.albumButton', function (e) {
+        startAnimation($('#allNumberButtons a.active').data("index"),
+                       $(this).data("index"));
+    });
+    
+
+    // Bind to PopState Event
+    //rp.history.Adapter.bind(window, 'popstate', function(e) {
+    window.onpopstate = function(e) {
+        var state = JSON.parse(e.state);
+        var newurl = window.location.pathname+window.location.search;
+
+        if (rp.url.path !== newurl)
+            processUrls(newurl, false, state);
+        return true;
+    };
+
     var preloadNextImage = function(imageIndex, albumIndex) {
         if (albumIndex === undefined)
             albumIndex = -1;
@@ -1415,6 +1485,15 @@ $(function () {
         // rp.session.activeAlbumIndex may have changed in createDiv called by slideBackgroundPhoto
         preloadNextImage(imageIndex, rp.session.activeAlbumIndex);
 
+        // Save current State
+        var state = { photos: rp.photos,
+                          dedup: rp.dedup,
+                          index: rp.session.activeIndex,
+                          album: rp.session.activeAlbumIndex,
+                          after: rp.session.after,
+                          loadAfter: (rp.session.loadAfter) ?rp.session.loadAfter.name :null,
+                          filler: null};
+        rp.history.replaceState(JSON.stringify(state), "", rp.url.path); 
     };
 
     var toggleNumberButton = function (imageIndex, turnOn) {
@@ -2340,7 +2419,7 @@ $(function () {
             $('#loginUsername').attr('href', rp.redditBaseUrl + '/api/v1/authorize?' + 
                                      ['client_id=' + rp.api_key.reddit,
                                       'response_type=token',
-                                      'state='+encodeURIComponent(window.location.href),
+                                      'state='+encodeURIComponent(rp.url.path),
                                       'redirect_uri='+encodeURIComponent(rp.redirect),
                                       // read - /r/ALL, /me/m/ALL
                                       // history - /user/USER/submitted
@@ -3026,7 +3105,7 @@ $(function () {
         });
     };
 
-    var processUrls = function(path, setbase) {
+    var processUrls = function(path, initial, data) {
         // Separate to before the question mark and after
         // Detect predefined reddit url paths. If you modify this be sure to fix
         // .htaccess
@@ -3037,8 +3116,8 @@ $(function () {
 
         if (path === undefined)
             path = $('#subredditUrl').val();
-        if (setbase === undefined)
-            setbase = false;
+        if (initial === undefined)
+            initial = false;
 
         var regex = new RegExp(regexS);
         var results = regex.exec(path);
@@ -3054,11 +3133,12 @@ $(function () {
         }
 
         // Set prefix for self links, if in subdirectory
-        if (setbase &&
+        if (initial &&
             window.location.pathname != rp.url.subreddit)
             rp.url.base = window.location.pathname + '?';
 
         log("LOADING: "+path);
+        rp.url.path = path;
 
         var getVarsQuestionMark = "";
 
@@ -3076,8 +3156,9 @@ $(function () {
         rp.url.subreddit = rp.url.subreddit.replace(/\/u\//, "/user/");
 
         // Auth Response - only ever uses window.location
-        if (rp.url.subreddit == "/auth") {
-            var matches = /[#?&]access_token=([^&#=]*)/.exec(window.location.href);
+        if (rp.url.subreddit == "/auth" ||
+            rp.url.subreddit == "/" && rp.url.path.startsWith('/access_token')) {
+            var matches = /[\/#?&]access_token=([^&#=]*)/.exec(window.location.href);
             setCookie(cookieNames.redditBearer, matches[1]);
 
             matches = /[#?&]expires_in=([^&#=]*)/.exec(window.location.href);
@@ -3087,9 +3168,12 @@ $(function () {
             setCookie(cookieNames.redditRefreshBy, (time+Math.ceil(Date.now()/1000)));
 
             matches = /[#?&]state=([^&#=]*)/.exec(window.location.href);
-            window.location.href = decodeURIComponent(matches[1]);
+            processUrls(decodeURIComponent(matches[1]));
             return;
         }
+
+        if (data === undefined && path != "")
+            rp.history.pushState({}, "", path);
 
         var subredditName = rp.url.subreddit + getVarsQuestionMark;
 
@@ -3147,7 +3231,22 @@ $(function () {
         $("#albumNumberButtons").detach();
         $('#allNumberButtonList').append($("<ul/>", { id: 'allNumberButtons' }));
 
-        if (rp.url.subreddit.startsWith('/imgur/'))
+        if (data !== undefined) {
+            debug("RESTORING STATE: "+path);
+            rp.session.dedup = data.dedup;
+            rp.session.after = data.after;
+            if (data.loadAfter)
+                rp.session.loadAfter = eval(data.loadAfter);
+            // needs to be not -1 during addImageSlide()
+            rp.session.activeIndex = -2;
+
+            $.each(data.photos, function(i, photo) {
+                addImageSlide(photo);
+            });
+
+            startAnimation(data.index, data.album);
+
+        } else if (rp.url.subreddit.startsWith('/imgur/'))
             getImgurAlbum();
 
         else if (rp.url.subreddit.startsWith('/tumblr/'))
