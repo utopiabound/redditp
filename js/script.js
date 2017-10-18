@@ -23,8 +23,8 @@ rp.settings = {
     shouldAutoNextSlide: true,
     timeToNextSlide: 8,
     cookieDays: 300,
-    goodImageExtensions: ['.jpg', '.jpeg', '.gif', '.bmp', '.png'],
-    goodVideoExtensions: ['.webm', '.mp4'],
+    goodImageExtensions: ['jpg', 'jpeg', 'gif', 'bmp', 'png'],
+    goodVideoExtensions: ['webm', 'mp4'],
     alwaysSecure: true,
     // show Embeded Items
     embed: false,
@@ -77,6 +77,7 @@ rp.favicons = {imgur: 'https://s.imgur.com/images/favicon-16x16.png',
                tube8: 'https://es.t8cdn.com/images/favicon.ico',
 	       wordpress: 'https://s1.wp.com/i/favicon.ico',
                deviantart: 'https://i.deviantart.net/icons/da_favicon.ico',
+               spankbang: 'https://static.spankbang.com/favicon.ico',
                // i.redd.it - reddit hosted images
                redd: 'https://www.redditstatic.com/icon.png'
               };
@@ -704,9 +705,9 @@ $(function () {
     };
     
     var initPhotoFailed = function(photo) {
-        if (processPhoto(photo) &&
-            photo.type == imageTypes.later)
-            photo.type = imageTypes.fail;
+        photo.type = imageTypes.fail;
+
+        delete photo.album;
 
         // Update classes of number button
         if (photo.index !== undefined)
@@ -728,10 +729,9 @@ $(function () {
         if (url === undefined)
             url = photo.url;
 
-        if (isVideoExtension(url)) {
-            var extention = url.substr(1 + url.lastIndexOf('.'));
-            photo.video[extention] = url;
-        }
+        var extension = isVideoExtension(url);
+        if (extension)
+            photo.video[extension] = url;
         
         if (thumbnail !== undefined)
             photo.video.thumbnail = fixupUrl(thumbnail);
@@ -776,8 +776,8 @@ $(function () {
 
         // creating album failed
         if (photo.album.length == 0) {
-            delete photo.album;
-            photo.type = imageTypes.fail;
+            log("failed photo album [album length 0]: "+photo.url);
+            initPhotoFailed(photo);
             return;
         }
 
@@ -859,8 +859,6 @@ $(function () {
             return;
         }
         
-        delete photo.album;
-
         initPhotoFailed(photo);
     };
 
@@ -1170,7 +1168,7 @@ $(function () {
             photo.orig_url = photo.url;
 
         if (!processPhoto(photo))
-            return;
+            return false;
 
         var isFirst = !rp.session.foundOneImage;
         rp.session.foundOneImage = true;
@@ -1205,6 +1203,7 @@ $(function () {
         if (rp.session.activeIndex == -1) {
             startAnimation(getNextSlideIndex(-1));
         }
+        return true;
     };
 
     var arrow = {
@@ -1571,15 +1570,25 @@ $(function () {
                 .html($('<img />', {'class': 'redditp', src: 'images/favicon.png'}));
         }
 
-        if (authName !== undefined) {
+        if (authName) {
             var authLink = '/u/' + authName;
+            $('#navboxAuthor').show();
+            $('#navboxAuthorP').show();
             $('#navboxAuthor').attr('href', rp.redditBaseUrl + authLink).html(authLink);
             $('#navboxAuthorP').attr('href', rp.url.base+'/user/'+authName+'/submitted')
                 .html($('<img />', {'class': 'redditp', src: 'images/favicon.png'}));
+        } else {
+            $('#navboxAuthor').hide();
+            $('#navboxAuthorP').hide();
         }
         $('#navboxCommentsLink').attr('href', photo.commentsLink);
-        $('#navboxSubredditC').attr('href', photo.commentsLink);
-        $('#navboxSubredditC').text('('+photo.commentsCount+")");
+        if (photo.commentsCount) {
+            $('#navboxSubredditC').show();
+            $('#navboxSubredditC').attr('href', photo.commentsLink);
+            $('#navboxSubredditC').text('('+photo.commentsCount+")");
+        } else {
+            $('#navboxSubredditC').hide();
+        }
         if (photo.date)
             $('#navboxDate').attr("title", (new Date(photo.date*1000)).toString()).text(sec2dms((Date.now()/1000) - photo.date));
         else
@@ -1972,7 +1981,7 @@ $(function () {
 
                 if (data.gfyItem.userName != 'anonymous')
                     photo.extra = infoLink('https://gfycat.com/@'+data.gfyItem.userName,
-                                           data.gfyItem.userName,
+                                           "", // data.gfyItem.userName
                                            '/gfycat/u/'+data.gfyItem.userName);
                 
                 photo.video = {'thumbnail': data.gfyItem.posterUrl,
@@ -2376,10 +2385,11 @@ $(function () {
             debug("skipped no dot: " + url);
             return false;
         }
-        var extension = path.substring(dotLocation);
+        var extension = path.substring(dotLocation+1);
 
         if (rp.settings.goodImageExtensions.indexOf(extension) >= 0) {
-            return true;
+            return extension;
+
         } else {
             //log("skipped bad extension: " + url);
             return false;
@@ -2393,10 +2403,11 @@ $(function () {
             debug("skipped no dot: " + url);
             return false;
         }
-        var extension = path.substring(dotLocation);
+        var extension = path.substring(dotLocation+1);
 
         if (rp.settings.goodVideoExtensions.indexOf(extension) >= 0) {
-            return true;
+            return extension;
+
         } else {
             //log("skipped bad extension: " + url);
             return false;
@@ -2781,12 +2792,12 @@ $(function () {
 
     var processHaystack = function(photo, html) {
         var haystack = $('<div />').html(html);
-        var images = haystack.find('img, video');
+        var images = haystack.find('img, video, iframe');
 
         var processNeedle = function(pic, item) {
             if (item.tagName == 'IMG') {
-                pic.url = fixupUrl(item.src);
                 pic.type = imageTypes.image;
+                pic.url = item.src;
                 
             } else if (item.tagName == 'VIDEO') {
                 pic.type = imageTypes.video;
@@ -2802,6 +2813,9 @@ $(function () {
                         log("Unknown type: "+source.type+" at: "+source.src);
                 });
 
+            } else if (item.tagName == 'IFRAME') {
+                initPhotoEmbed(pic, item.src);
+
             } else {
                 return false;
             }
@@ -2813,16 +2827,14 @@ $(function () {
             photo = initPhotoAlbum(photo, false);
             $.each(images, function(i, item) {
                 var pic = { title: (item.alt) ?item.alt :photo.title };
-                if (processNeedle(pic, item) &&
-                    processPhoto(pic)) {
+                if (processNeedle(pic, item) && processPhoto(pic)) {
                     addAlbumItem(photo, pic);
                     rc = true;
                 }
             });
 
         } else if (images.length == 1) {
-            if (processNeedle(photo, images[0]) &&
-                processPhoto(photo))
+            if (processNeedle(photo, images[0]) && processPhoto(photo))
                 rc = true;
         }
         return rc;
@@ -2974,25 +2986,43 @@ $(function () {
 
         } else if (post.type == 'video') {
             photo.thumbnail = post.thumbnail_url;
+            rc = true;
             if (post.video_type == "youtube") {
                 if (post.video === undefined) {
-                    photo.type = imageTypes.fail;
+                    initPhotoFailed(photo);
                     return false;
                 }
-                initPhotoEmbed(photo);
-                photo.url = youtubeURL(post.video.youtube.video_id);
+                initPhotoEmbed(photo, youtubeURL(post.video.youtube.video_id));
+                
+            } else if (post.video_url !== undefined) {
+                initPhotoVideo(photo, post.video_url, post.thumbnail_url);
+            
+            } else if (post.video_type == "unknown") {
+                var width;
+                var embed;
+                $.each(post.player, function (i, item) {
+                    if (width === undefined ||
+                        item.width > width) {
+                        width = item.width;
+                        embed = item.embed_code;
+                    }
+                });
+                if (embed)
+                    rc = processHaystack(photo, embed);
 
             } else {
-                initPhotoVideo(photo, post.video_url, post.thumbnail_url);
+                log("cannot process post [unknown type:"+post.video_type+
+                    "]: "+photo.orig_url);
+                return false;
             }
-            rc = true;
-
+            
         } else if (post.type == 'html') {
             rc = processHaystack(photo, post.description);
         }
 
         if (!rc) {
-            log("cannot display url [bad Tumblr post type "+post.type+"]: "+photo.url);
+            log("cannot display url [bad Tumblr post type "+post.type+"]: "+
+                photo.url);
             laterPhotoFailed(photo);
         }
 
@@ -3029,9 +3059,9 @@ $(function () {
             }
 
             $.each(data.response.posts, function (i, post) {
-                var image = { title: post.summary,
+                var image = { title: post.summary || unescapeHTML(post.caption) || data.response.blog.title,
                               id: post.id,
-                              over18: data.response.blog.is_nsfw,
+                              over18: data.response.blog.is_nsfw || data.response.blog.is_adult,
                               date: post.timestamp,
                               url: post.post_url,
                               extra: infoLink(data.response.blog.url, data.response.blog.name,
@@ -3172,7 +3202,9 @@ $(function () {
             return;
         }
 
-        if (data === undefined && path != "")
+        if (initial)
+            rp.history.replaceState({}, "", path);
+        else if (data === undefined && path != "")
             rp.history.pushState({}, "", path);
 
         var subredditName = rp.url.subreddit + getVarsQuestionMark;
@@ -3240,8 +3272,13 @@ $(function () {
             // needs to be not -1 during addImageSlide()
             rp.session.activeIndex = -2;
 
+            clearSlideTimeout();
+            var orig_index = data.index;
             $.each(data.photos, function(i, photo) {
-                addImageSlide(photo);
+                var index = photo.index;
+                if (!addImageSlide(photo) &&
+                    index < orig_index)
+                    --data.index;
             });
 
             startAnimation(data.index, data.album);
