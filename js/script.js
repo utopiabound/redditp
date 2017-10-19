@@ -2027,7 +2027,7 @@ $(function () {
 
                     showPic(photo.album[index]);
 
-                } else { // single image album
+                } else if (data.data.images.length == 1) { // single image album
                     var item = data.data.images[0];
                     if (item.animated) {
                         photo.url = fixImgurPicUrl(item.mp4);
@@ -2041,6 +2041,10 @@ $(function () {
                         photo.type = imageTypes.image;
                         showImage(photo.url);
                     }
+
+                } else { // An empty album
+                    initPhotoFailed(photo);
+                    showImage(photo.thumbnail);
                 }
             };
 
