@@ -2572,13 +2572,10 @@ $(function () {
 
                 type = loadTypes.ALL;
 
-            } else if (photo.title.match(/[\[\(\{\d\s]mic([\]\)\}]|$)/i) ||
-                       photo.title.match(/[\s\[\(\{]vic([\s\]\)\}]|$)/i) ||
-                       photo.title.match(/more.*in.*com/i) ||
-                       photo.flair.match(/more.*in.*com/i) ||
-                       item.data.title.match(/source.*in.*com/i) ||
-                       item.data.title.match(/[\[\(\{\d\s]aic([\]\)\}]|$)/i) ||
-                       item.data.title.match(/album.*in.*com/i) ) {
+            } else if (photo.flair.match(/(more|source|video|album).*in.*com/i) ||
+                       item.data.title.match(/(source|more|video|album).*in.*com/i) ||
+                       item.data.title.match(/in.*comment/i) ||
+                       item.data.title.match(/[\[\(\{\d\s][asvm]ic([\]\)\}]|$)/i)) {
 
                 type = loadTypes.OP;
 
