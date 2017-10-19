@@ -1534,6 +1534,7 @@ $(function () {
         if (albumIndex >= 0)
             image = photo.album[albumIndex];
         var subreddit = '/r/' + photo.subreddit;
+        var now = Date.now()/1000;
 
         var authName;
         if (image.author !== undefined)
@@ -1542,6 +1543,23 @@ $(function () {
         else if (photo.author != undefined)
             authName = photo.author;
 
+        // COMMENTS/BUTTON LIST Box
+        $('#navboxCommentsLink').attr('href', photo.commentsLink);
+        $('#navboxOrigLink').attr('href', photo.orig_url);
+        if (image.favicon)
+            $('#navboxOrigLink').html($("<img />", {'class': 'redditp favicon', src: image.favicon}));
+        else
+            $('#navboxOrigLink').html(googleIcon("link"));
+        if (rp.session.loginExpire) {
+            $('#loginUsername').parent().show();
+            if (now > rp.session.loginExpire-30)
+                clearRedditLogin();
+            // if user does a login in another window/tab, this will update with getRedditImages().
+        } else {
+            $('#loginUsername').parent().hide();
+        }
+
+        // TITLE BOX
         if (albumIndex < 0) {
             $('#navboxTitle').html(photo.title);
             if (photo.flair)
@@ -1558,12 +1576,6 @@ $(function () {
             $('#navboxLink').attr('href', image.url).attr('title', $("<div/>").html(image.title).text()+" (i)").html(googleIcon(image.type));
         }
         
-        $('#navboxOrigLink').attr('href', photo.orig_url);
-        if (image.favicon)
-            $('#navboxOrigLink').html($("<img />", {'class': 'redditp favicon', src: image.favicon}));
-        else
-            $('#navboxOrigLink').html(googleIcon("link"));
-
         if (photo.subreddit !== undefined && photo.subreddit !== null) {
             $('#navboxSubreddit').attr('href', rp.redditBaseUrl + subreddit).html(subreddit);
             $('#navboxSubredditP').attr('href', rp.url.base+subreddit)
@@ -1581,7 +1593,6 @@ $(function () {
             $('#navboxAuthor').hide();
             $('#navboxAuthorP').hide();
         }
-        $('#navboxCommentsLink').attr('href', photo.commentsLink);
         if (photo.commentsCount) {
             $('#navboxSubredditC').show();
             $('#navboxSubredditC').attr('href', photo.commentsLink);
@@ -1590,7 +1601,7 @@ $(function () {
             $('#navboxSubredditC').hide();
         }
         if (photo.date)
-            $('#navboxDate').attr("title", (new Date(photo.date*1000)).toString()).text(sec2dms((Date.now()/1000) - photo.date));
+            $('#navboxDate').attr("title", (new Date(photo.date*1000)).toString()).text(sec2dms(now - photo.date));
         else
             $('#navboxDate').attr("title", "").text("");
 
@@ -2418,6 +2429,18 @@ $(function () {
         return decodeURIComponent(url.replace(/\+/g, " "));
     };
 
+    var clearRedditLogin = function () {
+        if (rp.session.loginExpire === 1)
+            return;
+
+        rp.session.loginExpire = 1;
+        rp.url.get = rp.redditBaseUrl;
+        $('#loginUsername').html(googleIcon('account_box'));
+        debug("Clearing bearer is obsolete EOL:"+rp.session.loginExpire+" < now:"+Date.now()/1000);
+        clearCookie(cookieNames.redditBearer);
+        clearCookie(cookieNames.redditRefreshBy);
+    };
+
     var getRedditImages = function () {
         if (rp.session.loadingNextImages)
             return;
@@ -2437,20 +2460,15 @@ $(function () {
                                       'scope=read,history'].join('&'));
             if (bearer !== undefined && by-30 > Date.now()/1000) {
                 var d = new Date(by*1000);
+                rp.session.loginExpire = by;
                 rp.session.redditHdr = { Authorization: 'bearer '+bearer };
                 $('#loginUsername').html(googleIcon('verified_user'));
                 $('#loginUsername').attr('title', 'Expires at '+d);
                 rp.url.get = 'https://oauth.reddit.com';
                 
             } else {
-                rp.url.get = rp.redditBaseUrl;
-                $('#loginUsername').html(googleIcon('account_box'));
-                debug("Clearing bearer:"+bearer+" is obsolete EOL:"+by+" < now:"+Date.now()/1000);
-                clearCookie(cookieNames.redditBearer);
-                clearCookie(cookieNames.redditRefreshBy);
+                clearRedditLogin();
             }
-
-            $('#loginUsername').parent().show();
         }
 
         var jsonUrl = rp.url.get + rp.url.subreddit + ".json?";
