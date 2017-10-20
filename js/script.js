@@ -1341,7 +1341,7 @@ $(function () {
             event.stopImmediatePropagation();
         }
 
-        var path = $(this).prop('pathname').slice(rp.url.base.length)+$(this).prop('search');
+        var path = $(this).prop('pathname')+$(this).prop('search');
         processUrls(path);
     });
 
@@ -3182,9 +3182,11 @@ $(function () {
         }
 
         // Set prefix for self links, if in subdirectory
-        if (initial &&
-            window.location.pathname != rp.url.subreddit)
+        if (initial && window.location.pathname != rp.url.subreddit)
             rp.url.base = window.location.pathname + '?';
+
+        if (!path.startsWith(pathnameOf(rp.url.base)))
+            path = rp.url.base+path;
 
         log("LOADING: "+path);
         rp.url.path = path;
