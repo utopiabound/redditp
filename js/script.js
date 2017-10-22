@@ -12,10 +12,10 @@
  */
 
 var rp = {};
+// This can be set to TRACE, DEBUG, INFO, WARN. ERROR, SLIENT (nothing printed)
+log.setLevel(log.levels.INFO);
 
 rp.settings = {
-    debug: false,
-    trace: false,
     // JSON/JSONP timeout in milliseconds
     ajaxTimeout: 10000,
     // Speed of the animation
@@ -113,50 +113,6 @@ $(function () {
         fail: 'not_interested'
     };
 
-    // try/catch statements in logging functions are to support older IE
-    function debug(data) {
-        if (rp.settings.debug)
-            try {
-                window.console.log(data);
-            } catch (e) {
-                // IE prior to 10 have iffy console.log implemenations
-                log.history = log.history || []; // store logs to an array for reference
-                log.history.push(arguments);
-            }
-    }
-
-    function trace(data) {
-        if (rp.settings.trace)
-            try {
-                window.console.log(data);
-            } catch (e) {
-                // IE prior to 10 have iffy console.log implemenations
-                log.history = log.history || []; // store logs to an array for reference
-                log.history.push(arguments);
-            }
-    }
-
-    function log(data) {
-        try {
-            window.console.log(data);
-        } catch (e) {
-            // IE prior to 10 have iffy console.log implemenations
-            log.history = log.history || []; // store logs to an array for reference
-            log.history.push(arguments);
-        }
-    }
-    function error(data) {
-        var err = new Error();
-        try {
-            window.console.log(data, err.stack);
-        } catch (e) {
-            // IE prior to 10 have iffy console.log implemenations
-            log.history = log.history || []; // store logs to an array for reference
-            log.history.push(arguments);
-        }
-        alert(data);
-    }
-
     // Take a URL and strip it down to the "shortid"
     var url2shortid = function(url) {
         var shortid;
@@ -246,7 +202,7 @@ $(function () {
                 continue;
              return i;
         }
-        debug("["+currentIndex+"] Couldn't find previous index.");
+        log.debug("["+currentIndex+"] Couldn't find previous index.");
         return currentIndex;
     };
 
@@ -511,14 +467,14 @@ $(function () {
     };
 
     var setCookie = function (c_name, value) {
-        debug("Setting Cookie "+c_name+" = "+value);
+        log.debug("Setting Cookie "+c_name+" = "+value);
         window.Cookies.set(c_name, value, { expires: rp.settings.cookieDays });
     };
 
     var getCookie = function (c_name) {
         // undefined in case nothing found
         var value = window.Cookies.get(c_name);
-        debug("Getting Cookie "+c_name+" = "+value);
+        log.debug("Getting Cookie "+c_name+" = "+value);
         return value;
     };
 
@@ -527,7 +483,7 @@ $(function () {
     };
 
     var clearSlideTimeout = function() {
-        trace('clear timout');
+        log.trace('clear timout');
         window.clearTimeout(rp.session.nextSlideTimeoutId);
     };
 
@@ -537,7 +493,7 @@ $(function () {
         }
         timeout *= 1000;        
         window.clearTimeout(rp.session.nextSlideTimeoutId);
-        trace('set timeout (ms): ' + timeout);
+        log.trace('set timeout (ms): ' + timeout);
         rp.session.nextSlideTimeoutId = window.setTimeout(autoNextSlide, timeout);
     };
 
@@ -687,10 +643,10 @@ $(function () {
             rp.session.is_ios = true;
             var v = (navigator.appVersion).match(/OS (\d+)/);
             if (parseInt(v[1], 10) < 10) {
-                debug("User Agent is pre-10 iOS");
+                log.debug("User Agent is pre-10 iOS");
                 rp.session.is_pre10ios = true;
             } else {
-                debug("User Agent is 10+ iOS");
+                log.debug("User Agent is 10+ iOS");
             }
             // Hide useless "fullscreen" button on iOS safari
             $('#fullscreen').parent().hide();
@@ -776,7 +732,7 @@ $(function () {
 
         // creating album failed
         if (photo.album.length == 0) {
-            log("failed photo album [album length 0]: "+photo.url);
+            log.info("failed photo album [album length 0]: "+photo.url);
             initPhotoFailed(photo);
             return;
         }
@@ -792,10 +748,10 @@ $(function () {
             photo.video = pic.video;
 
         } else {
-            error("Delete of bad type:"+pic.type+" for photo: "+photo.url);
+            log.error("Delete of bad type:"+pic.type+" for photo: "+photo.url);
             return;
         }
-        log("moved first album to primary item: "+photo.url);
+        log.info("moved first album to primary item: "+photo.url);
         
         delete photo.album;
     };
@@ -843,7 +799,7 @@ $(function () {
             photo.album = [];
 
             if (keepfirst && processPhoto(img)) {
-                log("moved primary to first album item: "+img.url);
+                log.info("moved primary to first album item: "+img.url);
                 addAlbumItem(photo, img);
             }
         }
@@ -855,7 +811,7 @@ $(function () {
         // don't clear if album was populated
         if (photo.type == imageTypes.album &&
             photo.album.length > 0) {
-            error("laterPhotoFailed called on valid album: "+photo.url);
+            log.error("laterPhotoFailed called on valid album: "+photo.url);
             return;
         }
         
@@ -943,7 +899,7 @@ $(function () {
         // check for duplicates
         for(var i = 0; i < photo.album.length; ++i) {
             if (photo.album[i].url == pic.url) {
-                log("cannot display url [sub-album dup]: ["+i+"] exists, skip ["+index+"]: "+pic.url);
+                log.info("cannot display url [sub-album dup]: ["+i+"] exists, skip ["+index+"]: "+pic.url);
                 return;
             }
         }
@@ -1019,11 +975,11 @@ $(function () {
                 pic.url = anc.prop('origin')+anc.prop('pathname');
 
             } else if (pic.thumbnail === "") {
-                log('cannot display url [no thumbnail]: ' + pic.url);
+                log.info('cannot display url [no thumbnail]: ' + pic.url);
                 return false;
 
             } else if (url2shortid(pic.url) === "") {
-                log('cannot display url [no shortid]: ' + pic.url);
+                log.info('cannot display url [no shortid]: ' + pic.url);
                 return false;
 
             } else {
@@ -1061,7 +1017,7 @@ $(function () {
             if (shortid)
                 initPhotoVideo(pic, 'https://i.giphy.com/media/'+shortid+'/giphy.mp4');
             else
-                log("cannot display video [error parsing]: "+pic.url);                
+                log.info("cannot display video [error parsing]: "+pic.url);                
                 
         } else if (pic.url.indexOf('webm.land/w/') >= 0) {
             // This can be quick processed now
@@ -1088,7 +1044,7 @@ $(function () {
             if (pic.url.indexOf("/watch?v=") > 0) {
                 shortid = /[#?&]v=([^&#=]*)/.exec(pic.url);
                 if (shortid === undefined || shortid === null) {
-                    error("Failed to parse vidble url: "+pic.url);
+                    log.error("Failed to parse vidble url: "+pic.url);
                     return false;
                 }
                 shortid = shortid[1];
@@ -1097,7 +1053,7 @@ $(function () {
 
             } else if (pic.url.indexOf("/album/") > 0) {
                 // TODO : figure out /album/ on vidble.com/api
-                log("cannot display url [no album processing]: "+pic.url);
+                log.info("cannot display url [no album processing]: "+pic.url);
                 return false;
   
             } else { 
@@ -1125,7 +1081,7 @@ $(function () {
             pic.type = imageTypes.embed;
 
         } else {
-            log('cannot display url [no image]: ' + pic.url);
+            log.info('cannot display url [no image]: ' + pic.url);
             return false;
         }
         return true;
@@ -1251,7 +1207,7 @@ $(function () {
             return;
         }
 
-        //log(e.keyCode, e.which, e.charCode);
+        //log.info(e.keyCode, e.which, e.charCode);
 
         // 37 - left
         // 38 - up
@@ -1441,7 +1397,7 @@ $(function () {
         var needRefresh = false;
         resetNextSlideTimer();
 
-        trace("startAnimation("+imageIndex+", "+albumIndex+")");
+        log.trace("startAnimation("+imageIndex+", "+albumIndex+")");
 
         // If the same number has been chosen, or the index is outside the
         // rp.photos range, or we're already animating, do nothing
@@ -1459,7 +1415,7 @@ $(function () {
                 return;
 
             if (albumIndex >= rp.photos[imageIndex].album.length) {
-                error("["+imageIndex+"] album index ("+albumIndex+") past end of album length:"+
+                log.error("["+imageIndex+"] album index ("+albumIndex+") past end of album length:"+
                       rp.photos[imageIndex].album.length);
                 return;
             }
@@ -1664,11 +1620,11 @@ $(function () {
     };
 
     var failedAjax = function (xhr, ajaxOptions, thrownError) {
-        log("ActiveIndex:["+rp.session.activeIndex+"]["+rp.session.activeAlbumIndex+"]");
-        log("xhr:", xhr);
-        log("ajaxOptions:", ajaxOptions);
-        log("error:", thrownError);
-        log("this:", $(this));
+        log.info("ActiveIndex:["+rp.session.activeIndex+"]["+rp.session.activeAlbumIndex+"]");
+        log.info("xhr:", xhr);
+        log.info("ajaxOptions:", ajaxOptions);
+        log.error("error:", thrownError);
+        log.info("this:", $(this));
     };
     var failedAjaxDone = function (xhr, ajaxOptions, thrownError) {
         failedAjax(xhr, ajaxOptions, thrownError);
@@ -1760,7 +1716,7 @@ $(function () {
         else
             photo = rp.photos[imageIndex];
 
-        trace("createDiv("+imageIndex+", "+albumIndex+")");
+        log.trace("createDiv("+imageIndex+", "+albumIndex+")");
 
         // Used by showVideo and showImage
         var divNode = $("<div />").addClass("clouds");
@@ -1774,7 +1730,7 @@ $(function () {
                 needreset = true;
             // `preLoadImages` because making a div with a background css does not cause chrome
             // to preload it :/
-            trace('showImage:['+imageIndex+"]["+albumIndex+"]:"+url);
+            log.trace('showImage:['+imageIndex+"]["+albumIndex+"]:"+url);
             preLoadImages(url);
             var cssMap = Object();
 
@@ -1825,17 +1781,17 @@ $(function () {
             divNode.append(video);
 
             $(lastsource).on("error", function(e) {
-                log("["+imageIndex+"] video failed to load source");
+                log.info("["+imageIndex+"] video failed to load source");
                 resetNextSlideTimer();
             });
 
             $(video).on("error", function(e) {
-                log("["+imageIndex+"] video failed to load");
+                log.info("["+imageIndex+"] video failed to load");
                 resetNextSlideTimer();
             });
 
             $(video).on("ended", function(e) {
-                debug("["+imageIndex+"] video ended");
+                log.debug("["+imageIndex+"] video ended");
                 if ($.contains(document, $(video)[0]) && (shouldStillPlay(imageIndex) || !autoNextSlide()))
                     $(video)[0].play();
             });
@@ -1847,17 +1803,17 @@ $(function () {
                 } else {
                     photo.times = 1;
                 }
-                debug("["+imageIndex+"] Video loadeddata video: "+photo.duration+" playing "+photo.times);
+                log.debug("["+imageIndex+"] Video loadeddata video: "+photo.duration+" playing "+photo.times);
             });
             
             // Set Autoplay for iOS devices
             if (rp.session.is_ios) {
                 // iOS version < 10 do not autoplay, so timeout
                 if (rp.session.is_pre10ios && imageIndex == rp.session.activeIndex) {
-                    debug('iOS pre-10 detected, setting timmer');
+                    log.debug('iOS pre-10 detected, setting timmer');
                     resetNextSlideTimer();
                 } else {
-                    debug('iOS device detected setting autoplay');
+                    log.debug('iOS device detected setting autoplay');
                     $(video).attr('autoplay', true);
                 }
 
@@ -1883,7 +1839,7 @@ $(function () {
             if (pic.type == imageTypes.album) {
                 var index = indexPhotoAlbum(photo, imageIndex, albumIndex);
                 if (index < 0) {
-                    error("["+imageIndex+"]["+albumIndex+"] album is zero-length, failing to thumbnail: "+pic.url);
+                    log.error("["+imageIndex+"]["+albumIndex+"] album is zero-length, failing to thumbnail: "+pic.url);
                     showImage(pic.thumbnail);
                     return;
                 }
@@ -1905,7 +1861,7 @@ $(function () {
 
         if (photo.type == imageTypes.video) {
             if (photo.video === undefined) {
-                error("["+imageIndex+"]["+albumIndex+"] type is video but no video element");
+                log.error("["+imageIndex+"]["+albumIndex+"] type is video but no video element");
 
             } else {
                 showVideo(photo.video);
@@ -1931,21 +1887,21 @@ $(function () {
                 var c = $(iframe).contents();
                 var video = $(c).find("video")[0];
                 if (!video) {
-                    log("["+imageIndex+"] X-Site Protection: Auto-next not triggered");
+                    log.info("["+imageIndex+"] X-Site Protection: Auto-next not triggered");
                     return;
                 }
                 $(video).attr("id", "gfyvid");
                 updateVideoMute();
 
-                log("["+imageIndex+"] embed video found: "+video.attr("src"));
+                log.info("["+imageIndex+"] embed video found: "+video.attr("src"));
 
                 $(video).on("loadeddata", function(e) {
                     photo.duration = e.target.duration;
-                    debug("["+imageIndex+"] embed video metadata.duration: "+e.target.duration );
+                    log.debug("["+imageIndex+"] embed video metadata.duration: "+e.target.duration );
                     // preload, don't mess with timeout
                     if (imageIndex !== rp.session.activeIndex)
                         return;
-                    debug("["+imageIndex+"] embed video loadeddata running for active image");
+                    log.debug("["+imageIndex+"] embed video loadeddata running for active image");
                     video.prop('autoplay', true);
                     video[0].play();
                     if (rp.settings.shouldAutoNextSlide && photo.duration > rp.settings.timeToNextSlide)
@@ -1983,7 +1939,7 @@ $(function () {
             handleData = function (data) {
                 if (data.gfyItem === undefined) {
                     if (data.error !== undefined) {
-                        log("failed to display gfycat [error]: "+data.error);
+                        log.info("failed to display gfycat [error]: "+data.error);
                         initPhotoFailed(photo);
                     }
                     showImage(photo.thumbnail);
@@ -2105,7 +2061,7 @@ $(function () {
                     showVideo(photo.video);
 
                 } else {
-                    log("failed to load video [error:"+shortid+"]: "+data.video.state);
+                    log.info("failed to load video [error:"+shortid+"]: "+data.video.state);
                     initPhotoFailed(photo);
                     showImage(data.video.thumbnail_url);
                 }
@@ -2133,7 +2089,7 @@ $(function () {
 
             handleData = function(data) {
                 if (data.error !== undefined) {
-                    log("failed to load video [error]: "+data.error);
+                    log.info("failed to load video [error]: "+data.error);
                     initPhotoFailed(photo);
                     showImage(photo.thumbnail);
                     return;
@@ -2169,7 +2125,7 @@ $(function () {
                     showEmbed(photo.url);
                     
                 } else {
-                    log("cannot display url [unk type "+data.type+"]: "+photo.url);
+                    log.info("cannot display url [unk type "+data.type+"]: "+photo.url);
                     if (imageIndex == rp.session.activeIndex)
                         resetNextSlideTimer();
                 }
@@ -2305,7 +2261,7 @@ $(function () {
             showEmbed(photo.url);
 
         } else {
-            log("["+imageIndex+"] Unknown video site: "+hostname);
+            log.info("["+imageIndex+"] Unknown video site: "+hostname);
         }
 
         if (jsonUrl !== undefined) {
@@ -2397,7 +2353,7 @@ $(function () {
         var path = $('<a>', { href: url }).prop('pathname');
         var dotLocation = path.lastIndexOf('.');
         if (dotLocation < 0) {
-            debug("skipped no dot: " + url);
+            log.debug("skipped no dot: " + url);
             return false;
         }
         var extension = path.substring(dotLocation+1);
@@ -2406,7 +2362,7 @@ $(function () {
             return extension;
 
         } else {
-            //log("skipped bad extension: " + url);
+            //log.info("skipped bad extension: " + url);
             return false;
         }
     };
@@ -2415,7 +2371,7 @@ $(function () {
         var path = $('<a>', { href: url }).prop('pathname');
         var dotLocation = path.lastIndexOf('.');
         if (dotLocation < 0) {
-            debug("skipped no dot: " + url);
+            log.debug("skipped no dot: " + url);
             return false;
         }
         var extension = path.substring(dotLocation+1);
@@ -2424,7 +2380,7 @@ $(function () {
             return extension;
 
         } else {
-            //log("skipped bad extension: " + url);
+            //log.info("skipped bad extension: " + url);
             return false;
         }
     };
@@ -2440,7 +2396,7 @@ $(function () {
         rp.session.loginExpire = 1;
         rp.url.get = rp.redditBaseUrl;
         $('#loginUsername').html(googleIcon('account_box'));
-        debug("Clearing bearer is obsolete EOL:"+rp.session.loginExpire+" < now:"+Date.now()/1000);
+        log.debug("Clearing bearer is obsolete EOL:"+rp.session.loginExpire+" < now:"+Date.now()/1000);
         clearCookie(cookieNames.redditBearer);
         clearCookie(cookieNames.redditRefreshBy);
     };
@@ -2489,7 +2445,7 @@ $(function () {
         var addImageSlideRedditT3 = function (item, url) {
             if (rp.dedup[item.data.subreddit] !== undefined &&
                 rp.dedup[item.data.subreddit][item.data.id] !== undefined) {
-                log('cannot display url [simul-dup:'+
+                log.info('cannot display url [simul-dup:'+
                       rp.dedup[item.data.subreddit][item.data.id]+']: '+
                       item.data.url);
                 return;
@@ -2548,11 +2504,11 @@ $(function () {
                     if (item.data.media.reddit_video.fallback_url.indexOf('/DASH_') > 0)
                         photo.video.mp4 = item.data.media.reddit_video.fallback_url;
                     else {
-                        error(photo.id+": cannot display video [bad fallback_url]: "+item.data.media.reddit_video.fallback_url);
+                        log.error(photo.id+": cannot display video [bad fallback_url]: "+item.data.media.reddit_video.fallback_url);
                         return;
                     }
                 } else {
-                    error(photo.id+": cannot display video [no reddit_video]: "+photo.url);
+                    log.error(photo.id+": cannot display video [no reddit_video]: "+photo.url);
                 }
             }            
 
@@ -2597,7 +2553,7 @@ $(function () {
                         continue;
 
                     if (comments[i].data.body_html === undefined) {
-                        log("cannot display comment["+i+"] [no body]: "+photo.url);
+                        log.info("cannot display comment["+i+"] [no body]: "+photo.url);
                         continue;
                     }
 
@@ -2608,7 +2564,7 @@ $(function () {
                     if (!links || links.length == 0)
                             continue;
 
-                    debug(type+"-Found:["+photo.commentsLink+"]:"+photo.url);
+                    log.debug(type+"-Found:["+photo.commentsLink+"]:"+photo.url);
 
                     // Add parent image as first child, to ensure it's shown
                     photo = initPhotoAlbum(photo, true);
@@ -2623,7 +2579,7 @@ $(function () {
                         else
                             img.title = photo.title;
 
-                        debug(type+"-Try:["+photo.commentsLink+"]:"+img.url);
+                        log.debug(type+"-Try:["+photo.commentsLink+"]:"+img.url);
                         if (processPhoto(img))
                             addAlbumItem(photo, img);
                     }
@@ -2657,7 +2613,7 @@ $(function () {
             }
 
             if (data.data.children.length === 0) {
-                log("No more data");
+                log.info("No more data");
                 return;
             }
 
@@ -2704,18 +2660,18 @@ $(function () {
 
                 // Text entry, no actual media
                 if (item.kind != "t3") {
-                    log('cannont display url [not link]: '+item.kind);
+                    log.info('cannont display url [not link]: '+item.kind);
                     return;
                 }
 
                 if (item.data.is_self) {
-                    log('cannot display url [self-post]: '+item.data.url);
+                    log.info('cannot display url [self-post]: '+item.data.url);
                     return;
                 }
 
                 if (rp.dedup[item.data.subreddit] !== undefined &&
                     rp.dedup[item.data.subreddit][item.data.id] !== undefined) {
-                    log('cannot display url [duplicate:'+
+                    log.info('cannot display url [duplicate:'+
                           rp.dedup[item.data.subreddit][item.data.id]+']: '+
                           item.data.url);
                     return;
@@ -2745,7 +2701,7 @@ $(function () {
             rp.session.loadingNextImages = false;
         };
 
-        debug('Ajax requesting: ' + jsonUrl);
+        log.debug('Ajax requesting: ' + jsonUrl);
 
         $.ajax({
             url: jsonUrl,
@@ -2788,11 +2744,11 @@ $(function () {
             });
 
             if (!rp.session.foundOneImage) {
-                log(jsonUrl);
+                log.debug(jsonUrl);
                 alert("Sorry, no displayable images found in that url :(");
             }
 
-            //log("No more pages to load from this subreddit, reloading the start");
+            //log.info("No more pages to load from this subreddit, reloading the start");
 
             // Show the user we're starting from the top
             //var numberButton = $("<span />").addClass("numberButton").text("-");
@@ -2829,7 +2785,7 @@ $(function () {
                     else if (source.type == 'video/mp4')
                         pic.video.mp4 = source.src;
                     else
-                        log("Unknown type: "+source.type+" at: "+source.src);
+                        log.info("Unknown type: "+source.type+" at: "+source.src);
                 });
 
             } else if (item.tagName == 'IFRAME') {
@@ -2874,7 +2830,7 @@ $(function () {
                 initPhotoVideo(pic, att.URL, att.thumbnails.large);
 
             } else {
-                log("cannot display url [unknown mimetype "+att.mime_type+"]: "+att.url);
+                log.info("cannot display url [unknown mimetype "+att.mime_type+"]: "+att.url);
                 return false;
             }
             return true;
@@ -2903,7 +2859,7 @@ $(function () {
         }
 
         if (!rc) {
-            log("cannot display wp [no content]: "+photo.url);
+            log.info("cannot display wp [no content]: "+photo.url);
             laterPhotoFailed(photo);
         }
 
@@ -3030,7 +2986,7 @@ $(function () {
                     rc = processHaystack(photo, embed);
 
             } else {
-                log("cannot process post [unknown type:"+post.video_type+
+                log.info("cannot process post [unknown type:"+post.video_type+
                     "]: "+photo.orig_url);
                 return false;
             }
@@ -3040,7 +2996,7 @@ $(function () {
         }
 
         if (!rc) {
-            log("cannot display url [bad Tumblr post type "+post.type+"]: "+
+            log.info("cannot display url [bad Tumblr post type "+post.type+"]: "+
                 photo.url);
             laterPhotoFailed(photo);
         }
@@ -3095,7 +3051,7 @@ $(function () {
             rp.session.loadingNextImages = false;
         };
 
-        debug('getTumblrBlog requesting: '+jsonUrl);
+        log.debug('getTumblrBlog requesting: '+jsonUrl);
 
         $.ajax({
             url: jsonUrl,
@@ -3171,7 +3127,7 @@ $(function () {
         var regex = new RegExp(regexS);
         var results = regex.exec(path);
 
-        debug('url split results: '+results);
+        log.debug('url split results: '+results);
         if (results !== null) {
             rp.url.subreddit = results[1];
             rp.url.vars = decodeUrl(results[2]);
@@ -3188,7 +3144,7 @@ $(function () {
         if (!path.startsWith(pathnameOf(rp.url.base)))
             path = rp.url.base+path;
 
-        log("LOADING: "+path);
+        log.info("LOADING: "+path);
         rp.url.path = path;
 
         var getVarsQuestionMark = "";
@@ -3285,7 +3241,7 @@ $(function () {
         $('#allNumberButtonList').append($("<ul/>", { id: 'allNumberButtons' }));
 
         if (data !== undefined) {
-            debug("RESTORING STATE: "+path);
+            log.debug("RESTORING STATE: "+path);
             rp.session.dedup = data.dedup;
             rp.session.after = data.after;
             if (data.loadAfter)

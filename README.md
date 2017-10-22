@@ -105,3 +105,4 @@ Credits
 * Slideshow based on http://demo.marcofolio.net/fullscreen_image_slider/
 * Author of slideshow base: Marco Kuiper (http://www.marcofolio.net/)
 * Touch screen swipe code: Andreas Waltl, netCU Internetagentur (http://www.netcu.de)
+* Loglevel v1.5.1: Tim Perry https://github.com/pimterry/loglevel
