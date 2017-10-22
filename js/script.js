@@ -26,6 +26,9 @@ rp.settings = {
     goodImageExtensions: ['jpg', 'jpeg', 'gif', 'bmp', 'png'],
     goodVideoExtensions: ['webm', 'mp4'],
     alwaysSecure: true,
+    // Try to download possible wordpress sites, even if self-hosted.
+    // only try if the form is like //hostname.tld/this-is-a-slug/
+    speculativeWP: true,
     // show Embeded Items
     embed: false,
     // show NSFW Items
@@ -116,7 +119,7 @@ $(function () {
     // Take a URL and strip it down to the "shortid"
     var url2shortid = function(url) {
         var shortid;
-        var path = $('<a>', {href: url}).prop('pathname');
+        var path = pathnameOf(url);
 
         // chomp off last char if it ends in '/'
         if (path.charAt(path.length-1) == '/') {
@@ -908,6 +911,10 @@ $(function () {
         var sld = hostnameOf(pic.url, true).match(/[^\.]*/);
         if (rp.favicons[sld])
             pic.favicon = rp.favicons[sld];
+
+        else if (photo.favicon !== undefined &&
+                 hostnameOf(photo.url) == hostnameOf(pic.url))
+            pic.favicon = photo.favicon;
 
         if (photo.insertAt < 0) {
             photo.album.push(pic);
@@ -2350,7 +2357,7 @@ $(function () {
     };
 
     var isImageExtension = function (url) {
-        var path = $('<a>', { href: url }).prop('pathname');
+        var path = pathnameOf(url);
         var dotLocation = path.lastIndexOf('.');
         if (dotLocation < 0) {
             log.debug("skipped no dot: " + url);
@@ -2368,7 +2375,7 @@ $(function () {
     };
 
     var isVideoExtension = function (url) { 
-        var path = $('<a>', { href: url }).prop('pathname');
+        var path = pathnameOf(url);
         var dotLocation = path.lastIndexOf('.');
         if (dotLocation < 0) {
             log.debug("skipped no dot: " + url);
@@ -2522,30 +2529,15 @@ $(function () {
 
             var type;
 
-            if (photo.flair.toLowerCase() == 'request' ||
-                photo.title.match(/[\[\(\{]request[\]\)\}]/i) ||
-                photo.title.match(/^psbattle:/i)) {
-
-                type = loadTypes.ALL;
-
-            } else if (photo.flair.match(/(more|source|video|album).*in.*com/i) ||
-                       item.data.title.match(/(source|more|video|album).*in.*com/i) ||
-                       item.data.title.match(/in.*comment/i) ||
-                       item.data.title.match(/[\[\(\{\d\s][asvm]ic([\]\)\}]|$)/i)) {
-
-                type = loadTypes.OP;
-
-            } else {
-                addImageSlide(photo);
-                return;
-            }
-
-            processPhoto(photo);
-
-            var handleCommentData = function (data) {
+            var hdrData = rp.session.redditHdr;
+            var failedData = failedAjax;
+            var handleData = function (data) {
                 var item = data[0].data.children[0];
                 var comments = data[1].data.children;
                 var img;
+                var type = $(this).Type;
+
+                processPhoto(photo);
 
                 for (var i = 0; i < comments.length; ++i) {
                     if (type == loadTypes.OP &&
@@ -2588,14 +2580,59 @@ $(function () {
                 addImageSlide(photo);
             };
             
+
+            if (photo.flair.toLowerCase() == 'request' ||
+                photo.title.match(/[\[\(\{]request[\]\)\}]/i) ||
+                photo.title.match(/^psbattle:/i)) {
+
+                type = loadTypes.ALL;
+
+            } else if (photo.flair.match(/(more|source|video|album).*in.*com/i) ||
+                       item.data.title.match(/(source|more|video|album).*in.*com/i) ||
+                       item.data.title.match(/in.*comment/i) ||
+                       item.data.title.match(/[\[\(\{\d\s][asvm]ic([\]\)\}]|$)/i)) {
+
+                type = loadTypes.OP;
+
+            } else if (addImageSlide(photo)) {
+                return;
+
+            } else if (rp.settings.speculativeWP) {
+                // This check to see if bare url is actually a wordpress site
+                var path = pathnameOf(photo.url);
+                var a = path.match(/^\/([a-z0-9]+(?:-[a-z0-9]+)*)\/$/);
+                if (a === null)
+                    return;
+                var hn = hostnameOf(photo.url);
+                hdrData = '';
+                jsonUrl = 'https://public-api.wordpress.com/rest/v1.1/sites/'+
+                    hn+'/posts/slug:'+a[1];
+                handleData = function (data) {
+                    photo.extra = infoLink('https://'+hn, hn, '/wp/'+hn);
+                    photo.favicon = rp.favicons.wordpress;
+                    if (processWordPressPost(photo, data)) {
+                        addImageSlide(photo);
+                    } else {
+                        log.info("cannot display wordpress [no photos]: "+photo.url);
+                    }
+                };
+                failedData = function () {
+                    log.debug("cannot display wordpress [not wp site]: "+photo.url);
+                };
+            } else {
+                return;
+            }
+
             $.ajax({
                 url: jsonUrl,
-                headers: rp.session.redditHdr,
+                headers: hdrData,
                 dataType: 'json',
-                success: handleCommentData,
-                error: failedAjax,
+                success: handleData,
+                error: failedData,
                 timeout: rp.settings.ajaxTimeout,
-                crossDomain: true
+                crossDomain: true,
+                // Local Variables
+                Type: type
             });
 
         };
