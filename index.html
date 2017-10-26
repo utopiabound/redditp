@@ -25,7 +25,7 @@
     <div class="prevArrow fadeOnIdle" title="The arrow keys work too" id="prevButton"></div>
     <div class="nextArrow fadeOnIdle" title="Try the arrow keys too" id="nextButton"></div>
     
-    <div id="controlsDiv" class='navbox clouds fadeOnIdle'>
+    <div id="controlsDiv" class="navbox clouds fadeOnIdle">
         <div class="collapser" data-openstate="open">&larr;</div>
 	<div id="albumCollapser" class="vcollapser" data-opensym="&#8858;" data-closesym="&otimes;"
 	     data-openstate="open" data-controldiv="albumNumberButtons" title="Show Album Buttons">&#8858;</div>
@@ -35,7 +35,19 @@
 		    <a id="subredditLink" href="#"><img class="reddit" src="images/reddit.svg" /></a></form>
                 </li>
 		<!-- Start this off as hidden, and only show if appropriate -->
-		<li style="display: none"><a id="loginUsername" class="info infol" href="/"><i class="unset material-icons">account_box</i></a></li>
+		<li id="loginLi" class="hidden">
+		  <a id="loginUsername" class="info infol" href="/"><i class="unset material-icons">account_box</i></a>
+		  <div id="multiListDiv" class="clouds">
+		    <ul><li><a href="https://www.reddit.com/" class="info infol" title="Front Page">Home</a>
+		      <a href="/" class="info infop"><img class="redditp" src="images/favicon.png"></a></li>
+		      <li><a href="https://www.reddit.com/r/friends" class="info infol" title="">Friends</a>
+			<a href="/r/friends" class="info infop"><img class="redditp" src="images/favicon.png"></a></li>
+		      <li><a href="https://www.reddit.com/r/popular" class="info infol" title="">Popular</a>
+			<a href="/r/popular" class="info infop"><img class="redditp" src="images/favicon.png"></a></li>
+		    </ul>
+		    <hr>
+		    <ul><li><i>Login to Load</i></li></ul></div>
+		</li>
                 <li>
                     <input class="checkbox" type="checkbox" name="nsfw" id="nsfw" value="Auto" checked />
                     <label class="checkbox colortoggle over18" for="nsfw" title="toggle showing NSFW content">nsfw</label>
@@ -78,7 +90,8 @@
 	    <!-- Album button list inserted/removed here -->
         </div>
     </div>
-    <div id="titleDiv" class='navbox clouds'>
+
+    <div id="titleDiv" class="navbox clouds">
         <div class="collapser" data-openstate="open">&larr;</div>
 	<div id='navboxTitleWrapper'>
           <h2 id='navboxTitle'>

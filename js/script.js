@@ -1,4 +1,5 @@
 /* -*- mode: javascript; indent-tabs-mode: nil -*-
+ * global: log
  * Author: Yuval Greenfield (http://uberpython.wordpress.com)
  * Also: Nathaniel Clark <nathaniel.clark@misrule.us>
  * 
@@ -51,7 +52,7 @@ rp.session = {
     after: "",
 
     foundOneImage: false,
-
+    loadedMultiList: false,
     loadingNextImages: false,
     loadAfter: null,
     // this will be enabled automatically
@@ -1514,12 +1515,12 @@ $(function () {
         else
             $('#navboxOrigLink').html(googleIcon("link"));
         if (rp.session.loginExpire) {
-            $('#loginUsername').parent().show();
+            $('#loginUsername').parent().removeClass('hidden');
             if (now > rp.session.loginExpire-30)
                 clearRedditLogin();
             // if user does a login in another window/tab, this will update with getRedditImages().
         } else {
-            $('#loginUsername').parent().hide();
+            $('#loginUsername').parent().addClass('hidden');
         }
 
         // TITLE BOX
@@ -1726,7 +1727,7 @@ $(function () {
         log.trace("createDiv("+imageIndex+", "+albumIndex+")");
 
         // Used by showVideo and showImage
-        var divNode = $("<div />").addClass("clouds");
+        var divNode = $("<div />");
 
         if (photo === undefined)
             return divNode;
@@ -2408,6 +2409,43 @@ $(function () {
         clearCookie(cookieNames.redditRefreshBy);
     };
 
+    var loadRedditMultiList = function () {
+        if (rp.session.loadedMultiList == true)
+            return;
+
+        var jsonUrl = rp.url.get+'/api/multi/mine';
+        var handleData = function(data) {
+            rp.session.loadedMultiList = true;
+            var list = $('#multiListDiv ul:last-of-type');
+            list.empty();
+
+            $.each(data, function(i, item) {
+                var path;
+                if (item.data.visibility == "public") 
+                    path = item.data.path;
+                else
+                    path = "/me/m/"+item.data.name;
+
+                var link = infoLink(rp.redditBaseUrl + path,
+                                    item.data.display_name,
+                                    path,
+                                    item.data.description_md);
+                
+                list.append($('<li>').html(link));
+            });
+        };
+
+        $.ajax({
+            url: jsonUrl,
+            headers: rp.session.redditHdr,
+            dataType: 'json',
+            success: handleData,
+            error: failedAjax,
+            timeout: rp.settings.ajaxTimeout,
+            crossDomain: true
+        });
+    };
+
     var getRedditImages = function () {
         if (rp.session.loadingNextImages)
             return;
@@ -2432,7 +2470,8 @@ $(function () {
                 $('#loginUsername').html(googleIcon('verified_user'));
                 $('#loginUsername').attr('title', 'Expires at '+d);
                 rp.url.get = 'https://oauth.reddit.com';
-                
+                loadRedditMultiList();
+
             } else {
                 clearRedditLogin();
             }
@@ -3213,6 +3252,7 @@ $(function () {
 
             matches = /[#?&]state=([^&#=]*)/.exec(window.location.href);
             processUrls(decodeURIComponent(matches[1]));
+            loadRedditMultiList();
             return;
         }
 

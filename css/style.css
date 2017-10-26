@@ -13,7 +13,19 @@ body { overflow:hidden; background-color: #000; color:#fff;}
     height: 100%;
     z-index:-999;
 }
+.hidden {
+    display: none;
+}
+
 #pictureSlider div { height:100%; width:100%; position:absolute; z-index:-999; }
+
+#loginLi:hover div { display: block; }
+#loginLi div {
+    display: none;
+    position: absolute;
+    bottom: 100%
+}
+#loginLi a { display: inline-block; }
 
 /* NAVIGATION BOX */
 #navigationBoxes {float: left;}
@@ -23,7 +35,7 @@ a:hover {
     border-bottom:1px dotted;
 }
 
-.navbox { width:450px; max-height: 40%; overflow: auto; position:relative; }
+.navbox { width:450px; max-height: 40%; overflow: visible; position:relative; }
 /* 108px so the next row is half-visible */
 .numberButtonList { overflow: auto; max-height: 108px; }
 .navbox ul { list-style-type:none; display:block; margin:0px; right:10px; top:10px; text-align: left;}
@@ -80,8 +92,11 @@ a:hover {
 
 #controlsDiv {position: absolute; bottom: 0; left: 0; right: 0; }
 #titleDiv { position: absolute; top: 0; left: 0; right: 0; }
-#duplicateDiv { position: relative; top: 0; left: 0; right: 0; }
+#duplicateDiv { position: relative; top: 0; left: 0; right: 0; overflow: auto; }
 #subredditUrl { border: 1px dashed; background-color: black; color: white; }
+
+#multiListDiv ul li { padding: 5px 2px 5px 3px; }
+#multiListDiv hr { margin: 0; }
 
 .navbox h2 { padding: 2px; font: bold 20px Helvetica, Arial, Sans-serif; }
 .navbox h3 { padding: 2px; font: bold 16px Helvetica, Arial, Sans-serif; }
