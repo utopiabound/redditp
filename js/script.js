@@ -1544,15 +1544,20 @@ $(function () {
             $('#navboxSubreddit').attr('href', rp.redditBaseUrl + subreddit).html(subreddit);
             $('#navboxSubredditP').attr('href', rp.url.base+subreddit)
                 .html($('<img />', {'class': 'redditp', src: 'images/favicon.png'}));
+            $('#navboxSubreddit').show();
+            $('#navboxSubredditP').show();
+        } else {
+            $('#navboxSubreddit').hide();
+            $('#navboxSubredditP').hide();
         }
 
         if (authName) {
             var authLink = '/u/' + authName;
-            $('#navboxAuthor').show();
-            $('#navboxAuthorP').show();
             $('#navboxAuthor').attr('href', rp.redditBaseUrl + authLink).html(authLink);
             $('#navboxAuthorP').attr('href', rp.url.base+'/user/'+authName+'/submitted')
                 .html($('<img />', {'class': 'redditp', src: 'images/favicon.png'}));
+            $('#navboxAuthor').show();
+            $('#navboxAuthorP').show();
         } else {
             $('#navboxAuthor').hide();
             $('#navboxAuthorP').hide();
@@ -2158,8 +2163,6 @@ $(function () {
         } else if (hostname == 'wordpress.com') {
             photo.url = photo.url.replace(/\/amp\/?$/, '');
             shortid = url2shortid(photo.url);
-            var first = fqdn.split('.')[0];
-            photo.extra = infoLink('https://'+fqdn, first, '/wp/'+fqdn);
 
             jsonUrl = 'https://public-api.wordpress.com/rest/v1.1/sites/'+fqdn+'/posts/slug:'+shortid;
 
@@ -2647,8 +2650,6 @@ $(function () {
                 jsonUrl = 'https://public-api.wordpress.com/rest/v1.1/sites/'+
                     hn+'/posts/slug:'+a[1];
                 handleData = function (data) {
-                    photo.extra = infoLink('https://'+hn, hn, '/wp/'+hn);
-                    photo.favicon = rp.favicons.wordpress;
                     if (processWordPressPost(photo, data)) {
                         addImageSlide(photo);
                     } else {
@@ -2847,6 +2848,9 @@ $(function () {
 
         var processNeedle = function(pic, item) {
             if (item.tagName == 'IMG') {
+                // Skip thumbnails
+                if (item.className.includes('thumbnail'))
+                    return false;
                 pic.type = imageTypes.image;
                 pic.url = item.src;
                 
@@ -2875,7 +2879,7 @@ $(function () {
 
         var rc = false;
         if (images.length > 1) {
-            photo = initPhotoAlbum(photo, false);
+            photo = initPhotoAlbum(photo);
             $.each(images, function(i, item) {
                 var pic = { title: (item.alt) ?item.alt :photo.title };
                 if (processNeedle(pic, item) && processPhoto(pic)) {
@@ -2893,6 +2897,19 @@ $(function () {
 
     var processWordPressPost = function(photo, post) {
         var rc = false;
+
+        // Setup some photo defaults
+        photo.favicon = rp.favicons.wordpress;
+        if (post.author.URL) {
+            photo.extra = infoLink(post.author.URL, post.author.name,
+                            '/wp/'+hostnameOf(post.author.URL));
+        } else {
+            var hn = hostnameOf(post.URL);
+            photo.extra = infoLink(post.URL.substring(0, post.URL.indexOf(':'))+'://'+hn,
+                                    post.author.name, '/wp/'+hn);
+        }
+
+        // Process Post
         if (processHaystack(photo, post.content))
             rc = true;
 
@@ -2994,8 +3011,6 @@ $(function () {
                               over18: false,
                               date: d.valueOf(),
                               commentsLink: post.URL,
-                              extra: infoLink(post.author.URL, post.author.name,
-                                              '/wp/'+hostnameOf(post.author.URL)),
                               thumbnail: post.post_thumbnail
                             };
 
@@ -3028,6 +3043,7 @@ $(function () {
                                         });
                 });
                 rc = true;
+                processHaystack(photo, post.caption);
 
             } else {
                 photo.url = fixupUrl(post.photos[index].original_size.url);
