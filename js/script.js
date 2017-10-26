@@ -118,19 +118,23 @@ $(function () {
     };
 
     // Take a URL and strip it down to the "shortid"
-    var url2shortid = function(url) {
+    // url2shortid(url [, index])
+    // Index actually starts at 1 since 0 is always empty
+    // "/this/is/a/path/".split('/') == [ "", "this", "is", "a", "path", "" ]
+    var url2shortid = function(url, index) {
         var shortid;
         var path = pathnameOf(url);
 
-        // chomp off last char if it ends in '/'
-        if (path.charAt(path.length-1) == '/') {
-            var spath = path.substr(0, path.length-1);
-            shortid = spath.substr(1 + spath.lastIndexOf('/'));
+        var a = path.split('/');
+        if (a[a.length-1] == "")
+            a.pop();
 
-        } else {
-            shortid = path.substr(1 + path.lastIndexOf('/'));
-        }
+        if (index === undefined || index == -1)
+            index = a.length-1;
 
+        shortid = a[index];
+
+        // Trim off file extenstion
         if (shortid.indexOf('.') != -1)
             shortid = shortid.substr(0, shortid.lastIndexOf('.'));
 
@@ -336,7 +340,7 @@ $(function () {
     var infoLink = function(info, text, infop, infoalt) {
         if (infoalt === undefined)
             infoalt = "";
-        var sld = hostnameOf(info, true).match(/[^\.]*/);
+        var sld = hostnameOf(info, true).match(/[^\.]*/)[0];
         if (rp.favicons[sld])
             text = '<img class="redditp favicon" src="'+rp.favicons[sld]+'" />'+text;
         var data = '<a href="'+info+'" class="info infol" title="'+infoalt+'">'+text+'</a>';
@@ -386,6 +390,19 @@ $(function () {
     };
     var pathnameOf = function(url) {
         return $('<a>').attr('href', url).prop('pathname');
+    };
+
+    var searchOf = function(url)  {
+        var a = {};
+        var b = $('<a>').attr('href', url).prop('search').substring(1);
+        $.map(b.split('&'), function(val, i) {
+            var arr = val.split('=');
+            a[arr[0]] = arr[1];
+        });
+        return a;
+    };
+    var searchValueOf = function(url, key) {
+        return searchOf(url)[key];
     };
 
     $("#pictureSlider").touchwipe({
@@ -909,7 +926,7 @@ $(function () {
         }
 
         addPhotoParent(pic, photo);
-        var sld = hostnameOf(pic.url, true).match(/[^\.]*/);
+        var sld = hostnameOf(pic.url, true).match(/[^\.]*/)[0];
         if (rp.favicons[sld])
             pic.favicon = rp.favicons[sld];
 
@@ -948,7 +965,7 @@ $(function () {
         pic.url = fixupUrl(pic.url);
         // hostname only: second-level-domain.tld
         var hostname = hostnameOf(pic.url, true);
-        var sld = hostname.match(/[^\.]*/);
+        var sld = hostname.match(/[^\.]*/)[0];
 
         if (rp.favicons[sld])
             pic.favicon = rp.favicons[sld];
@@ -994,8 +1011,7 @@ $(function () {
                 pic.type = imageTypes.later;
             }
 
-        } else if (hostname == 'gfycat.com' ||
-                   hostname == 'streamable.com' ||
+        } else if (hostname == 'streamable.com' ||
                    hostname == 'vid.me' ||
                    hostname == 'pornbot.net' ||
                    hostname == 'deviantart.com') {
@@ -1032,12 +1048,16 @@ $(function () {
             shortid = url2shortid(pic.url);
             initPhotoVideo(pic, 'http://webm.land/media/'+shortid+".webm");
 
+        } else if (isVideoExtension(pic.url)) {
+            initPhotoVideo(pic);
+            
+        } else if (hostname == 'gfycat.com') {
+            // These domains should be processed later, unless direct link to video
+            pic.type = imageTypes.later;
+
         } else if (isImageExtension(pic.url) ||
                    fqdn == 'i.reddituploads.com') {
             // simple image
-
-        } else if (isVideoExtension(pic.url)) {
-            initPhotoVideo(pic);
 
         } else if (hostname == 'gyazo.com') {
             shortid = url2shortid(pic.url);
@@ -1069,14 +1089,14 @@ $(function () {
                 pic.url = 'https://www.vidble.com/'+shortid+'.jpg';
             }
 
-        } else if (hostname == 'tumblr.com' &&
-                   pic.url.indexOf('/post/') > 0) {
+        } else if (hostname == 'tumblr.com' && pic.url.indexOf('/post/') > 0) {
             // Don't process bare tumblr blogs, nor /day/YYYY/MM/DD/ format
             // only BLOGNAME.tumblr.com/post/SHORTID/...
             pic.type = imageTypes.later;
 
         } else if (hostname == 'youtube.com' ||
                    hostname == 'youtu.be' ||
+                   hostname == 'openload.co' ||
                    hostname == 'pornhub.com' ||
                    hostname == 'redtube.com' ||
                    hostname == 'xhamster.com' ||
@@ -1891,7 +1911,12 @@ $(function () {
 
         // Called with showEmbed(urlForIframe)
         var showEmbed = function(url) {
-            var iframe = $('<iframe id="gfyembed" class="fullscreen" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen />');
+            var iframe = $('<iframe/>', { id: "gfyembed",
+                                          class: "fullscreen",
+                                          frameborder: 0,
+                                          webkitallowfullscreen: true,
+                                          mozallowfullscreen: true,
+                                          allowfullscreen: true });
             // ensure updateAutoNext doesn't reset timer
             photo.times = 1;
 
@@ -2145,8 +2170,7 @@ $(function () {
             };
             
         } else if (hostname == 'tumblr.com') {
-            a = photo.url.split('/');
-            shortid = a[4];
+            shortid = url2shortid(photo.url, 2);
 
             jsonUrl = 'https://api.tumblr.com/v2/blog/'+fqdn+'/posts?api_key='+rp.api_key.tumblr+'&id='+shortid;
             dataType = 'jsonp';
@@ -2172,31 +2196,19 @@ $(function () {
             };
 
         } else if (hostname == 'youtube.com') {
-            a = photo.url.split('/').pop();
-            b = a.match(/.*v=([^&]*)/);
-            if (b)
-                shortid = b[1];
+            shortid = searchValueOf(photo.url, 'v');
             
             initPhotoEmbed(photo, youtubeURL(shortid));
             showEmbed(photo.url);
 
         } else if (hostname == 'youtu.be') {
-            a = photo.url.split('/');
-            if (a[a.length-1] == "")
-                a.pop();
-
             initPhotoEmbed(photo, youtubeURL(shortid));
             showEmbed(photo.url);
 
         } else if (hostname == 'pornhub.com') {
             // JSON Info about video
             // 'https://www.pornhub.com/webmasters/video_by_id?id='+shortid
-            a = {};
-            b = $('<a>').attr('href', photo.url).prop('search').substring(1);
-            $.map(b.split('&'), function(val, i) {
-                var arr = val.split('=');
-                a[arr[0]] = arr[1];
-            });
+            a = searchOf(photo.url);
 
             shortid = a.viewkey;
             
@@ -2212,16 +2224,23 @@ $(function () {
             initPhotoEmbed(photo, 'https://embed.redtube.com/?bgcolor=000000&autoplay=1&id='+shortid);
             showEmbed(photo.url);
 
-        } else if (hostname == 'keezmovies.com') {
-            shortid = url2shortid(photo.url);
+        } else if (hostname == 'openload.co') {
+            // //openload.co/embed/SHORTID/Name_Of_original_file
+            // //openload.co/f/SHORTID/Title_of_picture
+            // final name/title is optional
+            shortid = url2shortid(photo.url, 2);
 
+            // no autostart
+            initPhotoEmbed(photo, 'https://www.openload.co/embed/'+shortid);
+            showEmbed(photo.url);
+
+        } else if (hostname == 'keezmovies.com') {
             // no autostart
             initPhotoEmbed(photo, 'https://www.keezemovies.com/embed/'+shortid);
             showEmbed(photo.url);
 
         } else if (hostname == 'spankbang.com') {
-            a = photo.url.split('/');
-            shortid = a[3];
+            shortid = url2shortid(photo.url, 1);
 
             // no autostart
             initPhotoEmbed(photo, 'https://spankbang.com/embed/'+shortid);
@@ -2229,28 +2248,30 @@ $(function () {
 
         } else if (hostname == 'youporn.com') {
             // https://www.youporn.com/watch/SHORTID/TEXT-NAME-IN-URL/
-            shortid = /\/watch\/(.*)/.exec(photo.url);
+            shortid = url2shortid(photo.url, 2);
             
-            initPhotoEmbed(photo, "https://www.youporn.com/embed/"+shortid[1]+'?autoplay=1');
+            initPhotoEmbed(photo, "https://www.youporn.com/embed/"+shortid+'?autoplay=1');
             showEmbed(photo.url);
 
         } else if (hostname == 'xhamster.com') {
             // https://xhamster.com/videos/NAME-OF-VIDEO-SHORTID
             // https://xhamster.com/movies/SHORID/NAME_OF_VIDEO.html
-            if (photo.url.indexOf('/videos/') > 0) {
-                shortid = url2shortid(photo.url);
+            if (photo.url.indexOf('/videos/') > 0)
                 shortid = shortid.substr(shortid.lastIndexOf('-')+1);
 
-            } else if (photo.url.indexOf('/movies/') > 0) {
-                shortid = /\/movies\/([^\/]*)/.exec(photo.url)[1];
-            } 
+            else if (photo.url.indexOf('/movies/') > 0)
+                shortid = url2shortid(photo.url, 2);
+            else
+                shortid = undefined;
 
             if (shortid) {
                 initPhotoEmbed(photo, "https://xhamster.com/xembed.php?video="+shortid+'&autoplay=1');
                 showEmbed(photo.url);
 
             } else {
-                log ("cannot parse url [unknown format]: "+photo.url);
+                log.warning("cannot parse url [unknown format]: "+photo.url);
+                initPhotoFailed(photo);
+                showImage(photo.thumbnail);
             }
 
         } else if (hostname == 'tube8.com') {
@@ -2260,8 +2281,7 @@ $(function () {
             showEmbed(photo.url);
 
         } else if (hostname == 'txxx.com') {
-            a = photo.url.split('/');
-            shortid = a[4];
+            shortid = url2shortid(photo.url, 2);
 
             // no autostart
             initPhotoEmbed(photo, 'https://m.txxx.com/embed/'+shortid);
@@ -2272,8 +2292,11 @@ $(function () {
             showEmbed(photo.url);
 
         } else {
-            log.info("["+imageIndex+"] Unknown video site: "+hostname);
+            log.error("["+photo.index+"] Unknown video site ["+hostname+"]: "+photo.url);
+            initPhotoFailed(photo);
+            showImage(photo.thumbnail);
         }
+
 
         if (jsonUrl !== undefined) {
             var wrapHandleData = function(data) {
@@ -3284,6 +3307,8 @@ $(function () {
             rp.url.subreddit.indexOf('/domain/') >= 0 ||
             rp.url.subreddit.indexOf('/search/') >= 0 ||
             rp.url.subreddit.indexOf('/me/') >= 0 ||
+            rp.url.subreddit.indexOf('/new') >= 0 ||
+            rp.url.subreddit.indexOf('/top') >= 0 ||
             rp.url.subreddit.indexOf('/r/all') >= 0 ||
             rp.url.subreddit.indexOf('/r/popular') >= 0 ||
             rp.url.subreddit.indexOf('/r/friends') >= 0 ||
