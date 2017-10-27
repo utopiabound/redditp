@@ -467,17 +467,6 @@ $(function () {
         }
     });
 
-    // Arguments are image paths relative to the current page.
-    var preLoadImages = function () {
-        var args_len = arguments.length;
-        for (var i = args_len; i--;) {
-            var cacheImage = document.createElement('img');
-            cacheImage.src = arguments[i];
-            // Chrome makes the web request without keeping a copy of the image.
-            //rp.cache.push(cacheImage);
-        }
-    };
-
     var cookieNames = {
         nsfwCookie: "nsfwCookie",
         embedCookie: "showEmbedCookie",
@@ -718,7 +707,7 @@ $(function () {
     };
 
     // re-index Album elements starting from index
-    var reindexAlbum = function(photo, index) {
+    var reindexPhotoAlbum = function(photo, index) {
         if (index === undefined)
             index = 0;
 
@@ -760,6 +749,8 @@ $(function () {
 
         var pic = photo.album[0];
         if (pic.type == imageTypes.image ||
+            pic.type == imageTypes.later ||
+            pic.type == imageTypes.fail ||
             pic.type == imageTypes.embed) {
             photo.type = pic.type;
             photo.url = pic.url;
@@ -790,7 +781,7 @@ $(function () {
                 if (photo.index !== undefined &&
                     photo.index == rp.session.activeIndex) {
                     $('#allNumberButtons ul').children(":nth-child("+(index+1)+")").remove();
-                    reindexAlbum(photo, index);
+                    reindexPhotoAlbum(photo, index);
                 }
             }
             // don't need to insertAt if image is last element
@@ -947,7 +938,7 @@ $(function () {
                 photo.index == rp.session.activeIndex) {
                 $('#allNumberButtons ul').children(":nth-child("+(index+1)+")")
                 .after(albumButtonLi(pic));
-                reindexAlbum(photo, index);
+                reindexPhotoAlbum(photo, index);
             }
         }
     };
@@ -1761,18 +1752,9 @@ $(function () {
         var showImage = function(url, needreset) {
             if (needreset === undefined)
                 needreset = true;
-            // `preLoadImages` because making a div with a background css does not cause chrome
-            // to preload it :/
-            log.trace('showImage:['+imageIndex+"]["+albumIndex+"]:"+url);
-            preLoadImages(url);
-            var cssMap = Object();
 
-            cssMap['background-image'] = "url(" + url + ")";
-            cssMap['background-repeat'] = "no-repeat";
-            cssMap['background-size'] = "contain";
-            cssMap['background-position'] = "center";
+            divNode.append($('<img />', { class: "fullscreen", src: url}));
 
-            divNode.css(cssMap);
             if (needreset && imageIndex == rp.session.activeIndex)
                 resetNextSlideTimer();
         };
