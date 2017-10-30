@@ -569,6 +569,11 @@ $(function () {
     var updateNsfw = function () {
         rp.settings.nsfw = $("#nsfw").is(':checked');
         setCookie(cookieNames.nsfwCookie, rp.settings.nsfw);
+        if (rp.settings.nsfw) {
+            $('label[for="nsfw"]').html(googleIcon("wc"));
+        } else {
+            $('label[for="nsfw"]').html(googleIcon("child_friendly"));
+        }
     };
 
     var updateEmbed = function () {
@@ -3287,7 +3292,7 @@ $(function () {
         var dupe = $('#duplicateCollapser');
         if (rp.url.subreddit.indexOf('/user/') >= 0 ||
             rp.url.subreddit.indexOf('/domain/') >= 0 ||
-            rp.url.subreddit.indexOf('/search/') >= 0 ||
+            rp.url.subreddit.indexOf('/search[/?]') >= 0 ||
             rp.url.subreddit.indexOf('/me/') >= 0 ||
             rp.url.subreddit.indexOf('/new') >= 0 ||
             rp.url.subreddit.indexOf('/top') >= 0 ||

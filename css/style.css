@@ -97,6 +97,7 @@ a:hover {
 
 #multiListDiv ul li { padding: 5px 2px 5px 3px; }
 #multiListDiv hr { margin: 0; }
+#multiListDiv i.material-icons { font-size: 18px; }
 
 .navbox h2 { padding: 2px; font: bold 20px Helvetica, Arial, Sans-serif; }
 .navbox h3 { padding: 2px; font: bold 16px Helvetica, Arial, Sans-serif; }
@@ -164,10 +165,7 @@ label.checkbox { font-weight: bold; }
 
 .favicon {}
 
-.cam { background-image:url("../images/bg_cam_txt.png"); }
 .clouds { opacity: 0.9; background-color: rgba(0,0,0,0.7); }
-.key { background-image:url("../images/bg_key_txt.png"); }
-.flowers { background-image:url("../images/bg_flowers_txt.png"); }
 
 /* Computed width: 28px */
 .collapser {
