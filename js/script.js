@@ -1,5 +1,4 @@
-/* -*- mode: javascript; indent-tabs-mode: nil -*-
- * global: log
+/* -*- mode: javascript -*-
  * Author: Yuval Greenfield (http://uberpython.wordpress.com)
  * Also: Nathaniel Clark <nathaniel.clark@misrule.us>
  * 
@@ -33,7 +32,7 @@ rp.settings = {
     // show Embeded Items
     embed: false,
     // show NSFW Items
-    nsfw: true
+    nsfw: false
 };
 
 rp.session = {
@@ -55,8 +54,6 @@ rp.session = {
     loadedMultiList: false,
     loadingNextImages: false,
     loadAfter: null,
-    // this will be enabled automatically
-    needDedup: false,
 
     is_ios: false,
     is_pre10ios: false,
@@ -237,6 +234,9 @@ $(function () {
 
         while(index < rp.photos.length) {
             var photo = rp.photos[index];
+            if (photo === undefined) {
+                log.error("FAILED to fetch photo index: "+index);
+            }
             if (photo.type == imageTypes.album) {
                 for (var i = albumIndex+1; i < photo.album.length; ++i) {
                     if (!getNextPhotoOk(photo.album[i]))    
@@ -588,22 +588,20 @@ $(function () {
 
     var initState = function () {
         var nsfwByCookie = getCookie(cookieNames.nsfwCookie);
-        if (nsfwByCookie === undefined) {
-            rp.settings.nsfw = true;
-        } else {
+        if (nsfwByCookie !== undefined) {
             rp.settings.nsfw = (nsfwByCookie === "true");
             $("#nsfw").prop("checked", rp.settings.nsfw);
         }
         $('#nsfw').change(updateNsfw);
+        updateNsfw();
 
         var embedByCookie = !getCookie(cookieNames.embedCookie);
-        if (embedByCookie === undefined) {
-            updateEmbed();
-        } else {
+        if (embedByCookie !== undefined) {
             rp.settings.embed = (embedByCookie === "true");
             $("#embed").prop("checked", !rp.settings.embed);
         }
         $('#embed').change(updateEmbed);
+        updateEmbed();
 
         updateVideoMute();
         $('#mute').change(updateVideoMute);
@@ -1044,6 +1042,20 @@ $(function () {
             shortid = url2shortid(pic.url);
             initPhotoVideo(pic, 'http://webm.land/media/'+shortid+".webm");
 
+        } else if (hostname == 'youtube.com' ||
+                   hostname == 'youtu.be' ||
+                   hostname == 'openload.co' ||
+                   hostname == 'pornhub.com' ||
+                   hostname == 'redtube.com' ||
+                   hostname == 'xhamster.com' ||
+                   hostname == 'youporn.com' ||
+                   hostname == 'spankbang.com' ||
+                   hostname == 'keezmovies.com' ||
+                   hostname == 'txxx.com' ||
+                   hostname == 'tube8.com' ||
+                   hostname == 'vimeo.com') {
+            pic.type = imageTypes.embed;
+
         } else if (isVideoExtension(pic.url)) {
             initPhotoVideo(pic);
             
@@ -1089,20 +1101,6 @@ $(function () {
             // Don't process bare tumblr blogs, nor /day/YYYY/MM/DD/ format
             // only BLOGNAME.tumblr.com/post/SHORTID/...
             pic.type = imageTypes.later;
-
-        } else if (hostname == 'youtube.com' ||
-                   hostname == 'youtu.be' ||
-                   hostname == 'openload.co' ||
-                   hostname == 'pornhub.com' ||
-                   hostname == 'redtube.com' ||
-                   hostname == 'xhamster.com' ||
-                   hostname == 'youporn.com' ||
-                   hostname == 'spankbang.com' ||
-                   hostname == 'keezmovies.com' ||
-                   hostname == 'txxx.com' ||
-                   hostname == 'tube8.com' ||
-                   hostname == 'vimeo.com') {
-            pic.type = imageTypes.embed;
 
         } else {
             log.info('cannot display url [no image]: ' + pic.url);
@@ -1590,31 +1588,29 @@ $(function () {
         else
             $('#navboxDate').attr("title", "").text("");
 
-        if (rp.session.needDedup) {
-            $('#navboxDuplicatesLink').attr('href',  rp.redditBaseUrl + '/r/' +
-                                            photo.subreddit + '/duplicates/' + photo.id);
-            $('#duplicateUl').html("");
-            if (photo.duplicates.length > 0) {
-                if ($('#duplicateCollapser').attr(OPENSTATE_ATTR) == "open")
-                    $('#duplicateDiv').show();
-                var multi = photo.subreddit;
-                $.each(photo.duplicates, function(i, item) {
-                    var subr = '/r/' +item.subreddit;
-                    multi += '+'+item.subreddit;
-                    var li = $("<li>", { class: 'list'}).html(infoLink(rp.redditBaseUrl + subr,
-                                                                       subr, subr,
-                                                                       item.title+" ("+(i+1)+")"));
-                    li.append($("<a>", { href: rp.redditBaseUrl + subr + "/comments/"+item.id,
-                                         class: 'info infoc',
-                                         title: 'Comments'
-                                       }).text('('+item.commentCount+')'));
-                    $('#duplicateUl').append(li);
-                });
-                $('#navboxDuplicatesMulti').attr('href', rp.redditBaseUrl+'/r/'+multi);
-                $('#navboxDuplicatesMultiP').attr('href', rp.url.base+'/r/'+multi);
-            } else {
-                $('#duplicateDiv').hide();
-            }
+        $('#navboxDuplicatesLink').attr('href',  rp.redditBaseUrl + '/r/' +
+                                        photo.subreddit + '/duplicates/' + photo.id);
+        $('#duplicateUl').html("");
+        if (photo.duplicates.length > 0) {
+            if ($('#duplicateCollapser').attr(OPENSTATE_ATTR) == "open")
+                $('#duplicateDiv').show();
+            var multi = photo.subreddit;
+            $.each(photo.duplicates, function(i, item) {
+                var subr = '/r/' +item.subreddit;
+                multi += '+'+item.subreddit;
+                var li = $("<li>", { class: 'list'}).html(infoLink(rp.redditBaseUrl + subr,
+                                                                   subr, subr,
+                                                                   item.title+" ("+(i+1)+")"));
+                li.append($("<a>", { href: rp.redditBaseUrl + subr + "/comments/"+item.id,
+                                     class: 'info infoc',
+                                     title: 'Comments'
+                                   }).text('('+item.commentCount+')'));
+                $('#duplicateUl').append(li);
+            });
+            $('#navboxDuplicatesMulti').attr('href', rp.redditBaseUrl+'/r/'+multi);
+            $('#navboxDuplicatesMultiP').attr('href', rp.url.base+'/r/'+multi);
+        } else {
+            $('#duplicateDiv').hide();
         }
 
         if (oldIndex != imageIndex) {
@@ -1764,21 +1760,6 @@ $(function () {
                 resetNextSlideTimer();
         };
 
-        if (photo.type == imageTypes.image) {
-            showImage(photo.url, false);
-            return divNode;
-        }
-
-        if (photo.type == imageTypes.fail) {
-            showImage(photo.thumbnail, false);
-            return divNode;
-        }
-
-        // Preloading, don't mess with timeout
-        if (imageIndex == rp.session.activeIndex &&
-            albumIndex == rp.session.activeAlbumIndex)
-            clearSlideTimeout();
-
         // Called with showVideo({'thumbnail': jpgurl, 'mp4': mp4url, 'webm': webmurl})
         var showVideo = function(data) {
             var video = $('<video id="gfyvid" class="fullscreen" preload="auto" playsinline />');
@@ -1855,47 +1836,6 @@ $(function () {
             });
         };
 
-        var showPic = function(pic) { 
-            if (pic.type == imageTypes.album) {
-                var index = indexPhotoAlbum(photo, imageIndex, albumIndex);
-                if (index < 0) {
-                    log.error("["+imageIndex+"]["+albumIndex+"] album is zero-length, failing to thumbnail: "+pic.url);
-                    showImage(pic.thumbnail);
-                    return;
-                }
-                pic = pic.album[index];
-            }
-
-            if (pic.type == imageTypes.video)
-                showVideo(pic.video);
-            
-            else if (pic.type == imageTypes.embed)
-                showEmbed(pic.url);
-
-            else if (pic.type == imageTypes.fail)
-                showImage(pic.thumbnail);
-
-            else // Default to image type
-                showImage(pic.url);
-        };
-
-        if (photo.type == imageTypes.video) {
-            if (photo.video === undefined) {
-                log.error("["+imageIndex+"]["+albumIndex+"] type is video but no video element");
-
-            } else {
-                showVideo(photo.video);
-                return divNode;
-            }
-        }
-
-        // Show Video if it's that easy
-        if (isVideoExtension(photo.url)) {
-            initPhotoVideo(photo);
-            showVideo(photo.video);
-            return divNode;
-        }
-
         // Called with showEmbed(urlForIframe)
         var showEmbed = function(url) {
             var iframe = $('<iframe/>', { id: "gfyembed",
@@ -1939,6 +1879,55 @@ $(function () {
 
             divNode.append(iframe);
         };
+
+        var showPic = function(pic) { 
+            if (pic.type == imageTypes.album) {
+                var index = indexPhotoAlbum(photo, imageIndex, albumIndex);
+                if (index < 0) {
+                    log.error("["+imageIndex+"]["+albumIndex+"] album is zero-length, failing to thumbnail: "+pic.url);
+                    showImage(pic.thumbnail);
+                    return;
+                }
+                pic = pic.album[index];
+            }
+
+            if (pic.type == imageTypes.video)
+                showVideo(pic.video);
+            
+            else if (pic.type == imageTypes.embed)
+                showEmbed(pic.url);
+
+            else if (pic.type == imageTypes.fail)
+                showImage(pic.thumbnail);
+
+            else // Default to image type
+                showImage(pic.url);
+        };
+
+        if (photo.type == imageTypes.image) {
+            showImage(photo.url, false);
+            return divNode;
+        }
+
+        if (photo.type == imageTypes.fail) {
+            showImage(photo.thumbnail, false);
+            return divNode;
+        }
+
+        // Preloading, don't mess with timeout
+        if (imageIndex == rp.session.activeIndex &&
+            albumIndex == rp.session.activeAlbumIndex)
+            clearSlideTimeout();
+
+        if (photo.type == imageTypes.video) {
+            if (photo.video === undefined) {
+                log.error("["+imageIndex+"]["+albumIndex+"] type is video but no video element");
+
+            } else {
+                showVideo(photo.video);
+                return divNode;
+            }
+        }
 
         var jsonUrl, a, b;
         var dataType = 'json';
@@ -2718,27 +2707,24 @@ $(function () {
 
             var handleDuplicatesData = function(data) {
                 var item = data[0].data.children[0];
-                if (rp.session.needDedup) {
-                    item.duplicates = [];
-                    $.each(data[1].data.children, function(i, dupe) {
-                        if (rp.dedup[dupe.data.subreddit] == undefined)
-                            rp.dedup[dupe.data.subreddit] = {};
-                        rp.dedup[dupe.data.subreddit][dupe.data.id] = '/r/'+item.data.subreddit+'/'+item.data.id;
-                        item.duplicates.push({subreddit: dupe.data.subreddit,
-                                              commentCount: dupe.data.num_comments,
-                                              title: dupe.data.title,
-                                              date: dupe.data.created,
-                                              id: dupe.data.id});
-                    });
-                }
+
+                item.duplicates = [];
+                $.each(data[1].data.children, function(i, dupe) {
+                    if (rp.dedup[dupe.data.subreddit] == undefined)
+                        rp.dedup[dupe.data.subreddit] = {};
+                    rp.dedup[dupe.data.subreddit][dupe.data.id] = '/r/'+item.data.subreddit+'/'+item.data.id;
+                    item.duplicates.push({subreddit: dupe.data.subreddit,
+                                          commentCount: dupe.data.num_comments,
+                                          title: dupe.data.title,
+                                          date: dupe.data.created,
+                                          id: dupe.data.id});
+                });
                 addImageSlideRedditT3(item);
 
                 // Place self in dedup list
-                if (rp.session.needDedup) {
-                    if (rp.dedup[item.data.subreddit] === undefined)
-                        rp.dedup[item.data.subreddit] = {};
-                    rp.dedup[item.data.subreddit][item.data.id] = "SELF";
-                }
+                if (rp.dedup[item.data.subreddit] === undefined)
+                    rp.dedup[item.data.subreddit] = {};
+                rp.dedup[item.data.subreddit][item.data.id] = "SELF";
             };
 
             $.each(data.data.children, function (i, item) {
@@ -2761,11 +2747,6 @@ $(function () {
                     log.info('cannot display url [duplicate:'+
                           rp.dedup[item.data.subreddit][item.data.id]+']: '+
                           item.data.url);
-                    return;
-                }
-
-                if (!rp.session.needDedup) {
-                    addImageSlideRedditT3(item);
                     return;
                 }
 
@@ -3053,13 +3034,13 @@ $(function () {
                                         });
                 });
                 rc = true;
-                processHaystack(photo, post.caption);
 
             } else {
                 photo.url = fixupUrl(post.photos[index].original_size.url);
                 photo.type = imageTypes.image;
                 rc = true;
             }
+            processHaystack(photo, post.caption);
 
         } else if (post.type == 'video') {
             photo.thumbnail = post.thumbnail_url;
@@ -3116,6 +3097,8 @@ $(function () {
             a.pop();
 
         var hostname = a.pop();
+        if (hostname.indexOf('.') < 0)
+            hostname += '.tumblr.com';
 
         var jsonUrl = 'https://api.tumblr.com/v2/blog/'+hostname+'/posts?api_key='+rp.api_key.tumblr;
         if (rp.session.after !== "")
@@ -3289,33 +3272,6 @@ $(function () {
 
         var subredditName = rp.url.subreddit + getVarsQuestionMark;
 
-        var dupe = $('#duplicateCollapser');
-        if (rp.url.subreddit.indexOf('/user/') >= 0 ||
-            rp.url.subreddit.indexOf('/domain/') >= 0 ||
-            rp.url.subreddit.indexOf('/search[/?]') >= 0 ||
-            rp.url.subreddit.indexOf('/me/') >= 0 ||
-            rp.url.subreddit.indexOf('/new') >= 0 ||
-            rp.url.subreddit.indexOf('/top') >= 0 ||
-            rp.url.subreddit.indexOf('/r/all') >= 0 ||
-            rp.url.subreddit.indexOf('/r/popular') >= 0 ||
-            rp.url.subreddit.indexOf('/r/friends') >= 0 ||
-            rp.url.subreddit == "/" ||
-            rp.url.subreddit.indexOf('+') >= 0) {
-            rp.session.needDedup = true;
-            if ($(dupe).attr(OPENSTATE_ATTR) == "closed")
-                $(dupe).click();
-            // Cleanup trailing '+' from subreddit
-            rp.url.subreddit = rp.url.subreddit.replace(/\+($|\/)/, "$1");
-            $(dupe).show();
-
-        } else {
-            rp.session.needDedup = false;
-            // close and don't show if we're not loading the info
-            if ($(dupe).attr(OPENSTATE_ATTR) == "open")
-                $(dupe).click();
-            $(dupe).hide();
-        }
-
         var visitSubreddit = rp.redditBaseUrl + rp.url.subreddit + getVarsQuestionMark;
 
         $('#subredditLink').prop('href', visitSubreddit);
@@ -3394,3 +3350,16 @@ $(function () {
 
     processUrls(path, true);
 });
+
+/*
+ * Editor modelines
+ *
+ * Local variables:
+ * c-basic-offset: 4
+ * tab-width: 8
+ * indent-tabs-mode: nil
+ * End:
+ *
+ * vi: set shiftwidth=4 tabstop=8 expandtab:
+ * :indentSize=4:tabSize=8:noTabs=true:
+ */
