@@ -270,15 +270,19 @@ $(function () {
         var index, albumIndex;
 
         if (inalbum === undefined || inalbum == false) {
-            albumIndex = 1; // need to decrement
             index = getPrevSlideIndex(rp.session.activeIndex);
+            // short circuit if there's no earlier available index
+            if (index == rp.session.activeIndex)
+                return;
 
+            albumIndex = 1; // need to decrement later
+            inalbum = false;
         } else {
             albumIndex = rp.session.activeAlbumIndex;
             index = rp.session.activeIndex;
         }
 
-        while (index >= 0) {
+        do {
             if (rp.photos[index].type == imageTypes.album) {
                 if (albumIndex == LOAD_PREV_ALBUM)
                     albumIndex = rp.photos[index].album.length;
@@ -297,8 +301,11 @@ $(function () {
                 return;
             }
             index = getPrevSlideIndex(index);
-            albumIndex = LOAD_PREV_ALBUM;
-        }
+            if (inalbum)
+                albumIndex = LOAD_PREV_ALBUM;
+            else
+                albumIndex = 1;
+        } while (index >= 0 && index != rp.session.activeIndex);
     }
 
     var autoNextSlide = function () {

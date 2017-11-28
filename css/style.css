@@ -95,7 +95,7 @@ a:hover {
 #duplicateDiv { position: relative; top: 0; left: 0; right: 0; overflow: auto; }
 #subredditUrl { border: 1px dashed; background-color: black; color: white; }
 
-#multiListDiv ul li { padding: 5px 2px 5px 3px; }
+#multiListDiv ul li { padding: 5px 2px 5px 2px; }
 #multiListDiv hr { margin: 0; }
 #multiListDiv i.material-icons { font-size: 18px; }
 
