@@ -22,7 +22,6 @@ rp.settings = {
     animationSpeed: 1000,
     shouldAutoNextSlide: true,
     timeToNextSlide: 8,
-    cookieDays: 300,
     goodImageExtensions: ['jpg', 'jpeg', 'gif', 'bmp', 'png'],
     goodVideoExtensions: ['webm', 'mp4'],
     alwaysSecure: true,
@@ -474,29 +473,34 @@ $(function () {
         }
     });
 
-    var cookieNames = {
-        nsfwCookie: "nsfwCookie",
-        embedCookie: "showEmbedCookie",
-        shouldAutoNextSlideCookie: "shouldAutoNextSlideCookie",
-        timeToNextSlideCookie: "timeToNextSlideCookie",
+    var configNames = {
+        nsfw: "nsfw",
+        embed: "showEmbed",
+        shouldAutoNextSlide: "shouldAutoNextSlide",
+        timeToNextSlide: "timeToNextSlide",
         redditBearer: 'redditBearer',
         redditRefreshBy: 'redditRefreshBy'
     };
 
-    var setCookie = function (c_name, value) {
-        log.debug("Setting Cookie "+c_name+" = "+value);
-        window.Cookies.set(c_name, value, { expires: rp.settings.cookieDays });
+    var setConfig = function (c_name, value) {
+        log.debug("Setting Config "+c_name+" = "+value);
+        var name = "redditp-"+c_name;
+        window.localStorage[name] = JSON.stringify(value);
     };
 
-    var getCookie = function (c_name) {
+    var getConfig = function (c_name) {
         // undefined in case nothing found
-        var value = window.Cookies.get(c_name);
-        log.debug("Getting Cookie "+c_name+" = "+value);
+        var name = "redditp-"+c_name;
+        var value = window.localStorage[name];
+        log.debug("Getting Config "+c_name+" = "+value);
+        if (value !== undefined)
+            value = JSON.parse(value);
         return value;
     };
 
-    var clearCookie = function(c_name) {
-        window.Cookies.remove(c_name);
+    var clearConfig = function(c_name) {
+         var name = "redditp-"+c_name;
+        delete window.localStorage[name];
     };
 
     var clearSlideTimeout = function() {
@@ -520,7 +524,7 @@ $(function () {
             $('#controlsDiv .collapser').css({color: 'red'});
         else
             $('#controlsDiv .collapser').css({color: ""});
-        setCookie(cookieNames.shouldAutoNextSlideCookie, rp.settings.shouldAutoNextSlide);
+        setConfig(configNames.shouldAutoNextSlide, rp.settings.shouldAutoNextSlide);
         // Check if active image is a video before reseting timer
         if (rp.session.activeIndex == -1 ||
             rp.photos[rp.session.activeIndex].times === undefined)
@@ -575,7 +579,7 @@ $(function () {
 
     var updateNsfw = function () {
         rp.settings.nsfw = $("#nsfw").is(':checked');
-        setCookie(cookieNames.nsfwCookie, rp.settings.nsfw);
+        setConfig(configNames.nsfw, rp.settings.nsfw);
         if (rp.settings.nsfw) {
             $('label[for="nsfw"]').html(googleIcon("wc"));
         } else {
@@ -585,7 +589,7 @@ $(function () {
 
     var updateEmbed = function () {
         rp.settings.embed = !$("#embed").is(':checked');
-        setCookie(cookieNames.embedCookie, rp.settings.embed);
+        setConfig(configNames.embed, rp.settings.embed);
         if (rp.settings.embed) {
             $('label[for="embed"]').html(googleIcon("cloud"));
         } else {
@@ -594,17 +598,17 @@ $(function () {
     };
 
     var initState = function () {
-        var nsfwByCookie = getCookie(cookieNames.nsfwCookie);
-        if (nsfwByCookie !== undefined) {
-            rp.settings.nsfw = (nsfwByCookie === "true");
+        var nsfwByConfig = getConfig(configNames.nsfw);
+        if (nsfwByConfig !== undefined) {
+            rp.settings.nsfw = nsfwByConfig;
             $("#nsfw").prop("checked", rp.settings.nsfw);
         }
         $('#nsfw').change(updateNsfw);
         updateNsfw();
 
-        var embedByCookie = !getCookie(cookieNames.embedCookie);
-        if (embedByCookie !== undefined) {
-            rp.settings.embed = (embedByCookie === "true");
+        var embedByConfig = getConfig(configNames.embed);
+        if (embedByConfig !== undefined) {
+            rp.settings.embed = embedByConfig;
             $("#embed").prop("checked", !rp.settings.embed);
         }
         $('#embed').change(updateEmbed);
@@ -613,27 +617,27 @@ $(function () {
         updateVideoMute();
         $('#mute').change(updateVideoMute);
 
-        var autoByCookie = getCookie(cookieNames.shouldAutoNextSlideCookie);
-        if (autoByCookie !== undefined) {
-            rp.settings.shouldAutoNextSlide = (autoByCookie === "true");
+        var autoByConfig = getConfig(configNames.shouldAutoNextSlide);
+        if (autoByConfig !== undefined) {
+            rp.settings.shouldAutoNextSlide = autoByConfig;
             $("#autoNextSlide").prop("checked", rp.settings.shouldAutoNextSlide);
         }
         updateAutoNext();
         $('#autoNextSlide').change(updateAutoNext);
 
-        var updateTimeToNextSlide = function () {
-            var val = $('#timeToNextSlide').val();
-            rp.settings.timeToNextSlide = parseFloat(val);
-            setCookie(cookieNames.timeToNextSlideCookie, val);
+        var updateTimeToNextSlide = function (c_val) {
+            if (!isFinite(c_val))
+                c_val = $('#timeToNextSlide').val();
+            var val = parseFloat(c_val);
+            if (!(val > 0))
+                return;
+            rp.settings.timeToNextSlide = val;
+            setConfig(configNames.timeToNextSlide, rp.settings.timeToNextSlide);
+            $('#timeToNextSlide').val(rp.settings.timeToNextSlide);
         };
 
-        var timeByCookie = getCookie(cookieNames.timeToNextSlideCookie);
-        if (timeByCookie === undefined) {
-            updateTimeToNextSlide();
-        } else {
-            rp.settings.timeToNextSlide = parseFloat(timeByCookie);
-            $('#timeToNextSlide').val(timeByCookie);
-        }
+        var timeByConfig = getConfig(configNames.timeToNextSlide);
+        updateTimeToNextSlide(timeByConfig);
 
         $('#fullscreen').change(toggleFullScreen);
 
@@ -2413,9 +2417,10 @@ $(function () {
         rp.session.loginExpire = 1;
         rp.url.get = rp.redditBaseUrl;
         $('#loginUsername').html(googleIcon('account_box'));
+        $('#loginUsername').attr('title', 'Expired');
         log.debug("Clearing bearer is obsolete EOL:"+rp.session.loginExpire+" < now:"+Date.now()/1000);
-        clearCookie(cookieNames.redditBearer);
-        clearCookie(cookieNames.redditRefreshBy);
+        clearConfig(configNames.redditBearer);
+        clearConfig(configNames.redditRefreshBy);
     };
 
     var loadRedditMultiList = function () {
@@ -2455,36 +2460,43 @@ $(function () {
         });
     };
 
+    var setupRedditLogin = function (bearer, by) {
+        if (bearer === undefined)
+            bearer = getConfig(configNames.redditBearer);
+        if (by === undefined)
+            by = getConfig(configNames.redditRefreshBy);
+        if (rp.session.loginExpire > (Date.now()/1000)-30)
+            return;
+        $('#loginUsername').attr('href', rp.redditBaseUrl + '/api/v1/authorize?' + 
+                                 ['client_id=' + rp.api_key.reddit,
+                                  'response_type=token',
+                                  'state='+encodeURIComponent(rp.url.path),
+                                  'redirect_uri='+encodeURIComponent(rp.redirect),
+                                  // read - /r/ALL, /me/m/ALL
+                                  // history - /user/USER/submitted
+                                  'scope=read,history'].join('&'));
+        if (bearer !== undefined && by-30 > Date.now()/1000) {
+            var d = new Date(by*1000);
+            rp.session.loginExpire = by;
+            rp.session.redditHdr = { Authorization: 'bearer '+bearer };
+            $('#loginUsername').html(googleIcon('verified_user'));
+            $('#loginUsername').attr('title', 'Expires at '+d);
+            rp.url.get = 'https://oauth.reddit.com';
+            loadRedditMultiList();
+            
+        } else {
+            clearRedditLogin();
+        }
+    };
+
     var getRedditImages = function () {
         if (rp.session.loadingNextImages)
             return;
         rp.session.loadingNextImages = true;
 
         // Only enable login where it will work
-        if ($('<a>').attr('href', rp.redirect).prop('origin') == window.location.origin) {
-            var bearer = getCookie(cookieNames.redditBearer);
-            var by = parseInt(getCookie(cookieNames.redditRefreshBy), 10);
-            $('#loginUsername').attr('href', rp.redditBaseUrl + '/api/v1/authorize?' + 
-                                     ['client_id=' + rp.api_key.reddit,
-                                      'response_type=token',
-                                      'state='+encodeURIComponent(rp.url.path),
-                                      'redirect_uri='+encodeURIComponent(rp.redirect),
-                                      // read - /r/ALL, /me/m/ALL
-                                      // history - /user/USER/submitted
-                                      'scope=read,history'].join('&'));
-            if (bearer !== undefined && by-30 > Date.now()/1000) {
-                var d = new Date(by*1000);
-                rp.session.loginExpire = by;
-                rp.session.redditHdr = { Authorization: 'bearer '+bearer };
-                $('#loginUsername').html(googleIcon('verified_user'));
-                $('#loginUsername').attr('title', 'Expires at '+d);
-                rp.url.get = 'https://oauth.reddit.com';
-                loadRedditMultiList();
-
-            } else {
-                clearRedditLogin();
-            }
-        }
+        if ($('<a>').attr('href', rp.redirect).prop('origin') == window.location.origin)
+            setupRedditLogin();
 
         var jsonUrl = rp.url.get + rp.url.subreddit + ".json?";
         var dataType = 'json';
@@ -3258,13 +3270,17 @@ $(function () {
         if (rp.url.subreddit == "/auth" ||
             rp.url.subreddit == "/" && rp.url.path.startsWith('/access_token')) {
             var matches = /[\/#?&]access_token=([^&#=]*)/.exec(window.location.href);
-            setCookie(cookieNames.redditBearer, matches[1]);
+            var bearer = matches[1];
+            setConfig(configNames.redditBearer, bearer);
 
             matches = /[#?&]expires_in=([^&#=]*)/.exec(window.location.href);
             // if failed to process, default to an hour
             var time = parseInt(decodeURIComponent(matches[1]), 10);
+            var by = time+Math.ceil(Date.now()/1000);
 
-            setCookie(cookieNames.redditRefreshBy, (time+Math.ceil(Date.now()/1000)));
+            setConfig(configNames.redditRefreshBy, by);
+
+            setupRedditLogin(bearer, by);
 
             matches = /[#?&]state=([^&#=]*)/.exec(window.location.href);
             processUrls(decodeURIComponent(matches[1]));
