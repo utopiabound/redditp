@@ -56,8 +56,12 @@ rp.session = {
 
     is_ios: false,
     is_pre10ios: false,
+    fakeStorage: false,
     redditHdr: {}
 };
+// In case browser doesn't support localStorage
+// This can happen in iOS Safari in Private Browsing mode
+rp.storage = {};
 
 rp.history = window.history;
 
@@ -482,25 +486,47 @@ $(function () {
         redditRefreshBy: 'redditRefreshBy'
     };
 
-    var setConfig = function (c_name, value) {
-        log.debug("Setting Config "+c_name+" = "+value);
+    var setConfig = function (c_name, c_value) {
+        var value = JSON.stringify(c_value);
         var name = "redditp-"+c_name;
-        window.localStorage[name] = JSON.stringify(value);
+        log.debug("Setting Config "+c_name+" = "+value);
+        if (rp.session.fakeStorage) {
+            rp.storage[c_name] = value;
+            return;
+        }
+
+        try {
+            window.localStorage[name] = value;
+
+        } catch (e) {
+            log.error("Real localStoage is not supported: "+e.message);
+            rp.session.fakeStorage = true;
+            rp.storage[c_name] = value;
+        }
     };
 
     var getConfig = function (c_name) {
         // undefined in case nothing found
+        var value;
         var name = "redditp-"+c_name;
-        var value = window.localStorage[name];
-        log.debug("Getting Config "+c_name+" = "+value);
+        if (rp.session.fakeStorage)
+            value = rp.storage[c_name];
+        else
+            value = window.localStorage[name];
+        if (value === "undefined")
+            return undefined;
         if (value !== undefined)
             value = JSON.parse(value);
+        log.debug("Getting Config "+c_name+" = "+value);
         return value;
     };
 
     var clearConfig = function(c_name) {
-         var name = "redditp-"+c_name;
-        delete window.localStorage[name];
+        var name = "redditp-"+c_name;
+        if (rp.session.fakeStorage)
+            delete rp.storage[c_name];
+        else
+            delete window.localStorage[name];
     };
 
     var clearSlideTimeout = function() {
@@ -2475,7 +2501,7 @@ $(function () {
                                   // read - /r/ALL, /me/m/ALL
                                   // history - /user/USER/submitted
                                   'scope=read,history'].join('&'));
-        if (bearer !== undefined && by-30 > Date.now()/1000) {
+        if (bearer !== undefined && by !== undefined && by-30 > Date.now()/1000) {
             var d = new Date(by*1000);
             rp.session.loginExpire = by;
             rp.session.redditHdr = { Authorization: 'bearer '+bearer };
