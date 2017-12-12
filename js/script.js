@@ -63,6 +63,9 @@ rp.session = {
 // This can happen in iOS Safari in Private Browsing mode
 rp.storage = {};
 
+// @@ Store this in localStorage
+rp.wpv2 = {};
+
 rp.history = window.history;
 
 rp.api_key = {tumblr:  'sVRWGhAGTVlP042sOgkZ0oaznmUOzD8BRiRwAm5ELlzEaz4kwU',
@@ -347,12 +350,16 @@ $(function () {
     // text - Text of foreign link
     // infop - always self-link (optional)
     // infoalt - alt text (optional)
-    var infoLink = function(info, text, infop, infoalt) {
+    // favicon - specify favicon (optional)
+    var infoLink = function(info, text, infop, infoalt, favicon) {
         if (infoalt === undefined)
             infoalt = "";
-        var sld = hostnameOf(info, true).match(/[^\.]*/)[0];
-        if (rp.favicons[sld])
-            text = '<img class="redditp favicon" src="'+rp.favicons[sld]+'" />'+text;
+        if (favicon === undefined) {
+            var sld = hostnameOf(info, true).match(/[^\.]*/)[0];
+            favicon = rp.favicons[sld];
+        }
+        if (favicon !== undefined)
+            text = '<img class="redditp favicon" src="'+favicon+'" />'+text;
         var data = '<a href="'+info+'" class="info infol" title="'+infoalt+'">'+text+'</a>';
         if (infop !== undefined)
             data += '<a href="'+rp.url.base+infop+'" class="info infop">'+
@@ -400,6 +407,10 @@ $(function () {
     };
     var pathnameOf = function(url) {
         return $('<a>').attr('href', url).prop('pathname');
+    };
+    // protocol, hostname and port number
+    var originOf = function(url) {
+        return $('<a>').attr('href', url).prop('origin');
     };
 
     var searchOf = function(url)  {
@@ -803,7 +814,7 @@ $(function () {
             log.error("Delete of bad type:"+pic.type+" for photo: "+photo.url);
             return;
         }
-        log.info("moved first album to primary item: "+photo.url);
+        log.debug("moved first album to primary item: "+photo.url);
         
         delete photo.album;
     };
@@ -850,7 +861,7 @@ $(function () {
             photo.insertAt = -1;
             photo.album = [];
 
-            if (keepfirst && processPhoto(img)) {
+            if (keepfirst && processPhoto(img) && img.type !== imageTypes.later) {
                 log.info("moved primary to first album item: "+img.url);
                 addAlbumItem(photo, img);
             }
@@ -962,7 +973,7 @@ $(function () {
             pic.favicon = rp.favicons[sld];
 
         else if (photo.favicon !== undefined &&
-                 hostnameOf(photo.url) == hostnameOf(pic.url))
+                 hostnameOf(photo.url, true) == hostnameOf(pic.url, true))
             pic.favicon = photo.favicon;
 
         if (photo.insertAt < 0) {
@@ -1140,7 +1151,6 @@ $(function () {
             pic.type = imageTypes.later;
 
         } else {
-            log.info('cannot display url [no image]: ' + pic.url);
             return false;
         }
         return true;
@@ -1176,14 +1186,20 @@ $(function () {
          *     thumbnail: optional, (URL)
          * }
          */
+        // Check if this photo is already in rp.photos
+        if (photo.index !== undefined)
+            return true;
+
         if (photo.duplicates === undefined)
             photo.duplicates = [];
 
         if (photo.orig_url === undefined)
             photo.orig_url = photo.url;
 
-        if (!processPhoto(photo))
+        if (!processPhoto(photo)) {
+            log.info('cannot display url [no image]: ' + photo.url);
             return false;
+        }
 
         var isFirst = !rp.session.foundOneImage;
         rp.session.foundOneImage = true;
@@ -2399,10 +2415,8 @@ $(function () {
     var isImageExtension = function (url) {
         var path = pathnameOf(url);
         var dotLocation = path.lastIndexOf('.');
-        if (dotLocation < 0) {
-            log.debug("skipped no dot: " + url);
+        if (dotLocation < 0)
             return false;
-        }
         var extension = path.substring(dotLocation+1);
 
         if (rp.settings.goodImageExtensions.indexOf(extension) >= 0) {
@@ -2417,10 +2431,8 @@ $(function () {
     var isVideoExtension = function (url) { 
         var path = pathnameOf(url);
         var dotLocation = path.lastIndexOf('.');
-        if (dotLocation < 0) {
-            log.debug("skipped no dot: " + url);
+        if (dotLocation < 0)
             return false;
-        }
         var extension = path.substring(dotLocation+1);
 
         if (rp.settings.goodVideoExtensions.indexOf(extension) >= 0) {
@@ -2605,8 +2617,7 @@ $(function () {
                 }
             }            
 
-            var p = photo.commentsLink.split("/").slice(3).join("/");
-            var jsonUrl = rp.url.get + '/' + p + '.json?depth=1';
+            var jsonUrl = rp.url.get + item.data.permalink + '.json?depth=1';
 
             var loadTypes = {
                 OP:     "OP",
@@ -2680,30 +2691,65 @@ $(function () {
 
                 type = loadTypes.OP;
 
-            } else if (addImageSlide(photo)) {
+            } else if (processPhoto(photo)) {
+                addImageSlide(photo);
                 return;
 
             } else if (rp.settings.speculativeWP) {
                 // This check to see if bare url is actually a wordpress site
                 var path = pathnameOf(photo.url);
-                var a = path.match(/^\/([a-z0-9]+(?:-[a-z0-9]+)*)\/$/);
-                if (a === null)
-                    return;
+                var a = path.match(/^\/(?:\d+\/)*([a-z0-9]+(?:-[a-z0-9]+)*)\/$/);
                 var hn = hostnameOf(photo.url);
+                if (a === null || rp.wpv2[hn] === false) {
+                    log.info('cannot display url [no image]: ' + photo.url);
+                    return;
+                }
+                var slug = a[1];
                 hdrData = '';
-                jsonUrl = 'https://public-api.wordpress.com/rest/v1.1/sites/'+
-                    hn+'/posts/slug:'+a[1];
+                jsonUrl = 'https://public-api.wordpress.com/rest/v1.1/sites/'+hn+'/posts/slug:'+slug;
+                log.debug("WP Trying: "+photo.url);
                 handleData = function (data) {
-                    if (processWordPressPost(photo, data)) {
+                    if (data.error !== undefined)
+                        log.info("Cannot display wordpress ["+data.error+"]: "+photo.url);
+                    else if (processWordPressPost(photo, data))
                         addImageSlide(photo);
-                    } else {
+                    else
                         log.info("cannot display wordpress [no photos]: "+photo.url);
-                    }
                 };
                 failedData = function () {
-                    log.debug("cannot display wordpress [not wp site]: "+photo.url);
+                    //log.info("cannot display wordpress [not wp site]: "+photo.url);
+                    var origin = originOf(photo.url);
+                    jsonUrl = origin+'/wp-json/wp/v2/posts/?slug='+slug+'&_jsonp=?';
+                    log.debug("WPv2 Trying: "+photo.url);
+                    handleData = function (data) {
+                        rp.wpv2[hn] = true;
+                        if (processWPv2(photo, data[0]))
+                            addImageSlide(photo);
+                        else
+                            log.info("cannot display WPv2 [no photos]: "+photo.url);
+                    };
+                    failedData = function () {
+                        rp.wpv2[hn] = false;
+                        log.info("cannot display url [not WPv2 site]: "+photo.url);
+                    };
+                    $.ajax({
+                        url: jsonUrl,
+                        headers: hdrData,
+                        dataType: 'jsonp',
+                        success: handleData,
+                        error: failedData,
+                        timeout: rp.settings.ajaxTimeout,
+                        crossDomain: true
+                    });
                 };
+                // We already know We need to talk directly to site:
+                if (rp.wpv2[hn] === true) {
+                    failedData();
+                    return;
+                }
+                    
             } else {
+                log.info('cannot display url [no image]: ' + photo.url);
                 return;
             }
 
@@ -2796,8 +2842,7 @@ $(function () {
                 }
 
                 func = handleDuplicatesData;
-                url = rp.redditBaseUrl + '/r/' + item.data.subreddit + '/duplicates/' +
-                    item.data.id + '.json';
+                url = rp.redditBaseUrl + '/duplicates/' + item.data.id + '.json?show=all';
 
                 // Don't use oauth'd API for this, if oauth has expired, lots of failures happen,
                 // and oauth adds nothing here.
@@ -2887,8 +2932,14 @@ $(function () {
                 // Skip thumbnails
                 if (item.className.includes('thumbnail'))
                     return false;
+                if (item.getAttribute("itemprop") &&
+                    item.getAttribute("itemprop").includes("thumbnail"))
+                    return false;
+
                 pic.type = imageTypes.image;
                 pic.url = item.src;
+                if (item.alt)
+                    pic.title = item.alt;
                 
             } else if (item.tagName == 'VIDEO') {
                 pic.type = imageTypes.video;
@@ -2931,6 +2982,54 @@ $(function () {
         return rc;
     };
 
+    // This is for processing /wp-json/wp/v2/posts aka
+    // https://developer.wordpress.org/rest-api/reference/
+    var processWPv2 = function(photo, post) {
+        var hn = hostnameOf(photo.url);
+        photo.favicon = rp.favicons.wordpress;
+        photo.extra = infoLink(originOf(photo.url), hn, "/wp2/"+hn, "", rp.favicons['wordpress']);
+        if (photo.orig_url === undefined)
+            photo.orig_url = photo.url;
+        var rc = processHaystack(photo, post.content.rendered);
+
+        // Pull down 100, but only videos and images
+        var jsonUrl = post._links["wp:attachment"][0].href + '&per_page=100';
+        var handleData = function(data) {
+            if (data.length == 100)
+                log.notice("Found Full Page, should ask for more: "+photo.url);
+            if (data.length == 0)
+                return;
+            initPhotoAlbum(photo);
+            $.each(data, function(i, item) {
+                var pic = { url: item.source_url,
+                            title: ((item.caption.rendered) ?item.caption.rendered
+                                    :(item.alt_text) ?item.alt_text 
+                                    :(item.title.rendered) ?item.title.rendered :photo.title) };
+                if (item.media_type == "image")
+                    pic.type = imageTypes.image;
+                else // @@ WAG
+                    initPhotoVideo(pic, item.source_url);
+                addAlbumItem(photo, pic);
+            });
+            checkPhotoAlbum(photo);
+            addImageSlide(photo);
+        };
+
+        //var jsonUrl = post._links[wp:featuredmedia][0].href
+        $.ajax({
+            url: jsonUrl+'&_jsonp=?',
+            dataType: 'jsonp',
+            success: handleData,
+            error: failedAjax,
+            timeout: rp.settings.ajaxTimeout,
+            crossDomain: true
+        });
+        return rc;
+    };
+
+    // This is for public-api.wordpress.com which uses API v1.1
+    // https://developer.wordpress.com/docs/api/
+    // https://developer.wordpress.com/docs/api/1.1/get/sites/%24site/
     var processWordPressPost = function(photo, post) {
         var rc = false;
 
@@ -2995,6 +3094,84 @@ $(function () {
         return rc;
     };
 
+
+    var getWordPressBlogV2 = function () {
+        if (rp.session.loadingNextImages)
+            return;
+        rp.session.loadingNextImages = true;
+
+        var a = rp.url.subreddit.split('/');
+        if (a[a.length-1] == "")
+            a.pop();
+
+        // newest to oldest
+        var urlorder = 'asc';
+
+        var hostname = a.pop();
+        if (hostname == "new") {
+            hostname = a.pop();
+            // newest to oldest
+            urlorder = 'desc';
+        }
+
+        if (rp.wpv2[hostname] === false) {
+            rp.session.loadingNextImages = false;
+            return;
+        }
+        
+        $('#subredditLink').prop('href', 'https://'+hostname);
+        $('#subredditUrl').val('wp2/'+hostname);
+
+        var jsonUrl = 'https://'+hostname+'/wp-json/wp/v2/posts/?orderby=date&order='+urlorder;
+        if (rp.url.vars)
+            jsonUrl += '&'+rp.url.vars;
+
+       if (rp.session.after !== "")
+            jsonUrl = jsonUrl+'&offset='+rp.session.after;
+        else
+            rp.session.after = 0;
+
+        var handleData = function (data) {
+            rp.wpv2[hostname] = true;
+            if (!Array.isArray(data)) {
+                log.error("Something bad happened: "+data);
+                failedAjaxDone();
+                return;
+            } else if (data.length == 0) {
+                rp.session.loadAfter = null;
+            }
+            rp.session.loadAfter = getWordPressBlogV2;
+            rp.session.after = rp.session.after + data.length;
+            $.each(data, function(index, post) {
+                var d = new Date(post.date_gmt+"Z");
+                var photo = { title: post.title.rendered,
+                              id: post.id,
+                              url: post.link,
+                              over18: false,
+                              date: d.valueOf()/1000
+                            };
+                if (processWPv2(photo, post))
+                    return; // addImageSlide(photo); - wait for processWPv2()
+                else
+                    log.info("cannot display WPv2 [no photos]: "+photo.url);
+            });
+            rp.session.loadingNextImages = false;
+        };
+        var failedData = function () {
+            rp.wpv2[hostname] = false;
+            failedAjaxDone();
+        };
+
+        $.ajax({
+            url: jsonUrl+'&_jsonp=?',
+            dataType: 'jsonp',
+            success: handleData,
+            error: failedData,
+            timeout: rp.settings.ajaxTimeout,
+            crossDomain: true
+        });
+    };
+
     // https://developer.wordpress.com/docs/api/1.1/get/sites/%24site/posts/
     var getWordPressBlog = function () {
         if (rp.session.loadingNextImages)
@@ -3021,6 +3198,13 @@ $(function () {
         $('#subredditLink').prop('href', 'https://'+hostname);
         $('#subredditUrl').val('wp/'+hostname);
 
+        // If we know this fails, bail
+        if (rp.wpv2[hostname] === true) {
+            rp.session.loadingNextImages = false;
+            getWordPressBlogV2();
+            return;
+        }
+
         var jsonUrl = 'https://public-api.wordpress.com/rest/v1.1/sites/'+hostname+'/posts?order_by=date&order='+urlorder;
         if (rp.url.vars)
             jsonUrl += '&'+rp.url.vars;
@@ -3045,17 +3229,20 @@ $(function () {
                               id: post.ID,
                               url: post.URL,
                               over18: false,
-                              date: d.valueOf(),
+                              date: d.valueOf()/1000,
                               commentsLink: post.URL,
                               thumbnail: post.post_thumbnail
                             };
 
                 if (processWordPressPost(photo, post))
                     addImageSlide(photo);
-
+                else
+                    log.info("cannot display WP [no photos]: "+photo.url);
             });
             rp.session.loadingNextImages = false;
         };
+
+        // @@ Add failedDone to try getWordPressBlog if error is unknown_host
 
         $.ajax({
             url: jsonUrl,
@@ -3245,7 +3432,7 @@ $(function () {
         // Detect predefined reddit url paths. If you modify this be sure to fix
         // .htaccess
         // This is a good idea so we can give a quick 404 page when appropriate.
-        var regexS = "(/(?:(?:imgur/a/)|(?:gfycat/u/)|(?:tumblr/)|(?:wp/)|(?:auth)|"+
+        var regexS = "(/(?:(?:imgur/a/)|(?:gfycat/u/)|(?:tumblr/)|(?:wp2?/)|(?:auth)|"+
             "(?:r/)|(?:u/)|(?:user/)|(?:domain/)|(?:search)|(?:me)|(?:top)|(?:new)|(?:rising)|(?:controversial)"+
             ")[^&#?]*)[?]?(.*)";
 
@@ -3378,6 +3565,9 @@ $(function () {
 
         else if (rp.url.subreddit.startsWith('/wp/'))
             getWordPressBlog();
+
+        else if (rp.url.subreddit.startsWith('/wp2/'))
+            getWordPressBlogV2();
 
         else if (rp.url.subreddit.startsWith('/gfycat/user/'))
             getGfycatUser();
