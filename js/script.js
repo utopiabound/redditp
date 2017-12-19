@@ -341,11 +341,6 @@ $(function () {
         return 'https://www.youtube.com/embed/'+id+ytExtra;
     };
 
-    // For self links only
-    var albumLink = function(url) {
-        return '<a id="album" class="info infol" href="'+rp.url.base+url+'">[ALBUM]</a>';
-    };
-
     // info - foreign link
     // text - Text of foreign link
     // infop - always self-link (optional)
@@ -424,6 +419,35 @@ $(function () {
     };
     var searchValueOf = function(url, key) {
         return searchOf(url)[key];
+    };
+
+    // Get Values from photo (or album item)
+    var picTitle = function(pic) {
+        if (pic.title)
+            return pic.title;
+        var photo = photoParent(pic);
+        if (photo.title)
+            return photo.title;
+        return "";
+    };
+    var picTitleText = function(pic) {
+        return $("<div />").html(picTitle(pic)).text();
+    };
+    var picFlair = function(pic) {
+        if (pic.flair !== undefined)
+            return pic.flair;
+        var photo = photoParent(pic);
+        if (photo.flair !== undefined)
+            return photo.flair;
+        return "";
+    };
+    var picExtra = function(pic) {
+        if (pic.extra !== undefined)
+            return pic.extra;
+        var photo = photoParent(pic);
+        if (photo.extra !== undefined)
+            return photo.extra;
+        return "";
     };
 
     $("#pictureSlider").touchwipe({
@@ -541,7 +565,7 @@ $(function () {
     };
 
     var clearSlideTimeout = function() {
-        log.trace('clear timout');
+        log.debug('clear timout');
         window.clearTimeout(rp.session.nextSlideTimeoutId);
     };
 
@@ -551,7 +575,7 @@ $(function () {
         }
         timeout *= 1000;        
         window.clearTimeout(rp.session.nextSlideTimeoutId);
-        log.trace('set timeout (ms): ' + timeout);
+        log.debug('set timeout (ms): ' + timeout);
         rp.session.nextSlideTimeoutId = window.setTimeout(autoNextSlide, timeout);
     };
 
@@ -844,14 +868,10 @@ $(function () {
             if (photo.type == imageTypes.image ||
                 photo.type == imageTypes.embed ||
                 photo.type == imageTypes.later) {
-                img = { title: photo.title,
-                        flair: photo.flair,
-                        url: photo.url,
+                img = { url: photo.url,
                         type: photo.type };
             } else if (photo.type == imageTypes.video) {
-                img = { title: photo.title,
-                        flair: photo.flair,
-                        url: photo.url,
+                img = { url: photo.url,
                         thumbnail: photo.thumbnail,
                         video: photo.video,
                         type: imageTypes.image };
@@ -911,7 +931,7 @@ $(function () {
 
     var albumButtonLi = function (pic, index) {
         var button = $("<a />", { class: "numberButton albumButton",
-                                  title: pic.title,
+                                  title: picTitleText(pic),
                                   id: "albumButton" + (index + 1)
                                 }).data("index", index).html(index + 1);
         addButtonClass(button, pic);
@@ -1215,7 +1235,7 @@ $(function () {
 
         var numberButton = $("<a />").html(index + 1)
                 .data("index", index)
-                .attr("title", $('<span />').html(rp.photos[index].title).text())
+                .attr("title", picTitleText(rp.photos[index]))
                 .attr("id", "numberButton" + (index + 1));
 
 
@@ -1231,9 +1251,9 @@ $(function () {
         addNumberButton(numberButton);
 
         // show the first valid image
-        if (rp.session.activeIndex == -1) {
+        if (isFirst)
             startAnimation(getNextSlideIndex(-1));
-        }
+
         return true;
     };
 
@@ -1386,7 +1406,7 @@ $(function () {
     // Bind to PopState Event
     //rp.history.Adapter.bind(window, 'popstate', function(e) {
     window.onpopstate = function(e) {
-        var state = JSON.parse(e.state);
+        var state = e.state;
         var newurl = window.location.pathname+window.location.search;
 
         if (rp.url.path !== newurl)
@@ -1472,12 +1492,14 @@ $(function () {
         var needRefresh = false;
         resetNextSlideTimer();
 
-        log.trace("startAnimation("+imageIndex+", "+albumIndex+")");
+        log.debug("startAnimation("+imageIndex+", "+albumIndex+")");
 
         // If the same number has been chosen, or the index is outside the
         // rp.photos range, or we're already animating, do nothing
         if (imageIndex < 0 || imageIndex >= rp.photos.length ||
             rp.session.isAnimating || rp.photos.length == 0) {
+
+            log.debug("NOT ANIMATING photo.length=="+rp.photos.length+" isAnimating:"+rp.session.isAnimating);
 
             if (imageIndex >= rp.photos.length &&
                 rp.session.loadAfter !== null)
@@ -1517,13 +1539,13 @@ $(function () {
 
         // Save current State
         var state = { photos: rp.photos,
-                          dedup: rp.dedup,
-                          index: rp.session.activeIndex,
-                          album: rp.session.activeAlbumIndex,
-                          after: rp.session.after,
-                          loadAfter: (rp.session.loadAfter) ?rp.session.loadAfter.name :null,
-                          filler: null};
-        rp.history.replaceState(JSON.stringify(state), "", rp.url.path); 
+                      dedup: rp.dedup,
+                      index: rp.session.activeIndex,
+                      album: rp.session.activeAlbumIndex,
+                      after: rp.session.after,
+                      loadAfter: (rp.session.loadAfter) ?rp.session.loadAfter.name :null,
+                      filler: null};
+        rp.history.replaceState(state, "", rp.url.path); 
     };
 
     var toggleNumberButton = function (imageIndex, turnOn) {
@@ -1591,21 +1613,14 @@ $(function () {
         }
 
         // TITLE BOX
-        if (albumIndex < 0) {
-            $('#navboxTitle').html(photo.title);
-            if (photo.flair)
-                $('#navboxTitle').prepend($('<span>', { class: 'linkflair' }).text(photo.flair));
-            $('#navboxExtra').html((photo.extra !== undefined) ?photo.extra :"");
-            $('#navboxLink').attr('href', photo.url).attr('title', photo.title+" (i)").html(googleIcon(photo.type));
-
-        } else {
-            $('#navboxTitle').html(image.title);
-            if (image.flair)
-                $('#navboxTitle').prepend($('<span>', { class: 'linkflair' }).text(image.flair));
-            var extra = (image.extra) ?'&nbsp;'+image.extra :(photo.extra) ?'&nbsp;'+photo.extra :"";
-            $('#navboxExtra').html($('<span>', { class: 'info' }).text((albumIndex+1)+"/"+rp.photos[imageIndex].album.length)).append(extra);
-            $('#navboxLink').attr('href', image.url).attr('title', $("<div/>").html(image.title).text()+" (i)").html(googleIcon(image.type));
-        }
+        $('#navboxTitle').html(picTitle(image));
+        var flair = picFlair(image);
+        if (flair)
+            $('#navboxTitle').prepend($('<span>', { class: 'linkflair' }).text(flair));
+        $('#navboxLink').attr('href', image.url).attr('title', picTitleText(image)+" (i)").html(googleIcon(image.type));
+        $('#navboxExtra').html(picExtra(image));
+        if (albumIndex >= 0)
+            $('#navboxExtra').prepend($('<span>', { class: 'info' }).text((albumIndex+1)+"/"+rp.photos[imageIndex].album.length));
         
         if (photo.subreddit !== undefined && photo.subreddit !== null) {
             $('#navboxSubreddit').attr('href', rp.redditBaseUrl + subreddit).html(subreddit);
@@ -1653,7 +1668,7 @@ $(function () {
                 multi += '+'+item.subreddit;
                 var li = $("<li>", { class: 'list'}).html(infoLink(rp.redditBaseUrl + subr,
                                                                    subr, subr,
-                                                                   item.title+" ("+(i+1)+")"));
+                                                                   picTitleText(item)+" ("+(i+1)+")"));
                 li.append($("<a>", { href: rp.redditBaseUrl + subr + "/comments/"+item.id,
                                      class: 'info infoc',
                                      title: 'Comments'
@@ -1794,7 +1809,7 @@ $(function () {
         else
             photo = rp.photos[imageIndex];
 
-        log.trace("createDiv("+imageIndex+", "+albumIndex+")");
+        log.debug("createDiv("+imageIndex+", "+albumIndex+")");
 
         // Used by showVideo and showImage
         var divNode = $("<div />");
@@ -1986,7 +2001,11 @@ $(function () {
         var dataType = 'json';
         var handleData;
         var headerData;
-        var handleError = failedAjax;
+        var handleError = function (xhr, ajaxOptions, thrownError) {
+            initPhotoFailed(photo);
+            showImage(photo.thumbnail);
+            failedAjax(xhr, ajaxOptions, thrownError);
+        };
         var url = photo.url;
 
         var hostname = hostnameOf(url, true);
@@ -2035,10 +2054,9 @@ $(function () {
 
                     photo = initPhotoAlbum(photo, false);
                     $.each(data.data.images, function(i, item) {
-                        var pic = { title: (item.title) ?item.title :(item.description) ?item.description :photo.title,
+                        var pic = { title: (item.title) ?item.title :(item.description) ?item.description :undefined,
                                     url: fixImgurPicUrl(item.animated ?item.mp4 :item.link),
                                     author: author,
-                                    extra: albumLink('/imgur/a/'+shortid),
                                     type: item.animated ?imageTypes.video :imageTypes.image
                                   };
                         if (item.animated)
@@ -2665,8 +2683,6 @@ $(function () {
                         if (links[j].innerText !== "" &&
                             links[j].innerText !== img.url)
                             img.title = links[j].innerText;
-                        else
-                            img.title = photo.title;
 
                         log.debug(type+"-Try:["+photo.commentsLink+"]:"+img.url);
                         if (processPhoto(img))
@@ -2742,7 +2758,7 @@ $(function () {
                         crossDomain: true
                     });
                 };
-                // We already know We need to talk directly to site:
+                // We already know we need to talk directly to site:
                 if (rp.wpv2[hn] === true) {
                     failedData();
                     return;
@@ -2887,7 +2903,7 @@ $(function () {
             $.each(data.data.images, function (i, item) {
                 addImageSlide({
                     url: (item.animated) ?item.gifv :item.link,
-                    title: (item.title !== undefined) ?item.title :"",
+                    title: (item.title !== undefined) ?item.title :undefined,
                     id: albumID,
                     over18: item.nsfw,
                     commentsLink: data.data.link,
@@ -2968,7 +2984,7 @@ $(function () {
         if (images.length > 1) {
             photo = initPhotoAlbum(photo);
             $.each(images, function(i, item) {
-                var pic = { title: (item.alt) ?item.alt :photo.title };
+                var pic = { title: item.alt };
                 if (processNeedle(pic, item) && processPhoto(pic)) {
                     addAlbumItem(photo, pic);
                     rc = true;
@@ -3002,9 +3018,10 @@ $(function () {
             initPhotoAlbum(photo);
             $.each(data, function(i, item) {
                 var pic = { url: item.source_url,
-                            title: ((item.caption.rendered) ?item.caption.rendered
+                            title: ((item.caption.rendered) ?item.caption.rendered 
                                     :(item.alt_text) ?item.alt_text 
-                                    :(item.title.rendered) ?item.title.rendered :photo.title) };
+                                    :(item.title.rendered) ?item.title.rendered 
+                                    :undefined) };
                 if (item.media_type == "image")
                     pic.type = imageTypes.image;
                 else // @@ WAG
@@ -3055,7 +3072,7 @@ $(function () {
                 pic.url = att.URL;
                 
             } else if (att.mime_type.startsWith('video/')) {
-                initPhotoVideo(pic, att.URL, att.thumbnails.large);
+                initPhotoVideo(pic, att.URL, (att.thumbnails) ?att.thumbnails.large :undefined);
 
             } else {
                 log.info("cannot display url [unknown mimetype "+att.mime_type+"]: "+att.url);
@@ -3541,10 +3558,10 @@ $(function () {
             log.debug("RESTORING STATE: "+path);
             rp.session.dedup = data.dedup;
             rp.session.after = data.after;
+            rp.session.foundOneImage = true;
             if (data.loadAfter)
                 rp.session.loadAfter = eval(data.loadAfter);
-            // needs to be not -1 during addImageSlide()
-            rp.session.activeIndex = -2;
+            rp.session.activeIndex = -1;
 
             clearSlideTimeout();
             var orig_index = data.index;
@@ -3554,6 +3571,9 @@ $(function () {
                     index < orig_index)
                     --data.index;
             });
+
+            if (rp.photos.length == 0)
+                rp.session.foundOneImage = false;
 
             startAnimation(data.index, data.album);
 
