@@ -289,6 +289,8 @@ $(function () {
         }
 
         do {
+            if (rp.photos[index] === undefined)
+                log.error("FAILED to fetch photo index: "+index);
             if (rp.photos[index].type == imageTypes.album) {
                 if (albumIndex == LOAD_PREV_ALBUM)
                     albumIndex = rp.photos[index].album.length;
@@ -2816,16 +2818,22 @@ $(function () {
                 var item = data[0].data.children[0];
 
                 item.duplicates = [];
-                $.each(data[1].data.children, function(i, dupe) {
+                var i;
+                for(i = 0; i < data[1].data.children.length; ++i) {
+                    var dupe = data[1].data.children[i];
                     if (rp.dedup[dupe.data.subreddit] == undefined)
                         rp.dedup[dupe.data.subreddit] = {};
+                    if (rp.dedup[dupe.data.subreddit][dupe.data.id] === "SELF") {
+                        log.info('cannot display url [non-self dup]: '+item.data.url);
+                        return;
+                    }
                     rp.dedup[dupe.data.subreddit][dupe.data.id] = '/r/'+item.data.subreddit+'/'+item.data.id;
                     item.duplicates.push({subreddit: dupe.data.subreddit,
                                           commentCount: dupe.data.num_comments,
                                           title: dupe.data.title,
                                           date: dupe.data.created,
                                           id: dupe.data.id});
-                });
+                }
                 addImageSlideRedditT3(item);
 
                 // Place self in dedup list
@@ -3567,6 +3575,8 @@ $(function () {
             var orig_index = data.index;
             $.each(data.photos, function(i, photo) {
                 var index = photo.index;
+                // This allows the photo to be re-added
+                delete photo.index;
                 if (!addImageSlide(photo) &&
                     index < orig_index)
                     --data.index;
@@ -3574,6 +3584,8 @@ $(function () {
 
             if (rp.photos.length == 0)
                 rp.session.foundOneImage = false;
+
+            log.info("Restored "+path+" and "+rp.photos.length+" images of "+data.photos.length);
 
             startAnimation(data.index, data.album);
 
