@@ -385,7 +385,7 @@ $(function () {
         return $('<a>').attr('href', url).prop('pathname');
     };
 
-    // PROTO://HOSTNAME:PORT
+    // ORIGIN == PROTO://HOSTNAME:PORT
     var originOf = function(url) {
         return $('<a>').attr('href', url).prop('origin');
     };
@@ -1059,6 +1059,9 @@ $(function () {
         if (pic === undefined)
             return false;
 
+        if (pic.orig_url === undefined)
+            pic.orig_url = pic.url;
+
         if (pic.type === undefined)
             pic.type = imageTypes.image;
 
@@ -1081,6 +1084,10 @@ $(function () {
         // return if already setup as video
         if (pic.type == imageTypes.video &&
             pic.video !== undefined)
+            return true;
+
+        // return if already setup as embeded
+        if (pic.type == imageTypes.embed)
             return true;
 
         var shortid;
@@ -1177,7 +1184,12 @@ $(function () {
             if (a.pkey)
                 pic.extra = infoLink('https://www.pornhub.com/playlist/'+a.pkey, 'Playlist');
 
-          initPhotoEmbed(pic, 'https://www.pornhub.com/embed/'+shortid+'?autoplay=1');
+            if (shortid)
+                initPhotoEmbed(pic, 'https://www.pornhub.com/embed/'+shortid+'?autoplay=1');
+            else {
+                log.info("cannot parse url [bad search]: "+pic.url);
+                return false;
+            }
 
         } else if (hostname == 'redtube.com') {
             shortid = url2shortid(pic.url);
@@ -1337,9 +1349,6 @@ $(function () {
         if (photo.duplicates === undefined)
             photo.duplicates = [];
 
-        if (photo.orig_url === undefined)
-            photo.orig_url = photo.url;
-
         if (!processPhoto(photo)) {
             log.info('cannot display url [no image]: ' + photo.url);
             return false;
@@ -1434,7 +1443,7 @@ $(function () {
         // 40 - down
         // More info: http://stackoverflow.com/questions/302122/jquery-event-keypress-which-key-was-pressed
         // http://stackoverflow.com/questions/1402698/binding-arrow-keys-in-js-jquery
-        var code = (e.keyCode ? e.keyCode : e.which);
+        var code = e.keyCode || e.which;
         var i = 0;
 
         switch (code) {
@@ -1717,12 +1726,12 @@ $(function () {
         if (image.author !== undefined)
             authName = image.author;
 
-        else if (photo.author != undefined)
+        else if (photo.author !== undefined)
             authName = photo.author;
 
         // COMMENTS/BUTTON LIST Box
         $('#navboxCommentsLink').attr('href', photo.commentsLink);
-        $('#navboxOrigLink').attr('href', photo.orig_url);
+        $('#navboxOrigLink').attr('href', image.orig_url || photo.orig_url || photo.url);
         if (image.favicon)
             $('#navboxOrigLink').html($("<img />", {'class': 'redditp favicon', src: image.favicon}));
         else
@@ -2178,13 +2187,12 @@ $(function () {
             var imgurHandleAlbum = function (data) {
                 if (data.data.images.length > 1) {
                     var index;
-                    var author = photo.author;
 
                     photo = initPhotoAlbum(photo, false);
                     $.each(data.data.images, function(i, item) {
-                        var pic = { title: (item.title) ?item.title :(item.description) ?item.description :undefined,
+                        var pic = { title: item.title || item.description,
                                     url: fixImgurPicUrl(item.animated ?item.mp4 :item.link),
-                                    author: author,
+                                    orig_url: data.data.link,
                                     type: item.animated ?imageTypes.video :imageTypes.image
                                   };
                         if (item.animated)
@@ -2544,6 +2552,10 @@ $(function () {
         }
     };
 
+    //
+    // Site Specific Loading / Processing
+    //
+
     var getRedditImages = function () {
         if (rp.session.loadingNextImages)
             return;
@@ -2688,6 +2700,8 @@ $(function () {
                         log.debug(type+"-Try:["+photo.commentsLink+"]:"+img.url);
                         if (processPhoto(img))
                             addAlbumItem(photo, img);
+                        else
+                            log.info("cannot load comment link [no photos]: "+img.url);
                     }
                 };
                 checkPhotoAlbum(photo);
@@ -2910,7 +2924,7 @@ $(function () {
             $.each(data.data.images, function (i, item) {
                 addImageSlide({
                     url: (item.animated) ?item.gifv :item.link,
-                    title: (item.title !== undefined) ?item.title :undefined,
+                    title: item.title,
                     id: albumID,
                     over18: item.nsfw,
                     commentsLink: data.data.link,
@@ -3025,10 +3039,7 @@ $(function () {
             initPhotoAlbum(photo);
             $.each(data, function(i, item) {
                 var pic = { url: item.source_url,
-                            title: ((item.caption.rendered) ?item.caption.rendered 
-                                    :(item.alt_text) ?item.alt_text 
-                                    :(item.title.rendered) ?item.title.rendered 
-                                    :undefined) };
+                            title: item.caption.rendered || item.alt_text || item.title.rendered };
                 if (item.media_type == "image")
                     pic.type = imageTypes.image;
                 else // @@ WAG
@@ -3093,7 +3104,7 @@ $(function () {
             photo = initPhotoAlbum(photo, false);
             for(k in post.attachments) {
                 att = post.attachments[k];
-                var pic = { title: (att.caption !== "") ?att.caption :att.title };
+                var pic = { title: att.caption || att.title };
                 if (processAttachment(att, pic)) {
                     addAlbumItem(photo, pic);
                     rc = true;
@@ -3286,7 +3297,7 @@ $(function () {
                 $.each(post.photos, function(i, item) {
                     addAlbumItem(photo, { url: fixupUrl(item.original_size.url),
                                           type: imageTypes.image,
-                                          title: (item.caption) ?item.caption :photo.title
+                                          title: item.caption || photo.title
                                         });
                 });
                 rc = true;
