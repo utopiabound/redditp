@@ -9,6 +9,20 @@
  * https://github.com/ubershmekel/redditp
  * This Fork:
  * http://github.com/utopiabound/redditp
+ * 
+ * In Browser Storage (window.storage)
+ * redditp-nsfw                 - boolean - load NSFW content
+ * redditp-redditBearer         - string  - auth bearer token from reddit.com
+ * redditp-redditRefreshBy      - int     - time that bearer token expires
+ * redditp-shouldAutoNextSlide  - boolean - on timeout, go to next image
+ * redditp-showEmbed            - boolean - Show embeded content (iframes, no timeout)
+ * redditp-timeToNextSlide      - int     - timeout in seconds
+ * redditp-wpv2                 - hash of booleans
+ * 
+ * (window.history)
+ * Set/push/replace state
+ * 
+ * Cookies - NONE
  */
 
 var rp = {};
@@ -559,7 +573,8 @@ $(function () {
         shouldAutoNextSlide: "shouldAutoNextSlide",
         timeToNextSlide: "timeToNextSlide",
         redditBearer: 'redditBearer',
-        redditRefreshBy: 'redditRefreshBy'
+        redditRefreshBy: 'redditRefreshBy',
+        wpv2: 'wordpressv2'
     };
 
     var setConfig = function (c_name, c_value) {
@@ -700,6 +715,9 @@ $(function () {
     };
 
     var initState = function () {
+        rp.wpv2 = getConfig(configNames.wpv2);
+        if (rp.wpv2 === undefined)
+            rp.wpv2 = {};
         var nsfwByConfig = getConfig(configNames.nsfw);
         if (nsfwByConfig !== undefined) {
             rp.settings.nsfw = nsfwByConfig;
@@ -791,17 +809,14 @@ $(function () {
 
         delete photo.album;
 
-        // Update classes of number button
-        if (photo.index !== undefined)
-            $('#numberButton'+(photo.index+1)).removeClass('album embed').addClass('failed');
+        fixPhotoButton(photo);
     };
 
     var initPhotoEmbed = function(photo, url) {
         photo.type = imageTypes.embed;
         if (url !== undefined)
             photo.url = url;
-        if (photo.index !== undefined)
-            $('#numberButton'+(photo.index+1)).addClass('embed');
+        fixPhotoButton(photo);
     };
 
     var initPhotoVideo = function (photo, url, thumbnail) {
@@ -838,8 +853,7 @@ $(function () {
 
             a.attr('id', "albumButton" + (i+1)).data('index', i).text(i+1);
 
-            a.removeClass('embed');
-            addButtonClass(a, photo.album[i]);
+            fixPhotoButton(photo.album[i], a);
 
             // Update rp.cache when re-indexing if required
             if (rp.cache[photo.index] !== undefined &&
@@ -960,10 +974,10 @@ $(function () {
                 rp.session.activeAlbumIndex = photo.album.length-1;
             if (rp.session.activeAlbumIndex == -1)
                 rp.session.activeAlbumIndex = 0;
-            if (albumIndex < 0)
+            if (albumIndex === undefined || albumIndex < 0)
                 albumIndex = rp.session.activeAlbumIndex;
 
-        } else if (albumIndex < 0) {
+        } else if (albumIndex === undefined || albumIndex < 0) {
             return 0;
         }
 
@@ -1053,6 +1067,28 @@ $(function () {
                 reindexPhotoAlbum(photo, index);
             }
         }
+    };
+
+    var fixPhotoButton = function(pic, button) {
+        var parent = photoParent(pic);
+
+        // no buttons exist
+        if (parent.index === undefined)
+            return;
+
+        if (pic == parent) {
+            if (button == undefined)
+                button = $('#numberButton'+(pic.index+1));
+
+        } else if (parent.index != rp.session.activeIndex)
+            return;
+
+        else if (button == undefined)
+                button = $('#allNumberButtons ul').children(":nth-child("+(index+1)+")");
+
+        button.removeClass('embed album over18');
+
+        addButtonClass(button, pic);
     };
 
     var processPhoto = function(pic) {
@@ -1323,6 +1359,9 @@ $(function () {
 
         else if (pic.type == imageTypes.album)
             button.addClass("album");
+
+        else if (pic.type == imageTypes.fail)
+            button.addClass("failed");
 
     };
 
@@ -2754,6 +2793,7 @@ $(function () {
                     log.debug("WPv2 Trying: "+photo.url);
                     handleData = function (data) {
                         rp.wpv2[hn] = true;
+                        setConfig(configNames.wpv2, rp.wpv2);
                         if (processWPv2(photo, data[0]))
                             addImageSlide(photo);
                         else
@@ -2761,6 +2801,7 @@ $(function () {
                     };
                     failedData = function () {
                         rp.wpv2[hn] = false;
+                        setConfig(configNames.wpv2, rp.wpv2);
                         log.info("cannot display url [not WPv2 site]: "+photo.url);
                     };
                     $.ajax({
