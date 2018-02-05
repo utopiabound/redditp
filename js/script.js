@@ -1249,13 +1249,14 @@ $(function () {
         } else if (hostname == 'xhamster.com') {
             // https://xhamster.com/videos/NAME-OF-VIDEO-SHORTID
             // https://xhamster.com/movies/SHORID/NAME_OF_VIDEO.html
-            if (pic.url.indexOf('/videos/') > 0)
+            if (pic.url.indexOf('/videos/') > 0) {
+                shortid = url2shortid(pic.url);
                 shortid = shortid.substr(shortid.lastIndexOf('-')+1);
 
-            else if (pic.url.indexOf('/movies/') > 0)
+            } else if (pic.url.indexOf('/movies/') > 0) {
                 shortid = url2shortid(pic.url, 2);
 
-            else {
+            } else {
                 log.info("cannot parse url [unknown format]: "+pic.url);
                 return false;
             }
@@ -1272,7 +1273,7 @@ $(function () {
 
         } else if (hostname == 'vimeo.com') {
             shortid = url2shortid(pic.url);
-            initPhotoEmbed(ppic, 'https://player.vimeo.com/video/'+shortid+'?autoplay=1');
+            initPhotoEmbed(pic, 'https://player.vimeo.com/video/'+shortid+'?autoplay=1');
 
         } else if (hostname == 'iloopit.net') {
             // VIDEO:
@@ -1365,6 +1366,7 @@ $(function () {
 
     };
 
+    // Re-entrant okay
     var addImageSlide = function (photo) {
         /* var pic = {
          *     title: title, (text)
@@ -2180,7 +2182,8 @@ $(function () {
         var handleError = function (xhr, ajaxOptions, thrownError) {
             initPhotoFailed(photo);
             showImage(photo.thumbnail);
-            failedAjax(xhr, ajaxOptions, thrownError);
+            //failedAjax(xhr, ajaxOptions, thrownError);
+            log.info('failed to load url [error '+xhr.status+']: ' + photo.url);
         };
         var url = photo.url;
 
@@ -3063,6 +3066,8 @@ $(function () {
     // This is for processing /wp-json/wp/v2/posts aka
     // https://developer.wordpress.org/rest-api/reference/
     var processWPv2 = function(photo, post) {
+        if (post === undefined)
+            return false;
         var hn = hostnameOf(photo.url);
         photo.favicon = rp.favicons.wordpress;
         photo.extra = infoLink(originOf(photo.url), hn, "/wp2/"+hn, "", rp.favicons['wordpress']);
@@ -3227,7 +3232,7 @@ $(function () {
                               date: d.valueOf()/1000
                             };
                 if (processWPv2(photo, post))
-                    return; // addImageSlide(photo); - wait for processWPv2()
+                    addImageSlide(photo);
                 else
                     log.info("cannot display WPv2 [no photos]: "+photo.url);
             });
