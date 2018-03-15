@@ -212,7 +212,7 @@ $(function () {
     function nextSlide(inalbum) {
         var index, albumIndex;
 
-        if (inalbum === undefined || inalbum == false) {
+        if (inalbum === undefined || inalbum == false || rp.session.activeIndex < 0) {
             albumIndex = -1; // need to increment
             index = getNextSlideIndex(rp.session.activeIndex);
             if (index == rp.session.activeIndex) {
@@ -223,6 +223,8 @@ $(function () {
             
         } else {
             albumIndex = rp.session.activeAlbumIndex;
+            if (albumIndex < 0)
+                albumIndex = -1;
             index = rp.session.activeIndex;
         }
 
@@ -1892,6 +1894,8 @@ $(function () {
                                      class: 'info infoc',
                                      title: 'Comments'
                                    }).text('('+item.commentCount+')'));
+                if (photo.cross_id && photo.cross_id == item.id)
+                    li.addClass('xorig');
                 $('#duplicateUl').append(li);
             });
             $('#navboxDuplicatesMulti').attr('href', rp.redditBaseUrl+'/r/'+multi);
@@ -2277,10 +2281,12 @@ $(function () {
                     return;
                 }
 
+                /* -- infoLink() takes text for favicon
                 if (data.gfyItem.userName != 'anonymous')
                     photo.extra = infoLink('https://gfycat.com/@'+data.gfyItem.userName,
                                            "", // data.gfyItem.userName
                                            '/gfycat/u/'+data.gfyItem.userName);
+                 */
                 
                 photo.video = {'thumbnail': data.gfyItem.posterUrl,
                                'webm': data.gfyItem.webmUrl,
@@ -2685,35 +2691,30 @@ $(function () {
 
         jsonUrl += rp.url.vars + rp.session.after;
 
-        var addImageSlideRedditT3 = function (idata, duplicates) {
-            if (rp.dedup[idata.subreddit] !== undefined &&
-                rp.dedup[idata.subreddit][idata.id] !== undefined) {
+        var addImageSlideRedditT3 = function (idorig, duplicates) {
+            if (rp.dedup[idorig.subreddit] !== undefined &&
+                rp.dedup[idorig.subreddit][idorig.id] !== undefined) {
                 log.info('cannot display url [simul-dup:'+
-                      rp.dedup[idata.subreddit][idata.id]+']: '+
-                      idata.url);
+                      rp.dedup[idorig.subreddit][idorig.id]+']: '+
+                      idorig.url);
                 return;
             }
 
             if (duplicates === undefined)
                 duplicates = [];
 
-            var orig_id = idata.id;
             // parse parent if crosspost
-            while (idata.crosspost_parent_list !== undefined &&
-                   idata.crosspost_parent_list.length > 0) {
-                // @@ Mark that we followed a crosspost here?
-                duplicates.push({subreddit: idata.subreddit,
-                                 commentCount: idata.num_comments,
-                                 title: idata.title,
-                                 date: idata.created,
-                                 id: idata.id});
-                idata = idata.crosspost_parent_list[0];
+            var idx = idorig;
+            while (idx.crosspost_parent_list !== undefined &&
+                   idx.crosspost_parent_list.length > 0) {
+                var i = 0;
+                idx = idx.crosspost_parent_list[0];
             }
 
-            var url = fixupUrl(idata.url);
+            var url = fixupUrl(idx.url);
 
             // Link to x-posted subreddits
-            var title = idata.title.replace(/\/?(r\/\w+)\s*/g,
+            var title = idorig.title.replace(/\/?(r\/\w+)\s*/g,
                                                 "<a class='infol' href='"+rp.redditBaseUrl+"/$1'>/$1</a>"+
                                                 "<a class='infop' href='"+rp.url.base+"/$1'>"+
                                                 "<img class='redditp' src='images/favicon.png' /></a>");
@@ -2725,8 +2726,8 @@ $(function () {
 
             var flair = "";
             // Add flair (but remove if also in title)
-            if (idata.link_flair_text) {
-                flair = idata.link_flair_text.trim();
+            if (idorig.link_flair_text) {
+                flair = idorig.link_flair_text.trim();
                 if (flair) {
                     var re = new RegExp('[\\[\\{\\(]'+RegExp.quote(flair)+'[\\]\\}\\)]', "ig");
                     title = title.replace(re, "").trim();
@@ -2738,29 +2739,29 @@ $(function () {
                 orig_url: url,
                 title: title,
                 flair: flair,
-                id: idata.id,
-                over18: idata.over_18,
-                subreddit: idata.subreddit,
-                author: idata.author,
-                date: idata.created_utc,
+                id: idorig.id,
+                over18: idorig.over_18,
+                subreddit: idorig.subreddit,
+                author: idorig.author,
+                date: idorig.created_utc,
                 duplicates: duplicates,
-                commentsCount: idata.num_comments,
-                commentsLink: rp.redditBaseUrl + idata.permalink
+                commentsCount: idorig.num_comments,
+                commentsLink: rp.redditBaseUrl + idorig.permalink
             };
-            if (orig_id != photo.id)
-                photo.orig_id = orig_id;
+            if (idx.id != photo.id)
+                photo.cross_id = idx.id;
 
-            if (idata.preview)
-                photo.thumbnail = fixupUrl(idata.preview.images[0].source.url);
+            if (idorig.preview)
+                photo.thumbnail = fixupUrl(idorig.preview.images[0].source.url);
 
-            else if (idata.thumbnail != 'default')
-                photo.thumbnail = fixupUrl(idata.thumbnail);
+            else if (idorig.thumbnail != 'default')
+                photo.thumbnail = fixupUrl(idorig.thumbnail);
 
             // Reddit hosted videos
-            if (idata.domain == 'v.redd.it') {
+            if (idx.domain == 'v.redd.it') {
                 initPhotoVideo(photo);
-                var media = (idata.media !== undefined) ?idata.media.reddit_video
-                        :(idata.secure_media !== undefined) ?idata.secure_media.reddit_video
+                var media = (idx.media !== undefined) ?idx.media.reddit_video
+                        :(idx.secure_media !== undefined) ?idx.secure_media.reddit_video
                         :undefined;
 
                 if (media !== undefined) {
@@ -2780,7 +2781,7 @@ $(function () {
                 }
             }            
 
-            var jsonUrl = rp.url.get + idata.permalink + '.json?depth=1';
+            var jsonUrl = rp.url.get + idorig.permalink + '.json?depth=1';
 
             var loadTypes = {
                 OP:     "OP",
@@ -2801,7 +2802,7 @@ $(function () {
 
                 for (var i = 0; i < comments.length; ++i) {
                     if (type == loadTypes.OP &&
-                        idata.author != comments[i].data.author)
+                        idorig.author != comments[i].data.author)
                         continue;
 
                     if (comments[i].data.body_html === undefined) {
@@ -2840,12 +2841,12 @@ $(function () {
                 addImageSlide(photo);
             };
             
-            var tryPreview = function(photo, idata, msg) {
+            var tryPreview = function(photo, idorig, msg) {
                 if (msg === undefined)
                     msg = 'url [no image]';
-                if (idata.preview !== undefined &&
-                    idata.preview.images.length > 0) {
-                    photo.url = unescapeHTML(idata.preview.images[0].source.url);
+                if (idorig.preview !== undefined &&
+                    idorig.preview.images.length > 0) {
+                    photo.url = unescapeHTML(idorig.preview.images[0].source.url);
                     if (processPhoto(photo)) {
                         addImageSlide(photo);
                         return;
@@ -2864,9 +2865,9 @@ $(function () {
                 type = loadTypes.ALL;
 
             } else if (photo.flair.match(/(more|source|video|album).*in.*com/i) ||
-                       idata.title.match(/(source|more|video|album).*in.*com/i) ||
-                       idata.title.match(/in.*comment/i) ||
-                       idata.title.match(/[\[\(\{\d\s][asvm]ic([\]\)\}]|$)/i)) {
+                       idorig.title.match(/(source|more|video|album).*in.*com/i) ||
+                       idorig.title.match(/in.*comment/i) ||
+                       idorig.title.match(/[\[\(\{\d\s][asvm]ic([\]\)\}]|$)/i)) {
 
                 type = loadTypes.OP;
 
@@ -2898,7 +2899,7 @@ $(function () {
                     else if (processWordPressPost(photo, data))
                         addImageSlide(photo);
                     else
-                        tryPreview(photo, idata, "wordpress [no photos]");
+                        tryPreview(photo, idorig, "wordpress [no photos]");
                 };
                 failedData = function () {
                     //log.info("cannot display wordpress [not wp site]: "+photo.url);
@@ -2911,12 +2912,12 @@ $(function () {
                         if (processWPv2(photo, data[0]))
                             addImageSlide(photo);
                         else
-                            tryPreview(photo, idata, "WPv2 [no photos]");
+                            tryPreview(photo, idorig, "WPv2 [no photos]");
                     };
                     failedData = function () {
                         rp.wpv2[hn] = false;
                         setConfig(configNames.wpv2, rp.wpv2);
-                        tryPreview(photo, idata, "url [not WPv2 site]");
+                        tryPreview(photo, idorig, "url [not WPv2 site]");
                     };
                     $.ajax({
                         url: jsonUrl,
@@ -3755,6 +3756,7 @@ $(function () {
             if (data.loadAfter)
                 rp.session.loadAfter = eval(data.loadAfter);
             rp.session.activeIndex = -1;
+            rp.session.activeAlbumIndex = -1;
 
             clearSlideTimeout();
             var orig_index = data.index;
@@ -3769,6 +3771,8 @@ $(function () {
 
             if (rp.photos.length == 0)
                 rp.session.foundOneImage = false;
+            if (data.album < 0)
+                data.album = -1;
 
             log.info("Restored "+path+" and "+rp.photos.length+" images of "+data.photos.length+" at index "+data.index+"."+data.album);
 
