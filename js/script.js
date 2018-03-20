@@ -17,7 +17,8 @@
  * redditp-shouldAutoNextSlide  - boolean - on timeout, go to next image
  * redditp-showEmbed            - boolean - Show embeded content (iframes, no timeout)
  * redditp-timeToNextSlide      - int     - timeout in seconds
- * redditp-wpv2                 - hash of booleans
+ * redditp-wpv2                 - hash of booleans      - cached result of speculative WPv2 lookup
+ * redditp-blogger              - hash of booleans      - cached result of speculative blogger lookup
  * 
  * (window.history)
  * Set/push/replace state
@@ -42,9 +43,6 @@ rp.settings = {
     goodImageExtensions: ['jpg', 'jpeg', 'gif', 'bmp', 'png'],
     goodVideoExtensions: ['webm', 'mp4'],
     alwaysSecure: true,
-    // Try to download possible wordpress sites, even if self-hosted.
-    // only try if the form is like //hostname.tld/this-is-a-slug/
-    speculativeWP: true,
     // show Embeded Items
     embed: false,
     // show NSFW Items
@@ -66,7 +64,6 @@ rp.session = {
     // Reddit filter "After"
     after: "",
 
-    foundOneImage: false,
     loadedMultiList: false,
     loadingNextImages: false,
     loadAfter: null,
@@ -82,21 +79,23 @@ rp.storage = {};
 
 // @@ Store this in localStorage
 rp.wpv2 = {};
+rp.blogger = {};
 
 rp.history = window.history;
 
+// CHANGE THESE FOR A DIFFERENT Reddit Application
 rp.api_key = {tumblr:  'sVRWGhAGTVlP042sOgkZ0oaznmUOzD8BRiRwAm5ELlzEaz4kwU',
+              blogger: 'AIzaSyDbkU7e2ewiPeBtPwr1cfExV0XxMAQKhTg',
+              reddit:  '7yKYY2Z-tUioLA',
               imgur:   'ae493e76de2e724'
              };
-
-// CHANGE THESE FOR A DIFFERENT Reddit Application
 rp.redirect = 'http://redditp.utopiabound.net/auth';
-rp.api_key.reddit = '7yKYY2Z-tUioLA';
 
 // Hosts will default to originOf(url)+'/favicon.ico'
 // this list overrides based on second level domain (e.g. mywebsite.wordpress.com -> wordpress)
 rp.favicons = { tumblr:  'https://assets.tumblr.com/images/favicons/favicon.ico',
 	        wordpress: 'https://s1.wp.com/i/favicon.ico',
+                dropbox: 'https://cfl.dropboxstatic.com/static/images/favicon.ico',
                 // i.redd.it/v.redd.it - reddit hosted images
                 redd: 'https://www.redditstatic.com/icon.png'
               };
@@ -418,7 +417,7 @@ $(function () {
         return searchOf(url)[key];
     };
 
-    var extentionOf = function(url) {
+    var extensionOf = function(url) {
         var path = pathnameOf(url);
         var dotLocation = path.lastIndexOf('.');
         if (dotLocation < 0)
@@ -451,7 +450,7 @@ $(function () {
     };
 
     var isImageExtension = function (url) {
-        var extension = extentionOf(url);
+        var extension = extensionOf(url);
         if (extension === '')
             return false;
 
@@ -463,7 +462,7 @@ $(function () {
     };
 
     var isVideoExtension = function (url) { 
-        var extension = extentionOf(url);
+        var extension = extensionOf(url);
         if (extension === '')
             return false;
 
@@ -574,6 +573,7 @@ $(function () {
         timeToNextSlide: "timeToNextSlide",
         redditBearer: 'redditBearer',
         redditRefreshBy: 'redditRefreshBy',
+        blogger: 'blogger',
         wpv2: 'wordpressv2'
     };
 
@@ -867,8 +867,10 @@ $(function () {
     // unwind albumifcation if album has only 1 element.
     var checkPhotoAlbum = function(photo) {
         if (photo.type != imageTypes.album ||
-            photo.album.length > 1)
+            photo.album.length > 1) {
+            fixPhotoButton(photo);
             return;
+        }
 
         // creating album failed
         if (photo.album.length == 0) {
@@ -1128,6 +1130,7 @@ $(function () {
 
         var shortid;
         var fqdn = hostnameOf(pic.url);
+        var orig_hn = hostnameOf(pic.orig_url, true);
 
         if (hostname == 'imgur.com') {
             pic.url = fixImgurPicUrl(pic.url);
@@ -1189,10 +1192,6 @@ $(function () {
             else
                 log.info("cannot display video [error parsing]: "+pic.url);                
                 
-        } else if (pic.url.indexOf('webm.land/w/') >= 0) {
-            shortid = url2shortid(pic.url);
-            initPhotoVideo(pic, 'http://webm.land/media/'+shortid+".webm");
-
         } else if (hostname == 'youtube.com') {
             // Types of URLS
             // https://www.youtube.com/embed/SHORTID
@@ -1288,7 +1287,7 @@ $(function () {
             // https://cdn.iloopit.net/resources/UUID/thumb.jpeg
             // GIFV: (no easy way to convert to VIDEO UUID - ID is uint32ish)
             // https://iloopit.net/ID/TITLE-NAME.gifv
-            var ext = extentionOf(pic.url);
+            var ext = extensionOf(pic.url);
             if (ext == 'gif' || isVideoExtension(pic.url)) {
                 shortid = url2shortid(pic.url, 2);
                 initPhotoVideo(pic, 'https://cdn.iloopit.net/resources/'+shortid+'/converted.mp4',
@@ -1299,13 +1298,34 @@ $(function () {
                 initPhotoEmbed(pic);
 
             } else {
-                log.info('cannot process url [unknown format]: '+pic.url);
+                //log.info('cannot process url [unknown format]: '+pic.url);
                 return false;
             }
+
+        } else if (hostname == 'dropbox.com') {
+            pic.url = originOf(pic.url)+pathnameOf(pic.url)+'?dl=1';
+            if (isVideoExtension(pic.url)) {
+                initPhotoVideo(pic);
+                
+            } else if (isImageExtension(pic.url)) {
+                // simple image
+
+            } else {
+                return false;
+            }
+
+        } else if (orig_hn == 'dropbox.com') {
+            // capture items we want to skip from tryPreview()
+            log.info("REJECTED: "+pic.orig_url);
+            return false;
 
         } else if (isVideoExtension(pic.url)) {
             initPhotoVideo(pic);
             
+        } else if (hostname == 'webm.land') {
+            shortid = url2shortid(pic.url);
+            initPhotoVideo(pic, 'http://webm.land/media/'+shortid+".webm");
+
         } else if (hostname == 'gfycat.com') {
             // These domains should be processed later, unless direct link to video
             pic.type = imageTypes.later;
@@ -1401,9 +1421,6 @@ $(function () {
             return false;
         }
 
-        var isFirst = !rp.session.foundOneImage;
-        rp.session.foundOneImage = true;
-
         var index = rp.photos.push(photo)-1;
         photo.index = index;
         if (photo.album && photo.album.length) {
@@ -1431,10 +1448,17 @@ $(function () {
         addNumberButton(numberButton);
 
         // show the first valid image
-        if (isFirst)
+        if (rp.session.activeIndex < 0)
             startAnimation(getNextSlideIndex(-1));
 
         return true;
+    };
+
+    var fixFavicon = function(e) {
+        if (e.type == "error" ||
+            $(this)[0].naturalHeight == 1 ||
+            $(this)[0].naturalWidth == 1)
+            $(this).parent().html(e.data);
     };
 
     var getFavicon = function(pic, url) {
@@ -1462,14 +1486,10 @@ $(function () {
         // #5 replace with link icon
         img.on('error', googleIcon("link"), fixFavicon);
         img.on('load',  googleIcon("link"), fixFavicon);
-        return img;
-    };
 
-    var fixFavicon = function(e) {
-        if (e.type == "error" ||
-            $(this)[0].naturalHeight == 1 ||
-            $(this)[0].naturalWidth == 1)
-            $(this).parent().html(e.data);
+        // #6 @@ if hostnameOf(url) !== hostnameOf(url, true) or
+        // try favicon of pic.url instead of pic.orig_url
+        return img;
     };
 
     var arrow = {
@@ -2048,6 +2068,7 @@ $(function () {
             var img = $('<img />', { class: "fullscreen", src: url});
 
             img.on('error', function(e) {
+                // @@ delete this div?
                 log.info("["+imageIndex+"] video failed to load");
             });
             if (hostnameOf(url, true) == 'imgur.com')
@@ -2095,6 +2116,7 @@ $(function () {
                 log.info("["+imageIndex+"] video failed to load last source: "+photo.url);
                 initPhotoFailed(photo);
                 resetNextSlideTimer();
+                // @@ next slide?
             });
 
             $(video).on('error', function(e) {
@@ -2643,7 +2665,8 @@ $(function () {
             bearer = getConfig(configNames.redditBearer);
         if (by === undefined)
             by = getConfig(configNames.redditRefreshBy);
-        if (rp.session.loginExpire > (Date.now()/1000)-30)
+        if (rp.session.loginExpire &&
+            rp.session.loginExpire > (Date.now()/1000)-30)
             return;
         $('#loginUsername').attr('href', rp.redditBaseUrl + '/api/v1/authorize?' + 
                                  ['client_id=' + rp.api_key.reddit,
@@ -2677,7 +2700,7 @@ $(function () {
         rp.session.loadingNextImages = true;
 
         // Only enable login where it will work
-        if ($('<a>').attr('href', rp.redirect).prop('origin') == window.location.origin)
+        if (originOf(rp.redirect) == window.location.origin)
             setupRedditLogin();
 
         var jsonUrl = rp.url.get + rp.url.subreddit + ".json?";
@@ -2779,16 +2802,22 @@ $(function () {
                     log.error(photo.id+": cannot display video [no reddit_video]: "+photo.url);
                     return;
                 }
-            }            
+                
+            } else if (idorig.domain == 'reddit.com') {
+                // these shouldn't be added via tryPreview nor speculative lookups
+                log.info('will not display url [no image]: ' + photo.orig_url);
+                return;
+            }
 
             var jsonUrl = rp.url.get + idorig.permalink + '.json?depth=1';
 
             var loadTypes = {
+                NONE:   "NONE",
                 OP:     "OP",
                 ALL:    "ALL"
             };
 
-            var type;
+            var type = loadTypes.NONE;
 
             var hdrData = rp.session.redditHdr;
             var failedData = failedAjax;
@@ -2843,7 +2872,7 @@ $(function () {
             
             var tryPreview = function(photo, idorig, msg) {
                 if (msg === undefined)
-                    msg = 'url [no image]';
+                    msg = 'preview [no image]';
                 if (idorig.preview !== undefined &&
                     idorig.preview.images.length > 0) {
                     photo.url = unescapeHTML(idorig.preview.images[0].source.url);
@@ -2855,8 +2884,6 @@ $(function () {
                 log.info('cannot display '+msg + ': ' + photo.orig_url);
                 return;                
             };
-
-            var hostname = hostnameOf(photo.url, true);
 
             if (photo.flair.toLowerCase() == 'request' ||
                 photo.title.match(/[\[\(\{]request[\]\)\}]/i) ||
@@ -2871,24 +2898,35 @@ $(function () {
 
                 type = loadTypes.OP;
 
-            } else if (processPhoto(photo)) {
+            }
+
+            if (type != loadTypes.NONE)
+                $.ajax({
+                    url: jsonUrl,
+                    headers: hdrData,
+                    dataType: 'json',
+                    success: handleData,
+                    error: failedData,
+                    timeout: rp.settings.ajaxTimeout,
+                    crossDomain: true,
+                    // Local Variables
+                    Type: type
+                });
+
+            if (processPhoto(photo)) {
                 addImageSlide(photo);
                 return;
+            }
+            // SPECULATIVE LOOKUPS
+            
+            var path = pathnameOf(photo.url);
+            var hn = hostnameOf(photo.url);
+            var a;
 
-            } else if (hostname == 'reddit.com') {
-                // these shouldn't be added via tryPreview nor speculativeWP
-                log.info('will not display url [no image]: ' + photo.orig_url);
-                return;
-
-            } else if (rp.settings.speculativeWP) {
+            if (rp.wpv2[hn] !== false &&
+                       (a = path.match(/^\/(?:\d+\/)*([a-z0-9]+(?:-[a-z0-9]+)*)\/$/))) {
                 // This check to see if bare url is actually a wordpress site
-                var path = pathnameOf(photo.url);
-                var a = path.match(/^\/(?:\d+\/)*([a-z0-9]+(?:-[a-z0-9]+)*)\/$/);
-                var hn = hostnameOf(photo.url);
-                if (a === null || rp.wpv2[hn] === false) {
-                    tryPreview(photo, idata);
-                    return;
-                }
+
                 var slug = a[1];
                 hdrData = '';
                 jsonUrl = 'https://public-api.wordpress.com/rest/v1.1/sites/'+hn+'/posts/slug:'+slug;
@@ -2934,23 +2972,83 @@ $(function () {
                     failedData();
                     return;
                 }
+
+            } else if (( !rp.blogger[hn] || rp.blogger[hn] > 0) &&
+                       (path.match(/^\/(?:\d+\/)*([a-z0-9]+(?:-[a-z0-9]+)*.html)$/))) {
+                // Blogger:
+                // 1. lookup blogger blogID by url
+                // 2. lookup post by URL (need blogID)
+                
+                jsonUrl = 'https://www.googleapis.com/blogger/v3/blogs/byurl?url='+originOf(photo.url)+'&key='+rp.api_key.blogger;
+                handleData = function (data) {
+                    if (data.error) {
+                        log.error("cannot log blogger ["+data.error.message+"]: "+photo.url);
+                        return;
+                    }
+                    var id = data.id;
+
+                    if (!rp.blogger[hn]) {
+                        rp.blogger[hn] = id;
+                        setConfig(configNames.blogger, rp.blogger);                        
+                    }
+
+                    jsonUrl = data.posts.selfLink+'/bypath?path='+path+'&key='+rp.api_key.blogger;
+
+                    handleData = function(data) {
+                        if (data.error) {
+                            log.error("cannot log blogger ["+data.error.message+"]: "+photo.url);
+                            return;
+                        }
+                        if (processBloggerPost(photo, data))
+                            addImageSlide(photo);
+                    };
+
+                    $.ajax({
+                        url: jsonUrl,
+                        headers: hdrData,
+                        dataType: 'json',
+                        success: handleData,
+                        error: failedData,
+                        timeout: rp.settings.ajaxTimeout,
+                        crossDomain: true
+                    });
+                };
+                failedData = function (xhr, ajaxOptions, thrownError) {
+                    var err = JSON.parse(xhr.responseText);
+                    if (xhr.status == 404) {
+                        rp.blogger[hn] = 0;
+                        setConfig(configNames.blogger, rp.blogger);
+                    } else {
+                        log.error("cannot load blogger ["+xhr.status+" "+err.error.message+"]: "+photo.url);
+                    }
+                    tryPreview(photo, idorig, "url [Blogger: "+err.error.message+"]");
+                };
                     
             } else {
-                tryPreview(photo, idata);
+                tryPreview(photo, idorig);
                 return;
             }
 
-            $.ajax({
-                url: jsonUrl,
-                headers: hdrData,
-                dataType: 'json',
-                success: handleData,
-                error: failedData,
-                timeout: rp.settings.ajaxTimeout,
-                crossDomain: true,
-                // Local Variables
-                Type: type
-            });
+            if (rp.blogger[hn]) {
+                var id = rp.blogger[hn];
+                handleData({ id: id,
+                             posts: {
+                                 selfLink: 'https://www.googleapis.com/blogger/v3/blogs/'+id+'/posts'
+                             } });
+
+            } else {
+                $.ajax({
+                    url: jsonUrl,
+                    headers: hdrData,
+                    dataType: 'json',
+                    success: handleData,
+                    error: failedData,
+                    timeout: rp.settings.ajaxTimeout,
+                    crossDomain: true,
+                    // Local Variables
+                    Type: type
+                });
+            }
 
         };
 
@@ -3094,7 +3192,7 @@ $(function () {
                 });
             });
 
-            if (!rp.session.foundOneImage) {
+            if (rp.photos.length == 0) {
                 log.debug(jsonUrl);
                 alert("Sorry, no displayable images found in that url :(");
             }
@@ -3453,7 +3551,7 @@ $(function () {
             rp.session.loadingNextImages = false;
         };
 
-        // @@ Add failedDone to try getWordPressBlog if error is unknown_host
+        // @@ Add failedDone to try getWordPressBlogV2 if error is unknown_host
 
         $.ajax({
             url: jsonUrl,
@@ -3590,6 +3688,93 @@ $(function () {
         });
     };
 
+    var processBloggerPost = function(photo, post) {
+        photo.extra = infoLink( post.author.url, post.author.displayName,
+                               '/blogger/'+hostnameOf(photo.url));
+        return processHaystack(photo, post.content);
+    };
+
+    var getBloggerBlog = function () {
+        if (rp.session.loadingNextImages)
+            return;
+        rp.session.loadingNextImages = true;
+
+        var a = rp.url.subreddit.split('/');
+        if (a[a.length-1] == "")
+            a.pop();
+
+        var hostname = a.pop();
+
+        if (rp.blogger[hostname] === 0) {
+            log.error("cannot log blogger [Already Failed]: "+hostname);
+            return;
+        }
+
+        var jsonUrl = 'https://www.googleapis.com/blogger/v3/blogs/byurl?url=https://'+hostname+'&key='+rp.api_key.blogger;
+
+        var handleData = function(data) {
+            if (data.error) {
+                log.error("cannot log blogger ["+data.error.message+"]: "+hostname);
+                rp.blogger[hostname] = 0;
+                setConfig(configNames.blogger, rp.blogger);
+                return;
+            }
+
+            var jsonUrl = data.posts.selfLink+'?key='+rp.api_key.blogger;
+            rp.blogger[hostname] = data.id;
+            setConfig(configNames.blogger, rp.blogger);
+            /*
+            if (rp.session.after !== "")
+                jsonUrl = jsonUrl+'&offset='+rp.session.after;
+             else
+             rp.session.after = 0;
+             */
+            $('#subredditLink').prop('href', data.url);
+            $('#subredditUrl').val('blogger/'+data.name);
+
+            var handleData = function (data) {
+                if (data.nextPageToken) {
+                    rp.session.after = data.nextPageToken;
+                    //rp.session.loadAfter = getTumblrBlog;
+                 } else { // Found all posts
+                     rp.session.loadAfter = null;
+                 }
+                $.each(data.items, function (i, post) {
+                    var d = new Date(post.updated);
+                    var image = { title: post.title,
+                                  id: post.id,
+                                  over18: false,
+                                  date: d.valueOf()/1000, 
+                                  url: post.url,
+                                  commentsLink: post.url
+                                };
+                    if (processBloggerPost(image, post))
+                        addImageSlide(image);
+                });
+                
+                rp.session.loadingNextImages = false;
+            };
+            $.ajax({
+                url: jsonUrl,
+                //headers: { Referer: rp.redirect },
+                //dataType: 'jsonp',
+                success: handleData,
+                error: failedAjaxDone,
+                crossDomain: true,
+                timeout: rp.settings.ajaxTimeout
+            });
+        };
+
+        $.ajax({
+            url: jsonUrl,
+            //headers: { Referer: rp.redirect },
+            success: handleData,
+            error: failedAjaxDone,
+            crossDomain: true,
+            timeout: rp.settings.ajaxTimeout
+        });
+    };
+
     var getGfycatUser = function() {
         if (rp.session.loadingNextImages)
             return;
@@ -3643,7 +3828,7 @@ $(function () {
         // Detect predefined reddit url paths. If you modify this be sure to fix
         // .htaccess
         // This is a good idea so we can give a quick 404 page when appropriate.
-        var regexS = "(/(?:(?:imgur/a/)|(?:gfycat/u/)|(?:tumblr/)|(?:wp2?/)|(?:auth)|"+
+        var regexS = "(/(?:(?:imgur/a/)|(?:gfycat/u/)|(?:tumblr/)|(?:blogger/)|(?:wp2?/)|(?:auth)|"+
             "(?:r/)|(?:u/)|(?:user/)|(?:domain/)|(?:search)|(?:me)|(?:top)|(?:new)|(?:rising)|(?:controversial)"+
             ")[^&#?]*)[?]?(.*)";
 
@@ -3727,7 +3912,6 @@ $(function () {
         document.title = "redditP - " + subredditName;
 
         // if ever found even 1 image, don't show the error
-        rp.session.foundOneImage = false;
         $('#recommend').hide();
 
         // Always nuke old data
@@ -3752,7 +3936,7 @@ $(function () {
             log.debug("RESTORING STATE: "+path);
             rp.session.dedup = data.dedup;
             rp.session.after = data.after;
-            rp.session.foundOneImage = true;
+            rp.session.isAnimating = true;
             if (data.loadAfter)
                 rp.session.loadAfter = eval(data.loadAfter);
             rp.session.activeIndex = -1;
@@ -3769,13 +3953,11 @@ $(function () {
                     --data.index;
             });
 
-            if (rp.photos.length == 0)
-                rp.session.foundOneImage = false;
             if (data.album < 0)
                 data.album = -1;
 
             log.info("Restored "+path+" and "+rp.photos.length+" images of "+data.photos.length+" at index "+data.index+"."+data.album);
-
+            rp.session.isAnimating = false;
             startAnimation(data.index, data.album);
 
         } else if (rp.url.subreddit.startsWith('/imgur/'))
@@ -3789,6 +3971,9 @@ $(function () {
 
         else if (rp.url.subreddit.startsWith('/wp2/'))
             getWordPressBlogV2();
+
+        else if (rp.url.subreddit.startsWith('/blogger/'))
+            getBloggerBlog();
 
         else if (rp.url.subreddit.startsWith('/gfycat/user/'))
             getGfycatUser();

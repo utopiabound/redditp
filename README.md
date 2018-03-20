@@ -36,11 +36,13 @@ Features
 * Url's ending with ['.jpg', '.jpeg', '.gif', '.bmp', '.png'], or URLs from parsable domains
 * Video support (either direct or embeded)
 * Autonext waits for the end of a video (does not work for gif, but does work for gifv)
-* Parsing for a collection of domains including: (see createDiv() for complete list)
+* Parsing for a collection of domains including: (see createDiv() and processPhoto() for complete list)
 	* Imgur		(Album support) /imgur/a/<ALBUMID>
 	* Tumblr	(Album support) /tumblr/<HOSTNAME>
-	* WordPress	(Album support) /wp/<HOSTNAME>
+	* WordPress	(Album support) /wp/<HOSTNAME>  (for wordpress hosted domains)
+	* WordPress v2  (Album support) /wp2/<HOSTNAME> (for self hosted domains)
 	* Gfycat	(User support)  /gfycat/u/<USERNAME>
+	* Blogger	(Album support) /blogger/<HOSTNAME>
 	* vimeo		(embed only - no autonext)
 	* Youtube	(embed only - no autonext)
 	* Many Others...
