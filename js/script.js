@@ -1950,6 +1950,7 @@ $(function () {
     };
 
     var failCleanup = function(message) {
+        rp.session.loadingNextImages = false;
         if (message === undefined)
             message = '';
         if (rp.photos.length > 0) {
@@ -1958,7 +1959,7 @@ $(function () {
         }
 
         // remove "loading" title
-        $('#navboxTitle').html(message);
+        $('#navboxTitle').html($('<span>', { class: 'error' }).html(message));
 
         // display alternate recommendations
         $('#recommend').css({'display':'block'});
@@ -1973,15 +1974,12 @@ $(function () {
     };
     var failedAjaxDone = function (xhr, ajaxOptions, thrownError) {
         failedAjax(xhr, ajaxOptions, thrownError);
-        rp.session.loadingNextImages = false;
         var text;
         if (xhr.status == 0)
             text = "<br> Check tracking protection";
-        else
+        else 
             text = ": "+thrownError+" "+xhr.status;
-        failCleanup($('<span>',
-                      { class: 'error' }).html("Failed to get "+rp.url.subreddit+text));
-
+        failCleanup("Failed to get "+rp.url.subreddit+text);
     };
 
     //
@@ -3475,9 +3473,9 @@ $(function () {
             });
             rp.session.loadingNextImages = false;
         };
-        var failedData = function () {
+        var failedData = function (xhr, ajaxOptions, thrownError) {
             rp.wpv2[hostname] = false;
-            failedAjaxDone();
+            failedAjaxDone(xhr, ajaxOptions, thrownError);
         };
 
         $.ajax({
@@ -3517,9 +3515,13 @@ $(function () {
         $('#subredditUrl').val('wp/'+hostname);
 
         // If we know this fails, bail
-        if (rp.wpv2[hostname] === true) {
-            rp.session.loadingNextImages = false;
-            getWordPressBlogV2();
+        if (rp.wpv2[hostname] !== undefined) {
+            if (rp.wpv2[hostname] === true) {
+                rp.session.loadingNextImages = false;
+                getWordPressBlogV2();
+            } else {
+                failCleanup("No Wordpress Blog for "+hostname);
+            }
             return;
         }
 
@@ -3560,13 +3562,16 @@ $(function () {
             rp.session.loadingNextImages = false;
         };
 
-        // @@ Add failedDone to try getWordPressBlogV2 if error is unknown_host
+        var failData = function () {
+            rp.session.loadingNextImages = false;
+            getWordPressBlogV2();
+        };
 
         $.ajax({
             url: jsonUrl,
             dataType: 'json',
             success: handleData,
-            error: failedAjaxDone,
+            error: failedData,
             timeout: rp.settings.ajaxTimeout
         });
     };

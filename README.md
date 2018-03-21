@@ -39,8 +39,7 @@ Features
 * Parsing for a collection of domains including: (see createDiv() and processPhoto() for complete list)
 	* Imgur		(Album support) /imgur/a/<ALBUMID>
 	* Tumblr	(Album support) /tumblr/<HOSTNAME>
-	* WordPress	(Album support) /wp/<HOSTNAME>  (for wordpress hosted domains)
-	* WordPress v2  (Album support) /wp2/<HOSTNAME> (for self hosted domains)
+	* WordPress	(Album support) /wp/<HOSTNAME> (both self, and wp hosted)
 	* Gfycat	(User support)  /gfycat/u/<USERNAME>
 	* Blogger	(Album support) /blogger/<HOSTNAME>
 	* vimeo		(embed only - no autonext)
