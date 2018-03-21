@@ -1472,9 +1472,9 @@ $(function () {
             fav = rp.favicons[sld];
         }
         // #3 check if wordpress v2 site
+        var hostname = hostnameOf(url);
         if (fav === undefined) {
-            var hn = hostnameOf(url);
-            if (rp.wpv2[hn] === true)
+            if (rp.wpv2[hostname] === true)
                 fav = rp.favicons.wordpress;
         }
         if (fav)
@@ -1483,20 +1483,28 @@ $(function () {
         // #4 try //site/favicon.ico
         var img = $("<img />", {'class': 'redditp favicon', src: originOf(url)+'/favicon.ico'});
 
-        // #5 try originOf(pic.url)/favicon.ico (if different from pic.orig_url)
-        // #6 fallback to just link icon
+        // #5a try originOf(pic.url)/favicon.ico (if different from pic.orig_url)
+        // #5b try sld-only hostname of url
+        // #FINAL fallback to just link icon
+        var origin;
+        if (hostname != hostnameOf(pic.url) && pic.url != pic.thumbnail) {
+            origin = originOf(pic.url);
+
+        } else if (hostname != hostnameOf(url, true)) {
+            origin = originOf(url).replace(hostname,  hostnameOf(url, true));
+        }
+
         var backup;
-        var link = googleIcon("link");
-        if (hostnameOf(url) != hostnameOf(pic.url)) {
-            backup = $("<img />", {'class': 'redditp favicon', src: originOf(pic.url)+'/favicon.ico'});
-            backup.on('error', link, fixFavicon);
-            backup.on('load', link, fixFavicon);
+        if (origin) {
+            backup = $("<img />", {'class': 'redditp favicon', src: origin+'/favicon.ico'});
+            backup.on('error', googleIcon("link"), fixFavicon);
+            backup.on('load', googleIcon("link"), fixFavicon);
+
         } else {
-            backup = link;
+            backup = googleIcon("link");
         }
         img.on('error', backup, fixFavicon);
         img.on('load',  backup, fixFavicon);
-
 
         return img;
     };
@@ -1841,11 +1849,11 @@ $(function () {
 
         // COMMENTS/BUTTON LIST Box
         $('#navboxCommentsLink').attr('href', photo.commentsLink);
-        var url = image.orig_url || photo.orig_url || photo.url;
+        var url = image.orig_url || image.url;
         $('#navboxOrigLink').attr('href', url);
         $('#navboxOrigLink').html(getFavicon(image, url));
 
-        if (url != photo.orig_url) {
+        if (albumIndex >= 0) {
             $('#navboxAlbumOrigLink').attr('href', photo.orig_url);
             $('#navboxAlbumOrigLink').html(getFavicon(photo));
             $('#navboxAlbumOrigLink').removeClass('hidden');
