@@ -3329,11 +3329,12 @@ $(function () {
             $.each(data, function(i, item) {
                 var pic = { url: item.source_url,
                             title: item.caption.rendered || item.alt_text || item.title.rendered };
-                if (item.media_type == "image")
-                    pic.type = imageTypes.image;
-                else // @@ WAG
-                    initPhotoVideo(pic, item.source_url);
-                addAlbumItem(photo, pic);
+                if (processPhoto(pic))
+                    addAlbumItem(photo, pic);
+
+                else
+                    log.info("cannot display item [unkown type: "
+                             + item.media_type +"]: "+item.source_url);
             });
             checkPhotoAlbum(photo);
             addImageSlide(photo);
