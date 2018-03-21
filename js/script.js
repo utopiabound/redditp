@@ -1454,14 +1454,14 @@ $(function () {
         return true;
     };
 
-    var fixFavicon = function(e) {
-        if (e.type == "error" ||
-            $(this)[0].naturalHeight == 1 ||
-            $(this)[0].naturalWidth == 1)
-            $(this).parent().html(e.data);
-    };
-
     var getFavicon = function(pic, url) {
+        var fixFavicon = function(e) {
+            if (e.type == "error" ||
+                $(this)[0].naturalHeight == 1 ||
+                $(this)[0].naturalWidth == 1)
+                $(this).parent().html(e.data);
+        };
+
         if (url === undefined)
             url = pic.orig_url || pic.url;
         // #1 pic.favicon
@@ -1483,12 +1483,21 @@ $(function () {
         // #4 try //site/favicon.ico
         var img = $("<img />", {'class': 'redditp favicon', src: originOf(url)+'/favicon.ico'});
 
-        // #5 replace with link icon
-        img.on('error', googleIcon("link"), fixFavicon);
-        img.on('load',  googleIcon("link"), fixFavicon);
+        // #5 try originOf(pic.url)/favicon.ico (if different from pic.orig_url)
+        // #6 fallback to just link icon
+        var backup;
+        var link = googleIcon("link");
+        if (hostnameOf(url) != hostnameOf(pic.url)) {
+            backup = $("<img />", {'class': 'redditp favicon', src: originOf(pic.url)+'/favicon.ico'});
+            backup.on('error', link, fixFavicon);
+            backup.on('load', link, fixFavicon);
+        } else {
+            backup = link;
+        }
+        img.on('error', backup, fixFavicon);
+        img.on('load',  backup, fixFavicon);
 
-        // #6 @@ if hostnameOf(url) !== hostnameOf(url, true) or
-        // try favicon of pic.url instead of pic.orig_url
+
         return img;
     };
 
