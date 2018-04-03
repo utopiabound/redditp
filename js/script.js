@@ -30,7 +30,8 @@ var rp = {};
 // This can be set to TRACE, DEBUG, INFO, WARN. ERROR, SLIENT (nothing printed)
 log.setLevel(log.levels.INFO);
 RegExp.quote = function(str) {
-    return (str+'').replace(/[.?*+^$[\]\\(){}|-]/g, "\\$&");
+    var re = RegEx('[.*+?^${}()|[\]\\]', 'g');
+    return (str+'').replace(re, "\\$&");
 };
 
 rp.settings = {
@@ -94,7 +95,7 @@ rp.redirect = 'http://redditp.utopiabound.net/auth';
 // Hosts will default to originOf(url)+'/favicon.ico'
 // this list overrides based on second level domain (e.g. mywebsite.wordpress.com -> wordpress)
 rp.favicons = { tumblr:  'https://assets.tumblr.com/images/favicons/favicon.ico',
-	        wordpress: 'https://s1.wp.com/i/favicon.ico',
+                wordpress: 'https://s1.wp.com/i/favicon.ico',
                 dropbox: 'https://cfl.dropboxstatic.com/static/images/favicon.ico',
                 // i.redd.it/v.redd.it - reddit hosted images
                 redd: 'https://www.redditstatic.com/icon.png'
@@ -172,7 +173,7 @@ $(function () {
 
     var getNextPhotoOk = function(pic) {
         var photo = photoParent(pic);
-        
+
         if (!rp.settings.nsfw && photo.over18)
             return false;
 
@@ -219,7 +220,7 @@ $(function () {
                     rp.session.loadAfter();
                 return;
             }
-            
+
         } else {
             albumIndex = rp.session.activeAlbumIndex;
             if (albumIndex < 0)
@@ -235,7 +236,7 @@ $(function () {
             }
             if (photo.type == imageTypes.album) {
                 for (var i = albumIndex+1; i < photo.album.length; ++i) {
-                    if (!getNextPhotoOk(photo.album[i]))    
+                    if (!getNextPhotoOk(photo.album[i]))
                         continue;
                     startAnimation(index, i);
                     return;
@@ -286,7 +287,7 @@ $(function () {
             if (rp.photos[index].type == imageTypes.album) {
                 if (albumIndex == LOAD_PREV_ALBUM)
                     albumIndex = rp.photos[index].album.length;
-                
+
                 if (albumIndex > 0) {
                     for (var i = albumIndex-1; i >= 0; --i) {
                         if (!getNextPhotoOk(rp.photos[index].album[i]))
@@ -412,7 +413,7 @@ $(function () {
         });
         return a;
     };
-    
+
     var searchValueOf = function(url, key) {
         return searchOf(url)[key];
     };
@@ -629,7 +630,7 @@ $(function () {
         if (timeout === undefined) {
             timeout = rp.settings.timeToNextSlide;
         }
-        timeout *= 1000;        
+        timeout *= 1000;
         window.clearTimeout(rp.session.nextSlideTimeoutId);
         log.debug('set timeout (ms): ' + timeout);
         rp.session.nextSlideTimeoutId = window.setTimeout(autoNextSlide, timeout);
@@ -795,7 +796,6 @@ $(function () {
             // Hide useless "fullscreen" button on iOS safari
             $('#fullscreen').parent().hide();
         }
-
     };
 
     var addNumberButton = function (numberButton) {
@@ -803,7 +803,7 @@ $(function () {
         var newListItem = $("<li />").appendTo(buttonUl);
         numberButton.appendTo(newListItem);
     };
-    
+
     var initPhotoFailed = function(photo) {
         photo.type = imageTypes.fail;
 
@@ -822,14 +822,14 @@ $(function () {
     var initPhotoVideo = function (photo, url, thumbnail) {
         photo.type = imageTypes.video;
         photo.video = {};
-        
+
         if (url === undefined)
             url = photo.url;
 
         var extension = isVideoExtension(url);
         if (extension)
             photo.video[extension] = url;
-        
+
         if (thumbnail !== undefined)
             photo.video.thumbnail = fixupUrl(thumbnail);
 
@@ -954,7 +954,7 @@ $(function () {
             log.error("laterPhotoFailed called on valid album: "+photo.url);
             return;
         }
-        
+
         initPhotoFailed(photo);
     };
 
@@ -1191,7 +1191,7 @@ $(function () {
                 initPhotoVideo(pic, 'https://i.giphy.com/media/'+shortid+'/giphy.mp4');
             else
                 log.info("cannot display video [error parsing]: "+pic.url);                
-                
+
         } else if (hostname == 'youtube.com') {
             // Types of URLS
             // https://www.youtube.com/embed/SHORTID
@@ -1209,7 +1209,7 @@ $(function () {
             // //openload.co/f/SHORTID/Title_of_picture
             // final name/title is optional
             shortid = url2shortid(pic.url, 2);
-            
+
             // no autostart
             initPhotoEmbed(pic, 'https://www.openload.co/embed/'+shortid);
 
@@ -1219,7 +1219,7 @@ $(function () {
             var a = searchOf(pic.url);
 
             shortid = a.viewkey;
-            
+
             if (a.pkey)
                 pic.extra = infoLink('https://www.pornhub.com/playlist/'+a.pkey, 'Playlist');
 
@@ -1306,7 +1306,7 @@ $(function () {
             pic.url = originOf(pic.url)+pathnameOf(pic.url)+'?dl=1';
             if (isVideoExtension(pic.url)) {
                 initPhotoVideo(pic);
-                
+
             } else if (isImageExtension(pic.url)) {
                 // simple image
 
@@ -1321,7 +1321,7 @@ $(function () {
 
         } else if (isVideoExtension(pic.url)) {
             initPhotoVideo(pic);
-            
+
         } else if (hostname == 'webm.land') {
             shortid = url2shortid(pic.url);
             initPhotoVideo(pic, 'http://webm.land/media/'+shortid+".webm");
@@ -1358,8 +1358,8 @@ $(function () {
                 // TODO : figure out /album/ on vidble.com/api
                 log.info("cannot display url [no album processing]: "+pic.url);
                 return false;
-  
-            } else { 
+
+            } else {
                 shortid = url2shortid(pic.url);
                 pic.url = 'https://www.vidble.com/'+shortid+'.jpg';
             }
@@ -1653,7 +1653,7 @@ $(function () {
         startAnimation($('#allNumberButtons a.active').data("index"),
                        $(this).data("index"));
     });
-    
+
     // Bind to PopState Event
     //rp.history.Adapter.bind(window, 'popstate', function(e) {
     window.onpopstate = function(e) {
@@ -1751,7 +1751,6 @@ $(function () {
             rp.session.isAnimating || rp.photos.length == 0) {
 
             log.debug("NOT ANIMATING photo.length=="+rp.photos.length+" isAnimating:"+rp.session.isAnimating);
-
             if (imageIndex >= rp.photos.length &&
                 rp.session.loadAfter !== null)
                 rp.session.loadAfter();
@@ -1859,7 +1858,7 @@ $(function () {
             $('#navboxAlbumOrigLink').removeClass('hidden');
         } else {
             $('#navboxAlbumOrigLink').addClass('hidden');
-        }            
+        }
 
         if (rp.session.loginExpire) {
             $('#loginUsername').parent().removeClass('hidden');
@@ -1879,7 +1878,7 @@ $(function () {
         $('#navboxExtra').html(picExtra(image));
         if (albumIndex >= 0)
             $('#navboxExtra').prepend($('<span>', { class: 'info' }).text((albumIndex+1)+"/"+rp.photos[imageIndex].album.length));
-        
+
         if (photo.subreddit !== undefined && photo.subreddit !== null) {
             $('#navboxSubreddit').attr('href', rp.redditBaseUrl + subreddit).html(subreddit);
             $('#navboxSubredditP').attr('href', rp.url.base+subreddit)
@@ -1942,7 +1941,7 @@ $(function () {
         }
 
         if (oldIndex != imageIndex) {
-            toggleNumberButton(oldIndex, false);            
+            toggleNumberButton(oldIndex, false);
             toggleAlbumButton(oldAlbumIndex, false);
             toggleNumberButton(imageIndex, true);
             populateAlbumButtons(photo);
@@ -2155,7 +2154,7 @@ $(function () {
                 }
                 log.debug("["+imageIndex+"] Video loadeddata video: "+photo.duration+" playing "+photo.times);
             });
-            
+
             // Set Autoplay for iOS devices
             if (rp.session.is_ios) {
                 // iOS version < 10 do not autoplay, so timeout
@@ -2242,7 +2241,7 @@ $(function () {
 
             if (pic.type == imageTypes.video)
                 showVideo(pic.video);
-            
+
             else if (pic.type == imageTypes.embed)
                 showEmbed(pic.url);
 
@@ -2297,7 +2296,7 @@ $(function () {
         var hostname = hostnameOf(url, true);
         var fqdn = hostnameOf(url);
         var shortid = url2shortid(url);
-        
+
         if (hostname == 'gfycat.com') {
             // Strip everything trailing '-'
             if (shortid.indexOf('-') != -1)
@@ -2324,17 +2323,17 @@ $(function () {
                                            "", // data.gfyItem.userName
                                            '/gfycat/u/'+data.gfyItem.userName);
                  */
-                
+
                 photo.video = {'thumbnail': data.gfyItem.posterUrl,
                                'webm': data.gfyItem.webmUrl,
                                'mp4':  data.gfyItem.mp4Url};
                 photo.type = imageTypes.video;
                 showVideo(photo.video);
             };
-            
+
         } else if (hostname == 'imgur.com') {
             headerData = { Authorization: "Client-ID "+ rp.api_key.imgur };
-            
+
             var imgurHandleAlbum = function (data) {
                 if (data.data.images.length > 1) {
                     var index;
@@ -2456,7 +2455,7 @@ $(function () {
             // Strip everything trailing '_'
             if (shortid.indexOf('_') != -1)
                 shortid = shortid.substr(0, shortid.lastIndexOf('_'));
-            
+
             jsonUrl = "https://pornbot.net/ajax/info.php?v=" + shortid;
 
             handleData = function(data) {
@@ -2495,14 +2494,14 @@ $(function () {
 
                     initPhotoEmbed(photo, f[0].src);
                     showEmbed(photo.url);
-                    
+
                 } else {
                     log.info("cannot display url [unk type "+data.type+"]: "+photo.url);
                     if (imageIndex == rp.session.activeIndex)
                         resetNextSlideTimer();
                 }
             };
-            
+
         } else if (hostname == 'tumblr.com') {
             shortid = url2shortid(photo.url, 2);
 
@@ -2565,7 +2564,7 @@ $(function () {
         var hostname = hostnameOf(url);
 
         // regexp removes /r/<sub>/ prefix if it exists
-	// E.g. http://imgur.com/r/aww/x9q6yW9 or http://imgur.com/t/mashup/YjBiWcL
+        // E.g. http://imgur.com/r/aww/x9q6yW9 or http://imgur.com/t/mashup/YjBiWcL
         // replace with gallery because it might be an album or a picture
         url = url.replace(/[rt]\/[^ \/]+\//, 'gallery/');
 
@@ -2580,7 +2579,7 @@ $(function () {
             url = url.replace(/\/new$/, '');
             return url;
         }
-            
+
         // process individual file
         if (hostname.indexOf('i.') !== 0) {
             url = url.replace(/[\w\.]*imgur.com/i, 'i.imgur.com');
@@ -2659,7 +2658,7 @@ $(function () {
                                     item.data.display_name,
                                     path,
                                     item.data.description_md);
-                
+
                 list.append($('<li>').html(link));
             });
         };
@@ -2699,7 +2698,7 @@ $(function () {
             $('#loginUsername').attr('title', 'Expires at '+d);
             rp.url.get = 'https://oauth.reddit.com';
             loadRedditMultiList();
-            
+
         } else {
             clearRedditLogin();
         }
@@ -2817,7 +2816,7 @@ $(function () {
                     log.error(photo.id+": cannot display video [no reddit_video]: "+photo.url);
                     return;
                 }
-                
+
             } else if (idorig.domain == 'reddit.com') {
                 // these shouldn't be added via tryPreview nor speculative lookups
                 log.info('will not display url [no image]: ' + photo.orig_url);
@@ -2855,7 +2854,7 @@ $(function () {
                     }
 
                     var haystack = $('<div />').html(unescapeHTML(comments[i].data.body_html));
-                    
+
                     var links = haystack.find('a');
 
                     if (!links || links.length == 0)
@@ -2884,7 +2883,7 @@ $(function () {
                 checkPhotoAlbum(photo);
                 addImageSlide(photo);
             };
-            
+
             var tryPreview = function(photo, idorig, msg) {
                 if (msg === undefined)
                     msg = 'preview [no image]';
@@ -2897,7 +2896,7 @@ $(function () {
                     }
                 }
                 log.info('cannot display '+msg + ': ' + photo.orig_url);
-                return;                
+                return;
             };
 
             if (photo.flair.toLowerCase() == 'request' ||
@@ -2933,7 +2932,7 @@ $(function () {
                 return;
             }
             // SPECULATIVE LOOKUPS
-            
+
             var path = pathnameOf(photo.url);
             var hn = hostnameOf(photo.url);
             var a;
@@ -2993,7 +2992,7 @@ $(function () {
                 // Blogger:
                 // 1. lookup blogger blogID by url
                 // 2. lookup post by URL (need blogID)
-                
+
                 jsonUrl = 'https://www.googleapis.com/blogger/v3/blogs/byurl?url='+originOf(photo.url)+'&key='+rp.api_key.blogger;
                 handleData = function (data) {
                     if (data.error) {
@@ -3038,7 +3037,7 @@ $(function () {
                     }
                     tryPreview(photo, idorig, "url [Blogger: "+err.error.message+"]");
                 };
-                    
+
             } else {
                 tryPreview(photo, idorig);
                 return;
@@ -3076,7 +3075,7 @@ $(function () {
                 rp.session.loadAfter = getRedditImages;
 
             } else {
-                rp.session.loadAfter = null;                
+                rp.session.loadAfter = null;
             }
 
             if (data.data.children.length === 0) {
@@ -3253,7 +3252,7 @@ $(function () {
                 pic.url = item.src;
                 if (item.alt)
                     pic.title = item.alt;
-                
+
             } else if (item.tagName == 'VIDEO') {
                 pic.type = imageTypes.video;
                 pic.video = {};
@@ -3279,7 +3278,7 @@ $(function () {
                 src = item.getAttribute('src');
                 if (src === null)
                     return false;
-                pic.url = unescapeHTML(src);              
+                pic.url = unescapeHTML(src);
 
             } else {
                 return false;
@@ -3378,7 +3377,7 @@ $(function () {
             if (att.mime_type.startsWith('image/')) {
                 pic.type = imageTypes.image;
                 pic.url = att.URL;
-                
+
             } else if (att.mime_type.startsWith('video/')) {
                 initPhotoVideo(pic, att.URL, (att.thumbnails) ?att.thumbnails.large :undefined);
 
@@ -3443,7 +3442,7 @@ $(function () {
             rp.session.loadingNextImages = false;
             return;
         }
-        
+
         $('#subredditLink').prop('href', 'https://'+hostname);
         $('#subredditUrl').val('wp2/'+hostname);
 
@@ -3615,10 +3614,10 @@ $(function () {
                     return false;
                 }
                 initPhotoEmbed(photo, youtubeURL(post.video.youtube.video_id));
-                
+
             } else if (post.video_url !== undefined) {
                 initPhotoVideo(photo, post.video_url, post.thumbnail_url);
-            
+
             } else if (post.video_type == "unknown") {
                 var width;
                 var embed;
@@ -3637,7 +3636,7 @@ $(function () {
                     "]: "+photo.orig_url);
                 return false;
             }
-            
+
         } else if (post.type == 'html') {
             rc = processHaystack(photo, post.description);
         }
@@ -3767,14 +3766,14 @@ $(function () {
                     var image = { title: post.title,
                                   id: post.id,
                                   over18: false,
-                                  date: d.valueOf()/1000, 
+                                  date: d.valueOf()/1000,
                                   url: post.url,
                                   commentsLink: post.url
                                 };
                     if (processBloggerPost(image, post))
                         addImageSlide(image);
                 });
-                
+
                 rp.session.loadingNextImages = false;
             };
             $.ajax({
@@ -3811,7 +3810,7 @@ $(function () {
 
         var jsonUrl = 'https://api.gfycat.com/v1/users/'+user+'/gfycats';
 
-        var handleData = function (data) {            
+        var handleData = function (data) {
             if (data.gfycats.length)
                 $.each(data.gfycats, function (i, post) {
                     var image = { url: 'https://gfycat.com/'+post.gfyName,

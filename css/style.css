@@ -53,10 +53,9 @@ a:hover {
     margin-bottom: 3px;
     text-decoration: none;
     color: #eee;
-    
     font: bold 12px Helvetica, Arial, Sans-serif;
     text-align: center;
-    line-height: 18px; 
+    line-height: 18px;
     padding: 3px;
     border: 1px solid transparent;
 }
@@ -130,7 +129,7 @@ a:hover {
     margin: 0 0 0 5px;
     width: 100%;
     font-family: "Segoe UI","HelveticaNeue-Light","Helvetica Neue Light","Helvetica Neue",Arial,Tahoma,Verdana,sans-serif;
-    font-size:14px;    
+    font-size:14px;
 }
 
 .nbmenu li {
@@ -201,12 +200,11 @@ label.checkbox { font-weight: bold; }
     position: absolute;
     top: 50%;
     left: 10px;
-    width: 0; 
-    height: 0; 
-    
+    width: 0;
+    height: 0;
     border-top: 15px solid transparent;
-    border-bottom: 15px solid transparent; 
-    border-right: 30px solid white; 
+    border-bottom: 15px solid transparent;
+    border-right: 30px solid white;
 
     opacity: 0.8;
     cursor: pointer;
@@ -216,13 +214,12 @@ label.checkbox { font-weight: bold; }
     position: absolute;
     top: 50%;
     right: 10px;
-    width: 0; 
-    height: 0; 
-    
+    width: 0;
+    height: 0;
+
     border-top: 15px solid transparent;
-    border-bottom: 15px solid transparent; 
-    border-left: 30px solid white; 
-    
+    border-bottom: 15px solid transparent;
+    border-left: 30px solid white;
     opacity: 0.8;
     cursor: pointer;
 }

@@ -1,9 +1,7 @@
 <!DOCTYPE html>
 <html>
-<head>
-    <!--
-        https://github.com/utopiabound/redditp
-    -->
+  <head>
+    <!-- https://github.com/utopiabound/redditp -->
     <meta http-equiv="content-type" content="text/html;charset=utf-8" />
     <title>redditP</title>
     <meta name="description" content="A fullscreen presentation or slide show of reddit. RedditP" />
@@ -19,163 +17,162 @@
     <script type="text/javascript" src="js/loglevel.min.js"></script>
     <script type="text/javascript" src="js/ie_hacks.js"></script>
     <script type="text/javascript" src="js/script.js"></script>
-</head>
-<body id="page">
+  </head>
+  <body id="page">
     <div class="prevArrow fadeOnIdle" title="The arrow keys work too" id="prevButton"></div>
     <div class="nextArrow fadeOnIdle" title="Try the arrow keys too" id="nextButton"></div>
-    
+
     <div id="controlsDiv" class="navbox clouds fadeOnIdle">
-        <div class="collapser" data-openstate="open">&larr;</div>
-	<div id="albumCollapser" class="vcollapser" data-opensym="&#8858;" data-closesym="&otimes;"
-	     data-openstate="open" data-controldiv="albumNumberButtons" title="Show Album Buttons">&#8858;</div>
-        <div id="navboxContents">
-            <ul class="nbmenu">
-                <li><form id="subredditForm" onsubmit="return false"><input type="text" id="subredditUrl" size="17" />
-		    <a id="subredditLink" href="#"><img class="reddit" src="images/reddit.svg" /></a></form>
-                </li>
-		<!-- Start this off as hidden, and only show if appropriate -->
-		<li id="loginLi" class="hidden">
-		  <a id="loginUsername" class="info infol" href="/"><i class="unset material-icons">account_box</i></a>
-		  <div id="multiListDiv" class="clouds">
-		    <ul><li><a href="https://www.reddit.com/" class="info infop" title="Front Page">
-			  <i class="material-icons">home</i></a>
-			<a href="/" class="info infop"><img class="redditp" src="images/favicon.png"></a></li>
-		      <li><a href="https://www.reddit.com/r/friends" class="info infop" title="">
-			  <i class="material-icons">people_outline</i></a>
-			<a href="/r/friends" class="info infop"><img class="redditp" src="images/favicon.png"></a></li>
-		      <li><a href="https://www.reddit.com/r/popular" class="info infop" title="">
-			<i class="material-icons">thumb_up</i></a>
-			<a href="/r/popular" class="info infop"><img class="redditp" src="images/favicon.png"></a></li>
-		      <li><a href="https://www.reddit.com/r/random" class="info infop" title="">
-			<i class="material-icons">child_friendly</i></a>
-			<a href="/r/random" class="info infop"><img class="redditp" src="images/favicon.png"></a></li>
-		      <li><a href="https://www.reddit.com/r/randnsfw" class="info infop" title="">
-			<i class="material-icons">wc</i></a>
-			<a href="/r/randnsfw" class="info infop"><img class="redditp" src="images/favicon.png"></a></li>
-		    </ul>
-		    <hr>
-		    <ul><li><i>Login to Load</i></li></ul></div>
-		</li>
-                <li>
-                    <input class="checkbox" type="checkbox" name="nsfw" id="nsfw" value="Auto" />
-                    <label class="checkbox colortoggle over18" for="nsfw" title="toggle showing NSFW content">
-		      <i class="material-icons">child_friendly</i></label>
-                </li>
-                <li>
-                    <input class="checkbox" type="checkbox" name="embed" id="embed" value="Auto" checked />
-                    <label class="icontoggle colortoggle embed" for="embed" title="toggle embeded content">
-		      <i class="material-icons">cloud_off</i></label>
-                </li>
-                <li>
-                    <input class="checkbox" type="checkbox" name="mute" id="mute" value="Auto" checked />
-                    <label class="icontoggle colortoggle mute" for="mute" title="toggle video sound (m)">
-		      <i class="material-icons">volume_off</i></label>
-                </li>
-                <li>
-		    <input class="checkbox" type="checkbox" name="fullscreen" id="fullscreen" value="Auto" />
-                    <label class="icontoggle fullscreen" for="fullscreen" title="toggle fullscreen (f)">
-		      <i class="material-icons">fullscreen</i></label>
-                </li>
-            </ul>
-            <ul class="nbmenu">
-                <li>
-                    <input class="checkbox" type="checkbox" name="autoNextSlide" id="autoNextSlide" value="Auto" checked />
-                    <label class="checkbox colortoggle" for="autoNextSlide">Auto-next</label>
-                    every <input type="text" name="timeToNextSlide" id="timeToNextSlide" value="8" size="2" /> seconds
-                </li>
-                <li>
-                    <a id='navboxCommentsLink' href='#' title='Comments (o)'>comments</a>
-                </li>
-                <li>
-                    <a id='navboxLink' href='#' title='placeholder'>Loading</a>
-                </li>
-                <li>
-                    <a id='navboxOrigLink' href='#' title='original link'><i class="redditp material-icons">link</i></a>
-                </li>
-                <li>
-                    <a id='navboxAlbumOrigLink' href='#' title='original link' class="hidden"><i class="redditp material-icons">link</i></a>
-                </li>
-            </ul>
-            <div id="allNumberButtonList" class="numberButtonList">
-                <!-- Slide number buttons will be injected by jQuery -->
-            </div>
-	    <!-- Album button list inserted/removed here -->
-        </div>
+      <div class="collapser" data-openstate="open">&larr;</div>
+      <div id="albumCollapser" class="vcollapser" data-opensym="&#8858;" data-closesym="&otimes;"
+	   data-openstate="open" data-controldiv="albumNumberButtons" title="Show Album Buttons">&#8858;</div>
+      <div id="navboxContents">
+	<ul class="nbmenu">
+	  <li><form id="subredditForm" onsubmit="return false"><input type="text" id="subredditUrl" size="17" />
+	      <a id="subredditLink" href="#"><img class="reddit" src="images/reddit.svg" /></a></form>
+	  </li>
+	  <!-- Start this off as hidden, and only show if appropriate -->
+	  <li id="loginLi" class="hidden">
+	    <a id="loginUsername" class="info infol" href="/"><i class="unset material-icons">account_box</i></a>
+	    <div id="multiListDiv" class="clouds">
+	      <ul><li><a href="https://www.reddit.com/" class="info infop" title="Front Page">
+		    <i class="material-icons">home</i></a>
+		  <a href="/" class="info infop"><img class="redditp" src="images/favicon.png"></a></li>
+		<li><a href="https://www.reddit.com/r/friends" class="info infop" title="">
+		    <i class="material-icons">people_outline</i></a>
+		  <a href="/r/friends" class="info infop"><img class="redditp" src="images/favicon.png"></a></li>
+		<li><a href="https://www.reddit.com/r/popular" class="info infop" title="">
+		    <i class="material-icons">thumb_up</i></a>
+		  <a href="/r/popular" class="info infop"><img class="redditp" src="images/favicon.png"></a></li>
+		<li><a href="https://www.reddit.com/r/random" class="info infop" title="">
+		    <i class="material-icons">child_friendly</i></a>
+		  <a href="/r/random" class="info infop"><img class="redditp" src="images/favicon.png"></a></li>
+		<li><a href="https://www.reddit.com/r/randnsfw" class="info infop" title="">
+		    <i class="material-icons">wc</i></a>
+		  <a href="/r/randnsfw" class="info infop"><img class="redditp" src="images/favicon.png"></a></li>
+	      </ul>
+	      <hr>
+	      <ul><li><i>Login to Load</i></li></ul></div>
+	  </li>
+	  <li>
+	    <input class="checkbox" type="checkbox" name="nsfw" id="nsfw" value="Auto" />
+	    <label class="checkbox colortoggle over18" for="nsfw" title="toggle showing NSFW content">
+	      <i class="material-icons">child_friendly</i></label>
+	  </li>
+	  <li>
+	    <input class="checkbox" type="checkbox" name="embed" id="embed" value="Auto" checked />
+	    <label class="icontoggle colortoggle embed" for="embed" title="toggle embeded content">
+	      <i class="material-icons">cloud_off</i></label>
+	  </li>
+	  <li>
+	    <input class="checkbox" type="checkbox" name="mute" id="mute" value="Auto" checked />
+	    <label class="icontoggle colortoggle mute" for="mute" title="toggle video sound (m)">
+	      <i class="material-icons">volume_off</i></label>
+	  </li>
+	  <li>
+	    <input class="checkbox" type="checkbox" name="fullscreen" id="fullscreen" value="Auto" />
+	    <label class="icontoggle fullscreen" for="fullscreen" title="toggle fullscreen (f)">
+	      <i class="material-icons">fullscreen</i></label>
+	  </li>
+	</ul>
+	<ul class="nbmenu">
+	  <li>
+	    <input class="checkbox" type="checkbox" name="autoNextSlide" id="autoNextSlide" value="Auto" checked />
+	    <label class="checkbox colortoggle" for="autoNextSlide">Auto-next</label>
+	    every <input type="text" name="timeToNextSlide" id="timeToNextSlide" value="8" size="2" /> seconds
+	  </li>
+	  <li>
+	    <a id='navboxCommentsLink' href='#' title='Comments (o)'>comments</a>
+	  </li>
+	  <li>
+	    <a id='navboxLink' href='#' title='placeholder'>Loading</a>
+	  </li>
+	  <li>
+	    <a id='navboxOrigLink' href='#' title='original link'><i class="redditp material-icons">link</i></a>
+	  </li>
+	  <li>
+	    <a id='navboxAlbumOrigLink' href='#' title='original link' class="hidden"><i class="redditp material-icons">link</i></a>
+	  </li>
+	</ul>
+	<div id="allNumberButtonList" class="numberButtonList">
+	  <!-- Slide number buttons will be injected by jQuery -->
+	</div>
+	<!-- Album button list inserted/removed here -->
+      </div>
     </div>
 
     <div id="titleDiv" class="navbox clouds">
-        <div class="collapser" data-openstate="open">&larr;</div>
-	<div id='navboxTitleWrapper'>
-          <h2 id='navboxTitle'>
-            <noscript>Javascript is required for redditp to work :(</noscript>
-          </h2>
-          <div><a id="navboxSubreddit" class="info infol" title="(0)" href="http://www.reddit.com">
-              <noscript>Javascript is required for redditp to work :(</noscript>
-            </a><a id="navboxSubredditP" class="info infop" href="/">&nbsp;</a>
-	    <a id="navboxSubredditC" class="info infoc" title="Comments (o)" href="/">&nbsp;</a>
-          </div>
-	  <div><span id="navboxDate" class="info infod" title=""></span></div>
-          <div><a id="navboxAuthor" class="info infol" href="http://www.reddit.com">
-              <noscript>Javascript is required for redditp to work :(</noscript>
-            </a><a id="navboxAuthorP" class="info infop" href="/">&nbsp;</a>
-          </div>
-          <div id="navboxExtra"></div>
+      <div class="collapser" data-openstate="open">&larr;</div>
+      <div id='navboxTitleWrapper'>
+	<h2 id='navboxTitle'>
+	  <noscript>Javascript is required for redditp to work :(</noscript>
+	</h2>
+	<div><a id="navboxSubreddit" class="info infol" title="(0)" href="http://www.reddit.com">
+	    <noscript>Javascript is required for redditp to work :(</noscript>
+	  </a><a id="navboxSubredditP" class="info infop" href="/">&nbsp;</a>
+	  <a id="navboxSubredditC" class="info infoc" title="Comments (o)" href="/">&nbsp;</a>
 	</div>
-	<div id="duplicateCollapser" class="vcollapser" data-opensym="&#8858;" data-closesym="&otimes;"
-	     data-openstate="open" data-controldiv="duplicateDiv" title="Hide/Show Duplicates">&#8858;</div>
-	<div id="duplicateDiv" class='navbox'>
-	  <h3><a id='navboxDuplicatesLink' href="#" class="infol" title="Show Duplciates (p)">Duplicates
-	    </a><a id='navboxDuplicatesMultiP' href="#" class="infop"><img class="redditp" src="images/favicon.png" />
-	    </a><a id='navboxDuplicatesMulti' href="#" title="MultiReddit of duplicate subreddits (r)" class="infoc">
-	      <img class="reddit" src="images/reddit.svg" /></a>
-	  </h3>
-	  <ul id="duplicateUl" />
+	<div><span id="navboxDate" class="info infod" title=""></span></div>
+	<div><a id="navboxAuthor" class="info infol" href="http://www.reddit.com">
+	    <noscript>Javascript is required for redditp to work :(</noscript>
+	  </a><a id="navboxAuthorP" class="info infop" href="/">&nbsp;</a>
 	</div>
+	<div id="navboxExtra"></div>
+      </div>
+      <div id="duplicateCollapser" class="vcollapser" data-opensym="&#8858;" data-closesym="&otimes;"
+	   data-openstate="open" data-controldiv="duplicateDiv" title="Hide/Show Duplicates">&#8858;</div>
+      <div id="duplicateDiv" class='navbox'>
+	<h3><a id='navboxDuplicatesLink' href="#" class="infol" title="Show Duplciates (p)">Duplicates
+	  </a><a id='navboxDuplicatesMultiP' href="#" class="infop"><img class="redditp" src="images/favicon.png" />
+	  </a><a id='navboxDuplicatesMulti' href="#" title="MultiReddit of duplicate subreddits (r)" class="infoc">
+	    <img class="reddit" src="images/reddit.svg" /></a>
+	</h3>
+	<ul id="duplicateUl" />
+      </div>
     </div>
 
     <div id="recommend" style="display:none; text-align: center; margin: 10px; color: rgb(170, 170, 170);">
-        <p>Maybe try these presentations instead:</p>
-        <ul>
-            <li>
-                <a class="infop" href="/r/earthporn">earthporn</a>
-            </li>
-            <li>
-                <a class="infop" href="/r/aww">aww</a>
-            </li>
-            <li>
-                <a class="infop" href="/r/foodporn">foodporn</a>
-            </li>
-            <li>
-                <a class="infop" href="/r/funny">funny</a>
-            </li>
-            <li>
-                <a class="infop" href="/r/gonewild">gonewild (nsfw)</a>
-            </li>
-            <li>
-                <a class="infop" href="/r/spaceporn">spaceporn</a>
-            </li>
-            <li>
-                <a class="infop" href="/r/gifs">gifs</a>
-            </li>
-            <li>
-                <a class="infop" href="/r/random">random</a>
-            </li>
-            <li>
-                <a class="infop" href="/r/randnsfw">random (nsfw)</a>
-            </li>
-            <li>
-                <a class="infop" href="/r/all">all</a>
-            </li>
-        </ul>    
-    </div>
-    
-    
-    <div id="pictureSlider">
-        <!-- Pictures will be injected by jQuery -->
-        <div>
-            <!-- Empty div to be animated out, do not erase -->
-        </div>
+      <p>Maybe try these presentations instead:</p>
+      <ul>
+	<li>
+	  <a class="infop" href="/r/earthporn">earthporn</a>
+	</li>
+	<li>
+	  <a class="infop" href="/r/aww">aww</a>
+	</li>
+	<li>
+	  <a class="infop" href="/r/foodporn">foodporn</a>
+	</li>
+	<li>
+	  <a class="infop" href="/r/funny">funny</a>
+	</li>
+	<li>
+	  <a class="infop" href="/r/gonewild">gonewild (nsfw)</a>
+	</li>
+	<li>
+	  <a class="infop" href="/r/spaceporn">spaceporn</a>
+	</li>
+	<li>
+	  <a class="infop" href="/r/gifs">gifs</a>
+	</li>
+	<li>
+	  <a class="infop" href="/r/random">random</a>
+	</li>
+	<li>
+	  <a class="infop" href="/r/randnsfw">random (nsfw)</a>
+	</li>
+	<li>
+	  <a class="infop" href="/r/all">all</a>
+	</li>
+      </ul>
     </div>
 
-</body>
+    <div id="pictureSlider">
+      <!-- Pictures will be injected by jQuery -->
+      <div>
+	<!-- Empty div to be animated out, do not erase -->
+      </div>
+    </div>
+
+  </body>
 </html>
