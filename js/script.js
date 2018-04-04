@@ -30,7 +30,7 @@ var rp = {};
 // This can be set to TRACE, DEBUG, INFO, WARN. ERROR, SLIENT (nothing printed)
 log.setLevel(log.levels.INFO);
 RegExp.quote = function(str) {
-    var re = RegEx('[.*+?^${}()|[\]\\]', 'g');
+    var re = RegExp('[.*+?^${}()|[\]\\]', 'g');
     return (str+'').replace(re, "\\$&");
 };
 
@@ -1454,12 +1454,12 @@ $(function () {
         return true;
     };
 
-    var getFavicon = function(pic, url) {
+    var setFavicon = function(elem, pic, url) {
         var fixFavicon = function(e) {
             if (e.type == "error" ||
-                $(this)[0].naturalHeight == 1 ||
-                $(this)[0].naturalWidth == 1)
-                $(this).parent().html(e.data);
+                $(this)[0].naturalHeight <= 1 ||
+                $(this)[0].naturalWidth <= 1)
+                e.data.elem.html(e.data.backup);
         };
 
         if (url === undefined)
@@ -1477,8 +1477,10 @@ $(function () {
             if (rp.wpv2[hostname] === true)
                 fav = rp.favicons.wordpress;
         }
-        if (fav)
-            return $("<img />", {'class': 'redditp favicon', src: fav});
+        if (fav) {
+            elem.html($("<img />", {'class': 'redditp favicon', src: fav}));
+            return;
+        }
 
         // #4 try //site/favicon.ico
         var img = $("<img />", {'class': 'redditp favicon', src: originOf(url)+'/favicon.ico'});
@@ -1497,16 +1499,16 @@ $(function () {
         var backup;
         if (origin) {
             backup = $("<img />", {'class': 'redditp favicon', src: origin+'/favicon.ico'});
-            backup.on('error', googleIcon("link"), fixFavicon);
-            backup.on('load', googleIcon("link"), fixFavicon);
+            backup.on('error', { elem: elem, backup: googleIcon("link") }, fixFavicon);
+            backup.on('load', { elem: elem, backup: googleIcon("link") }, fixFavicon);
 
         } else {
             backup = googleIcon("link");
         }
-        img.on('error', backup, fixFavicon);
-        img.on('load',  backup, fixFavicon);
+        img.on('error', { elem: elem, backup: backup }, fixFavicon);
+        img.on('load',  { elem: elem, backup: backup }, fixFavicon);
 
-        return img;
+        elem.html(img);
     };
 
     var arrow = {
@@ -1850,11 +1852,11 @@ $(function () {
         $('#navboxCommentsLink').attr('href', photo.commentsLink);
         var url = image.orig_url || image.url;
         $('#navboxOrigLink').attr('href', url);
-        $('#navboxOrigLink').html(getFavicon(image, url));
+        setFavicon($('#navboxOrigLink'), image, url);
 
         if (albumIndex >= 0) {
             $('#navboxAlbumOrigLink').attr('href', photo.orig_url);
-            $('#navboxAlbumOrigLink').html(getFavicon(photo));
+            setFavicon($('#navboxAlbumOrigLink'), photo);
             $('#navboxAlbumOrigLink').removeClass('hidden');
         } else {
             $('#navboxAlbumOrigLink').addClass('hidden');
