@@ -3572,7 +3572,7 @@ $(function () {
             rp.session.loadingNextImages = false;
         };
 
-        var failData = function () {
+        var failedData = function () {
             rp.session.loadingNextImages = false;
             getWordPressBlogV2();
         };
@@ -3916,7 +3916,10 @@ $(function () {
             setupRedditLogin(bearer, by);
 
             matches = /[#?&]state=([^&#=]*)/.exec(window.location.href);
-            processUrls(decodeURIComponent(matches[1]));
+            var url = decodeURIComponent(matches[1]);
+            if (url.startsWith('/auth'))
+                url = '/';
+            processUrls(url);
             loadRedditMultiList();
             return;
         }
