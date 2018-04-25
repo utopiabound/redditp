@@ -353,7 +353,7 @@ $(function () {
         var data = '<a href="'+info+'" class="info infol" title="'+infoalt+'">'+text+'</a>';
         if (infop !== undefined)
             data += '<a href="'+rp.url.base+infop+'" class="info infop">'+
-                '<img class="redditp" src="images/favicon.png" /></a>';
+                '<img class="redditp" src="'+rp.url.root+'images/favicon.png" /></a>';
         return data;
     };
 
@@ -925,13 +925,14 @@ $(function () {
             if (photo.type == imageTypes.image ||
                 photo.type == imageTypes.embed ||
                 photo.type == imageTypes.later) {
-                img = { url: photo.url,
+                // don't use thumbnail if it's been set via tryPreview()
+                img = { url: (photo.thumbnail == photo.url) ?photo.orig_url :photo.url,
                         type: photo.type };
             } else if (photo.type == imageTypes.video) {
+                // leave img.type unset, so processPhoto() will look at url
                 img = { url: photo.url,
                         thumbnail: photo.thumbnail,
-                        video: photo.video,
-                        type: imageTypes.image };
+                        video: photo.video };
             }
 
             photo.type = imageTypes.album;
@@ -1884,7 +1885,7 @@ $(function () {
         if (photo.subreddit !== undefined && photo.subreddit !== null) {
             $('#navboxSubreddit').attr('href', rp.redditBaseUrl + subreddit).html(subreddit);
             $('#navboxSubredditP').attr('href', rp.url.base+subreddit)
-                .html($('<img />', {'class': 'redditp', src: 'images/favicon.png'}));
+                .html($('<img />', {'class': 'redditp', src: rp.url.root+'images/favicon.png'}));
             $('#navboxSubreddit').show();
             $('#navboxSubredditP').show();
         } else {
@@ -1896,7 +1897,7 @@ $(function () {
             var authLink = '/u/' + authName;
             $('#navboxAuthor').attr('href', rp.redditBaseUrl + authLink).html(authLink);
             $('#navboxAuthorP').attr('href', rp.url.base+'/user/'+authName+'/submitted')
-                .html($('<img />', {'class': 'redditp', src: 'images/favicon.png'}));
+                .html($('<img />', {'class': 'redditp', src: rp.url.root+'images/favicon.png'}));
             $('#navboxAuthor').show();
             $('#navboxAuthorP').show();
         } else {
@@ -2039,7 +2040,7 @@ $(function () {
 
         divNode.prependTo("#pictureSlider");
         $("#pictureSlider div").fadeIn(rp.settings.animationSpeed);
-        var oldDiv = $("#pictureSlider div:not(:first)");
+        var oldDiv = $("#pictureSlider div:not(:first-of-type)");
         oldDiv.fadeOut(rp.settings.animationSpeed, function () {
             oldDiv.detach();
 
@@ -2087,9 +2088,18 @@ $(function () {
                 // @@ delete this div?
                 log.info("["+imageIndex+"] video failed to load");
             });
+            // https://i.redd.it/removed.png is 130x60
+            if (hostnameOf(url) == 'i.redd.it')
+                img.on('load', function(e) {
+                    if ($(this)[0].naturalHeight == 60 &&
+                        $(this)[0].naturalWidth == 130) {
+                        log.info("["+photo.index+"] Image has been removed: "+photo.url);
+                        initPhotoFailed(photo);
+                    }
+                });
+            // https://i.imgur.com/removed.png is 161x81
             if (hostnameOf(url, true) == 'imgur.com')
                 img.on('load', function(e) {
-                    // https://i.imgur.com/removed.png is 161x81
                     if ($(this)[0].naturalHeight == 81 &&
                         $(this)[0].naturalWidth == 161) {
                         log.info("["+photo.index+"] Image has been removed: "+photo.url);
@@ -2750,18 +2760,23 @@ $(function () {
                 idx = idx.crosspost_parent_list[0];
             }
 
+            if (idx.author == '[deleted]') {
+                log.info('cannot display url [deleted]: '+idorig.url);
+                return;
+            }
+
             var url = fixupUrl(idx.url);
 
             // Link to x-posted subreddits
             var title = idorig.title.replace(/\/?(r\/\w+)\s*/g,
                                                 "<a class='infol' href='"+rp.redditBaseUrl+"/$1'>/$1</a>"+
                                                 "<a class='infop' href='"+rp.url.base+"/$1'>"+
-                                                "<img class='redditp' src='images/favicon.png' /></a>");
+                                                "<img class='redditp' src='"+rp.url.root+"images/favicon.png' /></a>");
             // Link to reddit users
             title = title.replace(/\/?u\/(\w+)\s*/g, 
                                   "<a class='infol' href='"+rp.redditBaseUrl+"/user/$1'>/u/$1</a>"+
                                   "<a class='infop' href='"+rp.url.base+"/user/$1/submitted'>"+
-                                  "<img class='redditp' src='images/favicon.png' /></a>");
+                                  "<img class='redditp' src='"+rp.url.root+"images/favicon.png' /></a>");
 
             var flair = "";
             // Add flair (but remove if also in title)
@@ -3249,7 +3264,9 @@ $(function () {
                 if (src === null)
                     return false;
                 src = unescapeHTML(src);
-                if (src.startsWith('/'))
+                if (src.startsWith('//'))
+                    item.src = 'https:'+src;
+                else if (src.startsWith('/'))
                     item.src = originOf(pic.url)+src;
                 pic.url = item.src;
                 if (item.alt)
@@ -3875,8 +3892,13 @@ $(function () {
         }
 
         // Set prefix for self links, if in subdirectory
-        if (initial && window.location.pathname != rp.url.subreddit)
-            rp.url.base = window.location.pathname + '?';
+        if (initial)
+            if (window.location.pathname != rp.url.subreddit) {
+                rp.url.base = window.location.pathname + '?';
+                rp.url.root = window.location.pathname;
+            } else {
+                rp.url.root = '/';
+            }
 
         if (!path.startsWith(pathnameOf(rp.url.base)))
             path = rp.url.base+path;
