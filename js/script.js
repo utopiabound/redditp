@@ -336,25 +336,55 @@ $(function () {
         return 'https://www.youtube.com/embed/'+id+ytExtra;
     };
 
+    var redditLink = function(path, pathalt, pathname, classes) {
+        if (pathalt === undefined)
+            pathalt = "";
+        if (pathname === undefined)
+            pathname = path;
+        if (classes === undefined)
+            classes = "info";
+        var data = $('<div/>');
+        data.append($('<a>', { href: rp.url.base+path,
+                               class: classes+" infol local",
+                               title: pathalt }
+                     ).html(pathname));
+        data.append($('<a>', { href: rp.redditBaseUrl+path,
+                               class: classes+" infor" }
+                     ).html($('<img>', { class: "reddit",
+                                         src: rp.url.root+'images/reddit.svg' })));
+        return data.html();
+    };
+
+    // Same as redditLink, but no info class
+    var titleRLink = function(path, pathname) {
+        return redditLink(path, pathname, pathname, "");
+    };
+
+   var localLink = function(url, text, local, urlalt, favicon) {
+        if (text === undefined)
+            text = local;
+        if (urlalt === undefined)
+            urlalt = "";
+
+        var data = $('<div/>');
+        data.append($('<a>', { href: rp.url.base+local,
+                               class: "info infol local" }
+                     ).html(text));
+        var link = $('<a>', { href: url,
+                              class: "info infor",
+                              title: urlalt });
+        setFavicon(link, { url: url, favicon: favicon });
+        data.append(link);
+        return data.html();
+    };
+
     // info - foreign link
     // text - Text of foreign link
-    // infop - always self-link (optional)
-    // infoalt - alt text (optional)
-    // favicon - specify favicon (optional)
-    var infoLink = function(info, text, infop, infoalt, favicon) {
-        if (infoalt === undefined)
-            infoalt = "";
-        if (favicon === undefined) {
-            var sld = hostnameOf(info, true).match(/[^\.]*/)[0];
-            favicon = rp.favicons[sld];
-        }
-        if (favicon !== undefined)
-            text = '<img class="redditp favicon" src="'+favicon+'" />'+text;
-        var data = '<a href="'+info+'" class="info infol" title="'+infoalt+'">'+text+'</a>';
-        if (infop !== undefined)
-            data += '<a href="'+rp.url.base+infop+'" class="info infop">'+
-                '<img class="redditp" src="'+rp.url.root+'images/favicon.png" /></a>';
-        return data;
+    var infoLink = function(url, text) {
+        var data = $('<div/>');
+        data.append($('<a>', { href: url, class: "info infol" }
+                     ).html(text));
+        return data.html();
     };
 
     var googleIcon = function(icon_name) {
@@ -1040,7 +1070,7 @@ $(function () {
         // check for duplicates
         for(var i = 0; i < photo.album.length; ++i) {
             if (photo.album[i].url == pic.url) {
-                log.info("cannot display url [sub-album dup]: ["+i+"] exists, skip ["+index+"]: "+pic.url);
+                log.debug("cannot display url [sub-album dup]: ["+i+"] exists, skip ["+index+"]: "+pic.url);
                 return;
             }
         }
@@ -1074,6 +1104,7 @@ $(function () {
 
     var fixPhotoButton = function(pic, button) {
         var parent = photoParent(pic);
+        var button;
 
         // no buttons exist
         if (parent.index === undefined)
@@ -1087,7 +1118,7 @@ $(function () {
             return;
 
         else if (button == undefined)
-                button = $('#allNumberButtons ul').children(":nth-child("+(index+1)+")");
+            button = $('#allNumberButtons ul').children(":nth-child("+(parent.index+1)+")");
 
         button.removeClass('embed album over18');
 
@@ -1631,17 +1662,17 @@ $(function () {
         case TWO_KEY:
             ++i;
         case ONE_KEY:
-            if ($('#duplicateUl li .infol')[i])
-                open_in_background_url($('#duplicateUl li .infol')[i]);
+            if ($('#duplicateUl li .infor')[i])
+                open_in_background_url($('#duplicateUl li .infor')[i]);
             break;
         case ZERO_KEY:
-            open_in_background('#navboxSubreddit');
+            open_in_background_url($('#navboxSubreddit a.infor')[0]);
             break;
         }
     });
 
     // Capture all clicks on infop links (links that direct locally
-    $(document).on('click', 'a.infop', function (event) {
+    $(document).on('click', 'a.local', function (event) {
         if (event) {
             event.preventDefault();
             event.stopImmediatePropagation();
@@ -1880,37 +1911,23 @@ $(function () {
         $('#navboxLink').attr('href', image.url).attr('title', picTitleText(image)+" (i)").html(googleIcon(image.type));
         $('#navboxExtra').html(picExtra(image));
         if (albumIndex >= 0)
-            $('#navboxExtra').prepend($('<span>', { class: 'info' }).text((albumIndex+1)+"/"+rp.photos[imageIndex].album.length));
+            $('#navboxExtra').append($('<span>', { class: 'info infol' }).text((albumIndex+1)+"/"+rp.photos[imageIndex].album.length));
 
-        if (photo.subreddit !== undefined && photo.subreddit !== null) {
-            $('#navboxSubreddit').attr('href', rp.redditBaseUrl + subreddit).html(subreddit);
-            $('#navboxSubredditP').attr('href', rp.url.base+subreddit)
-                .html($('<img />', {'class': 'redditp', src: rp.url.root+'images/favicon.png'}));
-            $('#navboxSubreddit').show();
-            $('#navboxSubredditP').show();
-        } else {
+        if (photo.subreddit !== undefined && photo.subreddit !== null)
+            $('#navboxSubreddit').html(redditLink(subreddit)).show();
+        else
             $('#navboxSubreddit').hide();
-            $('#navboxSubredditP').hide();
-        }
 
-        if (authName) {
-            var authLink = '/u/' + authName;
-            $('#navboxAuthor').attr('href', rp.redditBaseUrl + authLink).html(authLink);
-            $('#navboxAuthorP').attr('href', rp.url.base+'/user/'+authName+'/submitted')
-                .html($('<img />', {'class': 'redditp', src: rp.url.root+'images/favicon.png'}));
-            $('#navboxAuthor').show();
-            $('#navboxAuthorP').show();
-        } else {
+        if (authName)
+            $('#navboxAuthor').html(redditLink('/user/'+authName+'/submitted',  authName, '/u/'+authName)).show();
+        else
             $('#navboxAuthor').hide();
-            $('#navboxAuthorP').hide();
-        }
-        if (photo.commentsCount) {
-            $('#navboxSubredditC').show();
-            $('#navboxSubredditC').attr('href', photo.commentsLink);
-            $('#navboxSubredditC').text('('+photo.commentsCount+")");
-        } else {
-            $('#navboxSubredditC').hide();
-        }
+
+        if (photo.commentsCount)
+            $('#navboxSubreddit').append($('<a>', { href: photo.commentsLink,
+                                                    class: "info infoc",
+                                                    title: "Comments (o)" }
+                                          ).text('('+photo.commentsCount+")"));
         if (photo.date)
             $('#navboxDate').attr("title", (new Date(photo.date*1000)).toString()).text(sec2dms(now - photo.date));
         else
@@ -1926,9 +1943,7 @@ $(function () {
             $.each(photo.duplicates, function(i, item) {
                 var subr = '/r/' +item.subreddit;
                 multi += '+'+item.subreddit;
-                var li = $("<li>", { class: 'list'}).html(infoLink(rp.redditBaseUrl + subr,
-                                                                   subr, subr,
-                                                                   picTitleText(item)+" ("+(i+1)+")"));
+                var li = $("<li>", { class: 'list'}).html(redditLink(subr, picTitleText(item)));
                 li.append($("<a>", { href: rp.redditBaseUrl + subr + "/comments/"+item.id,
                                      class: 'info infoc',
                                      title: 'Comments'
@@ -2085,8 +2100,11 @@ $(function () {
             var img = $('<img />', { class: "fullscreen", src: url});
 
             img.on('error', function(e) {
-                // @@ delete this div?
-                log.info("["+imageIndex+"] video failed to load");
+                log.info("cannot display photo [load error]: "+photo.url);
+                initPhotoFailed(photo);
+                // ensure no infinite loop
+                if (photo.thumbnail != url)
+                    showImage(photo.thumbnail);
             });
             // https://i.redd.it/removed.png is 130x60
             if (hostnameOf(url) == 'i.redd.it')
@@ -2095,6 +2113,7 @@ $(function () {
                         $(this)[0].naturalWidth == 130) {
                         log.info("["+photo.index+"] Image has been removed: "+photo.url);
                         initPhotoFailed(photo);
+                        showImage(photo.thumbnail);
                     }
                 });
             // https://i.imgur.com/removed.png is 161x81
@@ -2104,9 +2123,10 @@ $(function () {
                         $(this)[0].naturalWidth == 161) {
                         log.info("["+photo.index+"] Image has been removed: "+photo.url);
                         initPhotoFailed(photo);
+                        showImage(photo.thumbnail);
                     }
                 });
-            divNode.append(img);
+            divNode.html(img);
 
             if (needreset && imageIndex == rp.session.activeIndex)
                 resetNextSlideTimer();
@@ -2329,9 +2349,9 @@ $(function () {
                     return;
                 }
 
-                /* -- infoLink() takes text for favicon
+                /*
                 if (data.gfyItem.userName != 'anonymous')
-                    photo.extra = infoLink('https://gfycat.com/@'+data.gfyItem.userName,
+                    photo.extra = localLink('https://gfycat.com/@'+data.gfyItem.userName,
                                            "", // data.gfyItem.userName
                                            '/gfycat/u/'+data.gfyItem.userName);
                  */
@@ -2521,9 +2541,9 @@ $(function () {
             dataType = 'jsonp';
 
             handleData = function(data) {
-                photo.extra = infoLink(data.response.blog.url,
-                                       data.response.blog.name,
-                                       '/tumblr/'+data.response.blog.name);
+                photo.extra = localLink(data.response.blog.url,
+                                        data.response.blog.name,
+                                        '/tumblr/'+data.response.blog.name);
 
                 processTumblrPost(photo, data.response.posts[0]);
                 showPic(photo);
@@ -2666,10 +2686,7 @@ $(function () {
                 else
                     path = "/me/m/"+item.data.name;
 
-                var link = infoLink(rp.redditBaseUrl + path,
-                                    item.data.display_name,
-                                    path,
-                                    item.data.description_md);
+                var link = redditLink(path, item.data.description_md, item.data.display_name);
 
                 list.append($('<li>').html(link));
             });
@@ -2760,23 +2777,13 @@ $(function () {
                 idx = idx.crosspost_parent_list[0];
             }
 
-            if (idx.author == '[deleted]') {
-                log.info('cannot display url [deleted]: '+idorig.url);
-                return;
-            }
-
             var url = fixupUrl(idx.url);
 
             // Link to x-posted subreddits
-            var title = idorig.title.replace(/\/?(r\/\w+)\s*/g,
-                                                "<a class='infol' href='"+rp.redditBaseUrl+"/$1'>/$1</a>"+
-                                                "<a class='infop' href='"+rp.url.base+"/$1'>"+
-                                                "<img class='redditp' src='"+rp.url.root+"images/favicon.png' /></a>");
+            var title = idorig.title.replace(/\/?(r\/\w+)\s*/g, function(match, p1) { return titleRLink('/'+p1); });
+
             // Link to reddit users
-            title = title.replace(/\/?u\/(\w+)\s*/g, 
-                                  "<a class='infol' href='"+rp.redditBaseUrl+"/user/$1'>/u/$1</a>"+
-                                  "<a class='infop' href='"+rp.url.base+"/user/$1/submitted'>"+
-                                  "<img class='redditp' src='"+rp.url.root+"images/favicon.png' /></a>");
+            title = title.replace(/\/?u\/(\w+)\s*/g, function(match, p1) { return titleRLink('/user/'+p1+'/submitted', '/u/'+p1); });
 
             var flair = "";
             // Add flair (but remove if also in title)
@@ -3259,6 +3266,11 @@ $(function () {
                     item.getAttribute("itemprop").includes("thumbnail"))
                     return false;
 
+                // Skip very small images (probably logos)
+                if ((item.getAttribute("height") || 100) < 100 ||
+                    (item.getAttribute("width") || 100) < 100)
+                    return false;
+
                 pic.type = imageTypes.image;
                 src = item.getAttribute('src');
                 if (src === null)
@@ -3331,7 +3343,7 @@ $(function () {
             return false;
         var hn = hostnameOf(photo.url);
         photo.favicon = rp.favicons.wordpress;
-        photo.extra = infoLink(originOf(photo.url), hn, "/wp2/"+hn, "", rp.favicons['wordpress']);
+        photo.extra = localLink(originOf(photo.url), hn, "/wp2/"+hn, "", rp.favicons['wordpress']);
         if (photo.orig_url === undefined)
             photo.orig_url = photo.url;
         var rc = processHaystack(photo, post.content.rendered);
@@ -3379,11 +3391,11 @@ $(function () {
         // Setup some photo defaults
         photo.favicon = rp.favicons.wordpress;
         if (post.author.URL) {
-            photo.extra = infoLink(post.author.URL, post.author.name,
+            photo.extra = localLink(post.author.URL, post.author.name,
                             '/wp/'+hostnameOf(post.author.URL));
         } else {
             var hn = hostnameOf(post.URL);
-            photo.extra = infoLink(post.URL.substring(0, post.URL.indexOf(':'))+'://'+hn,
+            photo.extra = localLink(post.URL.substring(0, post.URL.indexOf(':'))+'://'+hn,
                                     post.author.name, '/wp/'+hn);
         }
 
@@ -3706,7 +3718,7 @@ $(function () {
                               over18: data.response.blog.is_nsfw || data.response.blog.is_adult,
                               date: post.timestamp,
                               url: post.post_url,
-                              extra: infoLink(data.response.blog.url, data.response.blog.name,
+                              extra: localLink(data.response.blog.url, data.response.blog.name,
                                                '/tumblr/'+data.response.blog.name),
                               commentsLink: post.post_url
                             };
@@ -3730,8 +3742,8 @@ $(function () {
     };
 
     var processBloggerPost = function(photo, post) {
-        photo.extra = infoLink( post.author.url, post.author.displayName,
-                               '/blogger/'+hostnameOf(photo.url));
+        photo.extra = localLink(post.author.url, post.author.displayName,
+                                '/blogger/'+hostnameOf(photo.url));
         return processHaystack(photo, post.content);
     };
 
@@ -3843,9 +3855,9 @@ $(function () {
                                   date: post.createDate
                                 };
                     if (post.userName != 'anonymous')
-                        image.extra = infoLink('https://gfycat.com/@'+post.userName,
-                                               post.userName,
-                                               '/gfycat/u/'+post.userName);
+                        image.extra = localLink('https://gfycat.com/@'+post.userName,
+                                                post.userName,
+                                                '/gfycat/u/'+post.userName);
                     addImageSlide(image);
                 });
             else

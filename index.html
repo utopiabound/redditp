@@ -35,21 +35,11 @@
 	  <li id="loginLi" class="hidden">
 	    <a id="loginUsername" class="info infol" href="/"><i class="unset material-icons">account_box</i></a>
 	    <div id="multiListDiv" class="clouds">
-	      <ul><li><a href="https://www.reddit.com/" class="info infop" title="Front Page">
-		    <i class="material-icons">home</i></a>
-		  <a href="/" class="info infop"><img class="redditp" src="images/favicon.png"></a></li>
-		<li><a href="https://www.reddit.com/r/friends" class="info infop" title="">
-		    <i class="material-icons">people_outline</i></a>
-		  <a href="/r/friends" class="info infop"><img class="redditp" src="images/favicon.png"></a></li>
-		<li><a href="https://www.reddit.com/r/popular" class="info infop" title="">
-		    <i class="material-icons">thumb_up</i></a>
-		  <a href="/r/popular" class="info infop"><img class="redditp" src="images/favicon.png"></a></li>
-		<li><a href="https://www.reddit.com/r/random" class="info infop" title="">
-		    <i class="material-icons">child_friendly</i></a>
-		  <a href="/r/random" class="info infop"><img class="redditp" src="images/favicon.png"></a></li>
-		<li><a href="https://www.reddit.com/r/randnsfw" class="info infop" title="">
-		    <i class="material-icons">wc</i></a>
-		  <a href="/r/randnsfw" class="info infop"><img class="redditp" src="images/favicon.png"></a></li>
+	      <ul><li><a href="/" class="info infop local" title="Front Page"><i class="material-icons">home</i></a></li>
+		<li><a href="/r/friends" class="info infop local" title="Friends"><i class="material-icons">people_outline</i></a></li>
+		<li><a href="/r/popular" class="info infop local" title="Popular"><i class="material-icons">thumb_up</i></a></li>
+		<li><a href="/r/random" class="info infop local" title="Random"><i class="material-icons">child_friendly</i></a></li>
+		<li><a href="/r/randnsfw" class="info infop local" title="Random (NSFW)"><i class="material-icons">wc</i></a></li>
 	      </ul>
 	      <hr>
 	      <ul><li><i>Login to Load</i></li></ul></div>
@@ -107,23 +97,16 @@
 	<h2 id='navboxTitle'>
 	  <noscript>Javascript is required for redditp to work :(</noscript>
 	</h2>
-	<div><a id="navboxSubreddit" class="info infol" title="(0)" href="http://www.reddit.com">
-	    <noscript>Javascript is required for redditp to work :(</noscript>
-	  </a><a id="navboxSubredditP" class="info infop" href="/">&nbsp;</a>
-	  <a id="navboxSubredditC" class="info infoc" title="Comments (o)" href="/">&nbsp;</a>
-	</div>
+	<div id="navboxSubreddit"></div>
 	<div><span id="navboxDate" class="info infod" title=""></span></div>
-	<div><a id="navboxAuthor" class="info infol" href="http://www.reddit.com">
-	    <noscript>Javascript is required for redditp to work :(</noscript>
-	  </a><a id="navboxAuthorP" class="info infop" href="/">&nbsp;</a>
-	</div>
+	<div id="navboxAuthor"></div>
 	<div id="navboxExtra"></div>
       </div>
       <div id="duplicateCollapser" class="vcollapser" data-opensym="&#8858;" data-closesym="&otimes;"
 	   data-openstate="open" data-controldiv="duplicateDiv" title="Hide/Show Duplicates (u)">&#8858;</div>
       <div id="duplicateDiv" class='navbox'>
 	<h3><a id='navboxDuplicatesLink' href="#" class="infol" title="Show Duplciates (p)">Duplicates
-	  </a><a id='navboxDuplicatesMultiP' href="#" class="infop"><img class="redditp" src="images/favicon.png" />
+	  </a><a id='navboxDuplicatesMultiP' href="#" class="infop local"><img class="redditp" src="images/favicon.png" />
 	  </a><a id='navboxDuplicatesMulti' href="#" title="MultiReddit of duplicate subreddits (r)" class="infoc">
 	    <img class="reddit" src="images/reddit.svg" /></a>
 	</h3>
@@ -135,34 +118,34 @@
       <p>Maybe try these presentations instead:</p>
       <ul>
 	<li>
-	  <a class="infop" href="/r/earthporn">earthporn</a>
+	  <a class="infop local" href="/r/earthporn">earthporn</a>
 	</li>
 	<li>
-	  <a class="infop" href="/r/aww">aww</a>
+	  <a class="infop local" href="/r/aww">aww</a>
 	</li>
 	<li>
-	  <a class="infop" href="/r/foodporn">foodporn</a>
+	  <a class="infop local" href="/r/foodporn">foodporn</a>
 	</li>
 	<li>
-	  <a class="infop" href="/r/funny">funny</a>
+	  <a class="infop local" href="/r/funny">funny</a>
 	</li>
 	<li>
-	  <a class="infop" href="/r/gonewild">gonewild (nsfw)</a>
+	  <a class="infop local" href="/r/gonewild">gonewild (nsfw)</a>
 	</li>
 	<li>
-	  <a class="infop" href="/r/spaceporn">spaceporn</a>
+	  <a class="infop local" href="/r/spaceporn">spaceporn</a>
 	</li>
 	<li>
-	  <a class="infop" href="/r/gifs">gifs</a>
+	  <a class="infop local" href="/r/gifs">gifs</a>
 	</li>
 	<li>
-	  <a class="infop" href="/r/random">random</a>
+	  <a class="infop local" href="/r/random">random</a>
 	</li>
 	<li>
-	  <a class="infop" href="/r/randnsfw">random (nsfw)</a>
+	  <a class="infop local" href="/r/randnsfw">random (nsfw)</a>
 	</li>
 	<li>
-	  <a class="infop" href="/r/all">all</a>
+	  <a class="infop local" href="/r/all">all</a>
 	</li>
       </ul>
     </div>
