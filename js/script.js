@@ -2726,7 +2726,7 @@ $(function () {
         rp.session.loadingNextImages = true;
 
         // Only enable login where it will work
-        if (originOf(rp.redirect) == window.location.origin)
+        if (hostnameOf(rp.redirect) == window.location.hostname)
             setupRedditLogin();
 
         var jsonUrl = rp.url.get + rp.url.subreddit + ".json?";
