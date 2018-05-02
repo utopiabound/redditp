@@ -1680,6 +1680,8 @@ $(function () {
             event.preventDefault();
             event.stopImmediatePropagation();
         }
+        if ($('#login').is(':checked'))
+            $('#login').click();
 
         var path = $(this).prop('pathname')+$(this).prop('search');
         processUrls(path);
