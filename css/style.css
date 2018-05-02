@@ -19,13 +19,21 @@ body { overflow:hidden; background-color: #000; color:#fff;}
 
 #pictureSlider div { height:100%; width:100%; position:absolute; z-index:-999; }
 
-#loginLi:hover div { display: block; }
+/* USER LOGIN / MULTI-REDDITS */
+#loginLi input:checked~#multiListDiv { display: block; }
+#loginLi.use-hover:hover div { display: block; }
 #loginLi div {
     display: none;
     position: absolute;
     bottom: 100%
 }
 #loginLi a { display: inline-block; }
+
+#multiListDiv ul li { padding: 5px 2px 5px 2px; }
+#multiListDiv ul li.right { float: right; }
+#multiListDiv hr { margin: 0; }
+#multiListDiv i.material-icons { font-size: 18px; }
+
 
 /* NAVIGATION BOX */
 #navigationBoxes {float: left;}
@@ -86,6 +94,7 @@ a:hover {
     text-decoration: line-through;
 }
 
+
 .navbox ul li a {
     cursor:pointer;
 }
@@ -103,10 +112,6 @@ a:hover {
 #titleDiv { position: absolute; top: 0; left: 0; right: 0; }
 #duplicateDiv { position: relative; top: 0; left: 0; right: 0; overflow: auto; }
 #subredditUrl { border: 1px dashed; background-color: black; color: white; }
-
-#multiListDiv ul li { padding: 5px 2px 5px 2px; }
-#multiListDiv hr { margin: 0; }
-#multiListDiv i.material-icons { font-size: 18px; }
 
 .navbox h2 { padding: 2px; font: bold 20px Helvetica, Arial, Sans-serif; }
 .navbox h3 { padding: 2px; font: bold 16px Helvetica, Arial, Sans-serif; }

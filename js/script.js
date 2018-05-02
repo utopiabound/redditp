@@ -825,6 +825,9 @@ $(function () {
             }
             // Hide useless "fullscreen" button on iOS safari
             $('#fullscreen').parent().hide();
+
+            // Remove :hover on #loginLi, so it only responds to clicks
+            $('#loginLi').removeClass('use-hover');
         }
     };
 
@@ -1895,12 +1898,12 @@ $(function () {
         }
 
         if (rp.session.loginExpire) {
-            $('#loginUsername').parent().removeClass('hidden');
+            $('#loginLi').removeClass('hidden');
             if (now > rp.session.loginExpire-30)
                 clearRedditLogin();
             // if user does a login in another window/tab, this will update with getRedditImages().
         } else {
-            $('#loginUsername').parent().addClass('hidden');
+            $('#loginLi').addClass('hidden');
         }
 
         // TITLE BOX
@@ -2664,6 +2667,7 @@ $(function () {
         rp.url.get = rp.redditBaseUrl;
         $('#loginUsername').html(googleIcon('account_box'));
         $('#loginUsername').attr('title', 'Expired');
+        $('label[for=login]').html(googleIcon('account_box'));
         log.debug("Clearing bearer is obsolete EOL:"+rp.session.loginExpire+" < now:"+Date.now()/1000);
         clearConfig(configNames.redditBearer);
         clearConfig(configNames.redditRefreshBy);
@@ -2704,6 +2708,8 @@ $(function () {
     };
 
     var setupRedditLogin = function (bearer, by) {
+        if (hostnameOf(rp.redirect) != window.location.hostname)
+            return;
         if (bearer === undefined)
             bearer = getConfig(configNames.redditBearer);
         if (by === undefined)
@@ -2725,6 +2731,7 @@ $(function () {
             rp.session.redditHdr = { Authorization: 'bearer '+bearer };
             $('#loginUsername').html(googleIcon('verified_user'));
             $('#loginUsername').attr('title', 'Expires at '+d);
+            $('label[for=login]').html(googleIcon('verified_user'));
             rp.url.get = 'https://oauth.reddit.com';
             loadRedditMultiList();
 
@@ -2742,9 +2749,7 @@ $(function () {
             return;
         rp.session.loadingNextImages = true;
 
-        // Only enable login where it will work
-        if (hostnameOf(rp.redirect) == window.location.hostname)
-            setupRedditLogin();
+        setupRedditLogin();
 
         var jsonUrl = rp.url.get + rp.url.subreddit + ".json?";
         var dataType = 'json';
@@ -3809,8 +3814,6 @@ $(function () {
             };
             $.ajax({
                 url: jsonUrl,
-                //headers: { Referer: rp.redirect },
-                //dataType: 'jsonp',
                 success: handleData,
                 error: failedAjaxDone,
                 crossDomain: true,
@@ -3820,7 +3823,6 @@ $(function () {
 
         $.ajax({
             url: jsonUrl,
-            //headers: { Referer: rp.redirect },
             success: handleData,
             error: failedAjaxDone,
             crossDomain: true,
