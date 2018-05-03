@@ -92,6 +92,7 @@
  *              TYPE:   URL or ARRAY of URLs (type is ext c.f. rp.ext2mime video/*)
  *              audio:  HASH of TYPE to URL (type is ext c.f. rp.ext2mime audio/*)
  *      album:          ARRAY of HASH (hash items are very similar to photo structure, but are not allowed to be albums)
+ *      html:           TEXT html to insert
  *
  * rp.photos[i].dupes = ARRAY of HASH
  *      id:             TEXT Unique ID (subreddit article id, tumblr post id, etc.)
@@ -247,6 +248,7 @@ $(function () {
         a: 'photo_library',
         l: 'file_download',
         t: 'insert_photo',
+        h: 'message',
         X: 'broken_image'
     };
     // Each must be different, since we compair on value, not on name
@@ -258,6 +260,7 @@ $(function () {
         album: 'a',
         later: 'l',
         thumb: 't',
+        html:  'h',
         fail:  'X'
     };
 
@@ -1248,6 +1251,13 @@ $(function () {
         fixPhotoButton(photo);
     };
 
+    var initPhotoHtml = function(photo, html) {
+        photo.type = imageTypes.html;
+        photo.html = html;
+
+        fixPhotoButton(photo);
+    };
+
     var isActive = function (photo) {
         return (photo.index !== undefined &&
                 photo.index == rp.session.activeIndex);
@@ -1315,6 +1325,10 @@ $(function () {
             photo.type = pic.type;
             photo.video = pic.video;
 
+        } else if (pic.type == imageTypes.html) {
+            photo.type = pic.type;
+            photo.html = pic.html;
+
         } else {
             log.error("Delete of bad type:"+pic.type+" for photo: "+photo.url);
             return;
@@ -1341,6 +1355,12 @@ $(function () {
                         thumb: photo.thumb,
                         video: photo.video };
                 delete photo.video;
+
+            } else if (pic.type == imageTypes.html) {
+                img = { url: photot.url,
+                        type: photo.type,
+                        thumb: photo.thumb,
+                        html: photo.html };
 
             } else
                 img = { url: photo.url, thumb: photo.thumb, type: photo.type };
@@ -1644,6 +1664,7 @@ $(function () {
                        hostname == 'deviantart.com' ||
                        hostname == 'pornbot.net' ||
                        hostname == 'streamable.com' ||
+                       hostname == 'twitter.com' ||
                        hostname == 'vid.me') {
                 if (url2shortid(pic.url))
                     // These domains should always be processed later
@@ -1987,6 +2008,9 @@ $(function () {
 
         else if (pic.type == imageTypes.later)
             button.addClass("later");
+
+        else if (pic.type == imageTypes.html)
+            button.addClass("html");
 
         else if (pic.type == imageTypes.fail)
             button.addClass("failed");
@@ -3084,6 +3108,22 @@ $(function () {
             divNode.prepend($(lem).append(title));
         }
 
+        var showHtml = function(html, needreset) {
+            if (needreset === undefined)
+                needreset = true;
+            // can't be <div> because of replaceBackgroundDiv()
+            var iframe = $('<blockquote/>', { id: "gfyhtml",
+                                              class: "fullscreen",
+                                              frameborder: 0,
+                                              webkitallowfullscreen: true,
+                                              allowfullscreen: true });
+            iframe.html(html);
+            divNode.html(iframe);
+
+            if (needreset && imageIndex == rp.session.activeIndex)
+                resetNextSlideTimer();
+        }
+
         var showPic = function(pic) {
             var thumb = pic.thumb || photoParent(pic).thumb;
             if (pic.type == imageTypes.album) {
@@ -3098,6 +3138,9 @@ $(function () {
 
             if (pic.type == imageTypes.video)
                 showVideo(pic.video);
+
+            else if (pic.type == imageTypes.html)
+                showHtml(pic.html)
 
             else if (pic.type == imageTypes.embed) {
                 divNode.on("rpdisplay", function () {
@@ -3120,33 +3163,27 @@ $(function () {
             photo.type == imageTypes.thumb) {
             showImage(photo.url, false);
             return divNode;
-        }
 
-        if (photo.type == imageTypes.fail) {
+        } else if (photo.type == imageTypes.fail) {
             showImage(photo.thumb, false);
             return divNode;
-        }
 
+        } else if (photo.type == imageTypes.html) {
+            showHtml(photo.html, false);
+            return divNode;
+        }
+            
         // Preloading, don't mess with timeout
         if (imageIndex == rp.session.activeIndex &&
             albumIndex == rp.session.activeAlbumIndex)
             clearSlideTimeout();
 
-        if (photo.type == imageTypes.video) {
-            if (photo.video === undefined) {
-                log.error("["+imageIndex+"]["+albumIndex+"] type is video but no video element");
+        if (photo.type == imageTypes.later)
+            fillLaterDiv(photo, showPic);
 
-            } else {
-                showVideo(photo.video);
-                return divNode;
-            }
-
-        } else if (photo.type == imageTypes.embed) {
+        else
             showPic(photo);
-            return divNode;
-        }
 
-        fillLaterDiv(photo, showPic);
         return divNode;
     };
 
@@ -3444,6 +3481,17 @@ $(function () {
                     showCB(photo);
                 };
             }
+
+        } else if (hostname == 'twitter.com') {
+            jsonUrl = 'https://publish.twitter.com/oembed?dnt=true&align=center&url='+photo.url;
+            photo.type = imageTypes.html;
+            dataType = 'jsonp';
+
+            handleData = function(data) {
+                initPhotoHtml(photo, data.html);
+                showCB(photo);
+            };
+
 
         } else if (hostname == 'pornbot.net') {
             // Strip everything trailing '_'
