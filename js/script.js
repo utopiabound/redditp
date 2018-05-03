@@ -24,6 +24,12 @@
  * Set/push/replace state
  * 
  * Cookies - NONE
+ *
+ * Locations for per-Site processing:
+ * rp.favicons    - limited number of favicons based on second level domain (for major sites that don't support http://fqdn/favicon.ico)
+ * processPhoto() - initial processing of photo.url, if it can be determined to be photo/video/later
+ * createDiv()    - where photo's tagged as later, are processed via ajax callout
+ * fixupTitle()   - any urls that can be added/processed from a photo.title (only affects photo.title)
  */
 
 var rp = {};
@@ -336,45 +342,59 @@ $(function () {
         return 'https://www.youtube.com/embed/'+id+ytExtra;
     };
 
-    var redditLink = function(path, pathalt, pathname, classes) {
-        if (pathalt === undefined)
-            pathalt = "";
-        if (pathname === undefined)
-            pathname = path;
-        if (classes === undefined)
-            classes = "info";
-        var data = $('<div/>');
-        data.append($('<a>', { href: rp.url.base+path,
-                               class: classes+" infol local",
-                               title: pathalt }
-                     ).html(pathname));
-        data.append($('<a>', { href: rp.redditBaseUrl+path,
-                               class: classes+" infor" }
-                     ).html($('<img>', { class: "reddit",
-                                         src: rp.url.root+'images/reddit.svg' })));
-        return data.html();
-    };
-
-    // Same as redditLink, but no info class
-    var titleRLink = function(path, pathname) {
-        return redditLink(path, pathname, pathname, "");
-    };
-
-   var localLink = function(url, text, local, urlalt, favicon) {
+    // url - foreign URL
+    // local - local URL
+    // -- optional --
+    // text - text of local Url (default: local URL)
+    // urlalt - alt text of foreign URL
+    // favicon - url of favicon
+    // classes - additional class of links (default: "info")
+    var _localLink = function(url, local, text, urlalt, favicon, classes) {
         if (text === undefined)
             text = local;
         if (urlalt === undefined)
             urlalt = "";
+        // favicon set in setFavicon
+        if (classes === undefined)
+            classes = "info";
 
         var data = $('<div/>');
         data.append($('<a>', { href: rp.url.base+local,
-                               class: "info infol local" }
+                               class: classes+" infol local" }
                      ).html(text));
         var link = $('<a>', { href: url,
-                              class: "info infor",
+                              class: classes+" infor",
                               title: urlalt });
-        setFavicon(link, { url: url, favicon: favicon });
+        if (favicon === "reddit")
+            link.html($('<img>', { class: "reddit",
+                                   src: rp.url.root+'images/reddit.svg' }));
+        else
+            setFavicon(link, { url: url, favicon: favicon });
         data.append(link);
+        return data.html();
+    };
+
+    var redditLink = function(path, pathalt, pathname) {
+        return _localLink(rp.redditBaseUrl+path, path, pathname, pathalt, "reddit");
+    };
+
+    // Same as redditLink, but no info class
+    var titleRLink = function(path, pathname) {
+        return _localLink(rp.redditBaseUrl+path, path, pathname, undefined, "reddit", "");
+    };
+
+    var titleLLink = function(url, path, pathname) {
+        return _localLink(url, path, pathname, undefined, undefined, "");
+    };
+
+    var localLink = function(url, text, local, urlalt, favicon) {
+        return _localLink(url, local, text, urlalt, favicon);
+    };
+
+    var titleFLink = function(url, text) {
+        var data = $('<div/>');
+        data.append($('<a>', { href: url, class: "infor" }
+                     ).html(text));
         return data.html();
     };
 
@@ -1225,7 +1245,7 @@ $(function () {
             if (shortid)
                 initPhotoVideo(pic, 'https://i.giphy.com/media/'+shortid+'/giphy.mp4');
             else
-                log.info("cannot display video [error parsing]: "+pic.url);                
+                log.info("cannot display video [error parsing]: "+pic.url);
 
         } else if (hostname == 'youtube.com') {
             // Types of URLS
@@ -1399,10 +1419,15 @@ $(function () {
                 pic.url = 'https://www.vidble.com/'+shortid+'.jpg';
             }
 
-        } else if (hostname == 'tumblr.com' && pic.url.indexOf('/post/') > 0) {
-            // Don't process bare tumblr blogs, nor /day/YYYY/MM/DD/ format
-            // only BLOGNAME.tumblr.com/post/SHORTID/...
-            pic.type = imageTypes.later;
+        } else if (hostname == 'tumblr.com') {
+            var name = fqdn.substring(0, fqdn.indexOf('.'));
+            pic.extra = localLink('https://'+fqdn, name, '/tumblr/'+name);
+            if (pic.url.indexOf('/post/') > 0)
+                // Don't process bare tumblr blogs, nor /day/YYYY/MM/DD/ format
+                // only BLOGNAME.tumblr.com/post/SHORTID/...
+                pic.type = imageTypes.later;
+            else
+                return false;
 
         } else {
             return false;
@@ -2377,7 +2402,7 @@ $(function () {
 
                     photo = initPhotoAlbum(photo, false);
                     $.each(data.data.images, function(i, item) {
-                        var pic = { title: item.title || item.description,
+                        var pic = { title: fixupTitle(item.title || item.description),
                                     url: fixImgurPicUrl(item.animated ?item.mp4 :item.link),
                                     orig_url: data.data.link,
                                     type: item.animated ?imageTypes.video :imageTypes.image
@@ -2657,6 +2682,40 @@ $(function () {
         return url;
     };
 
+    var urlregexp = new RegExp('https?:\/\/[\\w\._-]{2,256}\.[a-z]{2,6}(\/[\\w\/\.\-]*)?', 'gi');
+
+    var fixupTitle = function(title) {
+        if (!title)
+            return title;
+
+        // Do URLs first, so we don't pickup those added later
+        var t1 = title.replace(urlregexp, function(match) {
+            var ancor = $('<a>').attr('href', match);
+            var fqdn = ancor.prop('hostname');
+            var path = ancor.prop('pathname');
+            var domains = fqdn.split('.').reverse()
+            var hn = domains[1]+'.'+domains[0];
+
+            if (hn == 'tumblr.com')
+                return titleLLink(match, '/tumblr/'+fqdn, domains[2]);
+            if (hn == 'instagram.com')
+                return titleFLink(match, '@'+path.replace(/^[/]/, '').replace(/\/.*/,''));
+            else
+                return match;
+        });
+
+        // @InstagramName
+        t1 = t1.replace(/(^|\W)@(\w+)/g, function(match, p1, name) { return p1+titleFLink('https://instagram.com/'+name, '@'+name); });
+
+        // /r/subreddit
+        t1 = t1.replace(/\/?(r\/\w+)\s*/g, function(match, p1) { return titleRLink('/'+p1); });
+
+        // /u/redditUser
+        t1 = t1.replace(/\/?u\/(\w+)\s*/g, function(match, p1) { return titleRLink('/user/'+p1+'/submitted', '/u/'+p1); });
+
+        return t1;
+    };
+
     var decodeUrl = function (url) {
         return decodeURIComponent(url.replace(/\+/g, " "));
     };
@@ -2786,11 +2845,7 @@ $(function () {
 
             var url = fixupUrl(idx.url);
 
-            // Link to x-posted subreddits
-            var title = idorig.title.replace(/\/?(r\/\w+)\s*/g, function(match, p1) { return titleRLink('/'+p1); });
-
-            // Link to reddit users
-            title = title.replace(/\/?u\/(\w+)\s*/g, function(match, p1) { return titleRLink('/user/'+p1+'/submitted', '/u/'+p1); });
+            var title = fixupTitle(idorig.title)
 
             var flair = "";
             // Add flair (but remove if also in title)
@@ -3223,7 +3278,7 @@ $(function () {
             $.each(data.data.images, function (i, item) {
                 addImageSlide({
                     url: (item.animated) ?item.gifv :item.link,
-                    title: item.title,
+                    title: fixupTitle(item.title),
                     id: albumID,
                     over18: item.nsfw,
                     commentsLink: data.data.link,
@@ -3631,7 +3686,7 @@ $(function () {
                 $.each(post.photos, function(i, item) {
                     addAlbumItem(photo, { url: fixupUrl(item.original_size.url),
                                           type: imageTypes.image,
-                                          title: item.caption || photo.title
+                                          title: fixupTitle(item.caption || photo.title)
                                         });
                 });
                 rc = true;
@@ -3720,7 +3775,7 @@ $(function () {
             }
 
             $.each(data.response.posts, function (i, post) {
-                var image = { title: post.summary || unescapeHTML(post.caption) || data.response.blog.title,
+                var image = { title: fixupTitle(post.summary || unescapeHTML(post.caption) || data.response.blog.title),
                               id: post.id,
                               over18: data.response.blog.is_nsfw || data.response.blog.is_adult,
                               date: post.timestamp,
@@ -3801,7 +3856,7 @@ $(function () {
                  }
                 $.each(data.items, function (i, post) {
                     var d = new Date(post.updated);
-                    var image = { title: post.title,
+                    var image = { title: fixupTitle(post.title),
                                   id: post.id,
                                   over18: false,
                                   date: d.valueOf()/1000,
@@ -3850,7 +3905,7 @@ $(function () {
                 $.each(data.gfycats, function (i, post) {
                     var image = { url: 'https://gfycat.com/'+post.gfyName,
                                   over18: (post.nsfw != 0),
-                                  title: post.title || post.description || post.tags.pop(),
+                                  title: fixupTitle(post.title || post.description || post.tags.pop()),
                                   type: imageTypes.video,
                                   video: { thumbnail: post.posterUrl,
                                            webm: post.webmUrl,
@@ -3997,7 +4052,7 @@ $(function () {
         $("#albumNumberButtons").detach();
         $('#allNumberButtonList').append($("<ul/>", { id: 'allNumberButtons' }));
 
-        if (data !== undefined) {
+        if (data !== undefined && data.photos) {
             log.debug("RESTORING STATE: "+path);
             rp.session.dedup = data.dedup;
             rp.session.after = data.after;
