@@ -346,7 +346,7 @@ $(function () {
     // local - local URL
     // -- optional --
     // text - text of local Url (default: local URL)
-    // urlalt - alt text of foreign URL
+    // urlalt - alt text of foreign and local URLs
     // favicon - url of favicon
     // classes - additional class of links (default: "info")
     var _localLink = function(url, local, text, urlalt, favicon, classes) {
@@ -360,7 +360,8 @@ $(function () {
 
         var data = $('<div/>');
         data.append($('<a>', { href: rp.url.base+local,
-                               class: classes+" infol local" }
+                               class: classes+" infol local",
+                               title: urlalt }
                      ).html(text));
         var link = $('<a>', { href: url,
                               class: classes+" infor",
@@ -432,6 +433,10 @@ $(function () {
 
         window.open(link.href, '_blank');
     }
+
+    // **************************************************************
+    // URL processign Helpers
+    //
 
     // onlysld (optional)
     var hostnameOf = function(url, onlysld) {
@@ -554,6 +559,30 @@ $(function () {
             return photo.extra;
         return "";
     };
+
+    // **************************************************************
+    // rp.dedup Helper functions
+    //
+
+    // orig_sub and orig_id are optional for SELF links
+    var dedupAdd = function(sub, id, orig_sub, orig_id) {
+        var link;
+        if (orig_sub && orig_id)
+            link = "/r/"+orig_sub+"/"+orig_id;
+        else
+            link = "SELF";
+        if (!rp.dedup[sub])
+            rp.dedup[sub] = {};
+        if (!rp.dedup[sub][id])
+            rp.dedup[sub][id] = link;
+        return rp.dedup[sub][id];
+    };
+
+    var dedupVal = function(sub, id) {
+        return (rp.dedup[sub]) ?rp.dedup[sub][id] :undefined;
+    };
+
+    // **************************************************************
 
     $("#pictureSlider").touchwipe({
         // wipeLeft means the user moved his finger from right to left.
@@ -1395,8 +1424,11 @@ $(function () {
 
         } else if (hostname == 'sendvid.com') {
             shortid = url2shortid(pic.url);
-            initPhotoVideo(pic, 'https://cache-1.sendvid.com/'+shortid+'.mp4',
-                           'https://cache-1.sendvid.com/'+shortid+'.jpg');
+            // this currently redirects to a 404
+            //initPhotoVideo(pic, 'https://cache-1.sendvid.com/'+shortid+'.mp4',
+            //               'https://cache-1.sendvid.com/'+shortid+'.jpg');
+            // no autostart
+            initPhotoEmbed(pic, 'https://sendvid.com/embed/'+shortid);
 
         } else if (hostname == 'vidble.com') {
             if (pic.url.indexOf("/watch?v=") > 0) {
@@ -1853,7 +1885,6 @@ $(function () {
 
         // Save current State
         var state = { photos: rp.photos,
-                      dedup: rp.dedup,
                       index: rp.session.activeIndex,
                       album: rp.session.activeAlbumIndex,
                       after: rp.session.after,
@@ -2708,10 +2739,10 @@ $(function () {
         t1 = t1.replace(/(^|\W)@(\w+)/g, function(match, p1, name) { return p1+titleFLink('https://instagram.com/'+name, '@'+name); });
 
         // /r/subreddit
-        t1 = t1.replace(/\/?(r\/\w+)\s*/g, function(match, p1) { return titleRLink('/'+p1); });
+        t1 = t1.replace(/\/?(r\/\w+)\s*/gi, function(match, p1) { return titleRLink('/'+p1); });
 
         // /u/redditUser
-        t1 = t1.replace(/\/?u\/(\w+)\s*/g, function(match, p1) { return titleRLink('/user/'+p1+'/submitted', '/u/'+p1); });
+        t1 = t1.replace(/\/?u\/(\w+)\s*/gi, function(match, p1) { return titleRLink('/user/'+p1+'/submitted', '/u/'+p1); });
 
         return t1;
     };
@@ -2824,11 +2855,9 @@ $(function () {
         jsonUrl += rp.url.vars + rp.session.after;
 
         var addImageSlideRedditT3 = function (idorig, duplicates) {
-            if (rp.dedup[idorig.subreddit] !== undefined &&
-                rp.dedup[idorig.subreddit][idorig.id] !== undefined) {
-                log.info('cannot display url [simul-dup:'+
-                      rp.dedup[idorig.subreddit][idorig.id]+']: '+
-                      idorig.url);
+            var val = dedupVal(idorig.subreddit, idorig.id);
+            if (val) {
+                log.info('cannot display url [simul-dup:'+val+']: '+idorig.url);
                 return;
             }
 
@@ -3188,13 +3217,10 @@ $(function () {
                 var i;
                 for(i = 0; i < data[1].data.children.length; ++i) {
                     var dupe = data[1].data.children[i];
-                    if (rp.dedup[dupe.data.subreddit] == undefined)
-                        rp.dedup[dupe.data.subreddit] = {};
-                    if (rp.dedup[dupe.data.subreddit][dupe.data.id] === "SELF") {
+                    if (dedupAdd(dupe.data.subreddit, dupe.data.id, item.data.subreddit, item.data.id) == "SELF") {
                         log.info('cannot display url [non-self dup]: '+item.data.url);
                         return;
                     }
-                    rp.dedup[dupe.data.subreddit][dupe.data.id] = '/r/'+item.data.subreddit+'/'+item.data.id;
                     duplicates.push({subreddit: dupe.data.subreddit,
                                      commentCount: dupe.data.num_comments,
                                      title: dupe.data.title,
@@ -3204,9 +3230,7 @@ $(function () {
                 addImageSlideRedditT3(item.data, duplicates);
 
                 // Place self in dedup list
-                if (rp.dedup[item.data.subreddit] === undefined)
-                    rp.dedup[item.data.subreddit] = {};
-                rp.dedup[item.data.subreddit][item.data.id] = "SELF";
+                dedupAdd(item.data.subreddit, item.data.id);
             };
 
             $.each(data.data.children, function (i, item) {
@@ -3224,11 +3248,9 @@ $(function () {
                     return;
                 }
 
-                if (rp.dedup[item.data.subreddit] !== undefined &&
-                    rp.dedup[item.data.subreddit][item.data.id] !== undefined) {
-                    log.info('cannot display url [duplicate:'+
-                          rp.dedup[item.data.subreddit][item.data.id]+']: '+
-                          item.data.url);
+                var val = dedupVal(item.data.subreddit, item.data.id);
+                if (val) {
+                    log.info('cannot display url [duplicate:'+val+']: '+item.data.url);
                     return;
                 }
 
@@ -4054,8 +4076,8 @@ $(function () {
 
         if (data !== undefined && data.photos) {
             log.debug("RESTORING STATE: "+path);
-            rp.session.dedup = data.dedup;
-            rp.session.after = data.after;
+            if (data.photos.length > 1)
+                rp.session.after = data.after;
             rp.session.isAnimating = true;
             if (data.loadAfter)
                 rp.session.loadAfter = eval(data.loadAfter);
@@ -4068,8 +4090,17 @@ $(function () {
                 var index = photo.index;
                 // This allows the photo to be re-added
                 delete photo.index;
-                if (!addImageSlide(photo) &&
-                    index < orig_index)
+                if (addImageSlide(photo)) {
+                    // rebuild rp.dedup
+                    if (!photo.subreddit)
+                        return;
+                    dedupAdd(photo.subreddit, photo.id);
+                    if (photo.duplicates.length == 0)
+                        return;
+                    $.each(photo.duplicates, function(i, dupe) {
+                        dedupAdd(dupe.subreddit, dupe.id, photo.subreddit, photo.id);
+                    });
+                } else if (index < orig_index)
                     --data.index;
             });
 
