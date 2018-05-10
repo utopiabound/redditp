@@ -17,7 +17,8 @@
  * redditp-shouldAutoNextSlide  - boolean - on timeout, go to next image
  * redditp-showEmbed            - boolean - Show embeded content (iframes, no timeout)
  * redditp-timeToNextSlide      - int     - timeout in seconds
- * redditp-wpv2                 - hash of booleans      - cached result of speculative WPv2 lookup
+ * redditp-wordpressv2          - hash of booleans      - cached result of speculative WPv2 lookup
+ * redditp-insecure             - hash of booleans      - cached result of https GET of WPv2 lookup
  * redditp-blogger              - hash of booleans      - cached result of speculative blogger lookup
  * 
  * (window.history)
@@ -86,6 +87,7 @@ rp.storage = {};
 
 // @@ Store this in localStorage
 rp.wpv2 = {};
+rp.insecure = {};
 rp.blogger = {};
 
 rp.history = window.history;
@@ -114,6 +116,7 @@ rp.photos = [];
 // maybe checkout http://engineeredweb.com/blog/09/12/preloading-images-jquery-and-javascript/
 // for implementing the old precache
 rp.cache = {};
+// use dedupAdd() and dedupVal()
 rp.dedup = {};
 rp.url = {
     subreddit: "",
@@ -654,7 +657,8 @@ $(function () {
         redditBearer: 'redditBearer',
         redditRefreshBy: 'redditRefreshBy',
         blogger: 'blogger',
-        wpv2: 'wordpressv2'
+        wpv2: 'wordpressv2',
+        insecure: 'insecure'
     };
 
     var setConfig = function (c_name, c_value) {
@@ -798,6 +802,9 @@ $(function () {
         rp.wpv2 = getConfig(configNames.wpv2);
         if (rp.wpv2 === undefined)
             rp.wpv2 = {};
+        rp.insecure = getConfig(configNames.insecure);
+        if (rp.insecure === undefined)
+            rp.insecure = {};
         var nsfwByConfig = getConfig(configNames.nsfw);
         if (nsfwByConfig !== undefined) {
             rp.settings.nsfw = nsfwByConfig;
@@ -2698,10 +2705,11 @@ $(function () {
         if (!rp.settings.alwaysSecure)
             return url;
 
-        if (url.startsWith('//'))
-            return "https:"+url;
-
         var hostname = hostnameOf(url, true);
+
+        if (url.startsWith('//'))
+            return ((rp.insecure[hostname]) ?"http:" :"https:")+url;
+
         if (hostname == 'gfycat.com' ||
             hostname == 'pornhub.com' ||
             hostname == 'xhamster.com' ||
@@ -2721,10 +2729,12 @@ $(function () {
 
         // Do URLs first, so we don't pickup those added later
         var t1 = title.replace(urlregexp, function(match) {
-            var ancor = $('<a>').attr('href', match);
+            // This duplicates titleFLink()
+            var ancor = $('<a>', {href: match, class: "infor" });
             var fqdn = ancor.prop('hostname');
             var path = ancor.prop('pathname');
-            var domains = fqdn.split('.').reverse()
+
+            var domains = fqdn.split('.').reverse();
             var hn = domains[1]+'.'+domains[0];
 
             if (hn == 'tumblr.com')
@@ -2732,7 +2742,7 @@ $(function () {
             if (hn == 'instagram.com')
                 return titleFLink(match, '@'+path.replace(/^[/]/, '').replace(/\/.*/,''));
             else
-                return match;
+                return $('<div>').html(ancor.html(fqdn+path)).html();
         });
 
         // @InstagramName
@@ -3361,7 +3371,7 @@ $(function () {
                     return false;
                 src = unescapeHTML(src);
                 if (src.startsWith('//'))
-                    item.src = 'https:'+src;
+                    item.src = ((rp.insecure[hostnameOf(src)]) ?"http:" :"https:")+src;
                 else if (src.startsWith('/'))
                     item.src = originOf(pic.url)+src;
                 pic.url = item.src;
@@ -3378,8 +3388,11 @@ $(function () {
                     if (src === null)
                         return;
                     src = unescapeHTML(src);
-                    if (src.startsWith('/'))
+                    if (src.startsWith('//'))
+                        source.src = ((rp.insecure[hostnameOf(src)]) ?"http:" :"https:")+src;
+                    else if (src.startsWith('/'))
                         source.src = originOf(pic.url)+src;
+
                     if (source.type == 'video/webm')
                         pic.video.webm = source.src;
                     else if (source.type == 'video/mp4')
@@ -3559,9 +3572,11 @@ $(function () {
         }
 
         $('#subredditLink').prop('href', 'https://'+hostname);
-        $('#subredditUrl').val('wp2/'+hostname);
+        $('#subredditUrl').val('/wp2/'+hostname);
 
-        var jsonUrl = 'https://'+hostname+'/wp-json/wp/v2/posts/?orderby=date&order='+urlorder;
+        var scheme = (rp.insecure[hostname]) ?'http' :'https';
+
+        var jsonUrl = scheme+'://'+hostname+'/wp-json/wp/v2/posts/?orderby=date&order='+urlorder;
         if (rp.url.vars)
             jsonUrl += '&'+rp.url.vars;
 
@@ -3572,6 +3587,11 @@ $(function () {
 
         var handleData = function (data) {
             rp.wpv2[hostname] = true;
+            setConfig(configNames.wpv2, rp.wpv2);
+            if (scheme == 'http') {
+                rp.insecure[hostname] = true;
+                setConfig(configNames.insecure, rp.insecure);
+            }
             if (!Array.isArray(data)) {
                 log.error("Something bad happened: "+data);
                 failedAjaxDone();
@@ -3583,7 +3603,7 @@ $(function () {
             rp.session.after = rp.session.after + data.length;
             $.each(data, function(index, post) {
                 var d = new Date(post.date_gmt+"Z");
-                var photo = { title: post.title.rendered,
+                var photo = { title: fixupTitle(post.title.rendered),
                               id: post.id,
                               url: post.link,
                               over18: false,
@@ -3597,7 +3617,25 @@ $(function () {
             rp.session.loadingNextImages = false;
         };
         var failedData = function (xhr, ajaxOptions, thrownError) {
+            if (scheme == 'https') {
+                log.info("Failed to load wp2:"+hostname+" via https trying http");
+                rp.insecure[hostname] = true;
+                scheme = "http";
+                jsonUrl = jsonUrl.replace(/^https/, scheme);
+                $.ajax({
+                    url: jsonUrl+'&_jsonp=?',
+                    dataType: 'jsonp',
+                    success: handleData,
+                    error: failedData,
+                    timeout: rp.settings.ajaxTimeout,
+                    crossDomain: true,
+                });
+                return;
+            }
             rp.wpv2[hostname] = false;
+            delete rp.insecure[hostname];
+            setConfig(configNames.wpv2, rp.wpv2);
+            setConfig(configNames.insecure, rp.insecure);
             failedAjaxDone(xhr, ajaxOptions, thrownError);
         };
 
@@ -3635,7 +3673,7 @@ $(function () {
             hostname += '.wordpress.com';
 
         $('#subredditLink').prop('href', 'https://'+hostname);
-        $('#subredditUrl').val('wp/'+hostname);
+        $('#subredditUrl').val('/wp/'+hostname);
 
         // If we know this fails, bail
         if (rp.wpv2[hostname] !== undefined) {
@@ -3786,7 +3824,7 @@ $(function () {
 
         var handleData = function (data) {
             $('#subredditLink').prop('href', data.response.blog.url);
-            $('#subredditUrl').val('tumblr/'+data.response.blog.name);
+            $('#subredditUrl').val('/tumblr/'+data.response.blog.name);
 
             if (rp.session.after < data.response.total_posts) {
                 rp.session.after = rp.session.after + data.response.posts.length;
@@ -3867,7 +3905,7 @@ $(function () {
              rp.session.after = 0;
              */
             $('#subredditLink').prop('href', data.url);
-            $('#subredditUrl').val('blogger/'+data.name);
+            $('#subredditUrl').val('/blogger/'+data.name);
 
             var handleData = function (data) {
                 if (data.nextPageToken) {
