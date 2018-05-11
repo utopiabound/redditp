@@ -32,12 +32,47 @@
  * createDiv()    - where photo's tagged as later, are processed via ajax callout
  * fixupTitle()   - any urls that can be added/processed from a photo.title (only affects photo.title)
  */
+/* Data Structures:
+ * rp.photos = ARRAY of HASH
+ *      type:           ENUM of imageTypes      (will be set by processPhoto())
+ *      url:            URL link of "photo"    (addImageSlide() will call fixupUrl())
+ *      duplicates:     ARRAY of HASH of duplicate images (dependent on site type)
+ *      over18:         BOOLEAN is nsfw
+ *      title:          HTML Title of image     (creator of object needs to call fixupTitle())
+ *      id:             TXT  Unique ID based on site+subreddit or blog
+ *      -- Optional --
+ *      date:           INT  Date in seconds
+ *      author:         TEXT reddit username
+ *      comments:       URL  link to photo comments
+ *      commentsCount:  INT  Number of comments (if this is set, comments needs to be set too)
+ *      extra:          HTML Extra information for links concerning photo
+ *      thumbnail:      URL  thumbnail of image (e.g. cached version from reddit)
+ *      flair:          TEXT text flair put next to title
+ *      favicon:        URL  link to favicon for photo (c.f. setFavicon())
+ *
+ *      -- Other, NOT creator setable --
+ *      orig_url:       URL original URL [set by processPhoto()]
+ *      insertAt:       INT where to insert pictures in album [set by addAlbumItem()]
+ *      duration:       INT length of video in seconds [set by showVideo()]
+ *      times:          INT number of times to play video [set by showVideo()]
+ *      index:          INT index in rp.photos, used by album functions [set by addImageSlide()]
+ *
+ *      -- Depending on host site getRedditImages() vs getTumblrBlog() --
+ *      subreddit:      TEXT of subreddit name
+ *      tumblr:         HASH (e.g. 'https://'+tumblr.blog+'.tumblr.com'+/post/+tumblr.id )
+ *              blog:         TEXT blog name
+ *              id:           TEXT tumblr post id
+ *      -- Depending on image Type --
+ *      video:          HASH for video type (see showVideo())
+ *      album:          ARRAY of HASH (hash items are very similar to photo structure, but are not allowed to be albums)
+ *
+ */
 
 var rp = {};
 // This can be set to TRACE, DEBUG, INFO, WARN. ERROR, SLIENT (nothing printed)
 log.setLevel(log.levels.INFO);
 RegExp.quote = function(str) {
-    var re = RegExp('[.*+?^${}()|[\]\\]', 'g');
+    var re = /[.*+?^${}\(\)|[\]\\]/g;
     return (str+'').replace(re, "\\$&");
 };
 
@@ -568,11 +603,8 @@ $(function () {
     //
 
     // orig_sub and orig_id are optional for SELF links
-    var dedupAdd = function(sub, id, orig_sub, orig_id) {
-        var link;
-        if (orig_sub && orig_id)
-            link = "/r/"+orig_sub+"/"+orig_id;
-        else
+    var dedupAdd = function(sub, id, link) {
+        if (!link)
             link = "SELF";
         if (!rp.dedup[sub])
             rp.dedup[sub] = {};
@@ -1497,7 +1529,7 @@ $(function () {
          *     title: title, (text)
          *     url: url, (URL)
          *     id: shortid, (text)
-         *     "commentsLink": commentsLink, (URL)
+         *     "comments": comments, (URL)
          *     "over18": over18, (BOOLEAN)
          *     "type": image_or_video, (from imageTypes)
          *     subreddit: optional, (text - /r/$subreddit)
@@ -1941,15 +1973,10 @@ $(function () {
         var subreddit = '/r/' + photo.subreddit;
         var now = Date.now()/1000;
 
-        var authName;
-        if (image.author !== undefined)
-            authName = image.author;
-
-        else if (photo.author !== undefined)
-            authName = photo.author;
+        var authName = image.author || photo.author;
 
         // COMMENTS/BUTTON LIST Box
-        $('#navboxCommentsLink').attr('href', photo.commentsLink);
+        $('#navboxCommentsLink').attr('href', photo.comments||photo.orig_url);
         var url = image.orig_url || image.url;
         $('#navboxOrigLink').attr('href', url);
         setFavicon($('#navboxOrigLink'), image, url);
@@ -1981,7 +2008,7 @@ $(function () {
         if (albumIndex >= 0)
             $('#navboxExtra').append($('<span>', { class: 'info infol' }).text((albumIndex+1)+"/"+rp.photos[imageIndex].album.length));
 
-        if (photo.subreddit !== undefined && photo.subreddit !== null)
+        if (photo.subreddit)
             $('#navboxSubreddit').html(redditLink(subreddit)).show();
         else
             $('#navboxSubreddit').hide();
@@ -1992,7 +2019,7 @@ $(function () {
             $('#navboxAuthor').hide();
 
         if (photo.commentsCount)
-            $('#navboxSubreddit').append($('<a>', { href: photo.commentsLink,
+            $('#navboxSubreddit').append($('<a>', { href: photo.comments,
                                                     class: "info infoc",
                                                     title: "Comments (o)" }
                                           ).text('('+photo.commentsCount+")"));
@@ -2009,19 +2036,35 @@ $(function () {
                 $('#duplicateDiv').show();
             var multi = photo.subreddit;
             $.each(photo.duplicates, function(i, item) {
-                var subr = '/r/' +item.subreddit;
-                multi += '+'+item.subreddit;
-                var li = $("<li>", { class: 'list'}).html(redditLink(subr, picTitleText(item)));
-                li.append($("<a>", { href: rp.redditBaseUrl + subr + "/comments/"+item.id,
-                                     class: 'info infoc',
-                                     title: 'Comments'
-                                   }).text('('+item.commentCount+')'));
+                var li = $("<li>", { class: 'list'});
+
+                if (item.subreddit) {
+                    var subr = '/r/' +item.subreddit;
+
+                    multi += '+'+item.subreddit;
+                    li.html(redditLink(subr, picTitleText(item)));
+                    li.append($("<a>", { href: rp.redditBaseUrl + subr + "/comments/"+item.id,
+                                         class: 'info infoc',
+                                         title: 'Comments'
+                                       }).text('('+item.commentCount+')'));
+
+                } else if (item.tumblr) {
+                    li.html(localLink(item.url, item.tumblr, '/tumblr/'+item.tumblr));
+
+                } else {
+                    log.error("Unknown Duplicate Type", item);
+                    return;
+
+                }
+
                 if (photo.cross_id && photo.cross_id == item.id)
                     li.addClass('xorig');
                 $('#duplicateUl').append(li);
             });
-            $('#navboxDuplicatesMulti').attr('href', rp.redditBaseUrl+'/r/'+multi);
-            $('#navboxDuplicatesMultiP').attr('href', rp.url.base+'/r/'+multi);
+            if (multi) {
+                $('#navboxDuplicatesMulti').attr('href', rp.redditBaseUrl+'/r/'+multi);
+                $('#navboxDuplicatesMultiP').attr('href', rp.url.base+'/r/'+multi);
+            }
         } else {
             $('#duplicateDiv').hide();
         }
@@ -2908,7 +2951,7 @@ $(function () {
                 date: idorig.created_utc,
                 duplicates: duplicates,
                 commentsCount: idorig.num_comments,
-                commentsLink: rp.redditBaseUrl + idorig.permalink
+                comments: rp.redditBaseUrl + idorig.permalink
             };
             if (idx.id != photo.id)
                 photo.cross_id = idx.id;
@@ -2985,7 +3028,7 @@ $(function () {
                     if (!links || links.length == 0)
                             continue;
 
-                    log.debug(type+"-Found:["+photo.commentsLink+"]:"+photo.url);
+                    log.debug(type+"-Found:["+photo.comments+"]:"+photo.url);
 
                     // Add parent image as first child, to ensure it's shown
                     photo = initPhotoAlbum(photo, true);
@@ -2998,7 +3041,7 @@ $(function () {
                             links[j].innerText !== img.url)
                             img.title = links[j].innerText;
 
-                        log.debug(type+"-Try:["+photo.commentsLink+"]:"+img.url);
+                        log.debug(type+"-Try:["+photo.comments+"]:"+img.url);
                         if (processPhoto(img))
                             addAlbumItem(photo, img);
                         else
@@ -3227,7 +3270,7 @@ $(function () {
                 var i;
                 for(i = 0; i < data[1].data.children.length; ++i) {
                     var dupe = data[1].data.children[i];
-                    if (dedupAdd(dupe.data.subreddit, dupe.data.id, item.data.subreddit, item.data.id) == "SELF") {
+                    if (dedupAdd(dupe.data.subreddit, dupe.data.id, '/r/'+item.data.subreddit+'/'+item.data.id) == "SELF") {
                         log.info('cannot display url [non-self dup]: '+item.data.url);
                         return;
                     }
@@ -3313,7 +3356,7 @@ $(function () {
                     title: fixupTitle(item.title),
                     id: albumID,
                     over18: item.nsfw,
-                    commentsLink: data.data.link,
+                    comments: data.data.link,
                     subreddit: data.data.section,
                     /* author: data.data.account_url, */
                     date: item.datetime,
@@ -3425,6 +3468,7 @@ $(function () {
                     rc = true;
                 }
             });
+            checkPhotoAlbum(photo);
 
         } else if (images.length == 1) {
             if (processNeedle(photo, images[0]) && processPhoto(photo))
@@ -3711,7 +3755,6 @@ $(function () {
                               url: post.URL,
                               over18: false,
                               date: d.valueOf()/1000,
-                              commentsLink: post.URL,
                               thumbnail: post.post_thumbnail
                             };
 
@@ -3739,24 +3782,47 @@ $(function () {
 
     var processTumblrPost = function(photo, post) {
         var rc = false;
-        if (post.type == "photo") {
-            var index = 0;
-            if (post.photos.length > 1) {
-                photo = initPhotoAlbum(photo, false);
-                $.each(post.photos, function(i, item) {
-                    addAlbumItem(photo, { url: fixupUrl(item.original_size.url),
-                                          type: imageTypes.image,
-                                          title: fixupTitle(item.caption || photo.title)
-                                        });
-                });
-                rc = true;
+        var pic;
 
-            } else {
-                photo.url = fixupUrl(post.photos[index].original_size.url);
-                photo.type = imageTypes.image;
-                rc = true;
+        var val = dedupVal(post.blog_name, post.id);
+        if (val) {
+            log.info("cannot display url [duplicate:"+val+"]: "+photo.url);
+            return false;
+        }
+
+        photo.tumblr = { blog: post.blog_name,
+                         id: post.id };
+
+        if (post.source_url && post.source_title) {
+            if (photo.duplicates === undefined)
+                photo.duplicates = [];
+            photo.duplicates.push({tumblr: post.source_title,
+                                   url: post.source_url});
+            dedupAdd(post.source_title, url2shortid(post.source_url), '/tumblr/'+photo.tumblr.blog+'/'+photo.tumblr.id);
+        }
+        dedupAdd(photo.tumblr.blog, photo.tumblr.id);
+
+        if (post.type == "photo") {
+            photo = initPhotoAlbum(photo, false);
+            $.each(post.photos, function(i, item) {
+                pic =  { url: item.original_size.url,
+                         type: imageTypes.image,
+                         title: fixupTitle(item.caption || photo.title) }
+                if (processPhoto(pic)) {
+                    addAlbumItem(photo, pic);
+                    rc = true;
+                }
+            });
+            if (post.link_url) {
+                var pic = { url: post.link_url,
+                            title: fixupTitle(post.title || post.caption || photo.title) };
+                if (processPhoto(pic)) {
+                    addAlbumItem(photo, pic);
+                    rc = true;
+                }
             }
-            processHaystack(photo, post.caption);
+            processHaystack(photo, (post.caption||post.title));
+            checkPhotoAlbum(photo);
 
         } else if (post.type == 'video') {
             photo.thumbnail = post.thumbnail_url;
@@ -3774,6 +3840,9 @@ $(function () {
             } else if (post.video_type == "unknown") {
                 var width;
                 var embed;
+
+                log.info("processing unknown video_type: "+photo.orig_url);
+                log.debug(item);
                 $.each(post.player, function (i, item) {
                     if (width === undefined ||
                         item.width > width) {
@@ -3841,8 +3910,7 @@ $(function () {
                               date: post.timestamp,
                               url: post.post_url,
                               extra: localLink(data.response.blog.url, data.response.blog.name,
-                                               '/tumblr/'+data.response.blog.name),
-                              commentsLink: post.post_url
+                                               '/tumblr/'+data.response.blog.name)
                             };
                 if (processTumblrPost(image, post))
                     addImageSlide(image);
@@ -3920,8 +3988,7 @@ $(function () {
                                   id: post.id,
                                   over18: false,
                                   date: d.valueOf()/1000,
-                                  url: post.url,
-                                  commentsLink: post.url
+                                  url: post.url
                                 };
                     if (processBloggerPost(image, post))
                         addImageSlide(image);
@@ -4130,13 +4197,17 @@ $(function () {
                 delete photo.index;
                 if (addImageSlide(photo)) {
                     // rebuild rp.dedup
-                    if (!photo.subreddit)
-                        return;
-                    dedupAdd(photo.subreddit, photo.id);
+                    if (photo.subreddit)
+                        dedupAdd(photo.subreddit, photo.id);
+                    else if (photo.tumblr)
+                        dedupAdd(photo.tumblr.blog, photo.tumblr.id);
                     if (photo.duplicates.length == 0)
                         return;
                     $.each(photo.duplicates, function(i, dupe) {
-                        dedupAdd(dupe.subreddit, dupe.id, photo.subreddit, photo.id);
+                        if (dupe.subreddit)
+                            dedupAdd(dupe.subreddit, dupe.id, '/r/'+photo.subreddit+'/'+photo.id);
+                        else if (dupe.tumblr)
+                            dedupAdd(dupe.tumblr, url2shortid(dupe.url), '/tumblr/'+photo.tumblr.blog+'/'+photo.tumblr.id);
                     });
                 } else if (index < orig_index)
                     --data.index;
