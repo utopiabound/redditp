@@ -380,6 +380,15 @@ $(function () {
         return 'https://www.youtube.com/embed/'+id+ytExtra;
     };
 
+    var tumblrJsonURL = function(hn, id) {
+        var sid = "";
+        if (id)
+            sid = '&id='+id;
+
+        // reblog_info=true to get "duplicate" information for reblogged_from_* and reblogged_root_*
+        return 'https://api.tumblr.com/v2/blog/'+hn+'/posts?reblog_info=true&api_key='+rp.api_key.tumblr+sid;
+    }
+
     // url - foreign URL
     // local - local URL
     // -- optional --
@@ -2648,13 +2657,12 @@ $(function () {
         } else if (hostname == 'tumblr.com') {
             shortid = url2shortid(photo.url, 2);
 
-            jsonUrl = 'https://api.tumblr.com/v2/blog/'+fqdn+'/posts?api_key='+rp.api_key.tumblr+'&id='+shortid;
+            jsonUrl = tumblrJsonURL(fqdn, shortid);
             dataType = 'jsonp';
 
             handleData = function(data) {
-                photo.extra = localLink(data.response.blog.url,
-                                        data.response.blog.name,
-                                        '/tumblr/'+data.response.blog.name);
+                photo.extra = localLink(data.response.blog.url, data.response.blog.name,
+                                        '/tumblr/'+data.response.blog.name, data.response.blog.title, rp.favicons.tumblr);
 
                 processTumblrPost(photo, data.response.posts[0]);
                 showPic(photo);
@@ -3793,13 +3801,25 @@ $(function () {
         photo.tumblr = { blog: post.blog_name,
                          id: post.id };
 
-        if (post.source_url && post.source_title) {
-            if (photo.duplicates === undefined)
-                photo.duplicates = [];
-            photo.duplicates.push({tumblr: post.source_title,
-                                   url: post.source_url});
-            dedupAdd(post.source_title, url2shortid(post.source_url), '/tumblr/'+photo.tumblr.blog+'/'+photo.tumblr.id);
+        if (photo.duplicates === undefined)
+            photo.duplicates = [];
+        if (post.reblogged_root_id) {
+            photo.duplicates.push({tumblr: post.reblogged_root_name,
+                                   url: post.reblogged_root_url,
+                                   id: post.reblogged_root_id });
+            dedupAdd(post.reblogged_root_name, post.reblogged_root_id, '/tumblr/'+photo.tumblr.blog+'/'+photo.tumblr.id);
+            if (!photo.cross_id)
+                photo.cross_id = post.reblogged_root_id;
         }
+        if (post.reblogged_from_id && post.reblogged_from_id !== post.reblogged_root_id) {
+            photo.duplicates.push({tumblr: post.reblogged_from_name,
+                                   url: post.reblogged_from_url,
+                                   id: post.reblogged_from_id });
+            dedupAdd(post.reblogged_from_name, post.reblogged_from_id, '/tumblr/'+photo.tumblr.blog+'/'+photo.tumblr.id);
+            if (!photo.cross_id)
+                photo.cross_id = post.reblogged_from_id;
+        }
+        
         dedupAdd(photo.tumblr.blog, photo.tumblr.id);
 
         if (post.type == "photo") {
@@ -3861,6 +3881,9 @@ $(function () {
 
         } else if (post.type == 'html') {
             rc = processHaystack(photo, post.description);
+
+        } else if (post.type == 'text') {
+            rc = processHaystack(photo, post.body);
         }
 
         if (!rc) {
@@ -3885,8 +3908,8 @@ $(function () {
         if (hostname.indexOf('.') < 0)
             hostname += '.tumblr.com';
 
-        var jsonUrl = 'https://api.tumblr.com/v2/blog/'+hostname+'/posts?api_key='+rp.api_key.tumblr;
-        if (rp.session.after !== "")
+        var jsonUrl = tumblrJsonURL(hostname);
+        if (rp.session.after)
             jsonUrl = jsonUrl+'&offset='+rp.session.after;
         else
             rp.session.after = 0;
@@ -3910,7 +3933,8 @@ $(function () {
                               date: post.timestamp,
                               url: post.post_url,
                               extra: localLink(data.response.blog.url, data.response.blog.name,
-                                               '/tumblr/'+data.response.blog.name)
+                                               '/tumblr/'+data.response.blog.name,
+                                               data.response.blog.title, rp.favicons.tumblr)
                             };
                 if (processTumblrPost(image, post))
                     addImageSlide(image);
@@ -4207,7 +4231,7 @@ $(function () {
                         if (dupe.subreddit)
                             dedupAdd(dupe.subreddit, dupe.id, '/r/'+photo.subreddit+'/'+photo.id);
                         else if (dupe.tumblr)
-                            dedupAdd(dupe.tumblr, url2shortid(dupe.url), '/tumblr/'+photo.tumblr.blog+'/'+photo.tumblr.id);
+                            dedupAdd(dupe.tumblr, dupe.id, '/tumblr/'+photo.tumblr.blog+'/'+photo.tumblr.id);
                     });
                 } else if (index < orig_index)
                     --data.index;
