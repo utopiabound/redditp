@@ -72,7 +72,7 @@ var rp = {};
 // This can be set to TRACE, DEBUG, INFO, WARN. ERROR, SLIENT (nothing printed)
 log.setLevel(log.levels.INFO);
 RegExp.quote = function(str) {
-    var re = /[.*+?^${}\(\)|[\]\\]/g;
+    var re = /[.*+?^${}\(\)\\|\[\]]/g;
     return (str+'').replace(re, "\\$&");
 };
 
@@ -3466,7 +3466,7 @@ $(function () {
                 });
 
             } else if (item.tagName == 'IFRAME') {
-                // let processPhoto() do initPhotoEmbed()
+                // let processPhoto() do initPhotoEmbed() if it's processable
                 src = item.getAttribute('src');
                 if (src === null)
                     return false;
@@ -3621,7 +3621,7 @@ $(function () {
         if (a[a.length-1] == "")
             a.pop();
 
-        // newest to oldest
+        // oldest to newest
         var urlorder = 'asc';
 
         var hostname = a.pop();
