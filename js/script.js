@@ -1412,6 +1412,19 @@ $(function () {
             shortid = url2shortid(pic.url);
             initPhotoEmbed(pic, 'https://player.vimeo.com/video/'+shortid+'?autoplay=1');
 
+        } else if (hostname == 'nbcnews.com') {
+            // https://www.nbcnews.com/widget/video-embed/ID
+            // https://www.nbcnews.com/video/title-of-video-ID
+            path = pathnameOf(pic.url);
+            if (! (path.startsWith('/widge/video-embed') ||
+                   path.startsWith('/video/')) )
+                return false;
+            shortid = url2shortid(pic.url);
+            shortid = shortid.substr(shortid.lastIndexOf('-')+1);
+
+            // no autostart
+            initPhotoEmbed(pic, "https://www.nbcnews.com/widget/video-embed/"+shortid);
+
         } else if (hostname == 'iloopit.net') {
             // VIDEO:
             // https://gifs.iloopit.net/resources/UUID/converted.gif
