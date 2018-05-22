@@ -37,7 +37,7 @@
  *      type:           ENUM of imageTypes      (will be set by processPhoto())
  *      url:            URL link of "photo"    (addImageSlide() will call fixupUrl())
  *      duplicates:     ARRAY of HASH of duplicate images (dependent on site type)
- *      over18:         BOOLEAN is nsfw
+ *      over18:         BOOLEAN is nsfw (or any item in album is nsfw)
  *      title:          HTML Title of image     (creator of object needs to call fixupTitle())
  *      id:             TXT  Unique ID based on site+subreddit or blog
  *      -- Optional --
@@ -1025,6 +1025,10 @@ $(function () {
             log.error("Delete of bad type:"+pic.type+" for photo: "+photo.url);
             return;
         }
+        if (!photo.date && pic.date)
+            photo.date = pic.date;
+        if (!photo.extra && pic.extra)
+            photo.extra = pic.extra;
         log.debug("moved first album to primary item: "+photo.url);
         fixPhotoButton(photo);
         delete photo.album;
@@ -1174,6 +1178,10 @@ $(function () {
                 return;
             }
         }
+        // promote nsfw tag from album item to main photo
+        if (pic.over18 === true)
+            photo.over18 = true;
+        delete pic.over18; // only track nsfw on main photo
 
         addPhotoParent(pic, photo);
         var sld = hostnameOf(pic.url, true).match(/[^\.]*/)[0];
@@ -2045,8 +2053,9 @@ $(function () {
                                                     class: "info infoc",
                                                     title: "Comments (o)" }
                                           ).text('('+photo.commentsCount+")"));
-        if (photo.date)
-            $('#navboxDate').attr("title", (new Date(photo.date*1000)).toString()).text(sec2dms(now - photo.date));
+        var date = image.date || photo.date;
+        if (date)
+            $('#navboxDate').attr("title", (new Date(date*1000)).toString()).text(sec2dms(now - date));
         else
             $('#navboxDate').attr("title", "").text("");
 
@@ -2482,12 +2491,10 @@ $(function () {
                     return;
                 }
 
-                /*
-                if (data.gfyItem.userName != 'anonymous')
+                if (data.gfyItem.userName !== 'anonymous')
                     photo.extra = localLink('https://gfycat.com/@'+data.gfyItem.userName,
-                                           "", // data.gfyItem.userName
+                                            data.gfyItem.userName,
                                            '/gfycat/u/'+data.gfyItem.userName);
-                 */
 
                 photo.video = {'thumbnail': data.gfyItem.posterUrl,
                                'webm': data.gfyItem.webmUrl,
@@ -4062,25 +4069,32 @@ $(function () {
 
         var user = a.pop();
 
+        var gfycat2pic = function(post) {
+            var image = { url: 'https://gfycat.com/'+post.gfyName,
+                          over18: (post.nsfw != 0),
+                          title: fixupTitle(post.title || post.description),
+                          date: post.createDate,
+                          type: imageTypes.video,
+                          video: { thumbnail: post.posterUrl,
+                                   webm: post.webmUrl,
+                                   mp4: post.mp4Url
+                                 },
+                          date: post.createDate
+                        };
+            if (post.userName != 'anonymous')
+                image.extra = localLink('https://gfycat.com/@'+post.userName,
+                                        post.userName,
+                                        '/gfycat/u/'+post.userName);
+            return image;
+        };
+
+        // Get all Gfycats (currently gfycat.com doesn't seem to list nsfw item here)
         var jsonUrl = 'https://api.gfycat.com/v1/users/'+user+'/gfycats';
 
         var handleData = function (data) {
             if (data.gfycats.length)
                 $.each(data.gfycats, function (i, post) {
-                    var image = { url: 'https://gfycat.com/'+post.gfyName,
-                                  over18: (post.nsfw != 0),
-                                  title: fixupTitle(post.title || post.description || post.tags.pop()),
-                                  type: imageTypes.video,
-                                  video: { thumbnail: post.posterUrl,
-                                           webm: post.webmUrl,
-                                           mp4: post.mp4Url
-                                         },
-                                  date: post.createDate
-                                };
-                    if (post.userName != 'anonymous')
-                        image.extra = localLink('https://gfycat.com/@'+post.userName,
-                                                post.userName,
-                                                '/gfycat/u/'+post.userName);
+                    var image = gfycat2pic(post);
                     addImageSlide(image);
                 });
             else
@@ -4094,6 +4108,56 @@ $(function () {
             dataType: 'json',
             success: handleData,
             error: failedAjaxDone,
+            timeout: rp.settings.ajaxTimeout,
+            crossDomain: true
+        });
+
+        // Get all Albums
+        jsonUrl = 'https://api.gfycat.com/v1/users/'+user+'/albums';
+        handleData = function (data) {
+            if (data.totalItemCount == 0)
+                return;
+
+            $.each(data.items, function (i, album) {
+                var photo = { title: album.title,
+                              url: 'https://gfycat.com/@'+user+'/'+album.linkText,
+                              thumbnail: album.posterUrl };
+                initPhotoAlbum(photo, false);
+
+                var url = 'https://api.gfycat.com/v1/users/'+user+'/albums/'+album.id;
+                var hd = function (data) {
+                    if (data.pub == 0)
+                        return;
+                    $.each(data.publishedGfys, function (i, post) {
+                        var pic = gfycat2pic(post);
+                        addAlbumItem(photo, pic);
+                    });
+                    checkPhotoAlbum(photo);
+                    addImageSlide(photo);
+                };
+                $.ajax({
+                    url: url,
+                    dataType: 'json',
+                    success: hd,
+                    error: failedAjaxDone,
+                    timeout: rp.settings.ajaxTimeout,
+                    crossDomain: true
+                });
+            });
+            rp.session.loadingNextImages = false;
+        };
+        var handleError = function (xhr, ajaxOptions, thrownError) {
+            if (xhr.status == 404) {
+                log.info("gfycat user "+user+" has no albums");
+                return;
+            }
+            failedAjax(xhr, ajaxOptions, thrownError);
+        };
+        $.ajax({
+            url: jsonUrl,
+            dataType: 'json',
+            success: handleData,
+            error: handleError,
             timeout: rp.settings.ajaxTimeout,
             crossDomain: true
         });
