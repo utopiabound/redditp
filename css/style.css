@@ -37,6 +37,7 @@ body { overflow:hidden; background-color: #000; color:#fff;}
 
 /* NAVIGATION BOX */
 #navigationBoxes {float: left;}
+#navboxExtra  { float: left; }
 a { text-decoration:none;
     color:#eee;
     font-weight: bold;

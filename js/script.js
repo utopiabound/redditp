@@ -2040,6 +2040,8 @@ $(function () {
 
         if (photo.subreddit)
             $('#navboxSubreddit').html(redditLink(subreddit)).show();
+        else if (photo.gfycat)
+            $('#navboxSubreddit').html($('<span>', { class: 'info infol' }).text(photo.gfycat.album)).show();
         else
             $('#navboxSubreddit').hide();
 
@@ -2794,7 +2796,8 @@ $(function () {
 
     var urlregexp = new RegExp('https?:\/\/[\\w\._-]{2,256}\.[a-z]{2,6}(\/[\\w\/\.\-]*)?', 'gi');
 
-    var fixupTitle = function(title) {
+    var fixupTitle = function(origtitle) {
+        var title = unescapeHTML(origtitle);
         if (!title)
             return title;
 
@@ -4121,6 +4124,7 @@ $(function () {
             $.each(data.items, function (i, album) {
                 var photo = { title: album.title,
                               url: 'https://gfycat.com/@'+user+'/'+album.linkText,
+                              gfycat: { album: album.title },
                               thumbnail: album.posterUrl };
                 initPhotoAlbum(photo, false);
 
