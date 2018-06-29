@@ -221,9 +221,6 @@ $(function () {
         if (!rp.settings.nsfw && photo.over18)
             return false;
 
-        if (!rp.settings.embed && pic.type == imageTypes.embed)
-            return false;
-
         if (pic.type == imageTypes.fail)
             return false;
 
@@ -745,7 +742,13 @@ $(function () {
             delete window.localStorage[name];
     };
 
-    var clearSlideTimeout = function() {
+    var clearSlideTimeout = function(type) {
+        // If type, only clear it we "should"
+        if (type !== undefined &&
+            !(type == imageTypes.video ||
+              type == imageTypes.later ||
+              (type == imageTypes.embed && rp.settings.embed)))
+            return;
         log.debug('clear timout');
         window.clearTimeout(rp.session.nextSlideTimeoutId);
     };
@@ -1438,7 +1441,7 @@ $(function () {
             // https://gifs.iloopit.net/resources/UUID/converted.gif
             // https://cdn.iloopit.net/resources/UUID/converted.{mp4,webm}
             // https://cdn.iloopit.net/resources/UUID/thumb.jpeg
-            // GIFV: (no easy way to convert to VIDEO UUID - ID is uint32ish)
+            // GIFV: (no easy way to convert ID (uint32-ish) to VIDEO UUID)
             // https://iloopit.net/ID/TITLE-NAME.gifv
             var ext = extensionOf(pic.url);
             if (ext == 'gif' || isVideoExtension(pic.url)) {
@@ -1494,8 +1497,8 @@ $(function () {
         } else if (hostname == 'sendvid.com') {
             shortid = url2shortid(pic.url);
             // this currently redirects to a 404
-            //initPhotoVideo(pic, 'https://cache-1.sendvid.com/'+shortid+'.mp4',
-            //               'https://cache-1.sendvid.com/'+shortid+'.jpg');
+            //initPhotoVideo(pic, 'https://cache.sendvid.com/'+shortid+'.mp4',
+            //               'https://cache.sendvid.com/'+shortid+'.jpg');
             // no autostart
             initPhotoEmbed(pic, 'https://sendvid.com/embed/'+shortid);
 
@@ -1708,7 +1711,6 @@ $(function () {
     var U_KEY = 85;
     var W_KEY = 87;
 
-
     // Register keyboard events on the whole document
     $(document).keyup(function (e) {
         if (e.ctrlKey || e.altKey || e.metaKey) {
@@ -1756,6 +1758,9 @@ $(function () {
             break;
         case F_KEY:
             $('#fullscreen').click();
+            break;
+        case ENTER:
+            $('#playbutton a').click();
             break;
         case PAGEUP:
         case arrow.up:
@@ -2151,10 +2156,29 @@ $(function () {
         failCleanup("Failed to get "+rp.url.subreddit+text);
     };
 
+    function replaceBackgroundPhoto(newDiv) {
+        newDiv.prependTo("#pictureSlider");
+        $("#pictureSlider div:first-of-type").fadeIn(rp.settings.animationSpeed);
+        var oldDiv = $("#pictureSlider div:not(:first-of-type)");
+        oldDiv.fadeOut(rp.settings.animationSpeed, function () {
+            oldDiv.detach();
+
+            var vid = $('#gfyvid');
+            if (vid) {
+                vid.prop('autoplay', true);
+                if (vid[0])
+                    vid[0].play();
+            }
+
+            rp.session.isAnimating = false;
+        });
+        return oldDiv;
+    }
+
     //
     // Slides the background photos
     // Only called with rp.session.activeIndex, rp.session.activeAlbumIndex
-    var slideBackgroundPhoto = function () {
+    function slideBackgroundPhoto() {
         var divNode;
         var aIndex = rp.session.activeAlbumIndex;
         var type;
@@ -2191,30 +2215,12 @@ $(function () {
         } else
             type = rp.photos[rp.session.activeIndex].album[rp.session.activeAlbumIndex].type;
 
+        clearSlideTimeout(type);
 
-        if (type == imageTypes.video ||
-            type == imageTypes.embed ||
-            type == imageTypes.later)
-            clearSlideTimeout();
-
-        divNode.prependTo("#pictureSlider");
-        $("#pictureSlider div").fadeIn(rp.settings.animationSpeed);
-        var oldDiv = $("#pictureSlider div:not(:first-of-type)");
-        oldDiv.fadeOut(rp.settings.animationSpeed, function () {
-            oldDiv.detach();
-
-            var vid = $('#gfyvid');
-            if (vid) {
-                vid.prop('autoplay', true);
-                if (vid[0])
-                    vid[0].play();
-            }
-
-            rp.session.isAnimating = false;
-        });
+        replaceBackgroundPhoto(divNode);
     };
 
-    var createDiv = function(imageIndex, albumIndex) {
+    function createDiv(imageIndex, albumIndex) {
         if (albumIndex === undefined)
             albumIndex = -1;
         // Retrieve the accompanying photo based on the index
@@ -2361,7 +2367,7 @@ $(function () {
         };
 
         // Called with showEmbed(urlForIframe)
-        var showEmbed = function(url) {
+        var iFrameUrl = function(url) {
             var iframe = $('<iframe/>', { id: "gfyembed",
                                           class: "fullscreen",
                                           frameborder: 0,
@@ -2400,8 +2406,7 @@ $(function () {
                 });
             });
             $(iframe).attr('src', url);
-
-            divNode.append(iframe);
+            return iframe;
         };
 
         var showPic = function(pic) { 
@@ -2418,10 +2423,31 @@ $(function () {
             if (pic.type == imageTypes.video)
                 showVideo(pic.video);
 
-            else if (pic.type == imageTypes.embed)
-                showEmbed(pic.url);
+            else if (pic.type == imageTypes.embed) {
+                var lem;
+                // @@ Fix enable/disable embed option for cached div's
+                if (rp.settings.embed) {
+                    lem = iFrameUrl(pic.url);
+                    divNode.append(iframe);
+                    return;
+                }
+                if (pic.thumbnail)
+                    showImage(pic.thumbnail);
+                // Add play button
+                var lem = $('<a>', { title: 'Play Video (Enter)',
+                                     href: '#' }).html(googleIcon('play_circle_filled'));
+                lem.click(function (event) {
+                    if (event) {
+                        event.preventDefault();
+                        event.stopImmediatePropagation();
+                    }
+                    clearSlideTimeout();
+                    replaceBackgroundPhoto($('<div>').html(iFrameUrl(pic.url)));
+                });
 
-            else if (pic.type == imageTypes.fail)
+                divNode.prepend($('<span>', { id: 'playbutton' }).html(lem));
+
+            } else if (pic.type == imageTypes.fail)
                 showImage(pic.thumbnail);
 
             else // Default to image type
@@ -2453,7 +2479,7 @@ $(function () {
             }
 
         } else if (photo.type == imageTypes.embed) {
-            showEmbed(photo.url);
+            showPic(photo);
             return divNode;
         }
 
@@ -2667,7 +2693,7 @@ $(function () {
                     var f = $.parseHTML(data.html);
 
                     initPhotoEmbed(photo, f[0].src);
-                    showEmbed(photo.url);
+                    showPic(photo);
 
                 } else {
                     log.info("cannot display url [unk type "+data.type+"]: "+photo.url);
@@ -2990,7 +3016,7 @@ $(function () {
             if (idorig.preview)
                 photo.thumbnail = fixupUrl(idorig.preview.images[0].source.url);
 
-            else if (idorig.thumbnail != 'default')
+            else if (idorig.thumbnail != 'default' && idorig.thumbnail != 'nsfw')
                 photo.thumbnail = fixupUrl(idorig.thumbnail);
 
             // Reddit hosted videos

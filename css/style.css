@@ -17,7 +17,7 @@ body { overflow:hidden; background-color: #000; color:#fff;}
     display: none;
 }
 
-#pictureSlider div { height:100%; width:100%; position:absolute; z-index:-999; }
+#pictureSlider div { height:100%; width:100%; position:absolute; }
 
 /* USER LOGIN / MULTI-REDDITS */
 #loginLi input:checked~#multiListDiv { display: block; }
@@ -34,9 +34,14 @@ body { overflow:hidden; background-color: #000; color:#fff;}
 #multiListDiv hr { margin: 0; }
 #multiListDiv i.material-icons { font-size: 18px; }
 
+/* PLAY BUTTON */
+#playbutton { top: 50%; left: 50%; z-index: 0; display: block; position: absolute; }
+#playbutton i.material-icons { font-size: 60px; opacity: 0.7; }
+#playbutton a { display: block; margin: -20px 0 0 -20px; }
+#playbutton a:hover { color: red; }
 
 /* NAVIGATION BOX */
-#navigationBoxes {float: left;}
+#navigationBoxes {float: left; }
 #navboxExtra  { float: left; }
 a { text-decoration:none;
     color:#eee;
