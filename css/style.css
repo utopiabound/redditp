@@ -37,8 +37,8 @@ body { overflow:hidden; background-color: #000; color:#fff;}
 /* PLAY BUTTON */
 #playbutton { top: 50%; left: 50%; z-index: 0; display: block; position: absolute; }
 #playbutton i.material-icons { font-size: 60px; opacity: 0.7; }
-#playbutton a { display: block; margin: -20px 0 0 -20px; }
-#playbutton a:hover { color: red; }
+#playbutton a { display: block; margin: -20px 0 0 -20px; border: 1px solid transparent; }
+#playbutton a:hover { color: red; border: 1px solid transparent; }
 
 /* NAVIGATION BOX */
 #navigationBoxes {float: left; }
@@ -81,23 +81,32 @@ a:hover {
     color: red;
 }
 
-.embed {
-    text-decoration: underline overline;
+/* Decorate Photo Buttons */
+#controlsDiv a { position: relative; }
+#controlsDiv a:before {
+    font-family: "Material Icons";
+    font-weight: normal;
+    font-size: 24px;
+    position: absolute;
+    opacity: 0.4;
+    top: 0px;
+    left: 0px;
 }
 
-.album {
-    border-style: solid;
-    border-color: white;
-    border-width: 1px;
+a.video:before { content: "movie"; }
+a.album:before { content: "photo_library"; }
+a.later:before { content: "file_download"; }
+
+a.failed { text-decoration: line-through; }
+
+
+a.embed:before {
+    content: "ondemand_video";
 }
 
 .xorig {
     border: 1px solid white;
     border-radius: 5px;
-}
-
-.failed {
-    text-decoration: line-through;
 }
 
 

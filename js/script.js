@@ -9,6 +9,10 @@
  * https://github.com/ubershmekel/redditp
  * This Fork:
  * http://github.com/utopiabound/redditp
+ *
+ * Notes on naming conventions:
+ * - "photo" generally refers to a (prospective) element in rp.photos
+ * - "pic" generally refers to either photo or album item (usually in presence of photo variable)
  * 
  * In Browser Storage (window.storage)
  * redditp-nsfw                 - boolean - load NSFW content
@@ -171,7 +175,7 @@ $(function () {
         image: 'image',
         video: 'movie',
         embed: 'ondemand_video',
-        album: 'cloud',
+        album: 'photo_library',
         later: 'file_download',
         fail: 'not_interested'
     };
@@ -836,9 +840,9 @@ $(function () {
         rp.settings.embed = !$("#embed").is(':checked');
         setConfig(configNames.embed, rp.settings.embed);
         if (rp.settings.embed) {
-            $('label[for="embed"]').html(googleIcon("cloud"));
+            $('label[for="embed"]').html(googleIcon("ondemand_video"));
         } else {
-            $('label[for="embed"]').html(googleIcon("cloud_off"));
+            $('label[for="embed"]').html(googleIcon("personal_video"));
         }
     };
 
@@ -937,6 +941,15 @@ $(function () {
         numberButton.appendTo(newListItem);
     };
 
+    var initPhotoImage = function(photo, url) {
+        var oldType = photo.type;
+        photo.type = imageTypes.image;
+        if (url !== undefined)
+            photo.url = url;
+        if (oldType != photo.type)
+            fixPhotoButton(photo);
+    };
+
     var initPhotoFailed = function(photo) {
         photo.type = imageTypes.fail;
 
@@ -952,22 +965,48 @@ $(function () {
         fixPhotoButton(photo);
     };
 
+    var addVideoUrl = function(photo, type, url) {
+        if (!photo.video[type])
+            photo.video[type] = url;
+        else if (Array.isArray(photo.video[type]))
+            photo.video[type].push(url);
+        else
+            photo.video[type] = [ photo.video[type], url ];
+    }
+
+    // url is undefined, string, or array
     var initPhotoVideo = function (photo, url, thumbnail) {
         photo.type = imageTypes.video;
         photo.video = {};
 
         if (url === undefined)
-            url = photo.url;
+            urls = [ photo.url ];
 
-        var extension = isVideoExtension(url);
-        if (extension)
-            photo.video[extension] = url;
+        else if (Array.isArray(url))
+            urls = url;
+
+        else
+            urls = [ url ];
+
+        $.each(urls, function(i, url) {
+            if (!url)
+                return;
+
+            var extension = isVideoExtension(url);
+            if (!extension) {
+                log.info("cannot add video ("+url+") to photo: ", photo.url);
+                return;
+            }
+            addVideoUrl(photo, extension, url);
+        });
 
         if (thumbnail !== undefined)
             photo.video.thumbnail = fixupUrl(thumbnail);
 
         else if (photo.thumbnail)
             photo.video.thumbnail = photo.thumbnail;
+
+        fixPhotoButton(photo);
     };
 
     // re-index Album elements starting from index
@@ -1231,7 +1270,7 @@ $(function () {
         else if (button == undefined)
             button = $('#allNumberButtons ul').children(":nth-child("+(parent.index+1)+")");
 
-        button.removeClass('embed album over18');
+        button.removeClass('embed album over18 later video');
 
         addButtonClass(button, pic);
     };
@@ -1315,10 +1354,9 @@ $(function () {
             if (shortid.indexOf('-') != -1)
                 shortid = shortid.substr(shortid.lastIndexOf('-')+1);
 
-            pic.type = imageTypes.video;
-            pic.video = { mp4s: [ 'https://j.gifs.com/'+shortid+'@large.mp4',
+            initPhotoVideo(pic, [ 'https://j.gifs.com/'+shortid+'@large.mp4',
                                   'https://j.gifs.com/'+shortid+'.mp4' ],
-                          thumbnail: 'https://j.gifs.com/'+shortid+'.jpg' };
+                           'https://j.gifs.com/'+shortid+'.jpg');
 
         } else if (hostname == 'giphy.com') {
             //giphy.com/gifs/NAME-OF-VIDEO-SHORTID
@@ -1347,15 +1385,6 @@ $(function () {
         } else if (hostname == 'youtu.be') {
             initPhotoEmbed(pic, youtubeURL(url2shortid(pic.url)));
 
-        } else if (hostname == 'openload.co') {
-            // //openload.co/embed/SHORTID/Name_Of_original_file
-            // //openload.co/f/SHORTID/Title_of_picture
-            // final name/title is optional
-            shortid = url2shortid(pic.url, 2);
-
-            // no autostart
-            initPhotoEmbed(pic, 'https://www.openload.co/embed/'+shortid);
-
         } else if (hostname == 'pornhub.com') {
             // JSON Info about video
             // 'https://www.pornhub.com/webmasters/video_by_id?id='+shortid
@@ -1373,26 +1402,9 @@ $(function () {
                 return false;
             }
 
-        } else if (hostname == 'redtube.com') {
-            shortid = url2shortid(pic.url);
-            initPhotoEmbed(pic, 'https://embed.redtube.com/?bgcolor=000000&autoplay=1&id='+shortid);
-
-        } else if (hostname == 'xvideos.com') {
-            // no autostart
-            initPhotoEmbed(pic, 'https://www.xvideos.com/embedframe/'+url2shortid(pic.url));
-
-        } else if (hostname == 'keezmovies.com') {
-            // no autostart
-            initPhotoEmbed(pic, 'https://www.keezemovies.com/embed/'+url2shortid(pic.url));
-
-        } else if (hostname == 'spankbang.com') {
-            // no autostart
-            initPhotoEmbed(pic, 'https://spankbang.com/embed/'+url2shortid(pic.url, 1));
-
-        } else if (hostname == 'youporn.com') {
-            // https://www.youporn.com/watch/SHORTID/TEXT-NAME-IN-URL/
+        } else if (hostname == 'thumbzilla.com') {
             shortid = url2shortid(pic.url, 2);
-            initPhotoEmbed(pic, "https://www.youporn.com/embed/"+shortid+'?autoplay=1');
+            initPhotoEmbed(pic, 'https://www.pornhub.com/embed/'+shortid+'?autoplay=1');
 
         } else if (hostname == 'xhamster.com') {
             // https://xhamster.com/videos/NAME-OF-VIDEO-SHORTID
@@ -1414,14 +1426,47 @@ $(function () {
             shortid = pathnameOf(pic.url);
             initPhotoEmbed(pic, 'https://www.tube8.com/embed'+shortid+'?autoplay=1');
 
-        } else if (hostname == 'txxx.com') {
+        } else if (hostname == 'redtube.com') {
+            shortid = url2shortid(pic.url);
+            initPhotoEmbed(pic, 'https://embed.redtube.com/?bgcolor=000000&autoplay=1&id='+shortid);
+
+        } else if (hostname == 'youporn.com') {
+            // https://www.youporn.com/watch/SHORTID/TEXT-NAME-IN-URL/
             shortid = url2shortid(pic.url, 2);
-            // no autostart
-            initPhotoEmbed(pic, 'https://m.txxx.com/embed/'+shortid);
+            initPhotoEmbed(pic, "https://www.youporn.com/embed/"+shortid+'?autoplay=1');
 
         } else if (hostname == 'vimeo.com') {
             shortid = url2shortid(pic.url);
             initPhotoEmbed(pic, 'https://player.vimeo.com/video/'+shortid+'?autoplay=1');
+
+
+            // NO AUTOPLAY BELOW HERE
+
+        } else if (hostname == 'openload.co') {
+            // //openload.co/embed/SHORTID/Name_Of_original_file
+            // //openload.co/f/SHORTID/Title_of_picture
+            // final name/title is optional
+            shortid = url2shortid(pic.url, 2);
+
+            // no autostart
+            initPhotoEmbed(pic, 'https://www.openload.co/embed/'+shortid);
+
+        } else if (hostname == 'xvideos.com') {
+            // no autostart
+            initPhotoEmbed(pic, 'https://www.xvideos.com/embedframe/'+url2shortid(pic.url));
+
+        } else if (hostname == 'keezmovies.com') {
+            // no autostart
+            initPhotoEmbed(pic, 'https://www.keezemovies.com/embed/'+url2shortid(pic.url));
+
+        } else if (hostname == 'spankbang.com') {
+            // no autostart
+            initPhotoEmbed(pic, 'https://spankbang.com/embed/'+url2shortid(pic.url, 1));
+
+        } else if (hostname == 'txxx.com') {
+            shortid = url2shortid(pic.url, 2);
+            // no autostart
+            initPhotoEmbed(pic, 'https://m.txxx.com/embed/'+shortid);
 
         } else if (hostname == 'nbcnews.com') {
             // https://www.nbcnews.com/widget/video-embed/ID
@@ -1446,9 +1491,9 @@ $(function () {
             var ext = extensionOf(pic.url);
             if (ext == 'gif' || isVideoExtension(pic.url)) {
                 shortid = url2shortid(pic.url, 2);
-                initPhotoVideo(pic, 'https://cdn.iloopit.net/resources/'+shortid+'/converted.mp4',
+                initPhotoVideo(pic, ['https://cdn.iloopit.net/resources/'+shortid+'/converted.mp4',
+                                     'https://cdn.iloopit.net/resources/'+shortid+'/converted.webm'],
                                'https://cdn.iloopit.net/resources/'+shortid+'/thumb.jpeg');
-                pic.video.webm = 'https://cdn.iloopit.net/resources/'+shortid+'/converted.webm';
 
             } else if (ext == 'gifv') {
                 initPhotoEmbed(pic);
@@ -1551,6 +1596,12 @@ $(function () {
         else if (pic.type == imageTypes.album)
             button.addClass("album");
 
+        else if (pic.type == imageTypes.video)
+            button.addClass("video");
+
+        else if (pic.type == imageTypes.later)
+            button.addClass("later");
+
         else if (pic.type == imageTypes.fail)
             button.addClass("failed");
 
@@ -1614,6 +1665,10 @@ $(function () {
         // show the first valid image
         if (rp.session.activeIndex < 0)
             startAnimation(getNextSlideIndex(-1));
+
+        // Preload images if we've missed it initially
+        else if (index < rp.session.activeIndex+2)
+            preloadNextImage(rp.session.activeIndex);
 
         return true;
     };
@@ -2220,7 +2275,7 @@ $(function () {
         replaceBackgroundPhoto(divNode);
     };
 
-    function createDiv(imageIndex, albumIndex) {
+    var createDiv = function(imageIndex, albumIndex) {
         if (albumIndex === undefined)
             albumIndex = -1;
         // Retrieve the accompanying photo based on the index
@@ -2524,10 +2579,9 @@ $(function () {
                                             data.gfyItem.userName,
                                            '/gfycat/u/'+data.gfyItem.userName);
 
-                photo.video = {'thumbnail': data.gfyItem.posterUrl,
-                               'webm': data.gfyItem.webmUrl,
-                               'mp4':  data.gfyItem.mp4Url};
-                photo.type = imageTypes.video;
+                initPhotoVideo(photo, [ data.gfyItem.mp4Url,  data.gfyItem.webmUrl ],
+                               data.gfyItem.posterUrl);
+
                 showVideo(photo.video);
             };
 
@@ -2536,43 +2590,32 @@ $(function () {
 
             var imgurHandleAlbum = function (data) {
                 if (data.data.images.length > 1) {
-                    var index;
-
                     photo = initPhotoAlbum(photo, false);
                     $.each(data.data.images, function(i, item) {
                         var pic = { title: fixupTitle(item.title || item.description),
-                                    url: fixImgurPicUrl(item.animated ?item.mp4 :item.link),
                                     orig_url: data.data.link,
-                                    type: item.animated ?imageTypes.video :imageTypes.image
                                   };
                         if (item.animated)
-                            pic.video = { mp4: pic.url };
+                            initPhotoVideo(pic, fixImgurPicUrl(item.mp4));
+                        else
+                            initPhotoImage(pic, fixImgurPicUrl(item.link));
 
                         addAlbumItem(photo, pic);
                     });
-                    index = indexPhotoAlbum(photo, imageIndex, albumIndex);
-
-                    showPic(photo.album[index]);
+                    checkPhotoAlbum(photo);
 
                 } else if (data.data.images.length == 1) { // single image album
                     var item = data.data.images[0];
-                    if (item.animated) {
-                        photo.url = fixImgurPicUrl(item.mp4);
-                        photo.type = imageTypes.video;
-                        photo.video = { thumbnail: photo.thumbnail,
-                                        mp4: photo.url };
-                        showVideo(photo.video);
+                    if (item.animated)
+                        initPhotoVideo(photo, fixImgurPicUrl(item.mp4));
 
-                    } else {
-                        photo.url = item.link;
-                        photo.type = imageTypes.image;
-                        showImage(photo.url);
-                    }
+                    else
+                        initPhotoImage(photo, fixImgurPicUrl(item.link));
 
-                } else { // An empty album
+                } else // An empty album
                     initPhotoFailed(photo);
-                    showImage(photo.thumbnail);
-                }
+
+                showPic(photo);
             };
 
             if (photo.url.indexOf('/a/') > 0) {
@@ -2584,8 +2627,7 @@ $(function () {
                 jsonUrl = "https://api.imgur.com/3/album/" + shortid;
 
                 handleError = function (xhr, ajaxOptions, thrownError) {
-                    photo.url = "https://i.imgur.com/"+shortid+".jpg";
-                    photo.type = imageTypes.image;
+                    initPhotoImage(photo, "https://i.imgur.com/"+shortid+".jpg");
 
                     showImage(photo.url);
                     return;
@@ -2593,9 +2635,7 @@ $(function () {
 
                 handleData = function (data) {
                     if (data === undefined) {
-                        photo.url = "https://i.imgur.com/"+shortid+".jpg";
-                        photo.type = imageTypes.image;
-
+                        initPhotoImage(photo, "https://i.imgur.com/"+shortid+".jpg");
                         showImage(photo.url);
                         return;
                     }
@@ -2606,19 +2646,15 @@ $(function () {
                 jsonUrl = "https://api.imgur.com/3/image/" + shortid;
 
                 handleData = function (data) {
-                    if (data.data.animated == true) {
-                        photo.type = imageTypes.video;
-                        photo.video = { mp4: fixImgurPicUrl(data.data.mp4) };
-                        if (data.data.webm !== undefined)
-                            photo.video.webm = fixImgurPicUrl(data.data.webm);
+                    if (data.data.animated == true)
+                        initPhotoVideo(photo,
+                                       [ fixImgurPicUrl(data.data.mp4),
+                                         fixImgurPicUrl(data.data.webm) ]);
 
-                        showVideo(photo.video);
+                    else
+                        initPhotoImage(photo, fixImgurPicUrl(data.data.link));
 
-                    } else {
-                        photo.url = fixImgurPicUrl(data.data.link);
-                        photo.type = imageTypes.image;
-                        showImage(photo.url);
-                    }
+                    showPic(photo);
                 };
             }
 
@@ -2626,9 +2662,7 @@ $(function () {
             jsonUrl = 'https://api.vid.me/videoByUrl/' + shortid;
             handleData = function (data) {
                 if (data.video.state == 'success') {
-                    photo.video = { thumbnail: data.video.thumbnail_url,
-                                    mp4:  data.video.complete_url };
-                    photo.type = imageTypes.video;
+                    initPhotoVideo(photo, data.video.complete_url, data.video.thumbnail_url);
                     showVideo(photo.video);
 
                 } else {
@@ -2642,12 +2676,9 @@ $(function () {
             jsonUrl = "https://api.streamable.com/videos/" + shortid;
 
             handleData = function(data) {
-                photo.type = imageTypes.video;
-                photo.video = {'thumbnail': data.thumbnail_url };
-                if (data.files.mp4 !== undefined)
-                    photo.video.mp4 = data.files.mp4.url;
-                if (data.files.webm !== undefined)
-                    photo.video.webm = data.files.webm.url;
+                initPhotoVideo(photo, [ data.files.mp4.url,
+                                        data.files.webm.url ],
+                               data.thumbnail_url );
                 showVideo(photo.video);
             };
 
@@ -2666,13 +2697,9 @@ $(function () {
                     return;
                 }
 
-                photo.type = imageTypes.video;
-                photo.video = {'thumbnail': data.poster };
-                if (data.mp4Url !== undefined)
-                    // weirdism, 720pb.mp4 always fail while 720p.mp4 work
-                    photo.video.mp4 = data.mp4Url.replace(/pb.mp4$/, 'p.mp4');
-                if (data.webmUrl !== undefined)
-                    photo.video.webm = data.webmUrl;
+                // weirdism, 720pb.mp4 always fail while 720p.mp4 work
+                initPhotoVideo(photo, [ (data.mp4Url) ?data.mp4Url.replace(/pb.mp4$/, 'p.mp4') :undefined,
+                                        data.webmUrl ], data.poster);
                 showVideo(photo.video);
             };
 
@@ -2684,22 +2711,18 @@ $(function () {
                 photo.extra = infoLink(data.author_url, data.author_name);
 
                 if (data.type == 'photo') {
-                    photo.type = imageTypes.image;
-                    photo.url = data.url;
-                    showImage(data.url);
+                    initPhotoImage(photo, data.url);
 
                 } else if (data.type == 'video') {
-                    var prevtype = photo.type;
                     var f = $.parseHTML(data.html);
 
                     initPhotoEmbed(photo, f[0].src);
-                    showPic(photo);
 
                 } else {
                     log.info("cannot display url [unk type "+data.type+"]: "+photo.url);
-                    if (imageIndex == rp.session.activeIndex)
-                        resetNextSlideTimer();
+                    initPhotoFailed(photo);
                 }
+                showPic(photo);
             };
 
         } else if (hostname == 'tumblr.com') {
@@ -3021,16 +3044,17 @@ $(function () {
 
             // Reddit hosted videos
             if (idx.domain == 'v.redd.it') {
-                initPhotoVideo(photo);
+                // intentionally load with empty video, load mp4 below
+                initPhotoVideo(photo, []);
                 var media = (idx.media !== undefined) ?idx.media.reddit_video
                         :(idx.secure_media !== undefined) ?idx.secure_media.reddit_video
                         :undefined;
 
-                if (media !== undefined) {
+                if (media) {
                     // @@ move this to createDiv() and parse DASH .mpd (XML) file,
                     // also add support for seperate audio file
                     if (media.fallback_url.indexOf('/DASH_') > 0) {
-                        photo.video.mp4 = media.fallback_url;
+                        addVideoUrl(photo, 'mp4', media.fallback_url);
 
                     } else {
                         log.error(photo.id+": cannot display video [bad fallback_url]: "+
@@ -3465,7 +3489,6 @@ $(function () {
                     (item.getAttribute("width") || 100) < 100)
                     return false;
 
-                pic.type = imageTypes.image;
                 src = item.getAttribute('src');
                 if (src === null)
                     return false;
@@ -3474,15 +3497,16 @@ $(function () {
                     item.src = ((rp.insecure[hostnameOf(src)]) ?"http:" :"https:")+src;
                 else if (src.startsWith('/'))
                     item.src = originOf(pic.url)+src;
-                pic.url = item.src;
+
+                initPhotoImage(pic, item.src);
+
                 if (item.alt)
                     pic.title = item.alt;
 
             } else if (item.tagName == 'VIDEO') {
-                pic.type = imageTypes.video;
-                pic.video = {};
-                if (item.poster)
-                    pic.video.thumbnail = item.poster;
+
+                initPhotoVideo(pic, [], item.poster);
+
                 $.each(item.children, function(i, source) {
                     var src = source.getAttribute('src');
                     if (src === null)
@@ -3494,9 +3518,9 @@ $(function () {
                         source.src = originOf(pic.url)+src;
 
                     if (source.type == 'video/webm')
-                        pic.video.webm = source.src;
+                        addVideoUrl(pic, 'webm', source.src);
                     else if (source.type == 'video/mp4')
-                        pic.video.mp4 = source.src;
+                        addVideoUrl(pic, 'mp4', source.src);
                     else
                         log.info("Unknown type: "+source.type+" at: "+source.src);
                 });
@@ -3604,8 +3628,7 @@ $(function () {
         var processAttachment = function(att, pic) {
             pic.id = att.ID;
             if (att.mime_type.startsWith('image/')) {
-                pic.type = imageTypes.image;
-                pic.url = att.URL;
+                initPhotoImage(pic, att.URL);
 
             } else if (att.mime_type.startsWith('video/')) {
                 initPhotoVideo(pic, att.URL, (att.thumbnails) ?att.thumbnails.large :undefined);
