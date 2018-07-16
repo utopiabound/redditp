@@ -2889,6 +2889,7 @@ $(function () {
             return;
 
         rp.session.loginExpire = 1;
+        rp.session.redditHdr = {};
         rp.url.get = rp.redditBaseUrl;
         $('#loginUsername').html(googleIcon('account_box'));
         $('#loginUsername').attr('title', 'Expired');
@@ -3312,8 +3313,7 @@ $(function () {
                     Type: type
                 });
             }
-
-        };
+        }; // END addImageSlideRedditT3
 
         var handleData = function (data) {
             //redditData = data //global for debugging data
@@ -3406,7 +3406,7 @@ $(function () {
             rp.session.loadingNextImages = false;
         };
 
-        log.debug('Ajax requesting: ' + jsonUrl);
+        log.debug('Ajax requesting ('+dataType+'): ' + jsonUrl);
 
         $.ajax({
             url: jsonUrl,
