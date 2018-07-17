@@ -168,10 +168,10 @@ rp.url = {
 $(function () {
     $("#navboxTitle").text("Loading Reddit Slideshow");
 
-    var LOAD_PREV_ALBUM = -2;
+    const LOAD_PREV_ALBUM = -2;
 
     // Value for each image Type is name of Google icon
-    var imageTypes = {
+    const imageTypes = {
         image: 'image',
         video: 'movie',
         embed: 'ondemand_video',
@@ -486,7 +486,7 @@ $(function () {
     // URL processign Helpers
     //
 
-    // onlysld (optional)
+    // onlysld (optional) - SLD.TLD
     var hostnameOf = function(url, onlysld) {
         var hostname = $('<a>').attr('href', url).prop('hostname');
         if (onlysld === undefined)
@@ -1038,9 +1038,18 @@ $(function () {
 
     // unwind albumifcation if album has only 1 element.
     var checkPhotoAlbum = function(photo) {
-        if (photo.type != imageTypes.album ||
-            photo.album.length > 1) {
+        if (photo.type != imageTypes.album) {
             fixPhotoButton(photo);
+            return;
+
+        } else if (photo.album.length > 1) {
+            fixPhotoButton(photo);
+            log.debug("["+rp.session.activeIndex+"]["+rp.session.activeAlbumIndex+"] checked photo:"+photo.index);
+            // Advance to first album item if needed
+            if (photo.index !== undefined &&
+                photo.index == rp.session.activeIndex &&
+                rp.session.activeAlbumIndex < 0)
+                startAnimation(photo.index, indexPhotoAlbum(photo, photo.index, rp.session.activeAlbumIndex));
             return;
         }
 
@@ -1105,10 +1114,11 @@ $(function () {
                 img = { url: (photo.thumbnail == photo.url) ?photo.orig_url :photo.url,
                         type: photo.type };
             } else if (photo.type == imageTypes.video) {
-                // leave img.type unset, so processPhoto() will look at url
                 img = { url: photo.url,
+                        type: photo.type,
                         thumbnail: photo.thumbnail,
                         video: photo.video };
+                delete photo.video;
             }
 
             photo.type = imageTypes.album;
@@ -1116,7 +1126,7 @@ $(function () {
             photo.album = [];
 
             if (keepfirst && processPhoto(img) && img.type !== imageTypes.later) {
-                log.info("moved primary to first album item: "+img.url);
+                log.debug("moved primary to first album item: "+img.url);
                 addAlbumItem(photo, img);
             }
         }
@@ -1140,27 +1150,28 @@ $(function () {
     // setup number button and session.activeAlbumIndex
     // returns index of image to display
     var indexPhotoAlbum = function (photo, imageIndex, albumIndex) {
+        if (photo.type != imageTypes.album)
+            return -1;
         photo.insertAt = -1;
         if (imageIndex < 0)
             return 0;
 
-        if (imageIndex >= 0)
-            $('#numberButton'+(imageIndex+1)).addClass('album');
+        if (albumIndex !== undefined && albumIndex >= 0)
+            return albumIndex;
 
-        // Set correct AlbumIndex
-        if (imageIndex == rp.session.activeIndex) {
-            if (rp.session.activeAlbumIndex == LOAD_PREV_ALBUM)
-                rp.session.activeAlbumIndex = photo.album.length-1;
-            if (rp.session.activeAlbumIndex == -1)
-                rp.session.activeAlbumIndex = 0;
-            if (albumIndex === undefined || albumIndex < 0)
-                albumIndex = rp.session.activeAlbumIndex;
+        if (albumIndex === LOAD_PREV_ALBUM)
+            return photo.album.length-1;
 
-        } else if (albumIndex === undefined || albumIndex < 0) {
+        if (imageIndex != rp.session.activeIndex)
             return 0;
-        }
 
-        return albumIndex;
+        if (rp.session.activeAlbumIndex == LOAD_PREV_ALBUM)
+            return photo.album.length-1;
+
+        if (rp.session.activeAlbumIndex == -1)
+            return 0;
+
+        return rp.session.activeAlbumIndex;
     };
 
     var albumButtonLi = function (pic, index) {
@@ -1792,27 +1803,30 @@ $(function () {
         case T_KEY:
             $('#titleDiv .collapser').click();
             break;
-        case SPACE:
-            $("#autoNextSlide").click();
-            break;
         case I_KEY:
             open_in_background("#navboxLink");
             break;
-        case O_KEY:
-            open_in_background("#navboxCommentsLink");
-            break;
+        case P_KEY: // legacy
         case D_KEY:
-        case P_KEY:
             open_in_background("#navboxDuplicatesLink");
             break;
-        case R_KEY:
-            open_in_background("#navboxDuplicatesMulti");
+        case F_KEY:
+            $('#fullscreen').click();
             break;
         case M_KEY:
             $('#mute').click();
             break;
-        case F_KEY:
-            $('#fullscreen').click();
+        case O_KEY:
+            open_in_background("#navboxCommentsLink");
+            break;
+        case R_KEY:
+            open_in_background("#navboxDuplicatesMulti");
+            break;
+        case S_KEY:
+            getRedditComments(rp.photos[rp.session.activeIndex], false);
+            break;
+        case SPACE:
+            $("#autoNextSlide").click();
             break;
         case ENTER:
             $('#playbutton a').click();
@@ -2003,12 +2017,13 @@ $(function () {
 
         var oldIndex = rp.session.activeIndex;
         var oldAlbumIndex = rp.session.activeAlbumIndex;
-        rp.session.activeIndex = imageIndex;
-        rp.session.activeAlbumIndex = albumIndex;
-        rp.session.isAnimating = true;
 
+        // will be cleared in replaceBackgroundDiv()
+        rp.session.isAnimating = true;
+        var divNode = getBackgroundDiv(imageIndex, albumIndex);
         animateNavigationBox(imageIndex, oldIndex, albumIndex, oldAlbumIndex);
-        slideBackgroundPhoto();
+        replaceBackgroundDiv(divNode);
+
         // rp.session.activeAlbumIndex may have changed in createDiv called by slideBackgroundPhoto
         preloadNextImage(imageIndex, rp.session.activeAlbumIndex);
 
@@ -2052,11 +2067,17 @@ $(function () {
     // Animate the navigation box
     //
     var animateNavigationBox = function (imageIndex, oldIndex, albumIndex, oldAlbumIndex) {
-        if (albumIndex === undefined)
-            albumIndex = -1;
         if (oldAlbumIndex === undefined)
             oldAlbumIndex = -1;
+
         var photo = rp.photos[imageIndex];
+        albumIndex = indexPhotoAlbum(photo, imageIndex, albumIndex);
+
+        // Set Active Items
+        rp.session.activeIndex = imageIndex;
+        rp.session.activeAlbumIndex = albumIndex;
+
+        log.debug("animateNavigationBox("+imageIndex+", "+oldIndex+", "+albumIndex+", "+oldAlbumIndex+")");
         var image = photo;
         if (albumIndex >= 0)
             image = photo.album[albumIndex];
@@ -2211,10 +2232,14 @@ $(function () {
         failCleanup("Failed to get "+rp.url.subreddit+text);
     };
 
-    function replaceBackgroundPhoto(newDiv) {
+    function replaceBackgroundDiv(newDiv) {
+        var oldDiv = $("#pictureSlider div:first-of-type");
+        if (oldDiv[0] == newDiv[0]) {
+            rp.session.isAnimating = false;
+            return;
+        }
         newDiv.prependTo("#pictureSlider");
-        $("#pictureSlider div:first-of-type").fadeIn(rp.settings.animationSpeed);
-        var oldDiv = $("#pictureSlider div:not(:first-of-type)");
+        newDiv.fadeIn(rp.settings.animationSpeed);
         oldDiv.fadeOut(rp.settings.animationSpeed, function () {
             oldDiv.detach();
 
@@ -2233,51 +2258,57 @@ $(function () {
     //
     // Slides the background photos
     // Only called with rp.session.activeIndex, rp.session.activeAlbumIndex
-    function slideBackgroundPhoto() {
+    function getBackgroundDiv(index, albumIndex) {
         var divNode;
-        var aIndex = rp.session.activeAlbumIndex;
         var type;
+        var aIndex = albumIndex
 
-        if (rp.session.activeAlbumIndex < 0)
+        if (albumIndex < 0)
             aIndex = 0;
 
         // Look for div in Cache
-        if (rp.cache[rp.session.activeIndex] === undefined ||
-            rp.cache[rp.session.activeIndex][aIndex] === undefined) {
+        if (rp.cache[index] === undefined ||
+            rp.cache[index][aIndex] === undefined) {
 
-            divNode = createDiv(rp.session.activeIndex, rp.session.activeAlbumIndex);
+            divNode = createDiv(index, albumIndex);
 
             // may change from LOAD_PREV_ALBUM
-            if (rp.session.activeAlbumIndex >= 0)
-                aIndex = rp.session.activeAlbumIndex;
+            if (albumIndex < 0) {
+                albumIndex = indexPhotoAlbum(rp.photos[index], index, albumIndex);
+                if (albumIndex >= 0)
+                    aIndex = albumIndex;
+            }
 
-            if (rp.cache[rp.session.activeIndex] === undefined)
-                rp.cache[rp.session.activeIndex] = {};
-            rp.cache[rp.session.activeIndex][aIndex] = divNode;
+            if (rp.cache[index] === undefined)
+                rp.cache[index] = {};
+            rp.cache[index][aIndex] = divNode;
 
         } else
-            divNode = rp.cache[rp.session.activeIndex][aIndex];
+            divNode = rp.cache[index][aIndex];
 
         // Read type here, since it may change during createDiv()
-        if (rp.session.activeAlbumIndex < 0) {
-            type = rp.photos[rp.session.activeIndex].type;
+        if (albumIndex < 0) {
+            type = rp.photos[index].type;
 
             if (type == imageTypes.album) {
-                rp.session.activeAlbumIndex = 0;
-                type = rp.photos[rp.session.activeIndex].album[rp.session.activeAlbumIndex].type;
+                log.error("["+index+"] type is ALBUM with albumIndex:"+albumIndex);
+
+                type = rp.photos[index].album[0].type;
             }
 
         } else
-            type = rp.photos[rp.session.activeIndex].album[rp.session.activeAlbumIndex].type;
+            type = rp.photos[index].album[aIndex].type;
 
         clearSlideTimeout(type);
 
-        replaceBackgroundPhoto(divNode);
+        return divNode;
     };
 
     var createDiv = function(imageIndex, albumIndex) {
         if (albumIndex === undefined)
             albumIndex = -1;
+
+        log.debug("createDiv("+imageIndex+", "+albumIndex+")");
         // Retrieve the accompanying photo based on the index
         var photo;
         if (albumIndex >= 0)
@@ -2288,8 +2319,6 @@ $(function () {
 
         else
             photo = rp.photos[imageIndex];
-
-        log.debug("createDiv("+imageIndex+", "+albumIndex+")");
 
         // Used by showVideo and showImage
         var divNode = $("<div />");
@@ -2497,7 +2526,7 @@ $(function () {
                         event.stopImmediatePropagation();
                     }
                     clearSlideTimeout();
-                    replaceBackgroundPhoto($('<div>').html(iFrameUrl(pic.url)));
+                    replaceBackgroundDiv($('<div>').html(iFrameUrl(pic.url)));
                 });
 
                 divNode.prepend($('<span>', { id: 'playbutton' }).html(lem));
@@ -2821,6 +2850,19 @@ $(function () {
         return url;
     };
 
+    var fixTumblrPicUrl = function (url) {
+        var hostname = hostnameOf(url);
+
+        // Get full res version
+        if (hostname.endsWith('.media.tumblr.com'))
+            url = 'http://data.tumblr.com'+pathnameOf(url).replace(/_\d+\./, '_raw.');
+
+        else if (hostname = 'static.tumblr.com')
+            url = url.replace(/^http:/, "https:");
+
+        return url;
+    };
+
     var fixupUrl = function (url) {
         // fix reddit bad quoting
         url = url.replace(/&amp;/gi, '&');
@@ -2970,6 +3012,76 @@ $(function () {
     // Site Specific Loading / Processing
     //
 
+    var getRedditComments = function (photo, oponly) {
+        if (oponly === undefined)
+            oponly = true;
+
+        if (!photo.commentsCount || !photo.comments)
+            return;
+
+        var jsonUrl = rp.url.get + pathnameOf(photo.comments) + '.json?depth=1';
+        var hdrData = rp.session.redditHdr;
+        var failedData = failedAjax;
+        var handleData = function (data) {
+            var item = data[0].data.children[0];
+            var comments = data[1].data.children;
+            var img;
+
+            processPhoto(photo);
+
+            for (var i = 0; i < comments.length; ++i) {
+                if (oponly && photo.author != comments[i].data.author)
+                    continue;
+
+                if (comments[i].data.body_html === undefined) {
+                    log.info("cannot display comment["+i+"] [no body]: "+photo.url);
+                    continue;
+                }
+
+                var haystack = $('<div />').html(unescapeHTML(comments[i].data.body_html));
+
+                var links = haystack.find('a');
+
+                if (!links || links.length == 0)
+                    continue;
+
+                log.debug("RC-Found:["+photo.comments+"]:"+photo.url);
+
+                // Add parent image as first child, to ensure it's shown
+                photo = initPhotoAlbum(photo, true);
+                for(var j = 0; j < links.length; ++j) {
+                    img = { author: comments[i].data.author,
+                            url: links[j].href
+                          };
+
+                    if (links[j].innerText !== "" &&
+                        links[j].innerText !== img.url)
+                        img.title = links[j].innerText;
+
+                    log.debug("RC-Try:["+photo.comments+"]:"+img.url);
+                    if (processPhoto(img))
+                        addAlbumItem(photo, img);
+                    else
+                        log.info("cannot load comment link [no photos]: "+img.url);
+                }
+            };
+            checkPhotoAlbum(photo);
+            if (processPhoto(photo))
+                addImageSlide(photo);
+        };
+
+        log.info("loading comments: "+photo.comments);
+        $.ajax({
+            url: jsonUrl,
+            headers: hdrData,
+            dataType: 'json',
+            success: handleData,
+            error: failedData,
+            timeout: rp.settings.ajaxTimeout,
+            crossDomain: true,
+        });
+    };
+
     var getRedditImages = function () {
         if (rp.session.loadingNextImages)
             return;
@@ -3073,67 +3185,6 @@ $(function () {
                 return;
             }
 
-            var jsonUrl = rp.url.get + idorig.permalink + '.json?depth=1';
-
-            var loadTypes = {
-                NONE:   "NONE",
-                OP:     "OP",
-                ALL:    "ALL"
-            };
-
-            var type = loadTypes.NONE;
-
-            var hdrData = rp.session.redditHdr;
-            var failedData = failedAjax;
-            var handleData = function (data) {
-                var item = data[0].data.children[0];
-                var comments = data[1].data.children;
-                var img;
-                var type = $(this).Type;
-
-                processPhoto(photo);
-
-                for (var i = 0; i < comments.length; ++i) {
-                    if (type == loadTypes.OP &&
-                        idorig.author != comments[i].data.author)
-                        continue;
-
-                    if (comments[i].data.body_html === undefined) {
-                        log.info("cannot display comment["+i+"] [no body]: "+photo.url);
-                        continue;
-                    }
-
-                    var haystack = $('<div />').html(unescapeHTML(comments[i].data.body_html));
-
-                    var links = haystack.find('a');
-
-                    if (!links || links.length == 0)
-                            continue;
-
-                    log.debug(type+"-Found:["+photo.comments+"]:"+photo.url);
-
-                    // Add parent image as first child, to ensure it's shown
-                    photo = initPhotoAlbum(photo, true);
-                    for(var j = 0; j < links.length; ++j) {
-                        img = { author: comments[i].data.author,
-                                url: links[j].href
-                              };
-
-                        if (links[j].innerText !== "" &&
-                            links[j].innerText !== img.url)
-                            img.title = links[j].innerText;
-
-                        log.debug(type+"-Try:["+photo.comments+"]:"+img.url);
-                        if (processPhoto(img))
-                            addAlbumItem(photo, img);
-                        else
-                            log.info("cannot load comment link [no photos]: "+img.url);
-                    }
-                };
-                checkPhotoAlbum(photo);
-                addImageSlide(photo);
-            };
-
             var tryPreview = function(photo, idorig, msg) {
                 if (msg === undefined)
                     msg = 'preview [no image]';
@@ -3153,29 +3204,15 @@ $(function () {
                 photo.title.match(/[\[\(\{]request[\]\)\}]/i) ||
                 photo.title.match(/^psbattle:/i)) {
 
-                type = loadTypes.ALL;
+                getRedditComments(photo, false);
 
             } else if (photo.flair.match(/(more|source|video|album).*in.*com/i) ||
                        idorig.title.match(/(source|more|video|album).*in.*com/i) ||
                        idorig.title.match(/in.*comment/i) ||
                        idorig.title.match(/[\[\(\{\d\s][asvm]ic([\]\)\}]|$)/i)) {
 
-                type = loadTypes.OP;
-
+                getRedditComments(photo, true);
             }
-
-            if (type != loadTypes.NONE)
-                $.ajax({
-                    url: jsonUrl,
-                    headers: hdrData,
-                    dataType: 'json',
-                    success: handleData,
-                    error: failedData,
-                    timeout: rp.settings.ajaxTimeout,
-                    crossDomain: true,
-                    // Local Variables
-                    Type: type
-                });
 
             if (processPhoto(photo)) {
                 addImageSlide(photo);
@@ -3185,14 +3222,13 @@ $(function () {
 
             var path = pathnameOf(photo.url);
             var hn = hostnameOf(photo.url);
-            var a;
+            var a, handleData, jsonUrl;
 
             if (rp.wpv2[hn] !== false &&
-                       (a = path.match(/^\/(?:\d+\/)*([a-z0-9]+(?:-[a-z0-9]+)*)\/$/))) {
+                (a = path.match(/^\/(?:\d+\/)*([a-z0-9]+(?:-[a-z0-9]+)*)\/$/))) {
                 // This check to see if bare url is actually a wordpress site
 
                 var slug = a[1];
-                hdrData = '';
                 jsonUrl = 'https://public-api.wordpress.com/rest/v1.1/sites/'+hn+'/posts/slug:'+slug;
                 log.debug("WP Trying: "+photo.url);
                 handleData = function (data) {
@@ -3223,7 +3259,6 @@ $(function () {
                     };
                     $.ajax({
                         url: jsonUrl,
-                        headers: hdrData,
                         dataType: 'jsonp',
                         success: handleData,
                         error: failedData,
@@ -3269,7 +3304,6 @@ $(function () {
 
                     $.ajax({
                         url: jsonUrl,
-                        headers: hdrData,
                         dataType: 'json',
                         success: handleData,
                         error: failedData,
@@ -3303,14 +3337,11 @@ $(function () {
             } else {
                 $.ajax({
                     url: jsonUrl,
-                    headers: hdrData,
                     dataType: 'json',
                     success: handleData,
                     error: failedData,
                     timeout: rp.settings.ajaxTimeout,
                     crossDomain: true,
-                    // Local Variables
-                    Type: type
                 });
             }
         }; // END addImageSlideRedditT3
@@ -3891,7 +3922,7 @@ $(function () {
             if (!photo.cross_id)
                 photo.cross_id = post.reblogged_from_id;
         }
-        
+
         dedupAdd(photo.tumblr.blog, photo.tumblr.id);
 
         if (post.type == "photo") {
@@ -4340,8 +4371,6 @@ $(function () {
             rp.session.isAnimating = true;
             if (data.loadAfter)
                 rp.session.loadAfter = eval(data.loadAfter);
-            rp.session.activeIndex = -1;
-            rp.session.activeAlbumIndex = -1;
 
             clearSlideTimeout();
             var orig_index = data.index;

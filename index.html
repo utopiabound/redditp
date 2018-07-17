@@ -30,9 +30,8 @@
 	<ul class="nbmenu">
 	  <li><form id="subredditForm" onsubmit="return false"><input type="text" id="subredditUrl" size="17" />
 	      <a id="subredditLink" href="#"><img class="reddit" src="images/reddit.svg" /></a></form>
-	  </li>
-	  <!-- Start this off as hidden, and only show if login is possible -->
-	  <li id="loginLi" class="hidden use-hover">
+	  </li><li id="loginLi" class="hidden use-hover">
+	    <!-- Start this off as hidden, and only show if login is possible -->
 	    <input class="checkbox" type="checkbox" name="login" id="login" value="Auto" />
 	    <label class="checkbox colortoggle" for="login" title="show user info">
 	      <i class="material-icons">account_box</i></label>
@@ -46,23 +45,19 @@
 	      </ul>
 	      <hr>
 	      <ul><li><i>Login to Load</i></li></ul></div>
-	  </li>
-	  <li>
+	  </li><li>
 	    <input class="checkbox" type="checkbox" name="nsfw" id="nsfw" value="Auto" />
 	    <label class="checkbox colortoggle over18" for="nsfw" title="Show NSFW content">
 	      <i class="material-icons">child_friendly</i></label>
-	  </li>
-	  <li>
+	  </li><li>
 	    <input class="checkbox" type="checkbox" name="embed" id="embed" value="Auto" checked />
 	    <label class="icontoggle colortoggle embed" for="embed" title="Autoplay embeded content">
 	      <i class="material-icons">cloud_off</i></label>
-	  </li>
-	  <li>
+	  </li><li>
 	    <input class="checkbox" type="checkbox" name="mute" id="mute" value="Auto" checked />
 	    <label class="icontoggle colortoggle mute" for="mute" title="toggle video sound (m)">
 	      <i class="material-icons">volume_off</i></label>
-	  </li>
-	  <li>
+	  </li><li>
 	    <input class="checkbox" type="checkbox" name="fullscreen" id="fullscreen" value="Auto" />
 	    <label class="icontoggle fullscreen" for="fullscreen" title="toggle fullscreen (f)">
 	      <i class="material-icons">fullscreen</i></label>

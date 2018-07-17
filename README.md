@@ -19,14 +19,16 @@ Hotkeys
 * c - collapse/uncollapse controls
 * i - open image in a new tab
 * o - open comments in a new tab
-* p - open duplicates in a new tab
+* d - open duplicates in a new tab
 * u - hide/show duplciates box
 * f - toggle full screen mode
 * m - unmute/mute videos
+* s - load images from comments
 * Arrow keys, pgup/pgdown change slides
 ** Up/Down, page-up / page-down - switch Albums
 ** left/right - switch pictures within albums (and also to next/previous album)
 * Swipe gestures on phones
+* enter - play embeded
 
 Features
 --------
