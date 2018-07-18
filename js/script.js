@@ -381,6 +381,13 @@ $(function () {
         return 'https://www.youtube.com/embed/'+id+ytExtra;
     };
 
+    var youtubeThumb = function(id) {
+        return 'https://i.ytimg.com/vi/'+id+'/maxresdefault.jpg';
+        // should be able to fall back to:
+        // 'https://i.ytimg.com/vi/'+id+'/hqdefault.jpg';
+        // if maxres doesn't exist
+    };
+
     var tumblrJsonURL = function(hn, id) {
         var sid = "";
         if (id)
@@ -1349,9 +1356,26 @@ $(function () {
                 log.info('cannot display url [no shortid]: ' + pic.url);
                 return false;
 
+            } else if (pathnameOf(pic.url) == "/") {
+                log.info('cannot display url [full-blog not post]: '+pic.url);
+                return false;
+
             } else {
                 pic.type = imageTypes.later;
             }
+
+        } else if (hostname == 'tumblr.com') {
+            if (isImageExtension(pic.url)) {
+                pic.url = fixTumblrPicUrl(pic.url);
+                return true;
+            }
+            var name = fqdn.substring(0, fqdn.indexOf('.'));
+            if (pic.url.indexOf('/post/') > 0)
+                // Don't process bare tumblr blogs, nor /day/YYYY/MM/DD/ format
+                // only BLOGNAME.tumblr.com/post/SHORTID/...
+                pic.type = imageTypes.later;
+            else
+                return false;
 
         } else if (hostname == 'streamable.com' ||
                    hostname == 'vid.me' ||
@@ -1392,9 +1416,14 @@ $(function () {
             if (shortid == 'watch')
                 shortid = searchValueOf(pic.url, 'v');
             initPhotoEmbed(pic, youtubeURL(shortid));
+            if (!pic.thumbnail)
+                pic.thumbnail = youtubeThumb(shortid);
 
         } else if (hostname == 'youtu.be') {
-            initPhotoEmbed(pic, youtubeURL(url2shortid(pic.url)));
+            shortid = url2shortid(pic.url);
+            initPhotoEmbed(pic, youtubeURL(shortid));
+            if (!pic.thumbnail)
+                pic.thumbnail = youtubeThumb(shortid);
 
         } else if (hostname == 'pornhub.com') {
             // JSON Info about video
@@ -1578,16 +1607,6 @@ $(function () {
                 shortid = url2shortid(pic.url);
                 pic.url = 'https://www.vidble.com/'+shortid+'.jpg';
             }
-
-        } else if (hostname == 'tumblr.com') {
-            var name = fqdn.substring(0, fqdn.indexOf('.'));
-            pic.extra = localLink('https://'+fqdn, name, '/tumblr/'+name);
-            if (pic.url.indexOf('/post/') > 0)
-                // Don't process bare tumblr blogs, nor /day/YYYY/MM/DD/ format
-                // only BLOGNAME.tumblr.com/post/SHORTID/...
-                pic.type = imageTypes.later;
-            else
-                return false;
 
         } else {
             return false;
@@ -2123,6 +2142,9 @@ $(function () {
             $('#navboxSubreddit').html(redditLink(subreddit)).show();
         else if (photo.gfycat)
             $('#navboxSubreddit').html($('<span>', { class: 'info infol' }).text(photo.gfycat.album)).show();
+        else if (photo.tumblr)
+            $('#navboxSubreddit').html(localLink('https://'+photo.tumblr.blog+'.tumblr.com',
+                                                 photo.tumblr.blog, '/tumblr/'+photo.tumblr.blog));
         else
             $('#navboxSubreddit').hide();
 
@@ -3866,7 +3888,7 @@ $(function () {
                               url: post.URL,
                               over18: false,
                               date: d.valueOf()/1000,
-                              thumbnail: post.post_thumbnail
+                              thumbnail: (post.post_thumbnail) ?post.post_thumbnail.URL :null
                             };
 
                 if (processWordPressPost(photo, post))
@@ -3987,10 +4009,15 @@ $(function () {
 
         } else if (post.type == 'text') {
             rc = processHaystack(photo, post.body);
+
+        } else if (post.type == 'link') {
+            photo.orig_url = photo.url;
+            photo.url = post.url;
+            rc = processPhoto(photo);
         }
 
         if (!rc) {
-            log.info("cannot display url [bad Tumblr post type "+post.type+"]: "+
+            log.info("cannot display url [bad Tumblr post type: "+post.type+"]: "+
                 photo.url);
             laterPhotoFailed(photo);
         }
@@ -4035,9 +4062,7 @@ $(function () {
                               over18: data.response.blog.is_nsfw || data.response.blog.is_adult,
                               date: post.timestamp,
                               url: post.post_url,
-                              extra: localLink(data.response.blog.url, data.response.blog.name,
-                                               '/tumblr/'+data.response.blog.name,
-                                               data.response.blog.title, rp.favicons.tumblr)
+                              orig_url: post.post_url
                             };
                 if (processTumblrPost(image, post))
                     addImageSlide(image);
