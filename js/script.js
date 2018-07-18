@@ -49,6 +49,7 @@
  *      author:         TEXT reddit username
  *      comments:       URL  link to photo comments
  *      commentsCount:  INT  Number of comments (if this is set, comments needs to be set too)
+ *      commentsLoaded: BOOL Have loaded comments for extra images
  *      extra:          HTML Extra information for links concerning photo
  *      thumbnail:      URL  thumbnail of image (e.g. cached version from reddit)
  *      flair:          TEXT text flair put next to title
@@ -171,13 +172,15 @@ $(function () {
     const LOAD_PREV_ALBUM = -2;
 
     // Value for each image Type is name of Google icon
+    // Each must be different, since we compair on value, not on name
     const imageTypes = {
         image: 'image',
         video: 'movie',
         embed: 'ondemand_video',
         album: 'photo_library',
         later: 'file_download',
-        fail: 'not_interested'
+        thumb: 'insert_photo',
+        fail: 'broken_image'
     };
 
     // takes an integer number of seconds and returns eithe days, hours or minutes
@@ -853,6 +856,16 @@ $(function () {
         }
     };
 
+    var updateCommentsLoad = function () {
+        var photo = rp.photos[rp.session.activeIndex];
+        if (!photo.comments || !photo.commentsCount)
+            $('#navboxCommentsLoad').html(googleIcon("speaker_notes_off")).attr('title', 'No Comments Available');
+        else if (photo.commentsLoaded)
+            $('#navboxCommentsLoad').html(googleIcon("check_box")).attr('title', "Comments already loaded");
+        else
+            $('#navboxCommentsLoad').html(googleIcon("mms")).attr('title', "Load links from Comments (s)");
+    };
+
     var initState = function () {
         rp.wpv2 = getConfig(configNames.wpv2);
         if (rp.wpv2 === undefined)
@@ -957,6 +970,12 @@ $(function () {
             fixPhotoButton(photo);
     };
 
+    var initPhotoThumb = function(photo, url) {
+        photo.url = (url) ?url :photo.thumbnail;
+        photo.type = imageTypes.thumb;
+        fixPhotoButton(photo);
+    };
+
     var initPhotoFailed = function(photo) {
         photo.type = imageTypes.fail;
 
@@ -1016,14 +1035,17 @@ $(function () {
         fixPhotoButton(photo);
     };
 
+    var isActive = function (photo) {
+        return (photo.index !== undefined &&
+                photo.index == rp.session.activeIndex);
+    };
+
     // re-index Album elements starting from index
     var reindexPhotoAlbum = function(photo, index) {
         if (index === undefined)
             index = 0;
 
-        // if photo.index isn't in rp.photos or photo isn't active, we don't care
-        if (photo.index === undefined ||
-            photo.index != rp.session.activeIndex)
+        if (!isActive(photo))
             return;
 
         for (var i = index; i < photo.album.length; ++i) {
@@ -1048,13 +1070,13 @@ $(function () {
         if (photo.type != imageTypes.album) {
             fixPhotoButton(photo);
             return;
+        }
 
-        } else if (photo.album.length > 1) {
+        if (photo.album.length > 1) {
             fixPhotoButton(photo);
             log.debug("["+rp.session.activeIndex+"]["+rp.session.activeAlbumIndex+"] checked photo:"+photo.index);
             // Advance to first album item if needed
-            if (photo.index !== undefined &&
-                photo.index == rp.session.activeIndex &&
+            if (isActive(photo) &&
                 rp.session.activeAlbumIndex < 0)
                 startAnimation(photo.index, indexPhotoAlbum(photo, photo.index, rp.session.activeAlbumIndex));
             return;
@@ -1067,10 +1089,12 @@ $(function () {
             return;
         }
 
+        // Resurect Initial image
         var pic = photo.album[0];
         if (pic.type == imageTypes.image ||
             pic.type == imageTypes.later ||
             pic.type == imageTypes.fail ||
+            pic.type == imageTypes.thumb ||
             pic.type == imageTypes.embed) {
             photo.type = pic.type;
             photo.url = pic.url;
@@ -1097,28 +1121,13 @@ $(function () {
         if (keepfirst === undefined)
             keepfirst = true;
 
-        if (photo !== pic) {
-            // remove old AlbumItem
-            var index = photo.album.indexOf(pic);
-            if (index >= 0) {
-                photo.album.splice(index, 1);
-                if (photo.index !== undefined &&
-                    photo.index == rp.session.activeIndex) {
-                    $('#allNumberButtons ul').children(":nth-child("+(index+1)+")").remove();
-                    reindexPhotoAlbum(photo, index);
-                }
-            }
-            // don't need to insertAt if image is last element
-            if (index != photo.album.length)
-                photo.insertAt = index;
-
-        } else if (photo.album === undefined) {
+        if (photo.type != imageTypes.album) {
             var img;
             if (photo.type == imageTypes.image ||
                 photo.type == imageTypes.embed ||
+                photo.type == imageTypes.thumb ||
                 photo.type == imageTypes.later) {
-                // don't use thumbnail if it's been set via tryPreview()
-                img = { url: (photo.thumbnail == photo.url) ?photo.orig_url :photo.url,
+                img = { url: photo.url,
                         type: photo.type };
             } else if (photo.type == imageTypes.video) {
                 img = { url: photo.url,
@@ -1132,12 +1141,44 @@ $(function () {
             photo.insertAt = -1;
             photo.album = [];
 
-            if (keepfirst && processPhoto(img) && img.type !== imageTypes.later) {
+            if (keepfirst && processPhoto(img)) {
                 log.debug("moved primary to first album item: "+img.url);
                 addAlbumItem(photo, img);
             }
+            return photo;
+        }
+
+        // if initPhotoAlbum(photo, true) was called but we need to kill it, if it's
+        // re-called with false.
+        if (!keepfirst && photo.album.length > 0 && pic == photo && photo.url == photo.album[0].url)
+            pic = photo.album[0];
+
+        if (photo !== pic) {
+            // remove old AlbumItem
+            var index = photo.album.indexOf(pic);
+            if (index >= 0) {
+                photo.insertAt = index;
+                photo.album.splice(index, 1);
+                if (isActive(photo)) {
+                    $('#allNumberButtons ul').children(":nth-child("+(index+1)+")").remove();
+                    reindexPhotoAlbum(photo, index);
+                }
+            }
         }
         return photo;
+    };
+
+    // Get the nth album item from the parent of pic
+    // This is for if a pic may have been removed and the album reindex
+    var photoIndex = function (pic, index) {
+        var photo = photoParent(pic);
+        if (photo.type != imageTypes.album)
+            return photo;
+        if (index == -1)
+            index = 0;
+        else if (index == LOAD_PREV_ALBUM)
+            index = photo.album.length-1;
+        return photo.album[index];
     };
 
     // Call to destroy album
@@ -1159,7 +1200,7 @@ $(function () {
     var indexPhotoAlbum = function (photo, imageIndex, albumIndex) {
         if (photo.type != imageTypes.album)
             return -1;
-        photo.insertAt = -1;
+
         if (imageIndex < 0)
             return 0;
 
@@ -1226,15 +1267,10 @@ $(function () {
     };
 
     var addAlbumItem = function (photo, pic) {
-        var index;
-        if (photo.insertAt < 0)
-            index = photo.album.length;
-        else
-            index = photo.insertAt;
         // check for duplicates
         for(var i = 0; i < photo.album.length; ++i) {
             if (photo.album[i].url == pic.url) {
-                log.debug("cannot display url [sub-album dup]: ["+i+"] exists, skip ["+index+"]: "+pic.url);
+                log.debug("cannot display url [sub-album dup]: ["+i+"] exists: "+pic.url);
                 return;
             }
         }
@@ -1254,17 +1290,14 @@ $(function () {
 
         if (photo.insertAt < 0) {
             photo.album.push(pic);
-            if (photo.index !== undefined &&
-                photo.index == rp.session.activeIndex)
+            if (isActive(photo))
                 $('#allNumberButtons ul').append(albumButtonLi(pic));
 
         } else {
-            ++photo.insertAt;
+            var index = photo.insertAt++;
             photo.album.splice(index, 0, pic);
-            if (photo.index !== undefined &&
-                photo.index == rp.session.activeIndex) {
-                $('#allNumberButtons ul').children(":nth-child("+(index+1)+")")
-                .after(albumButtonLi(pic));
+            if (isActive(photo)) {
+                $('#allNumberButtons ul').children(":nth-child("+(photo.insertAt)+")").after(albumButtonLi(pic));
                 reindexPhotoAlbum(photo, index);
             }
         }
@@ -1555,7 +1588,7 @@ $(function () {
                 return false;
             }
 
-        } else if (orig_hn == 'dropbox.com') {
+        } else if (orig_hn == 'dropbox.com' && pic.type == imageTypes.thumb) {
             // capture items we want to skip from tryPreview()
             log.info("REJECTED: "+pic.orig_url);
             return false;
@@ -1842,7 +1875,7 @@ $(function () {
             open_in_background("#navboxDuplicatesMulti");
             break;
         case S_KEY:
-            getRedditComments(rp.photos[rp.session.activeIndex], false);
+            $('#navboxCommentsLoad').click();
             break;
         case SPACE:
             $("#autoNextSlide").click();
@@ -1912,6 +1945,13 @@ $(function () {
                        $(this).data("index"));
     });
 
+    $(document).on('click', '#navboxCommentsLoad', function (event) {
+        if (event) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+        }
+        getRedditComments(rp.photos[rp.session.activeIndex]);
+    });
     // Bind to PopState Event
     //rp.history.Adapter.bind(window, 'popstate', function(e) {
     window.onpopstate = function(e) {
@@ -2106,6 +2146,7 @@ $(function () {
         var authName = image.author || photo.author;
 
         // COMMENTS/BUTTON LIST Box
+        updateCommentsLoad();
         $('#navboxCommentsLink').attr('href', photo.comments||photo.orig_url);
         var url = image.orig_url || image.url;
         $('#navboxOrigLink').attr('href', url);
@@ -2515,7 +2556,7 @@ $(function () {
             return iframe;
         };
 
-        var showPic = function(pic) { 
+        var showPic = function(pic) {
             if (pic.type == imageTypes.album) {
                 var index = indexPhotoAlbum(photo, imageIndex, albumIndex);
                 if (index < 0) {
@@ -2556,11 +2597,17 @@ $(function () {
             } else if (pic.type == imageTypes.fail)
                 showImage(pic.thumbnail);
 
-            else // Default to image type
+            else if (pic.type == imageTypes.later) {
+                log.error("called showPic() on later type: "+pic.url);
+                showImage(pic.thumbnail);
+                throw "Invalid Image Type";
+
+            } else // Default to image type
                 showImage(pic.url);
         };
 
-        if (photo.type == imageTypes.image) {
+        if (photo.type == imageTypes.image ||
+            photo.type == imageTypes.thumb) {
             showImage(photo.url, false);
             return divNode;
         }
@@ -2666,7 +2713,7 @@ $(function () {
                 } else // An empty album
                     initPhotoFailed(photo);
 
-                showPic(photo);
+                showPic(photoIndex(photo, albumIndex));
             };
 
             if (photo.url.indexOf('/a/') > 0) {
@@ -2785,9 +2832,8 @@ $(function () {
             handleData = function(data) {
                 photo.extra = localLink(data.response.blog.url, data.response.blog.name,
                                         '/tumblr/'+data.response.blog.name, data.response.blog.title, rp.favicons.tumblr);
-
                 processTumblrPost(photo, data.response.posts[0]);
-                showPic(photo);
+                showPic(photoIndex(photo, albumIndex));
             };
 
         } else if (hostname == 'wordpress.com') {
@@ -2798,11 +2844,11 @@ $(function () {
 
             handleData = function(data) {
                 processWordPressPost(photo, data);
-                showPic(photo);
+                showPic(photoIndex(photo, albumIndex));
             };
 
         } else {
-            log.error("["+photo.index+"] Unknown video site ["+hostname+"]: "+photo.url);
+            log.error("["+photo.index+"] Unknown site ["+hostname+"]: "+photo.url);
             initPhotoFailed(photo);
             showImage(photo.thumbnail);
         }
@@ -3034,26 +3080,42 @@ $(function () {
     // Site Specific Loading / Processing
     //
 
-    var getRedditComments = function (photo, oponly) {
-        if (oponly === undefined)
-            oponly = true;
-
+    // Assume: photo has been run through processPhoto() at least once
+    var getRedditComments = function (photo) {
         if (!photo.commentsCount || !photo.comments)
             return;
 
+        if (photo.commentsLoaded)
+            return;
+
+        // Only load comments once per photo
+        photo.commentsLoaded = true;
+
         var jsonUrl = rp.url.get + pathnameOf(photo.comments) + '.json?depth=1';
         var hdrData = rp.session.redditHdr;
-        var failedData = failedAjax;
+        var failedData = function (xhr, ajaxOptions, thrownError) {
+            photo.commentsLoaded = false;
+            failedAjax(xhr, ajaxOptions, thrownError);
+        }
         var handleData = function (data) {
             var item = data[0].data.children[0];
             var comments = data[1].data.children;
             var img;
 
-            processPhoto(photo);
+            if (isActive(photo))
+                updateCommentsLoad();
 
+            photo = initPhotoAlbum(photo, true);
             for (var i = 0; i < comments.length; ++i) {
-                if (oponly && photo.author != comments[i].data.author)
+                if (comments[i].kind == "more") {
+                    // @@ LOAD MORE COMMENTS
+                    log.info("MORE COMMENTS [comment:"+photo.comments+" id:"+comments[i].data.id+"]: "+photo.url);
                     continue;
+                }
+                if (comments[i].kind != "t1") {
+                    log.error("unknown comment type ["+comments[i].kind+"]: "+photo.url);
+                    continue;
+                }
 
                 if (comments[i].data.body_html === undefined) {
                     log.info("cannot display comment["+i+"] [no body]: "+photo.url);
@@ -3070,7 +3132,6 @@ $(function () {
                 log.debug("RC-Found:["+photo.comments+"]:"+photo.url);
 
                 // Add parent image as first child, to ensure it's shown
-                photo = initPhotoAlbum(photo, true);
                 for(var j = 0; j < links.length; ++j) {
                     img = { author: comments[i].data.author,
                             url: links[j].href
@@ -3084,7 +3145,8 @@ $(function () {
                     if (processPhoto(img))
                         addAlbumItem(photo, img);
                     else
-                        log.info("cannot load comment link [no photos]: "+img.url);
+                        // this can be VERY verbose
+                        log.debug("cannot load comment link [no photos]: "+img.url);
                 }
             };
             checkPhotoAlbum(photo);
@@ -3092,7 +3154,7 @@ $(function () {
                 addImageSlide(photo);
         };
 
-        log.info("loading comments: "+photo.comments);
+        log.debug("loading comments: "+photo.comments);
         $.ajax({
             url: jsonUrl,
             headers: hdrData,
@@ -3212,7 +3274,7 @@ $(function () {
                     msg = 'preview [no image]';
                 if (idorig.preview !== undefined &&
                     idorig.preview.images.length > 0) {
-                    photo.url = unescapeHTML(idorig.preview.images[0].source.url);
+                    initPhotoThumb(photo, unescapeHTML(idorig.preview.images[0].source.url));
                     if (processPhoto(photo)) {
                         addImageSlide(photo);
                         return;
@@ -3222,21 +3284,19 @@ $(function () {
                 return;
             };
 
-            if (photo.flair.toLowerCase() == 'request' ||
-                photo.title.match(/[\[\(\{]request[\]\)\}]/i) ||
-                photo.title.match(/^psbattle:/i)) {
+            var rc = processPhoto(photo);
 
-                getRedditComments(photo, false);
+            if ((photo.type != imageTypes.fail) &&
+                (photo.flair.toLowerCase() == 'request' ||
+                 photo.title.match(/[\[\(\{]request[\]\)\}]/i) ||
+                 photo.title.match(/^psbattle:/i) ||
+                 photo.flair.match(/(more|source|video|album).*in.*com/i) ||
+                 idorig.title.match(/(source|more|video|album).*in.*com/i) ||
+                 idorig.title.match(/in.*comment/i) ||
+                 idorig.title.match(/[\[\(\{\d\s][asvm]ic([\]\)\}]|$)/i)))
+                getRedditComments(photo);
 
-            } else if (photo.flair.match(/(more|source|video|album).*in.*com/i) ||
-                       idorig.title.match(/(source|more|video|album).*in.*com/i) ||
-                       idorig.title.match(/in.*comment/i) ||
-                       idorig.title.match(/[\[\(\{\d\s][asvm]ic([\]\)\}]|$)/i)) {
-
-                getRedditComments(photo, true);
-            }
-
-            if (processPhoto(photo)) {
+            if (rc) {
                 addImageSlide(photo);
                 return;
             }
@@ -3660,31 +3720,32 @@ $(function () {
     // This is for public-api.wordpress.com which uses API v1.1
     // https://developer.wordpress.com/docs/api/
     // https://developer.wordpress.com/docs/api/1.1/get/sites/%24site/
-    var processWordPressPost = function(photo, post) {
+    var processWordPressPost = function(pic, post) {
         var rc = false;
 
         // Setup some photo defaults
-        photo.favicon = rp.favicons.wordpress;
+        pic.favicon = rp.favicons.wordpress;
         if (post.author.URL) {
-            photo.extra = localLink(post.author.URL, post.author.name,
-                            '/wp/'+hostnameOf(post.author.URL));
+            pic.extra = localLink(post.author.URL, post.author.name,
+                                  '/wp/'+hostnameOf(post.author.URL));
         } else {
             var hn = hostnameOf(post.URL);
-            photo.extra = localLink(post.URL.substring(0, post.URL.indexOf(':'))+'://'+hn,
-                                    post.author.name, '/wp/'+hn);
+            pic.extra = localLink(post.URL.substring(0, post.URL.indexOf(':'))+'://'+hn,
+                                  post.author.name, '/wp/'+hn);
         }
 
         // Process Post
-        if (processHaystack(photo, post.content))
+        photo = initPhotoAlbum(pic, false);
+        if (processHaystack(pic, post.content))
             rc = true;
 
-        var processAttachment = function(att, pic) {
-            pic.id = att.ID;
+        var processAttachment = function(att, img) {
+            img.id = att.ID;
             if (att.mime_type.startsWith('image/')) {
-                initPhotoImage(pic, att.URL);
+                initPhotoImage(img, att.URL);
 
             } else if (att.mime_type.startsWith('video/')) {
-                initPhotoVideo(pic, att.URL, (att.thumbnails) ?att.thumbnails.large :undefined);
+                initPhotoVideo(img, att.URL, (att.thumbnails) ?att.thumbnails.large :undefined);
 
             } else {
                 log.info("cannot display url [unknown mimetype "+att.mime_type+"]: "+att.url);
@@ -3694,30 +3755,19 @@ $(function () {
         };
 
         var k, att;
-        if (post.attachment_count + (rc) ?1 :0 > 1) {
-            photo = initPhotoAlbum(photo, false);
-            for(k in post.attachments) {
-                att = post.attachments[k];
-                var pic = { title: att.caption || att.title };
-                if (processAttachment(att, pic)) {
-                    addAlbumItem(photo, pic);
-                    rc = true;
-                }
-            }
-            checkPhotoAlbum(photo);
-
-        } else {
-            // there will be only 1
-            for(k in post.attachments) {
-                att = post.attachments[k];
-                if (processAttachment(att, photo))
-                    rc = true;
+        for(k in post.attachments) {
+            att = post.attachments[k];
+            var img = { title: att.caption || att.title };
+            if (processAttachment(att, img)) {
+                addAlbumItem(photo, img);
+                rc = true;
             }
         }
+        checkPhotoAlbum(photo);
 
         if (!rc) {
-            log.info("cannot display wp [no content]: "+photo.url);
-            laterPhotoFailed(photo);
+            log.info("cannot display wp [no content]: "+pic.url);
+            laterPhotoFailed(pic);
         }
 
         return rc;
