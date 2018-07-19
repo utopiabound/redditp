@@ -2774,10 +2774,19 @@ $(function () {
             jsonUrl = "https://api.streamable.com/videos/" + shortid;
 
             handleData = function(data) {
-                initPhotoVideo(photo, [ data.files.mp4.url,
-                                        data.files.webm.url ],
-                               data.thumbnail_url );
-                showVideo(photo.video);
+                var list = [];
+                if (data.files.mp4)
+                    list.push(data.files.mp4.url);
+                if (data.files.webm)
+                    list.push(data.files.webm.url);
+                // Remove ?height=100 from thumbnail to get full size image
+                if (list.length)
+                    initPhotoVideo(photo, list, data.thumbnail_url.split(/[?#]/)[0]);
+                else {
+                    log.info("cannot to load video [no files]: "+photo.url);
+                    initPhotoFailed(photo);
+                }
+                showPic(photo);
             };
 
         } else if (hostname == 'pornbot.net') {
