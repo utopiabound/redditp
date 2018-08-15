@@ -824,15 +824,20 @@ $(function () {
 
     var updateVideoMute = function() {
         var vid = $('#gfyvid');
+        var aud = $('#gfyaudio');
         var videoMuted = isVideoMuted();
         if (videoMuted) {
             $('label[for="mute"] i').text("volume_off");
             if (vid !== undefined)
                 vid.prop('muted', true);
+            if (aud !== undefined)
+                aud.prop('muted', true);
         } else {
             $('label[for="mute"] i').text("volume_up");
             if (vid !== undefined)
                 vid.prop('muted', false);
+            if (aud !== undefined)
+                aud.prop('muted', false);
         }
     };
 
@@ -1399,7 +1404,7 @@ $(function () {
 
         } else if (hostname == 'tumblr.com') {
             if (isImageExtension(pic.url)) {
-                pic.url = fixTumblrPicUrl(pic.url);
+                pic.url = pic.url;
                 return true;
             }
             var name = fqdn.substring(0, fqdn.indexOf('.'));
@@ -2452,8 +2457,30 @@ $(function () {
                 lastsource = $('<source type="video/mp4" />').attr('src', data.mp4);
                 video.append(lastsource);
             }
-
             divNode.append(video);
+
+            if (data.audio !== undefined) {
+                var audio = $('<audio id="gfyaudio" />');
+                if (isVideoMuted())
+                    audio.prop('muted', true);
+                var type, ls;
+                for (type in data.audio) {
+                    ls = $('<source />', { src: data.audio[type],
+                                           type: 'audio/'+type });
+                    audio.append(ls);
+                }
+                $(ls).on('error', function(e) {
+                    delete data.audio;
+                    $(audio).remove();
+                    log.info("Failed to load src for audio: "+photo.url);
+                });
+                $(audio).on('error', function(e) {
+                    log.info("Failed to load audio: "+photo.url);
+                });
+                video.on('playing', function() { audio[0].play() });
+                video.on('pause', function() { audio[0].pause() });
+                divNode.append(audio);
+            }
 
             $(lastsource).on('error', function(e) {
                 log.info("["+imageIndex+"] video failed to load last source: "+photo.url);
@@ -2470,8 +2497,14 @@ $(function () {
 
             $(video).on('ended', function(e) {
                 log.debug("["+imageIndex+"] video ended");
-                if ($.contains(document, $(video)[0]) && (shouldStillPlay(imageIndex) || !autoNextSlide()))
+                if ($.contains(document, $(video)[0]) && (shouldStillPlay(imageIndex) || !autoNextSlide())) {
+                    var audio = $('#gfyaudio')[0];
+                    if (audio) {
+                        audio.pause();
+                        audio.currentTime=0;
+                    }
                     $(video)[0].play();
+                }
             });
 
             $(video).on("loadeddata", function(e) {
@@ -2927,19 +2960,6 @@ $(function () {
         return url;
     };
 
-    var fixTumblrPicUrl = function (url) {
-        var hostname = hostnameOf(url);
-
-        // Get full res version
-        if (hostname.endsWith('.media.tumblr.com'))
-            url = 'http://data.tumblr.com'+pathnameOf(url).replace(/_\d+\./, '_raw.');
-
-        else if (hostname = 'static.tumblr.com')
-            url = url.replace(/^http:/, "https:");
-
-        return url;
-    };
-
     var fixupUrl = function (url) {
         // fix reddit bad quoting
         url = url.replace(/&amp;/gi, '&');
@@ -3025,7 +3045,7 @@ $(function () {
         var jsonUrl = rp.url.get+'/api/multi/mine';
         var handleData = function(data) {
             rp.session.loadedMultiList = true;
-            var list = $('#multiListDiv ul:last-of-type');
+            var list = $('#multiListDiv ul:first-of-type');
             list.empty();
 
             $.each(data, function(i, item) {
@@ -3257,10 +3277,10 @@ $(function () {
                         :undefined;
 
                 if (media) {
-                    // @@ move this to createDiv() and parse DASH .mpd (XML) file,
-                    // also add support for seperate audio file
-                    if (media.fallback_url.indexOf('/DASH_') > 0) {
+                    var ind = media.fallback_url.indexOf('/DASH_');
+                    if (ind > 0) {
                         addVideoUrl(photo, 'mp4', media.fallback_url);
+                        photo.video.audio = { mpeg: media.fallback_url.substr(0,ind)+"/audio" };
 
                     } else {
                         log.error(photo.id+": cannot display video [bad fallback_url]: "+
