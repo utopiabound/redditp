@@ -1380,7 +1380,8 @@ $(function () {
                 initPhotoVideo(pic);
 
             // otherwise simple image
-        } else if (hostname == 'wordpress.com') {
+        } else if (hostname == 'wordpress.com' ||
+                   hostname == 'wp.com') {
             // strip out search portion
             if (isImageExtension(pic.url)) {
                 var anc = $('<a>', { href: pic.url });
@@ -3300,10 +3301,11 @@ $(function () {
 
             var tryPreview = function(photo, idorig, msg) {
                 if (msg === undefined)
-                    msg = 'preview [no image]';
+                    msg = 'no image';
                 if (idorig.preview !== undefined &&
                     idorig.preview.images.length > 0) {
                     initPhotoThumb(photo, unescapeHTML(idorig.preview.images[0].source.url));
+                    log.info('using thumbnail ['+msg+']: '+photo.orig_url);
                     if (processPhoto(photo)) {
                         addImageSlide(photo);
                         return;
@@ -3329,6 +3331,7 @@ $(function () {
                 addImageSlide(photo);
                 return;
             }
+
             // SPECULATIVE LOOKUPS
 
             var path = pathnameOf(photo.url);
@@ -3348,7 +3351,7 @@ $(function () {
                     else if (processWordPressPost(photo, data))
                         addImageSlide(photo);
                     else
-                        tryPreview(photo, idorig, "wordpress [no photos]");
+                        tryPreview(photo, idorig, "WP no photos");
                 };
                 failedData = function () {
                     //log.info("cannot display wordpress [not wp site]: "+photo.url);
@@ -3356,17 +3359,16 @@ $(function () {
                     jsonUrl = origin+'/wp-json/wp/v2/posts/?slug='+slug+'&_jsonp=?';
                     log.debug("WPv2 Trying: "+photo.url);
                     handleData = function (data) {
-                        rp.wpv2[hn] = true;
-                        setConfig(configNames.wpv2, rp.wpv2);
-                        if (processWPv2(photo, data[0]))
-                            addImageSlide(photo);
-                        else
-                            tryPreview(photo, idorig, "WPv2 [no photos]");
+                        if (rp.wpv2[hn] !== true) {
+                            rp.wpv2[hn] = true;
+                            setConfig(configNames.wpv2, rp.wpv2);
+                        }
+                        getPostWPv2(photo, data[0], function() { tryPreview(photo, idorig, "WPv2 no photos"); });
                     };
                     failedData = function () {
                         rp.wpv2[hn] = false;
                         setConfig(configNames.wpv2, rp.wpv2);
-                        tryPreview(photo, idorig, "url [not WPv2 site]");
+                        tryPreview(photo, idorig, "not WPv2 site");
                     };
                     $.ajax({
                         url: jsonUrl,
@@ -3430,7 +3432,7 @@ $(function () {
                     } else {
                         log.error("cannot load blogger ["+xhr.status+" "+err.error.message+"]: "+photo.url);
                     }
-                    tryPreview(photo, idorig, "url [Blogger: "+err.error.message+"]");
+                    tryPreview(photo, idorig, "Blogger: "+err.error.message);
                 };
 
             } else {
@@ -3702,9 +3704,12 @@ $(function () {
 
     // This is for processing /wp-json/wp/v2/posts aka
     // https://developer.wordpress.org/rest-api/reference/
-    var processWPv2 = function(photo, post) {
-        if (post === undefined)
-            return false;
+    var getPostWPv2 = function(photo, post, errorcb) {
+        if (post === undefined) {
+            if (errorcb)
+                errorcb();
+            return;
+        }
         var hn = hostnameOf(photo.url);
         photo.favicon = rp.favicons.wordpress;
         photo.extra = localLink(originOf(photo.url), hn, "/wp2/"+hn, "", rp.favicons['wordpress']);
@@ -3717,21 +3722,36 @@ $(function () {
         var handleData = function(data) {
             if (data.length == 100)
                 log.notice("Found Full Page, should ask for more: "+photo.url);
-            if (data.length == 0)
+            if (data.length == 0) {
+                if (!rc && errorcb)
+                    errorcb();
                 return;
+            }
+            var rc2 = false;
             initPhotoAlbum(photo);
             $.each(data, function(i, item) {
                 var pic = { url: item.source_url,
                             title: item.caption.rendered || item.alt_text || item.title.rendered };
-                if (processPhoto(pic))
+                if (processPhoto(pic)) {
                     addAlbumItem(photo, pic);
-
-                else
+                    rc2 = true;
+                } else
                     log.info("cannot display item [unkown type: "
                              + item.media_type +"]: "+item.source_url);
             });
             checkPhotoAlbum(photo);
-            addImageSlide(photo);
+            if (rc || rc2)
+                addImageSlide(photo);
+            else if (errorcb)
+                errorcb();
+        };
+
+        var handleError = function(xhr, ajaxOptions, thrownError) {
+            if (rc)
+                addImageSlide(photo);
+            else if (errorcb)
+                errorcb();
+            failedAjax(xhr, ajaxOptions, thrownError);
         };
 
         //var jsonUrl = post._links[wp:featuredmedia][0].href
@@ -3739,11 +3759,12 @@ $(function () {
             url: jsonUrl+'&_jsonp=?',
             dataType: 'jsonp',
             success: handleData,
-            error: failedAjax,
+            error: handleError,
             timeout: rp.settings.ajaxTimeout,
             crossDomain: true
         });
-        return rc;
+        if (rc)
+            addImageSlide(photo);
     };
 
     // This is for public-api.wordpress.com which uses API v1.1
@@ -3865,10 +3886,7 @@ $(function () {
                               over18: false,
                               date: d.valueOf()/1000
                             };
-                if (processWPv2(photo, post))
-                    addImageSlide(photo);
-                else
-                    log.info("cannot display WPv2 [no photos]: "+photo.url);
+                getPostWPv2(photo, post, function() { log.info("cannot display WPv2 [no photos]: "+photo.url) });
             });
             rp.session.loadingNextImages = false;
         };
