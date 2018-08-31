@@ -1957,6 +1957,10 @@ $(function () {
             event.stopImmediatePropagation();
         }
         getRedditComments(rp.photos[rp.session.activeIndex]);
+        $.each(rp.photos[rp.session.activeIndex].duplicates, function (i, item) {
+            if (item.id)
+                getRedditComments(rp.photos[rp.session.activeIndex], item.id);
+        });
     });
     // Bind to PopState Event
     //rp.history.Adapter.bind(window, 'popstate', function(e) {
@@ -3111,17 +3115,32 @@ $(function () {
     //
 
     // Assume: photo has been run through processPhoto() at least once
-    var getRedditComments = function (photo) {
-        if (!photo.commentsCount || !photo.comments)
-            return;
+    var getRedditComments = function (photo, id) {
+        var comments;
+        if (id) {
+            // This could be:
+            // comments = [rp.rp.redditBaseUrl, "comments", id].join('/');
+            for(var i = 0; i < photo.duplicates.length; ++i) {
+                if (photo.duplicates[i].id != id)
+                    continue;
+                if (!photo.duplicates[i].commentCount || photo.duplicates[i].commentsLoaded)
+                    return;
+                photo.duplicates[i].commentsLoaded = true;
+                comments = [rp.redditBaseUrl, 'r', photo.duplicates[i].subreddit, "comments", id].join("/");
+            }
+            if (!comments)
+                return;
 
-        if (photo.commentsLoaded)
-            return;
+        } else {
+            // Only load comments once per photo
+            if (photo.commentsLoaded || !photo.commentsCount || !photo.comments)
+                return;
+            else
+                photo.commentsLoaded = true;
+            comments = photo.comments;
+        }
 
-        // Only load comments once per photo
-        photo.commentsLoaded = true;
-
-        var jsonUrl = rp.url.get + pathnameOf(photo.comments) + '.json?depth=1';
+        var jsonUrl = rp.url.get + pathnameOf(comments) + '.json?depth=1';
         var hdrData = rp.session.redditHdr;
         var failedData = function (xhr, ajaxOptions, thrownError) {
             photo.commentsLoaded = false;
