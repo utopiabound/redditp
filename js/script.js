@@ -97,6 +97,13 @@ rp.settings = {
     nsfw: false
 };
 
+rp.mime2ext = {
+    'image/jpeg': 'jpg',
+    'image/png':  'png',
+    'video/webm': 'webm',
+    'video/mp4':  'mp4'
+};
+
 rp.session = {
     // 0-based index to set which picture to show first
     // init to -1 until the first image is loaded
@@ -1610,6 +1617,17 @@ $(function () {
             // These domains should be processed later, unless direct link to video
             pic.type = imageTypes.later;
 
+        } else if (hostname == 'supload.com') {
+            if (extensionOf(pic.url) == 'gifv' || url2shortid(pic.url) == 'thumb') {
+                shortid = url2shortid(pic.url, 1);
+                pic.url = 'https://supload.com/'+shortid;
+                initPhotoVideo(pic, [ 'https://i.supload.com/'+shortid+'-hd.webm',
+                                      'https://i.supload.com/'+shortid+'-hd.mp4' ],
+                               'https://i.supload.com/'+shortid+'/thumb.jpg');
+            } else if (!isImageExtension(pic.url) )
+                pic.type = imageTypes.later;
+            // else valid image
+
         } else if (isImageExtension(pic.url) ||
                    fqdn == 'i.reddituploads.com') {
             // simple image
@@ -2676,6 +2694,8 @@ $(function () {
 
         var jsonUrl, a, b;
         var dataType = 'json';
+        var postType = 'GET';
+        var postData;
         var handleData;
         var headerData;
         var handleError = function (xhr, ajaxOptions, thrownError) {
@@ -2827,6 +2847,42 @@ $(function () {
                 showPic(photo);
             };
 
+        } else if (hostname == 'supload.com') {
+            jsonUrl = "https://supload.com/graphql";
+            postType = 'POST';
+            shortid = url2shortid(photo.url, 1);
+            postData = 'query={image(imageId:"'+ shortid + '"){id date type description uname title albumIds private album copyright adult images { id description type } }}';
+
+            handleData = function(data) {
+                if (data.errors) {
+                    initPhotoFailed(photo);
+                    showImage(photo.thumbnail);
+                    log.info("cannot get info ["+data.errors[0].message+"]: "+photo.url);
+                    return;
+                }
+                if (data.data.image.adult)
+                    photo.over18 = true;
+
+                photo = initPhotoAlbum(photo, false);
+                $.each(data.data.image.images, function(i, img) {
+                    pic = { title: img.description || data.data.image.title };
+                    if (img.type.startsWith("image")) {
+                        initPhotoImage(pic, 'https://i.supload.com/'+img.id+'.'+rp.mime2ext[img.type]);
+
+                    } else if (img.type.startsWith("video")) {
+                        initPhotoVideo(pic, 'https://i.supload.com/'+img.id+'-hd.'+rp.mime2ext[img.type],
+                                       'https://i.supload.com/'+img.id+'/thumb.jpg');
+
+                    } else {
+                        log.info("unknown type ["+img.type+" id:"+img.id+"]: "+photo.url);
+                        return;
+                    }
+                    addAlbumItem(photo, pic);
+                });
+                checkPhotoAlbum(photo);
+                showPic(photo);
+            };
+
         } else if (hostname == 'pornbot.net') {
             // Strip everything trailing '_'
             if (shortid.indexOf('_') != -1)
@@ -2910,6 +2966,8 @@ $(function () {
 
             $.ajax({
                 url: jsonUrl,
+                type: postType,
+                data: postData,
                 headers: headerData,
                 dataType: dataType,
                 success: wrapHandleData,
