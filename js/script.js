@@ -112,6 +112,7 @@ rp.session = {
 
     // Variable to store if the animation is playing or not
     isAnimating: false,
+    needReanimation: false,
 
     // Id of timer
     nextSlideTimeoutId: null,
@@ -1088,8 +1089,7 @@ $(function () {
             fixPhotoButton(photo);
             log.debug("["+rp.session.activeIndex+"]["+rp.session.activeAlbumIndex+"] checked photo:"+photo.index);
             // Advance to first album item if needed
-            if (isActive(photo) &&
-                rp.session.activeAlbumIndex < 0)
+            if (isActive(photo))
                 startAnimation(photo.index, indexPhotoAlbum(photo, photo.index, rp.session.activeAlbumIndex));
             return;
         }
@@ -1247,20 +1247,24 @@ $(function () {
         // clear old
         $("#albumNumberButtons").detach();
 
+        var div = $("<div>", { id: 'albumNumberButtons',
+                               class: 'numberButtonList'
+                             });
+        var ul = $("<ul />");
+        div.append(ul);
+
         if (photo.type == imageTypes.album) {
-            var ul = $("<ul />");
 
             $.each(photo.album, function(index, pic) {
                 ul.append(albumButtonLi(pic, index));
             });
 
-            var div = $("<div>", { id: 'albumNumberButtons',
-                                   class: 'numberButtonList'
-                                 }).append(ul);
-            $("#navboxContents").append(div);
             if ($('#albumCollapser').attr(OPENSTATE_ATTR) == "closed")
                 $(div).hide();
+        } else {
+            $(div).hide();
         }
+        $("#navboxContents").append(div);
     };
 
     var photoParent = function(pic) {
@@ -1303,13 +1307,13 @@ $(function () {
         if (photo.insertAt < 0) {
             photo.album.push(pic);
             if (isActive(photo))
-                $('#allNumberButtons ul').append(albumButtonLi(pic));
+                $('#albumNumberButtons ul').append(albumButtonLi(pic, photo.album.length-1));
 
         } else {
             var index = photo.insertAt++;
             photo.album.splice(index, 0, pic);
             if (isActive(photo)) {
-                $('#allNumberButtons ul').children(":nth-child("+(photo.insertAt)+")").after(albumButtonLi(pic));
+                $('#albumNumberButtons ul').children(":nth-child("+(photo.insertAt)+")").after(albumButtonLi(pic, photo.insertAt));
                 reindexPhotoAlbum(photo, index);
             }
         }
@@ -1680,10 +1684,11 @@ $(function () {
         if (pic.type == imageTypes.embed)
             button.addClass("embed");
 
-        else if (pic.type == imageTypes.album)
+        else if (pic.type == imageTypes.album) {
             button.addClass("album");
+            $("#albumNumberButtons").show();
 
-        else if (pic.type == imageTypes.video)
+        } else if (pic.type == imageTypes.video)
             button.addClass("video");
 
         else if (pic.type == imageTypes.later)
@@ -2080,11 +2085,13 @@ $(function () {
             if (imageIndex >= rp.photos.length &&
                 rp.session.loadAfter !== null)
                 rp.session.loadAfter();
+            if (rp.session.isAnimating)
+                rp.session.needReanimation=true;
             return;
         }
 
         if (rp.session.activeIndex == imageIndex) {
-            if (rp.photos[imageIndex].type != imageTypes.album || albumIndex < 0)
+            if (rp.photos[imageIndex].type != imageTypes.album)
                 return;
 
             if (albumIndex >= rp.photos[imageIndex].album.length) {
@@ -2092,10 +2099,10 @@ $(function () {
                       rp.photos[imageIndex].album.length);
                 return;
             }
-            if (rp.session.activeAlbumIndex == albumIndex)
+            if (rp.session.activeAlbumIndex == albumIndex && albumIndex >= 0)
                 return;
-
-        } else if (rp.photos[imageIndex].type == imageTypes.album && albumIndex < 0) {
+        }
+        if (rp.photos[imageIndex].type == imageTypes.album && albumIndex < 0) {
             if (albumIndex == LOAD_PREV_ALBUM)
                 albumIndex = rp.photos[imageIndex].album.length-1;
             else
@@ -2327,6 +2334,10 @@ $(function () {
         var oldDiv = $("#pictureSlider div:first-of-type");
         if (oldDiv[0] == newDiv[0]) {
             rp.session.isAnimating = false;
+            if (rp.session.needReanimation) {
+                rp.session.needReanimation=false;
+                startAnimation(rp.session.activeIndex, rp.session.activeAlbumIndex);
+            }
             return;
         }
         newDiv.prependTo("#pictureSlider");
@@ -2342,6 +2353,10 @@ $(function () {
             }
 
             rp.session.isAnimating = false;
+            if (rp.session.needReanimation) {
+                rp.session.needReanimation=false;
+                startAnimation(rp.session.activeIndex, rp.session.activeAlbumIndex);
+            }
         });
         return oldDiv;
     }
@@ -3262,7 +3277,7 @@ $(function () {
                 addImageSlide(photo);
         };
 
-        log.debug("loading comments: "+photo.comments);
+        log.info("loading comments: "+comments);
         $.ajax({
             url: jsonUrl,
             headers: hdrData,
