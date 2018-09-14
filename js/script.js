@@ -2749,6 +2749,7 @@ $(function () {
                     photo = initPhotoAlbum(photo, false);
                     $.each(data.data.images, function(i, item) {
                         var pic = { title: fixupTitle(item.title || item.description),
+                                    url: item.link,
                                     orig_url: data.data.link,
                                   };
                         if (item.animated)
@@ -3009,7 +3010,7 @@ $(function () {
             url = url.replace(/[\w\.]*imgur.com/i, 'i.imgur.com');
         }
         // convert gifs to videos
-        url = url.replace(/gifv?$/, "mp4");
+        url = url.replace(/gifv$/, "mp4");
 
         if (isImageExtension(url)) {
             // remove _d.jpg which is thumbnail
@@ -3071,13 +3072,13 @@ $(function () {
         });
 
         // @InstagramName
-        t1 = t1.replace(/(^|\W)@(\w+)/g, function(match, p1, name) { return p1+titleFLink('https://instagram.com/'+name, '@'+name); });
+        t1 = t1.replace(/(^|\W)@([\w.]+)/g, function(match, p1, name) { return p1+titleFLink('https://instagram.com/'+name, '@'+name); });
 
         // r/subreddit
-        t1 = t1.replace(/\W\/?(r\/\w+)\s*/gi, function(match, p1) { return titleRLink('/'+p1, p1); });
+        t1 = t1.replace(/\W\/?(r\/[\w-]+)\s*/gi, function(match, p1) { return titleRLink('/'+p1, p1); });
 
         // u/redditUser
-        t1 = t1.replace(/\W\/?u\/(\w+)\s*/gi, function(match, p1) { return titleRLink('/user/'+p1+'/submitted', 'u/'+p1); });
+        t1 = t1.replace(/\W\/?u\/([\w-]+)\s*/gi, function(match, p1) { return titleRLink('/user/'+p1+'/submitted', 'u/'+p1); });
 
         return t1;
     };
