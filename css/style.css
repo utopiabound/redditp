@@ -35,9 +35,19 @@ body { overflow:hidden; background-color: #000; color:#fff;}
 #multiListDiv i.material-icons { font-size: 18px; }
 
 /* PLAY BUTTON */
-#playbutton { top: 50%; left: 50%; z-index: 0; display: block; position: absolute; }
+#playbutton {
+    top: 45%;
+    left: 45%;
+    z-index: 0;
+    display: block;
+    position: absolute;
+    width: 10%;
+    height: 10%;
+    text-align: center;
+    vertical-align: middle;
+}
 #playbutton i.material-icons { font-size: 60px; opacity: 0.7; }
-#playbutton a { display: block; margin: -20px 0 0 -20px; border: 1px solid transparent; }
+#playbutton a { display: block; clear: both; border: 1px solid transparent; }
 #playbutton a:hover { color: red; border: 1px solid transparent; }
 
 /* NAVIGATION BOX */
@@ -61,7 +71,6 @@ a:hover {
 .navbox ul li.hidden { display: none; }
 .numberButton {
     float: left;
-
     min-width: 3ex;
     margin-left: 3px;
     margin-bottom: 3px;
@@ -73,13 +82,9 @@ a:hover {
     padding: 3px;
     border: 1px solid transparent;
 }
-.over18 {
-    color: #f99;
-}
+.over18 { color: #f99; }
 
-.error {
-    color: red;
-}
+.error { color: red; }
 
 /* Decorate Photo Buttons */
 #controlsDiv a { position: relative; }
@@ -96,13 +101,8 @@ a:hover {
 a.video:before { content: "movie"; }
 a.album:before { content: "photo_library"; }
 a.later:before { content: "file_download"; }
-
 a.failed { text-decoration: line-through; }
-
-
-a.embed:before {
-    content: "ondemand_video";
-}
+a.embed:before { content: "ondemand_video"; }
 
 .xorig {
     border: 1px solid white;
@@ -128,7 +128,7 @@ a.embed:before {
 #duplicateDiv { position: relative; top: 0; left: 0; right: 0; overflow: auto; }
 #subredditUrl { border: 1px dashed; background-color: black; color: white; }
 
-.navbox h2 { padding: 2px; font: bold 20px Helvetica, Arial, Sans-serif; }
+.title { padding: 2px; font: bold 20px Helvetica, Arial, Sans-serif; }
 .navbox h3 { padding: 2px; font: bold 16px Helvetica, Arial, Sans-serif; }
 
 /* infoLink:   infol infop [infoc]  infod  [infol infop [infoc]] */

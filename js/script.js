@@ -2680,7 +2680,8 @@ $(function () {
                     replaceBackgroundDiv($('<div>').html(iFrameUrl(pic.url)));
                 });
 
-                divNode.prepend($('<span>', { id: 'playbutton' }).html(lem));
+                var title = $('<span>', { class: "title" }).html(hostnameOf(pic.url, true));
+                divNode.prepend($('<span>', { id: 'playbutton' }).html(lem).append(title));
 
             } else if (pic.type == imageTypes.fail)
                 showImage(pic.thumbnail);
