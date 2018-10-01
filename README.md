@@ -60,6 +60,37 @@ Features
 Possible future features, depending on feedback:
 * Zoom/Pan for comics
 
+URLs
+----
+
+* Reddit Specific:
+/r/SUBREDDIT
+Special: /r/randnsfw /r/random (handled without special handling /r/all /r/popular)
+/  - will be /r/popular, or homepage if logged in
+/domain/DOMAIN
+
+** Reddit URL Suffixes: (works on all of above)
+/.../new
+/.../top
+/.../rising
+/.../controversial
+
+** Reddit Users
+/user/USER/submitted (also /u/USER/submitted)
+
+* Other Services:
+/imgur/a/ALBUMID
+/gfycat/u/USER
+/wp/HOSTNAME		(with or without .wordpress.com)
+/wp2/HOSTNAME		(fqdn of Self-hosted wordpress site aka API version 2)
+/tumblr/HOSTNAME	(with or without .tumblr.com)
+/blogger/HOSTNAME	(fqdn of blogger hosted site)
+
+** Blog Order (Tumblr, WordPress, WordPress (v2)):
+/.../new
+/.../old
+
+
 Installation
 ------------
 * Can be setup to use base url:

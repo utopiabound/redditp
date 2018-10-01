@@ -1343,6 +1343,8 @@ $(function () {
             button = $('#allNumberButtons ul').children(":nth-child("+(parent.index+1)+")");
 
         button.removeClass('embed album over18 later video');
+        if (isActive(parent))
+            $("#albumNumberButtons").hide();
 
         addButtonClass(button, pic);
     };
@@ -1691,7 +1693,8 @@ $(function () {
 
         else if (pic.type == imageTypes.album) {
             button.addClass("album");
-            $("#albumNumberButtons").show();
+            if (isActive(photo))
+                $("#albumNumberButtons").show();
 
         } else if (pic.type == imageTypes.video)
             button.addClass("video");
@@ -2361,6 +2364,7 @@ $(function () {
                 if (vid[0])
                     vid[0].play();
             }
+            updateVideoMute();
 
             rp.session.isAnimating = false;
             if (rp.session.needReanimation) {
@@ -3934,17 +3938,16 @@ $(function () {
         rp.session.loadingNextImages = true;
 
         var a = rp.url.subreddit.split('/');
-        if (a[a.length-1] == "")
-            a.pop();
 
-        // oldest to newest
-        var urlorder = 'asc';
+        var hostname = a[2];
 
-        var hostname = a.pop();
-        if (hostname == "new") {
-            hostname = a.pop();
-            // newest to oldest
-            urlorder = 'desc';
+        // newest to oldest
+        var urlorder = 'desc';
+        if (a.length > 3) {
+            if (a[3] == "old")
+                urlorder = 'asc';
+            else if (a[3] == "new")
+                urlorder = 'desc';
         }
 
         if (rp.wpv2[hostname] === false) {
@@ -3953,7 +3956,7 @@ $(function () {
         }
 
         $('#subredditLink').prop('href', 'https://'+hostname);
-        $('#subredditUrl').val('/wp2/'+hostname);
+        $('#subredditUrl').val('/wp2/' + hostname + ((a.length > 3) ? "/"+a[3] :""));
 
         var scheme = (rp.insecure[hostname]) ?'http' :'https';
 
@@ -4034,24 +4037,24 @@ $(function () {
         rp.session.loadingNextImages = true;
 
         var a = rp.url.subreddit.split('/');
-        if (a[a.length-1] == "")
-            a.pop();
+
+        var hostname = a[2];
 
         // newest to oldest
-        var urlorder = 'ASC';
-
-        var hostname = a.pop();
-        if (hostname == "new") {
-            hostname = a.pop();
-            // newest to oldest
-            urlorder = 'DESC';
+        var urlorder = 'DESC';
+        if (a.length > 3) {
+            if (a[3] == "old")
+                urlorder = 'ASC';
+            else if (a[3] == "new")
+                urlorder = 'DESC';
         }
+
+        $('#subredditUrl').val('/wp/'+hostname+((a.length > 3) ? "/"+a[3] :""));
 
         if (hostname.indexOf('.') < 0)
             hostname += '.wordpress.com';
 
         $('#subredditLink').prop('href', 'https://'+hostname);
-        $('#subredditUrl').val('/wp/'+hostname);
 
         // If we know this fails, bail
         if (rp.wpv2[hostname] !== undefined) {
@@ -4132,7 +4135,7 @@ $(function () {
         if (post.reblogged_root_id) {
             photo.duplicates.push({tumblr: post.reblogged_root_name,
                                    url: post.reblogged_root_url,
-                                   id: post.reblogged_root_id });
+                                   id: (post.reblogged_root_id) ?post.reblogged_root_id :post.reblogged_root_uuid.split('.')[0]});
             dedupAdd(post.reblogged_root_name, post.reblogged_root_id, '/tumblr/'+photo.tumblr.blog+'/'+photo.tumblr.id);
             if (!photo.cross_id)
                 photo.cross_id = post.reblogged_root_id;
@@ -4140,7 +4143,7 @@ $(function () {
         if (post.reblogged_from_id && post.reblogged_from_id !== post.reblogged_root_id) {
             photo.duplicates.push({tumblr: post.reblogged_from_name,
                                    url: post.reblogged_from_url,
-                                   id: post.reblogged_from_id });
+                                   id: (post.reblogged_from_id) ?post.reblogged_from_id :post.reblogged_from_uuid.split('.')[0]});
             dedupAdd(post.reblogged_from_name, post.reblogged_from_id, '/tumblr/'+photo.tumblr.blog+'/'+photo.tumblr.id);
             if (!photo.cross_id)
                 photo.cross_id = post.reblogged_from_id;
@@ -4232,10 +4235,8 @@ $(function () {
         rp.session.loadingNextImages = true;
 
         var a = rp.url.subreddit.split('/');
-        if (a[a.length-1] == "")
-            a.pop();
 
-        var hostname = a.pop();
+        var hostname = a[2];
         if (hostname.indexOf('.') < 0)
             hostname += '.tumblr.com';
 
@@ -4296,10 +4297,8 @@ $(function () {
         rp.session.loadingNextImages = true;
 
         var a = rp.url.subreddit.split('/');
-        if (a[a.length-1] == "")
-            a.pop();
 
-        var hostname = a.pop();
+        var hostname = a[2];
 
         if (rp.blogger[hostname] === 0) {
             log.error("cannot log blogger [Already Failed]: "+hostname);
@@ -4372,11 +4371,10 @@ $(function () {
             return;
         rp.session.loadingNextImages = true;
 
+        // //gfycat/u/USER
         var a = rp.url.subreddit.split('/');
-        if (a[a.length-1] == "")
-            a.pop();
 
-        var user = a.pop();
+        var user = a[3];
 
         var gfycat2pic = function(post) {
             var image = { url: 'https://gfycat.com/'+post.gfyName,
@@ -4479,8 +4477,8 @@ $(function () {
         // .htaccess
         // This is a good idea so we can give a quick 404 page when appropriate.
         var regexS = "(/(?:(?:imgur/a/)|(?:gfycat/u/)|(?:tumblr/)|(?:blogger/)|(?:wp2?/)|(?:auth)|"+
-            "(?:r/)|(?:u/)|(?:user/)|(?:domain/)|(?:search)|(?:me)|(?:top)|(?:new)|(?:rising)|(?:controversial)"+
-            ")[^&#?]*)[?]?(.*)";
+            "(?:r/)|(?:u/)|(?:user/)|(?:domain/)|(?:search)|(?:me)|(?:top)|(?:new)|(?:rising)|(?:controversial))"+
+            "[^&#?]*)[?]?(.*)";
 
         if (path === undefined)
             path = $('#subredditUrl').val();
