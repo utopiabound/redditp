@@ -294,3 +294,8 @@ input[type=checkbox]:checked + label.colortoggle {
     margin: -5px;
     border: 0;
 }
+
+.score {
+    width: 5ex;
+    float: right;
+}

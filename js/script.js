@@ -50,10 +50,12 @@
  *      comments:       URL  link to photo comments
  *      commentsCount:  INT  Number of comments (if this is set, comments needs to be set too)
  *      commentsLoaded: BOOL Have loaded comments for extra images
+ *      cross_id:       TXT  ID in duplictes of original link
  *      extra:          HTML Extra information for links concerning photo
  *      thumbnail:      URL  thumbnail of image (e.g. cached version from reddit)
  *      flair:          TEXT text flair put next to title
  *      favicon:        URL  link to favicon for photo (c.f. setFavicon())
+ *      score:          INT  Score (upvotes - downvotes)
  *
  *      -- Other, NOT creator setable --
  *      orig_url:       URL original URL [set by processPhoto()]
@@ -787,10 +789,13 @@ $(function () {
 
     var updateAutoNext = function () {
         rp.settings.shouldAutoNextSlide = $("#autoNextSlide").is(':checked');
-        if (rp.settings.shouldAutoNextSlide)
+        if (rp.settings.shouldAutoNextSlide) {
             $('#controlsDiv .collapser').css({color: 'red'});
-        else
+            $('label[for="autoNextSlide"] i').text("autorenew");
+        } else {
             $('#controlsDiv .collapser').css({color: ""});
+            $('label[for="autoNextSlide"] i').text("play_arrow");
+        }
         setConfig(configNames.shouldAutoNextSlide, rp.settings.shouldAutoNextSlide);
         // Check if active image is a video before reseting timer
         if (rp.session.activeIndex == -1 ||
@@ -2183,6 +2188,11 @@ $(function () {
         // COMMENTS/BUTTON LIST Box
         updateCommentsLoad();
         $('#navboxCommentsLink').attr('href', photo.comments||photo.orig_url);
+        if (photo.score)
+            $('#navboxScore').text(photo.score);
+        else
+            $('#navboxScore').text("N/A");
+
         var url = image.orig_url || image.url;
         $('#navboxOrigLink').attr('href', url);
         setFavicon($('#navboxOrigLink'), image, url);
@@ -3350,6 +3360,7 @@ $(function () {
                 author: idorig.author,
                 date: idorig.created_utc,
                 duplicates: duplicates,
+                score: idorig.score,
                 commentsCount: idorig.num_comments,
                 comments: rp.redditBaseUrl + idorig.permalink
             };

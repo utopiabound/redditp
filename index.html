@@ -60,6 +60,10 @@
 	    <label class="icontoggle colortoggle mute" for="mute" title="toggle video sound (m)">
 	      <i class="material-icons">volume_off</i></label>
 	  </li><li>
+	    <input class="checkbox" type="checkbox" name="autoNextSlide" id="autoNextSlide" value="Auto" checked />
+	    <label class="icontoggle colortoggle" for="autoNextSlide">
+	      <i class="material-icons">autorenew</i></label>
+	  </li><li>
 	    <input class="checkbox" type="checkbox" name="fullscreen" id="fullscreen" value="Auto" />
 	    <label class="icontoggle fullscreen" for="fullscreen" title="toggle fullscreen (f)">
 	      <i class="material-icons">fullscreen</i></label>
@@ -67,9 +71,9 @@
 	</ul>
 	<ul class="nbmenu">
 	  <li>
-	    <input class="checkbox" type="checkbox" name="autoNextSlide" id="autoNextSlide" value="Auto" checked />
-	    <label class="checkbox colortoggle" for="autoNextSlide">Auto-next</label>
-	    every <input type="text" name="timeToNextSlide" id="timeToNextSlide" value="8" size="2" /> seconds
+	    Refresh:<input type="text" class="redditp" name="timeToNextSlide" id="timeToNextSlide" value="8" size="2" /> seconds
+	  </li><li>
+	    Score: <div class="score" id="navboxScore">N/A</div>
 	  </li><li>
 	    <a id='navboxCommentsLink' href='#' title="Comments (o)">comments</a>
 	  </li><li>
