@@ -3729,6 +3729,26 @@ $(function () {
         var processNeedle = function(pic, item) {
             var src;
             if (item.tagName == 'IMG') {
+                // Fixup item.src
+                src = item.getAttribute('src');
+                if (src === null)
+                    return false;
+                src = unescapeHTML(src);
+                if (src.startsWith('//'))
+                    item.src = ((rp.insecure[hostnameOf(src)]) ?"http:" :"https:")+src;
+                else if (src.startsWith('/'))
+                    item.src = originOf(pic.url)+src;
+
+                // Shortcut <A href="video/embed"><img src="url" /></a>
+                if (item.parentElement.tagName == 'A') {
+                    pic.url = item.parentElement.href;
+                    if (processPhoto(pic) && pic.type != imageTypes.later) {
+                        if (pic.type == imageTypes.video)
+                            photo.video.thumbnail = item.src;
+                        return true;
+                    }
+                }
+
                 // Skip thumbnails
                 if (item.className.includes('thumbnail'))
                     return false;
@@ -3740,15 +3760,6 @@ $(function () {
                 if ((item.getAttribute("height") || 100) < 100 ||
                     (item.getAttribute("width") || 100) < 100)
                     return false;
-
-                src = item.getAttribute('src');
-                if (src === null)
-                    return false;
-                src = unescapeHTML(src);
-                if (src.startsWith('//'))
-                    item.src = ((rp.insecure[hostnameOf(src)]) ?"http:" :"https:")+src;
-                else if (src.startsWith('/'))
-                    item.src = originOf(pic.url)+src;
 
                 initPhotoImage(pic, item.src);
 
