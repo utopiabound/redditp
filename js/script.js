@@ -70,7 +70,7 @@
  *              blog:         TEXT blog name
  *              id:           TEXT tumblr post id
  *      -- Depending on image Type --
- *      video:          HASH for video type (see showVideo())
+ *      video:          HASH for video ext to url + thumbnail (see showVideo() / rp.mime2ext)
  *      album:          ARRAY of HASH (hash items are very similar to photo structure, but are not allowed to be albums)
  *
  */
@@ -91,7 +91,7 @@ rp.settings = {
     shouldAutoNextSlide: true,
     timeToNextSlide: 8,
     goodImageExtensions: ['jpg', 'jpeg', 'gif', 'bmp', 'png'],
-    goodVideoExtensions: ['webm', 'mp4'],
+    goodVideoExtensions: ['webm', 'mp4', 'mov'], // Matched entry required in rp.mime2ext
     alwaysSecure: true,
     // show Embeded Items
     embed: false,
@@ -103,8 +103,13 @@ rp.mime2ext = {
     'image/jpeg': 'jpg',
     'image/png':  'png',
     'video/webm': 'webm',
-    'video/mp4':  'mp4'
+    'video/mp4':  'mp4',
+    'video/quicktime': 'mov'
 };
+rp.ext2mime = Object.keys(rp.mime2ext).reduce(function(obj,key){
+    obj[ rp.mime2ext[key] ] = key;
+    return obj;
+},{});
 
 rp.session = {
     // 0-based index to set which picture to show first
@@ -2496,19 +2501,17 @@ $(function () {
                 video.attr('poster', fixupUrl(data.thumbnail));
             if (isVideoMuted())
                 video.prop('muted', true);
-            if (data.webm !== undefined) {
-                lastsource = $('<source type="video/webm" />').attr('src', data.webm);
-                video.append(lastsource);
-            }
-            if (data.mp4s !== undefined)
-                $.each(data.mp4s, function (i, item) {
-                    lastsource = $('<source type="video/mp4" />').attr('src', item);
+
+            $.each(rp.settings.goodVideoExtensions, function(i, ext) {
+                if (!data[ext])
+                    return;
+
+                var list = (Array.isArray(data[ext])) ?data[ext] :[ data[ext] ];
+                $.each(list, function(j, url) {
+                    lastsource = $('<source type="'+rp.ext2mime[ext]+'" />').attr('src', url);
                     video.append(lastsource);
                 });
-            if (data.mp4 !== undefined) {
-                lastsource = $('<source type="video/mp4" />').attr('src', data.mp4);
-                video.append(lastsource);
-            }
+            });
             divNode.append(video);
 
             if (data.audio !== undefined) {
@@ -3743,8 +3746,9 @@ $(function () {
                 if (item.parentElement.tagName == 'A') {
                     pic.url = item.parentElement.href;
                     if (processPhoto(pic) && pic.type != imageTypes.later) {
+                        pic.thumbnail = item.src;
                         if (pic.type == imageTypes.video)
-                            photo.video.thumbnail = item.src;
+                            pic.video.thumbnail = item.src;
                         return true;
                     }
                 }
@@ -3780,10 +3784,8 @@ $(function () {
                     else if (src.startsWith('/'))
                         source.src = originOf(pic.url)+src;
 
-                    if (source.type == 'video/webm')
-                        addVideoUrl(pic, 'webm', source.src);
-                    else if (source.type == 'video/mp4')
-                        addVideoUrl(pic, 'mp4', source.src);
+                    if (rp.mime2ext[source.type])
+                        addVideoUrl(pic, rp.mime2ext[source.type], source.src);
                     else
                         log.info("Unknown type: "+source.type+" at: "+source.src);
                 });
@@ -4220,9 +4222,11 @@ $(function () {
             }
 
         } else if (post.type == 'html') {
+            photo = initPhotoAlbum(photo, false);
             rc = processHaystack(photo, post.description);
 
         } else if (post.type == 'text') {
+            photo = initPhotoAlbum(photo, false);
             rc = processHaystack(photo, post.body);
 
         } else if (post.type == 'link') {
