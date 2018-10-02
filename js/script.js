@@ -140,7 +140,7 @@ rp.session = {
 // This can happen in iOS Safari in Private Browsing mode
 rp.storage = {};
 
-// @@ Store this in localStorage
+// Stored in localStorage or in rp.storage if localStorage isn't available
 rp.wpv2 = {};
 rp.insecure = {};
 rp.blogger = {};
@@ -1544,7 +1544,8 @@ $(function () {
 
             // NO AUTOPLAY BELOW HERE
 
-        } else if (hostname == 'openload.co') {
+        } else if (hostname == 'openload.co' ||
+                   hostname == 'oload.download') {
             // //openload.co/embed/SHORTID/Name_Of_original_file
             // //openload.co/f/SHORTID/Title_of_picture
             // final name/title is optional
@@ -2541,7 +2542,6 @@ $(function () {
                 log.info("["+imageIndex+"] video failed to load last source: "+photo.url);
                 initPhotoFailed(photo);
                 resetNextSlideTimer();
-                // @@ next slide?
             });
 
             $(video).on('error', function(e) {
@@ -3232,7 +3232,7 @@ $(function () {
             comments = photo.comments;
         }
 
-        var jsonUrl = rp.url.get + pathnameOf(comments) + '.json?depth=1';
+        var jsonUrl = rp.url.get + pathnameOf(comments) + '.json';
         var hdrData = rp.session.redditHdr;
         var failedData = function (xhr, ajaxOptions, thrownError) {
             photo.commentsLoaded = false;
@@ -3241,55 +3241,62 @@ $(function () {
         var handleData = function (data) {
             var item = data[0].data.children[0];
             var comments = data[1].data.children;
-            var img;
+            var img, i;
 
             if (isActive(photo))
                 updateCommentsLoad();
 
             photo = initPhotoAlbum(photo, true);
-            for (var i = 0; i < comments.length; ++i) {
-                if (comments[i].kind == "more") {
+
+            var processRedditComment = function(photo, comment) {
+                var j;
+                if (comment.kind == "more") {
                     // @@ LOAD MORE COMMENTS
-                    log.info("MORE COMMENTS [comment:"+photo.comments+" id:"+comments[i].data.id+"]: "+photo.url);
-                    continue;
+                    log.info("MORE COMMENTS [comment:"+photo.comments+" id:"+comment.data.id+"]: "+photo.url);
+                    return;
                 }
-                if (comments[i].kind != "t1") {
-                    log.error("unknown comment type ["+comments[i].kind+"]: "+photo.url);
-                    continue;
-                }
-
-                if (comments[i].data.body_html === undefined) {
-                    log.info("cannot display comment["+i+"] [no body]: "+photo.url);
-                    continue;
+                if (comment.kind != "t1") {
+                    log.error("unknown comment type ["+comment.kind+"]: "+photo.url);
+                    return;
                 }
 
-                var haystack = $('<div />').html(unescapeHTML(comments[i].data.body_html));
+                var links = [];
+                if (comment.data.body_html) {
 
-                var links = haystack.find('a');
+                    var haystack = $('<div />').html(unescapeHTML(comment.data.body_html));
 
-                if (!links || links.length == 0)
-                    continue;
-
-                log.debug("RC-Found:["+photo.comments+"]:"+photo.url);
-
-                // Add parent image as first child, to ensure it's shown
-                for(var j = 0; j < links.length; ++j) {
-                    img = { author: comments[i].data.author,
-                            url: links[j].href
-                          };
-
-                    if (links[j].innerText !== "" &&
-                        links[j].innerText !== img.url)
-                        img.title = links[j].innerText;
-
-                    log.debug("RC-Try:["+photo.comments+"]:"+img.url);
-                    if (processPhoto(img))
-                        addAlbumItem(photo, img);
-                    else
-                        // this can be VERY verbose
-                        log.debug("cannot load comment link [no photos]: "+img.url);
+                    links = haystack.find('a');
+                } else {
+                    log.info("cannot display comment["+comment.permalink+"] [no body]: "+photo.url);
                 }
+
+                if (links)
+                    // Add parent image as first child, to ensure it's shown
+                    for (j = 0; j < links.length; ++j) {
+                        img = { author: comment.data.author,
+                                url: links[j].href
+                              };
+
+                        if (links[j].innerText !== "" &&
+                            links[j].innerText !== img.url)
+                            img.title = links[j].innerText;
+
+                        log.debug("RC-Try:["+photo.comments+"]:"+img.url);
+                        if (processPhoto(img))
+                            addAlbumItem(photo, img);
+                        else
+                            // this can be VERY verbose
+                            log.debug("cannot load comment link [no photos]: "+img.url);
+                    }
+
+                if (comment.replies)
+                    for (j = 0; j < comment.replies.data.children.length; ++j)
+                        processRedditComment(photo, comment.replies.data.children[j]);
             };
+
+            for (i = 0; i < comments.length; ++i)
+                processRedditComment(photo, comments[i]);
+
             checkPhotoAlbum(photo);
             if (processPhoto(photo))
                 addImageSlide(photo);
@@ -3385,8 +3392,8 @@ $(function () {
             if (idx.domain == 'v.redd.it') {
                 // intentionally load with empty video, load mp4 below
                 initPhotoVideo(photo, []);
-                var media = (idx.media !== undefined) ?idx.media.reddit_video
-                        :(idx.secure_media !== undefined) ?idx.secure_media.reddit_video
+                var media = (idx.media) ?idx.media.reddit_video
+                        :(idx.secure_media) ?idx.secure_media.reddit_video
                         :undefined;
 
                 if (media) {
@@ -3414,7 +3421,7 @@ $(function () {
             var tryPreview = function(photo, idorig, msg) {
                 if (msg === undefined)
                     msg = 'no image';
-                if (idorig.preview !== undefined &&
+                if (idorig.preview &&
                     idorig.preview.images.length > 0) {
                     initPhotoThumb(photo, unescapeHTML(idorig.preview.images[0].source.url));
                     log.info('using thumbnail ['+msg+']: '+photo.orig_url);
@@ -3458,7 +3465,7 @@ $(function () {
                 jsonUrl = 'https://public-api.wordpress.com/rest/v1.1/sites/'+hn+'/posts/slug:'+slug;
                 log.debug("WP Trying: "+photo.url);
                 handleData = function (data) {
-                    if (data.error !== undefined)
+                    if (data.error)
                         log.info("Cannot display wordpress ["+data.error+"]: "+photo.url);
                     else if (processWordPressPost(photo, data))
                         addImageSlide(photo);
@@ -4197,7 +4204,7 @@ $(function () {
                 }
                 initPhotoEmbed(photo, youtubeURL(post.video.youtube.video_id));
 
-            } else if (post.video_url !== undefined) {
+            } else if (post.video_url) {
                 initPhotoVideo(photo, post.video_url, post.thumbnail_url);
 
             } else if (post.video_type == "unknown") {
@@ -4589,7 +4596,7 @@ $(function () {
         // Always nuke old data
         clearSlideTimeout();
         var vid = $('#gfyvid')[0];
-        if (vid !== undefined)
+        if (vid)
             vid.pause();
         rp.photos = [];
         rp.cache = {};
@@ -4604,7 +4611,7 @@ $(function () {
         $("#albumNumberButtons").detach();
         $('#allNumberButtonList').append($("<ul/>", { id: 'allNumberButtons' }));
 
-        if (data !== undefined && data.photos) {
+        if (data && data.photos) {
             log.debug("RESTORING STATE: "+path);
             if (data.photos.length > 1)
                 rp.session.after = data.after;
