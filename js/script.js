@@ -2147,14 +2147,25 @@ $(function () {
         rp.history.replaceState(state, "", rp.url.path); 
     };
 
+    // Mystic VooDoo to scroll the number buttons, so that
+    // it shows a single row of buttons above.
+    // This knows page structure for button lists:
+    // <div id=divName"><ul><li><a BUTTON></a></li>...</ul></div>
+    var scrollNumberButton = function (button, divName) {
+        var offset = button[0].offsetTop;
+        var height = button.parent().height();
+        if (offset > height)
+            offset -= height;
+        $('#'+divName).scrollTop(offset-$('#'+divName+' ul')[0].offsetTop);
+    }
+
     var toggleNumberButton = function (imageIndex, turnOn) {
         if (imageIndex < 0)
             return;
         var numberButton = $('#numberButton' + (imageIndex + 1));
         if (turnOn) {
             numberButton.addClass('active');
-            if (numberButton[0].scrollIntoView !== undefined)
-                numberButton[0].scrollIntoView();
+            scrollNumberButton(numberButton, 'allNumberButtonList');
         } else {
             numberButton.removeClass('active');
         }
@@ -2166,8 +2177,7 @@ $(function () {
         var numberButton = $('#albumButton' + (imageIndex + 1));
         if (turnOn) {
             numberButton.addClass('active');
-            if (numberButton[0].scrollIntoView !== undefined)
-                numberButton[0].scrollIntoView();
+            scrollNumberButton(numberButton, 'albumNumberButtons');
         } else {
             numberButton.removeClass('active');
         }

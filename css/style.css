@@ -1,9 +1,9 @@
 /* BASIC RESET */
-ul,ol,li,h1,h2,h3,h4,h5,h6,pre,form,body,html,p,blockquote,fieldset,input{margin:0; padding:0;}
+* { margin:0; padding:0; }
 
 /* HTML ELEMENTS */
 body {
-    overflow:hidden;
+    overflow: hidden;
     background-color: #000;
     color:#fff;
     font-family: IBMPlexSans, "Helvetica Neue", "Segoe UI", Helvetica, Verdana, Arial, sans-serif
@@ -140,7 +140,7 @@ a.embed:before { content: "ondemand_video"; }
     box-shadow: 2px 2px 3px #ccc;
 }
 
-#controlsDiv {position: absolute; bottom: 0; left: 0; right: 0; }
+#controlsDiv {position: absolute; bottom: 0; left: 0; }
 #titleDiv { position: absolute; top: 0; left: 0; right: 0; }
 #duplicateDiv { position: relative; top: 0; left: 0; right: 0; overflow: auto; }
 #subredditUrl { border: 1px dashed; background-color: black; color: white; }
