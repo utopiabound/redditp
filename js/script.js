@@ -3603,6 +3603,7 @@ $(function () {
 
             if (data.data.children.length === 0) {
                 log.info("No more data");
+                rp.session.loadingNextImages = false;
                 return;
             }
 
@@ -3744,7 +3745,9 @@ $(function () {
         });
     };
 
-    var processHaystack = function(photo, html) {
+    var processHaystack = function(photo, html, docheck) {
+        if (docheck === undefined)
+            docheck = false;
         var haystack = $('<div />').html(html);
         var images = haystack.find('img, video, iframe');
 
@@ -3823,22 +3826,18 @@ $(function () {
         };
 
         var rc = false;
-        if (images.length > 1) {
-            photo = initPhotoAlbum(photo);
-            $.each(images, function(i, item) {
-                // init url for relative urls/srcs
-                var pic = { url: photo.url, title: item.alt };
-                if (processNeedle(pic, item) && processPhoto(pic)) {
-                    addAlbumItem(photo, pic);
-                    rc = true;
-                }
-            });
+        photo = initPhotoAlbum(photo);
+        $.each(images, function(i, item) {
+            // init url for relative urls/srcs
+            var pic = { url: photo.url, title: item.alt };
+            if (processNeedle(pic, item) && processPhoto(pic)) {
+                addAlbumItem(photo, pic);
+                rc = true;
+            }
+        });
+        if (docheck)
             checkPhotoAlbum(photo);
 
-        } else if (images.length == 1) {
-            if (processNeedle(photo, images[0]) && processPhoto(photo))
-                rc = true;
-        }
         return rc;
     };
 
@@ -3855,7 +3854,7 @@ $(function () {
         photo.extra = localLink(originOf(photo.url), hn, "/wp2/"+hn, "", rp.favicons['wordpress']);
         if (photo.orig_url === undefined)
             photo.orig_url = photo.url;
-        var rc = processHaystack(photo, post.content.rendered);
+        var rc = processHaystack(photo, post.content.rendered, true);
 
         // Pull down 100, but only videos and images
         var jsonUrl = post._links["wp:attachment"][0].href + '&per_page=100';
@@ -4203,7 +4202,6 @@ $(function () {
                 }
             }
             processHaystack(photo, (post.caption||post.title));
-            checkPhotoAlbum(photo);
 
         } else if (post.type == 'video') {
             photo.thumbnail = post.thumbnail_url;
@@ -4253,6 +4251,7 @@ $(function () {
             photo.url = post.url;
             rc = processPhoto(photo);
         }
+        checkPhotoAlbum(photo);
 
         if (!rc) {
             log.info("cannot display url [bad Tumblr post type: "+post.type+"]: "+
@@ -4322,7 +4321,7 @@ $(function () {
     var processBloggerPost = function(photo, post) {
         photo.extra = localLink(post.author.url, post.author.displayName,
                                 '/blogger/'+hostnameOf(photo.url));
-        return processHaystack(photo, post.content);
+        return processHaystack(photo, post.content, true);
     };
 
     var getBloggerBlog = function () {
