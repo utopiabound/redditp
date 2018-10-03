@@ -1977,6 +1977,8 @@ $(function () {
         }
         if ($('#login').is(':checked'))
             $('#login').click();
+        if ($('#choice').is(':checked'))
+            $('#choice').click();
 
         var path = $(this).prop('pathname')+$(this).prop('search');
         processUrls(path);
@@ -3213,6 +3215,79 @@ $(function () {
         }
     };
 
+    var setupRedditChoices = function () {
+        // Supported choices:
+        // /[*best*, hot, new, top, rising, controversial]
+        // /r/SUBREDDIT/[*hot*, new, top, rising, controversial]
+        // /me/m/MULTI/[*hot*, new, top, rising, controversial]
+        // /user/USERNAME/m/MULTI/[*hot*, new, top, rising, controversial]
+        // /user/USERNAME/submitted?sort=[*new*, top, controversial]
+        var arr = [ "best", "hot", "new", "top", "rising", "controversial" ];
+        var s = rp.url.subreddit.split('/');
+        var prefix = '/';
+        var base;
+        var mod;
+
+        if (s[1] == 'r') {
+            base = s.slice(0,3).join('/');
+            arr = [ "hot", "new", "top", "rising", "controversial" ];
+            mod = (s.length > 3) ?arr.indexOf(s[3]) :0;
+
+        } else if (s[1] == 'user') {
+            if (s[3] == 'submitted') {
+                // @@ deal with setting vars
+                arr = [ "new", "top", "controversial" ];
+                return;
+
+            } else if (s[3] == 'm') {
+                base = s.slice(0,5).join('/');
+                arr = [ "hot", "new", "top", "rising", "controversial" ];
+                mod = (s.length > 5) ?arr.indexOf(s[5]) :0;
+
+            } else {
+                log.error("Unknown URL format for Choice: "+rp.url.subreddit);
+                return;
+            }
+
+        } else if (s[1] == 'me') {
+            base = s.slice(0,4).join('/');
+            arr = [ "hot", "new", "top", "rising", "controversial" ];
+            mod = (s.length > 4) ?arr.indexOf(s[4]) :0;
+
+        } else if (rp.url.subreddit == '/') {
+            base = '/';
+            prefix = '';
+            mod = 0;
+
+        } else {
+            mod = arr.indexOf(s[1]);
+
+            // Not choice elidgable
+            if (mod < 0)
+                // $('#choiceLi').hide(); already called in processUrls()
+                return;
+
+            base = '/';
+            prefix = '';
+        }
+        if (mod < 0)
+            mod = 0;
+
+        var list = $('#subredditPopup ul');
+        list.empty();
+        for(var i = 0; i < arr.length; ++i) {
+            var a = $('<a>', { class: "info infol local",
+                               href: rp.url.base+base+((i) ?prefix+arr[i] :""),
+                               title: arr[i] }).text(arr[i]);
+            if (mod == i)
+                a.addClass('selected');
+            list.append($('<li>').append(a));
+        }
+
+        $('#choiceTitle').text(base);
+        $('#choiceLi').show();
+    };
+
     //
     // Site Specific Loading / Processing
     //
@@ -3617,6 +3692,8 @@ $(function () {
 
                 $('#subredditLink').prop('href', rp.redditBaseUrl + rp.url.subreddit);
                 $('#subredditUrl').val(rp.url.subreddit);
+                // fix choices after determining correct subreddit
+                setupRedditChoices();
             }
 
             var handleDuplicatesData = function(data) {
@@ -4621,6 +4698,8 @@ $(function () {
         $("#albumNumberButtons").detach();
         $('#allNumberButtonList').append($("<ul/>", { id: 'allNumberButtons' }));
 
+        $('#choiceLi').hide();
+
         if (data && data.photos) {
             log.debug("RESTORING STATE: "+path);
             if (data.photos.length > 1)
@@ -4678,8 +4757,10 @@ $(function () {
         else if (rp.url.subreddit.startsWith('/gfycat/user/'))
             getGfycatUser();
 
-        else
+        else {
+            setupRedditChoices();
             getRedditImages();
+        }
     };
 
     if (rp.settings.alwaysSecure)

@@ -28,8 +28,23 @@
 	   data-openstate="open" data-controldiv="albumNumberButtons" title="Show Album Buttons">&#8858;</div>
       <div id="navboxContents">
 	<ul class="nbmenu">
-	  <li><form id="subredditForm" onsubmit="return false"><input type="text" id="subredditUrl" size="17" />
-	      <a id="subredditLink" href="#"><img class="reddit" src="images/reddit.svg" /></a></form>
+	  <li><form id="subredditForm" onsubmit="return false">
+	      <a id="subredditLink" href="#"><img class="reddit" src="images/reddit.svg" /></a>
+	      <input type="text" id="subredditUrl" size="17"/></form>
+	  </li><li id="choiceLi">
+	    <input class="checkbox" type="checkbox" name="choice" id="choice" value="Auto" />
+	    <label class="checkbox colortoggle" for="choice" title="choice">
+	      <i class="material-icons">arrow_drop_up</i></label>
+	    <div id="subredditPopup" class="clouds">
+	      <h3 id="choiceTitle">/</h3>
+	      <ul>
+		<li><a href="/" class="info infol local">best</a></li>
+		<li><a href="/hot" class="info infol local">hot</a></li>
+		<li><a href="/new" class="info infol local">new</a></li>
+		<li><a href="/rising" class="info infol local">rising</a></li>
+		<li><a href="/controversial" class="info infol local">controversial</a></li>
+		<li><a href="/top" class="info infop local">top</a></li>
+	    </ul></div>
 	  </li><li id="loginLi" class="hidden use-hover">
 	    <!-- Start this off as hidden, and only show if login is possible -->
 	    <input class="checkbox" type="checkbox" name="login" id="login" value="Auto" />
@@ -38,12 +53,12 @@
 	    <div id="multiListDiv" class="clouds">
 	      <ul><li><i>Login to Load</i></li></ul>
 	      <hr>
-	      <ul><li><a href="/" class="info infop local" title="Front Page"><i class="material-icons">home</i></a></li>
-		<li><a href="/r/popular" class="info infop local" title="Popular"><i class="material-icons">thumb_up</i></a></li>
-		<li><a href="/r/all" class="info infop local" title="All"><i class="material-icons">all_inclusive</i></a></li>
-		<li><a href="/r/friends" class="info infop local" title="Friends"><i class="material-icons">people_outline</i></a></li>
-		<li><a href="/r/random" class="info infop local" title="Random"><i class="material-icons">child_friendly</i></a></li>
-		<li><a href="/r/randnsfw" class="info infop local" title="Random (NSFW)"><i class="material-icons">wc</i></a></li>
+	      <ul><li><a href="/" class="info infol local" title="Front Page"><i class="material-icons">home</i></a></li>
+		<li><a href="/r/popular" class="info infol local" title="Popular"><i class="material-icons">thumb_up</i></a></li>
+		<li><a href="/r/all" class="info infol local" title="All"><i class="material-icons">all_inclusive</i></a></li>
+		<li><a href="/r/friends" class="info infol local" title="Friends"><i class="material-icons">people_outline</i></a></li>
+		<li><a href="/r/random" class="info infol local" title="Random"><i class="material-icons">child_friendly</i></a></li>
+		<li><a href="/r/randnsfw" class="info infol local" title="Random (NSFW)"><i class="material-icons">wc</i></a></li>
 		<li class="right"><a id="loginUsername" class="info infop" href="/"><i class="unset material-icons">account_box</i></a>
 	      </ul>
 	      </div>
