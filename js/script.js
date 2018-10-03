@@ -2574,10 +2574,29 @@ $(function () {
 
             // Set Autoplay for iOS devices
             if (rp.session.is_ios) {
+                var addPlayButton = function () {
+                    $(video).off('canplay canplaythrough', addPlayButton);
+
+                    var lem = $('<a>', { title: 'Play Video (Enter)',
+                                         href: '#' }).html(googleIcon('play_circle_filled'));
+                    lem.click(function (event) {
+                        if (event) {
+                            event.preventDefault();
+                            event.stopImmediatePropagation();
+                        }
+                        clearSlideTimeout();
+                        $(video)[0].play();
+                        $('#playbutton').remove();
+                    });
+
+                    divNode.prepend($('<span>', { id: 'playbutton' }).html(lem));
+                };
+
                 // iOS version < 10 do not autoplay, so timeout
-                if (rp.session.is_pre10ios && imageIndex == rp.session.activeIndex) {
-                    log.debug('iOS pre-10 detected, setting timmer');
-                    resetNextSlideTimer();
+                if (rp.session.is_pre10ios) {
+                    $(video).on('canplay canplaythrough', addPlayButton);
+                    if ($(video)[0].readyState > 3)
+                        addPlayButton();
                 } else {
                     log.debug('iOS device detected setting autoplay');
                     $(video).attr('autoplay', true);
@@ -2591,14 +2610,6 @@ $(function () {
                 };
                 $(video).on('canplaythrough', onCanPlay);
             }
-
-            // iOS devices < 10 don't play automatically
-            $(video).on("click", function(e) {
-                // if we're pre-10, then the tiemr is active
-                if (rp.session.is_pre10ios && imageIndex == rp.session.activeIndex)
-                    clearSlideTimeout();
-                $(video)[0].play();
-            });
         };
 
         // Called with showEmbed(urlForIframe)
