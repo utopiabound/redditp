@@ -4511,7 +4511,7 @@ $(function () {
         // .htaccess
         // This is a good idea so we can give a quick 404 page when appropriate.
         var regexS = "(/(?:(?:imgur/a/)|(?:gfycat/u/)|(?:tumblr/)|(?:blogger/)|(?:wp2?/)|(?:auth)|"+
-            "(?:r/)|(?:u/)|(?:user/)|(?:domain/)|(?:search)|(?:me)|(?:top)|(?:new)|(?:rising)|(?:controversial))"+
+            "(?:r/)|(?:u/)|(?:user/)|(?:domain/)|(?:search)|(?:me)|(?:hot)|(?:top)|(?:new)|(?:rising)|(?:controversial))"+
             "[^&#?]*)[?]?(.*)";
 
         if (path === undefined)

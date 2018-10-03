@@ -27,8 +27,10 @@ RewriteRule ^wp2/(.*) /index.html
 # Authed interface
 RewriteRule ^auth(.*) /index.html
 RewriteRule ^me/(.*) /index.html
+
 RewriteRule ^top(.*) /index.html
 RewriteRule ^new(.*) /index.html
+RewriteRule ^hot(.*) /index.html
 RewriteRule ^rising(.*) /index.html
 RewriteRule ^controversial(.*) /index.html
 
