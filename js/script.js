@@ -3128,13 +3128,13 @@ $(function () {
         });
 
         // @InstagramName
-        t1 = t1.replace(/(^|\W)@([\w.]+)/g, function(match, p1, name) { return p1+titleFLink('https://instagram.com/'+name, '@'+name); });
+        t1 = t1.replace(/(?=^|\W)@([\w.]+)/g, function(match, p1, name) { return p1+titleFLink('https://instagram.com/'+name, '@'+name); });
 
         // r/subreddit
-        t1 = t1.replace(/\W\/?(r\/[\w-]+)\s*/gi, function(match, p1) { return titleRLink('/'+p1, p1); });
+        t1 = t1.replace(/(?=^|\W)\/?(r\/[\w-]+)\s*/gi, function(match, p1) { return titleRLink('/'+p1, p1); });
 
         // u/redditUser
-        t1 = t1.replace(/\W\/?u\/([\w-]+)\s*/gi, function(match, p1) { return titleRLink('/user/'+p1+'/submitted', 'u/'+p1); });
+        t1 = t1.replace(/(?=^|\W)\/?u\/([\w-]+)\s*/gi, function(match, p1) { return titleRLink('/user/'+p1+'/submitted', 'u/'+p1); });
 
         return t1;
     };
