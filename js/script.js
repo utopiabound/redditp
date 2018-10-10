@@ -195,7 +195,7 @@ $(function () {
         album: 'photo_library',
         later: 'file_download',
         thumb: 'insert_photo',
-        fail: 'broken_image'
+        fail:  'broken_image'
     };
 
     // takes an integer number of seconds and returns eithe days, hours or minutes
@@ -792,50 +792,6 @@ $(function () {
         rp.session.nextSlideTimeoutId = window.setTimeout(autoNextSlide, timeout);
     };
 
-    var updateAutoNext = function () {
-        rp.settings.shouldAutoNextSlide = $("#autoNextSlide").is(':checked');
-        if (rp.settings.shouldAutoNextSlide) {
-            $('#controlsDiv .collapser').css({color: 'red'});
-            $('label[for="autoNextSlide"] i').text("autorenew");
-        } else {
-            $('#controlsDiv .collapser').css({color: ""});
-            $('label[for="autoNextSlide"] i').text("play_arrow");
-        }
-        setConfig(configNames.shouldAutoNextSlide, rp.settings.shouldAutoNextSlide);
-        // Check if active image is a video before reseting timer
-        if (rp.session.activeIndex == -1 ||
-            rp.photos[rp.session.activeIndex].times === undefined)
-            resetNextSlideTimer();
-    };
-
-    var toggleFullScreen = function() {
-        var elem = document.getElementById('page');
-        if (document.fullscreenElement || // alternative standard method
-            document.mozFullScreenElement || document.webkitFullscreenElement || document.msFullscreenElement) { // current working methods
-            $('label[for="fullscreen"] i').text("fullscreen");
-            if (document.exitFullscreen) {
-                document.exitFullscreen();
-            } else if (document.msExitFullscreen) {
-                document.msExitFullscreen();
-            } else if (document.mozCancelFullScreen) {
-                document.mozCancelFullScreen();
-            } else if (document.webkitExitFullscreen) {
-                document.webkitExitFullscreen();
-            }
-        } else {
-            $('label[for="fullscreen"] i').text("fullscreen_exit");
-            if (elem.requestFullscreen) {
-                elem.requestFullscreen();
-            } else if (elem.msRequestFullscreen) {
-                elem.msRequestFullscreen();
-            } else if (elem.mozRequestFullScreen) {
-                elem.mozRequestFullScreen();
-            } else if (elem.webkitRequestFullscreen) {
-                elem.webkitRequestFullscreen(Element.ALLOW_KEYBOARD_INPUT);
-            }
-        }
-    };
-
     var isVideoMuted = function() {
         return $("#mute").is(':checked');
     };
@@ -844,39 +800,10 @@ $(function () {
         var vid = $('#gfyvid');
         var aud = $('#gfyaudio');
         var videoMuted = isVideoMuted();
-        if (videoMuted) {
-            $('label[for="mute"] i').text("volume_off");
-            if (vid !== undefined)
-                vid.prop('muted', true);
-            if (aud !== undefined)
-                aud.prop('muted', true);
-        } else {
-            $('label[for="mute"] i').text("volume_up");
-            if (vid !== undefined)
-                vid.prop('muted', false);
-            if (aud !== undefined)
-                aud.prop('muted', false);
-        }
-    };
-
-    var updateNsfw = function () {
-        rp.settings.nsfw = $("#nsfw").is(':checked');
-        setConfig(configNames.nsfw, rp.settings.nsfw);
-        if (rp.settings.nsfw) {
-            $('label[for="nsfw"]').html(googleIcon("wc"));
-        } else {
-            $('label[for="nsfw"]').html(googleIcon("child_friendly"));
-        }
-    };
-
-    var updateEmbed = function () {
-        rp.settings.embed = !$("#embed").is(':checked');
-        setConfig(configNames.embed, rp.settings.embed);
-        if (rp.settings.embed) {
-            $('label[for="embed"]').html(googleIcon("ondemand_video"));
-        } else {
-            $('label[for="embed"]').html(googleIcon("personal_video"));
-        }
+        if (vid !== undefined)
+            vid.prop('muted', videoMuted);
+        if (aud !== undefined)
+            aud.prop('muted', videoMuted);
     };
 
     var updateCommentsLoad = function () {
@@ -896,32 +823,51 @@ $(function () {
         rp.insecure = getConfig(configNames.insecure);
         if (rp.insecure === undefined)
             rp.insecure = {};
+
         var nsfwByConfig = getConfig(configNames.nsfw);
+        $('#nsfw').change(function () {
+            rp.settings.nsfw = $("#nsfw").is(':checked');
+            setConfig(configNames.nsfw, rp.settings.nsfw);
+        });
         if (nsfwByConfig !== undefined) {
             rp.settings.nsfw = nsfwByConfig;
-            $("#nsfw").prop("checked", rp.settings.nsfw);
+
+            if ($("#nsfw").is(':checked') != rp.settings.nsfw)
+                $("#nsfw").click();
         }
-        $('#nsfw').change(updateNsfw);
-        updateNsfw();
 
         var embedByConfig = getConfig(configNames.embed);
+        $('#embed').change(function () {
+            rp.settings.embed = !$("#embed").is(':checked');
+            setConfig(configNames.embed, rp.settings.embed);
+        });
         if (embedByConfig !== undefined) {
             rp.settings.embed = embedByConfig;
-            $("#embed").prop("checked", !rp.settings.embed);
+            if ($("#embed").is(':checked') != rp.settings.embed)
+                $("#embed").click();
         }
-        $('#embed').change(updateEmbed);
-        updateEmbed();
 
-        updateVideoMute();
         $('#mute').change(updateVideoMute);
 
         var autoByConfig = getConfig(configNames.shouldAutoNextSlide);
+        $('#autoNextSlide').change(function () {
+            rp.settings.shouldAutoNextSlide = $("#autoNextSlide").is(':checked');
+            if (rp.settings.shouldAutoNextSlide) {
+                $('#controlsDiv .collapser').css({color: 'red'});
+            } else {
+                $('#controlsDiv .collapser').css({color: ""});
+            }
+            setConfig(configNames.shouldAutoNextSlide, rp.settings.shouldAutoNextSlide);
+            // Check if active image is a video before reseting timer
+            if (rp.session.activeIndex == -1 ||
+                rp.photos[rp.session.activeIndex].times === undefined)
+                resetNextSlideTimer();
+        });
         if (autoByConfig !== undefined) {
             rp.settings.shouldAutoNextSlide = autoByConfig;
-            $("#autoNextSlide").prop("checked", rp.settings.shouldAutoNextSlide);
+            if ($("#autoNextSlide").is(':checked') != rp.settings.shouldAutoNextSlide)
+                $("#autoNextSlide").click();
         }
-        updateAutoNext();
-        $('#autoNextSlide').change(updateAutoNext);
 
         var updateTimeToNextSlide = function (c_val) {
             if (!isFinite(c_val))
@@ -937,7 +883,31 @@ $(function () {
         var timeByConfig = getConfig(configNames.timeToNextSlide);
         updateTimeToNextSlide(timeByConfig);
 
-        $('#fullscreen').change(toggleFullScreen);
+        $('#fullscreen').change(function() {
+            var elem = document.getElementById('page');
+            if (document.fullscreenElement || // alternative standard method
+                document.mozFullScreenElement || document.webkitFullscreenElement || document.msFullscreenElement) { // current working methods
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                } else if (document.msExitFullscreen) {
+                    document.msExitFullscreen();
+                } else if (document.mozCancelFullScreen) {
+                    document.mozCancelFullScreen();
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                }
+            } else {
+                if (elem.requestFullscreen) {
+                    elem.requestFullscreen();
+                } else if (elem.msRequestFullscreen) {
+                    elem.msRequestFullscreen();
+                } else if (elem.mozRequestFullScreen) {
+                    elem.mozRequestFullScreen();
+                } else if (elem.webkitRequestFullscreen) {
+                    elem.webkitRequestFullscreen(Element.ALLOW_KEYBOARD_INPUT);
+                }
+            }
+        });
 
         $('#timeToNextSlide').keyup(updateTimeToNextSlide);
 
@@ -1985,7 +1955,7 @@ $(function () {
     });
 
     // Capture clicks on AlbumButtons
-    $(document).on('click', 'a.albumButton', function (e) {
+    $(document).on('click', 'a.albumButton', function (event) {
         startAnimation($('#allNumberButtons a.active').data("index"),
                        $(this).data("index"));
     });
@@ -2001,6 +1971,13 @@ $(function () {
                 getRedditComments(rp.photos[rp.session.activeIndex], item.id);
         });
     });
+
+    $(document).on('change', 'input.icontoggle', function(event) {
+        var attrname = $(this).is(':checked') ?"icon-on" :"icon-off";
+        $('label[for="'+$(this).attr('id')+'"] i').text($(this).attr(attrname));
+    });
+
+
     // Bind to PopState Event
     //rp.history.Adapter.bind(window, 'popstate', function(e) {
     window.onpopstate = function(e) {
