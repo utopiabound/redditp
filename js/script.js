@@ -93,6 +93,7 @@ rp.settings = {
     goodImageExtensions: ['jpg', 'jpeg', 'gif', 'bmp', 'png'],
     goodVideoExtensions: ['webm', 'mp4', 'mov'], // Matched entry required in rp.mime2ext
     alwaysSecure: true,
+    minScore: 1,
     // show Embeded Items
     embed: false,
     // show NSFW Items
@@ -3396,6 +3397,11 @@ $(function () {
             var val = dedupVal(idorig.subreddit, idorig.id);
             if (val) {
                 log.info('cannot display url [simul-dup:'+val+']: '+idorig.url);
+                return;
+            }
+
+            if (idorig.score < rp.settings.minScore) {
+                log.info('cannot display url [score too low: '+idorig.score+']: '+idorig.url);
                 return;
             }
 
