@@ -214,29 +214,6 @@ $(function () {
             return "1m";
     }
 
-    var setupFadeoutOnIdle = function () {
-        $('.fadeOnIdle').fadeTo('fast', 0);
-        var navboxVisible = false;
-        var fadeoutTimer = null;
-        var fadeoutFunction = function () {
-            navboxVisible = false;
-            $('.fadeOnIdle').fadeTo('slow', 0);
-        };
-        $("body").mousemove(function () {
-            if (navboxVisible) {
-                window.clearTimeout(fadeoutTimer);
-                fadeoutTimer = window.setTimeout(fadeoutFunction, 2000);
-                return;
-            }
-            navboxVisible = true;
-            $('.fadeOnIdle').fadeTo('fast', 1);
-            fadeoutTimer = window.setTimeout(fadeoutFunction, 2000);
-        });
-    };
-    // this fadeout was really inconvenient on mobile phones
-    // and instead the minimize buttons should be used.
-    //setupFadeoutOnIdle();
-
     var getNextPhotoOk = function(pic) {
         var photo = photoParent(pic);
 
@@ -517,7 +494,7 @@ $(function () {
         if (onlysld === undefined)
             onlysld=false;
         if (onlysld) {
-            var a = hostname.match(/[^\.]*\.[^\.]*$/);
+            var a = hostname.match(/[^.]*\.[^.]*$/);
             if (a)
                 hostname = a[0];
         }
@@ -535,7 +512,7 @@ $(function () {
     var searchOf = function(url)  {
         var a = {};
         var b = $('<a>').attr('href', url).prop('search').substring(1);
-        $.map(b.split('&'), function(val, i) {
+        b.split('&').forEach(function(val) {
             var arr = val.split('=');
             a[arr[0]] = arr[1];
         });
@@ -997,6 +974,7 @@ $(function () {
     var initPhotoVideo = function (photo, url, thumbnail) {
         photo.type = imageTypes.video;
         photo.video = {};
+        var urls;
 
         if (url === undefined)
             urls = [ photo.url ];
@@ -1007,7 +985,7 @@ $(function () {
         else
             urls = [ url ];
 
-        $.each(urls, function(i, url) {
+        urls.forEach(function(url) {
             if (!url)
                 return;
 
@@ -1234,7 +1212,6 @@ $(function () {
         div.append(ul);
 
         if (photo.type == imageTypes.album) {
-
             $.each(photo.album, function(index, pic) {
                 ul.append(albumButtonLi(pic, index));
             });
@@ -1276,7 +1253,7 @@ $(function () {
         delete pic.over18; // only track nsfw on main photo
 
         addPhotoParent(pic, photo);
-        var sld = hostnameOf(pic.url, true).match(/[^\.]*/)[0];
+        var sld = hostnameOf(pic.url, true).match(/[^.]*/)[0];
         if (rp.favicons[sld])
             pic.favicon = rp.favicons[sld];
 
@@ -1301,7 +1278,6 @@ $(function () {
 
     var fixPhotoButton = function(pic, button) {
         var parent = photoParent(pic);
-        var button;
 
         // no buttons exist
         if (parent.index === undefined)
@@ -1340,7 +1316,7 @@ $(function () {
         pic.url = fixupUrl(pic.url);
         // hostname only: second-level-domain.tld
         var hostname = hostnameOf(pic.url, true);
-        var sld = hostname.match(/[^\.]*/)[0];
+        var sld = hostname.match(/[^.]*/)[0];
 
         if (rp.favicons[sld])
             pic.favicon = rp.favicons[sld];
@@ -1401,7 +1377,6 @@ $(function () {
                 pic.url = pic.url;
                 return true;
             }
-            var name = fqdn.substring(0, fqdn.indexOf('.'));
             if (pic.url.indexOf('/post/') > 0)
                 // Don't process bare tumblr blogs, nor /day/YYYY/MM/DD/ format
                 // only BLOGNAME.tumblr.com/post/SHORTID/...
@@ -1763,7 +1738,7 @@ $(function () {
         var fav = pic.favicon;
         // #2 rp.favicon[]
         if (fav === undefined) {
-            var sld = hostnameOf(url, true).match(/[^\.]*/)[0];
+            var sld = hostnameOf(url, true).match(/[^.]*/)[0];
             fav = rp.favicons[sld];
         }
         // #3 check if wordpress v2 site
@@ -1806,41 +1781,41 @@ $(function () {
         elem.html(img);
     };
 
-    var arrow = {
+    const arrow = {
         left: 37,
         up: 38,
         right: 39,
         down: 40
     };
-    var ZERO_KEY = 48;
-    var ONE_KEY = 49;
-    var TWO_KEY = 50;
-    var THREE_KEY = 51;
-    var FOUR_KEY = 52;
-    var FIVE_KEY = 53;
-    var SIX_KEY = 54;
-    var SEVEN_KEY = 55;
-    var EIGHT_KEY = 56;
-    var NINE_KEY = 57;
+    const ZERO_KEY = 48;
+    const ONE_KEY = 49;
+    const TWO_KEY = 50;
+    const THREE_KEY = 51;
+    const FOUR_KEY = 52;
+    const FIVE_KEY = 53;
+    const SIX_KEY = 54;
+    const SEVEN_KEY = 55;
+    const EIGHT_KEY = 56;
+    const NINE_KEY = 57;
 
-    var SPACE = 32;
-    var PAGEUP = 33;
-    var PAGEDOWN = 34;
-    var ENTER = 13;
+    const SPACE = 32;
+    const PAGEUP = 33;
+    const PAGEDOWN = 34;
+    const ENTER = 13;
 
-    var A_KEY = 65;
-    var C_KEY = 67;
-    var D_KEY = 68;
-    var F_KEY = 70;
-    var I_KEY = 73;
-    var M_KEY = 77;
-    var O_KEY = 79;
-    var P_KEY = 80;
-    var R_KEY = 82;
-    var S_KEY = 83;
-    var T_KEY = 84;
-    var U_KEY = 85;
-    var W_KEY = 87;
+    const A_KEY = 65;
+    const C_KEY = 67;
+    const D_KEY = 68;
+    const F_KEY = 70;
+    const I_KEY = 73;
+    const L_KEY = 76;
+    const M_KEY = 77;
+    const O_KEY = 79;
+    const P_KEY = 80;
+    const R_KEY = 82;
+    const S_KEY = 83;
+    const T_KEY = 84;
+    const U_KEY = 85;
 
     // Register keyboard events on the whole document
     $(document).keyup(function (e) {
@@ -1956,6 +1931,10 @@ $(function () {
 
     // Capture clicks on AlbumButtons
     $(document).on('click', 'a.albumButton', function (event) {
+        if (event) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+        }
         startAnimation($('#allNumberButtons a.active').data("index"),
                        $(this).data("index"));
     });
@@ -1966,13 +1945,13 @@ $(function () {
             event.stopImmediatePropagation();
         }
         getRedditComments(rp.photos[rp.session.activeIndex]);
-        $.each(rp.photos[rp.session.activeIndex].duplicates, function (i, item) {
+        rp.photos[rp.session.activeIndex].duplicates.forEach(function (item) {
             if (item.id)
                 getRedditComments(rp.photos[rp.session.activeIndex], item.id);
         });
     });
 
-    $(document).on('change', 'input.icontoggle', function(event) {
+    $(document).on('change', 'input.icontoggle', function() {
         var attrname = $(this).is(':checked') ?"icon-on" :"icon-off";
         $('label[for="'+$(this).attr('id')+'"] i').text($(this).attr(attrname));
     });
@@ -2064,7 +2043,7 @@ $(function () {
     var startAnimation = function (imageIndex, albumIndex) {
         if (albumIndex === undefined)
             albumIndex = -1;
-        var needRefresh = false;
+
         resetNextSlideTimer();
 
         log.debug("startAnimation("+imageIndex+", "+albumIndex+")");
@@ -2255,7 +2234,7 @@ $(function () {
             if ($('#duplicateCollapser').attr(OPENSTATE_ATTR) == "open")
                 $('#duplicateDiv').show();
             var multi = photo.subreddit;
-            $.each(photo.duplicates, function(i, item) {
+            photo.duplicates.forEach(function(item) {
                 var li = $("<li>", { class: 'list'});
 
                 if (item.subreddit) {
@@ -2417,7 +2396,7 @@ $(function () {
         clearSlideTimeout(type);
 
         return divNode;
-    };
+    }
 
     var createDiv = function(imageIndex, albumIndex) {
         if (albumIndex === undefined)
@@ -2448,7 +2427,7 @@ $(function () {
 
             var img = $('<img />', { class: "fullscreen", src: url});
 
-            img.on('error', function(e) {
+            img.on('error', function() {
                 log.info("cannot display photo [load error]: "+photo.url);
                 initPhotoFailed(photo);
                 // ensure no infinite loop
@@ -2457,7 +2436,7 @@ $(function () {
             });
             // https://i.redd.it/removed.png is 130x60
             if (hostnameOf(url) == 'i.redd.it')
-                img.on('load', function(e) {
+                img.on('load', function() {
                     if ($(this)[0].naturalHeight == 60 &&
                         $(this)[0].naturalWidth == 130) {
                         log.info("["+photo.index+"] Image has been removed: "+photo.url);
@@ -2467,7 +2446,7 @@ $(function () {
                 });
             // https://i.imgur.com/removed.png is 161x81
             if (hostnameOf(url, true) == 'imgur.com')
-                img.on('load', function(e) {
+                img.on('load', function() {
                     if ($(this)[0].naturalHeight == 81 &&
                         $(this)[0].naturalWidth == 161) {
                         log.info("["+photo.index+"] Image has been removed: "+photo.url);
@@ -2492,12 +2471,12 @@ $(function () {
             if (isVideoMuted())
                 video.prop('muted', true);
 
-            $.each(rp.settings.goodVideoExtensions, function(i, ext) {
+            rp.settings.goodVideoExtensions.forEach(function(ext) {
                 if (!data[ext])
                     return;
 
                 var list = (Array.isArray(data[ext])) ?data[ext] :[ data[ext] ];
-                $.each(list, function(j, url) {
+                list.forEach(function(url) {
                     lastsource = $('<source type="'+rp.ext2mime[ext]+'" />').attr('src', url);
                     video.append(lastsource);
                 });
@@ -2514,12 +2493,12 @@ $(function () {
                                            type: 'audio/'+type });
                     audio.append(ls);
                 }
-                $(ls).on('error', function(e) {
+                $(ls).on('error', function() {
                     delete data.audio;
                     $(audio).remove();
                     log.info("Failed to load src for audio: "+photo.url);
                 });
-                $(audio).on('error', function(e) {
+                $(audio).on('error', function() {
                     log.info("Failed to load audio: "+photo.url);
                 });
                 video.on('playing', function() { audio[0].play() });
@@ -2527,19 +2506,19 @@ $(function () {
                 divNode.append(audio);
             }
 
-            $(lastsource).on('error', function(e) {
+            $(lastsource).on('error', function() {
                 log.info("["+imageIndex+"] video failed to load last source: "+photo.url);
                 initPhotoFailed(photo);
                 resetNextSlideTimer();
             });
 
-            $(video).on('error', function(e) {
+            $(video).on('error', function() {
                 log.info("["+imageIndex+"] video failed to load: "+photo.url);
                 initPhotoFailed(photo);
                 resetNextSlideTimer();
             });
 
-            $(video).on('ended', function(e) {
+            $(video).on('ended', function() {
                 log.debug("["+imageIndex+"] video ended");
                 if ($.contains(document, $(video)[0]) && (shouldStillPlay(imageIndex) || !autoNextSlide())) {
                     var audio = $('#gfyaudio')[0];
@@ -2663,14 +2642,14 @@ $(function () {
                 // @@ Fix enable/disable embed option for cached div's
                 if (rp.settings.embed) {
                     lem = iFrameUrl(pic.url);
-                    divNode.append(iframe);
+                    divNode.append(lem);
                     return;
                 }
                 if (pic.thumbnail)
                     showImage(pic.thumbnail);
                 // Add play button
-                var lem = $('<a>', { title: 'Play Video (Enter)',
-                                     href: '#' }).html(googleIcon('play_circle_filled'));
+                lem = $('<a>', { title: 'Play Video (Enter)',
+                                 href: '#' }).html(googleIcon('play_circle_filled'));
                 lem.click(function (event) {
                     if (event) {
                         event.preventDefault();
@@ -2725,13 +2704,13 @@ $(function () {
             return divNode;
         }
 
-        var jsonUrl, a, b;
+        var jsonUrl;
         var dataType = 'json';
         var postType = 'GET';
         var postData;
         var handleData;
         var headerData;
-        var handleError = function (xhr, ajaxOptions, thrownError) {
+        var handleError = function (xhr) {
             initPhotoFailed(photo);
             showImage(photo.thumbnail);
             //failedAjax(xhr, ajaxOptions, thrownError);
@@ -2780,7 +2759,7 @@ $(function () {
             var imgurHandleAlbum = function (data) {
                 if (data.data.images.length > 1) {
                     photo = initPhotoAlbum(photo, false);
-                    $.each(data.data.images, function(i, item) {
+                    data.data.images.forEach(function(item) {
                         var pic = { title: fixupTitle(item.title || item.description),
                                     url: item.link,
                                     orig_url: data.data.link,
@@ -2816,7 +2795,7 @@ $(function () {
             } else if (photo.url.indexOf('/gallery/') > 0) {
                 jsonUrl = "https://api.imgur.com/3/album/" + shortid;
 
-                handleError = function (xhr, ajaxOptions, thrownError) {
+                handleError = function () {
                     initPhotoImage(photo, "https://i.imgur.com/"+shortid+".jpg");
 
                     showImage(photo.url);
@@ -2898,8 +2877,8 @@ $(function () {
                     photo.over18 = true;
 
                 photo = initPhotoAlbum(photo, false);
-                $.each(data.data.image.images, function(i, img) {
-                    pic = { title: img.description || data.data.image.title };
+                data.data.image.images.forEach(function(img) {
+                    var pic = { title: img.description || data.data.image.title };
                     if (img.type.startsWith("image")) {
                         initPhotoImage(pic, 'https://i.supload.com/'+img.id+'.'+rp.mime2ext[img.type]);
 
@@ -3024,10 +3003,10 @@ $(function () {
         // regexp removes /r/<sub>/ prefix if it exists
         // E.g. http://imgur.com/r/aww/x9q6yW9 or http://imgur.com/t/mashup/YjBiWcL
         // replace with gallery because it might be an album or a picture
-        url = url.replace(/[rt]\/[^ \/]+\//, 'gallery/');
+        url = url.replace(/[rt]\/[^ /]+\//, 'gallery/');
 
         if (url.indexOf('?') > 0)
-            url = url.replace(/\?[^\.]*/, '');
+            url = url.replace(/\?[^.]*/, '');
 
         if (rp.settings.alwaysSecure)
             url = url.replace(/^http:/, "https:");
@@ -3040,14 +3019,14 @@ $(function () {
 
         // process individual file
         if (hostname.indexOf('i.') !== 0) {
-            url = url.replace(/[\w\.]*imgur.com/i, 'i.imgur.com');
+            url = url.replace(/[\w.]*imgur.com/i, 'i.imgur.com');
         }
         // convert gifs to videos
         url = url.replace(/gifv$/, "mp4");
 
         if (isImageExtension(url)) {
             // remove _d.jpg which is thumbnail
-            url = url.replace(/_d(.[^\.\/])/, "$1");
+            url = url.replace(/_d(.[^./])/, "$1");
 
         // imgur is really nice and serves the image with whatever extension
         // you give it. '.jpg' is arbitrary
@@ -3105,13 +3084,16 @@ $(function () {
         });
 
         // @InstagramName
-        t1 = t1.replace(/(?=^|\W)@([\w.]+)/g, function(match, p1, name) { return p1+titleFLink('https://instagram.com/'+name, '@'+name); });
+        t1 = t1.replace(/(?=^|\W)@([\w.]+)/g, function(match, p1, name) {
+            return p1+titleFLink('https://instagram.com/'+name, '@'+name); });
 
         // r/subreddit
-        t1 = t1.replace(/(?=^|\W)\/?(r\/[\w-]+)\s*/gi, function(match, p1) { return titleRLink('/'+p1, p1); });
+        t1 = t1.replace(/(?=^|\W|\b)\/?(r\/[\w-]+)\s*/gi, function(match, p1) {
+            return titleRLink('/'+p1, p1); });
 
         // u/redditUser
-        t1 = t1.replace(/(?=^|\W)\/?u\/([\w-]+)\s*/gi, function(match, p1) { return titleRLink('/user/'+p1+'/submitted', 'u/'+p1); });
+        t1 = t1.replace(/(?=^|\W|\b)\/?u\/([\w-]+)\s*/gi, function(match, p1) {
+            return titleRLink('/user/'+p1+'/submitted', 'u/'+p1); });
 
         return t1;
     };
@@ -3145,7 +3127,7 @@ $(function () {
             var list = $('#multiListDiv ul:first-of-type');
             list.empty();
 
-            $.each(data, function(i, item) {
+            data.forEach(function(item) {
                 var path;
                 if (item.data.visibility == "public") 
                     path = item.data.path;
@@ -3312,7 +3294,6 @@ $(function () {
             failedAjax(xhr, ajaxOptions, thrownError);
         }
         var handleData = function (data) {
-            var item = data[0].data.children[0];
             var comments = data[1].data.children;
             var img, i;
 
@@ -3419,7 +3400,6 @@ $(function () {
             var idx = idorig;
             while (idx.crosspost_parent_list !== undefined &&
                    idx.crosspost_parent_list.length > 0) {
-                var i = 0;
                 idx = idx.crosspost_parent_list[0];
             }
 
@@ -3528,7 +3508,7 @@ $(function () {
 
             var path = pathnameOf(photo.url);
             var hn = hostnameOf(photo.url);
-            var a, handleData, jsonUrl;
+            var a, handleData, jsonUrl, failedData;
 
             if (rp.wpv2[hn] !== false &&
                 (a = path.match(/^\/(?:\d+\/)*([a-z0-9]+(?:-[a-z0-9]+)*)\/$/))) {
@@ -3616,7 +3596,7 @@ $(function () {
                         crossDomain: true
                     });
                 };
-                failedData = function (xhr, ajaxOptions, thrownError) {
+                failedData = function (xhr) {
                     var err = JSON.parse(xhr.responseText);
                     if (xhr.status == 404) {
                         rp.blogger[hn] = 0;
@@ -3706,7 +3686,7 @@ $(function () {
                 dedupAdd(item.data.subreddit, item.data.id);
             };
 
-            $.each(data.data.children, function (i, item) {
+            data.data.children.forEach(function (item) {
                 var func = null;
                 var url = null;
 
@@ -3770,7 +3750,7 @@ $(function () {
                 return;
             }
 
-            $.each(data.data.images, function (i, item) {
+            data.data.images.forEach(function (item) {
                 addImageSlide({
                     url: (item.animated) ?item.gifv :item.link,
                     title: fixupTitle(item.title),
@@ -3812,8 +3792,6 @@ $(function () {
     var processHaystack = function(photo, html, docheck) {
         if (docheck === undefined)
             docheck = false;
-        var haystack = $('<div />').html(html);
-        var images = haystack.find('img, video, iframe');
 
         var processNeedle = function(pic, item) {
             var src;
@@ -3860,7 +3838,7 @@ $(function () {
 
                 initPhotoVideo(pic, [], item.poster);
 
-                $.each(item.children, function(i, source) {
+                item.children.forEach(function(source) {
                     var src = source.getAttribute('src');
                     if (src === null)
                         return;
@@ -3890,8 +3868,9 @@ $(function () {
         };
 
         var rc = false;
+
         photo = initPhotoAlbum(photo);
-        $.each(images, function(i, item) {
+        $('<div />').html(html).find('img, video, iframe').each(function(item) {
             // init url for relative urls/srcs
             var pic = { url: photo.url, title: item.alt };
             if (processNeedle(pic, item) && processPhoto(pic)) {
@@ -3932,7 +3911,7 @@ $(function () {
             }
             var rc2 = false;
             initPhotoAlbum(photo);
-            $.each(data, function(i, item) {
+            data.forEach(function(item) {
                 var pic = { url: item.source_url,
                             title: item.caption.rendered || item.alt_text || item.title.rendered };
                 if (processPhoto(pic)) {
@@ -3988,7 +3967,7 @@ $(function () {
         }
 
         // Process Post
-        photo = initPhotoAlbum(pic, false);
+        var photo = initPhotoAlbum(pic, false);
         if (processHaystack(pic, post.content))
             rc = true;
 
@@ -4080,7 +4059,7 @@ $(function () {
             }
             rp.session.loadAfter = getWordPressBlogV2;
             rp.session.after = rp.session.after + data.length;
-            $.each(data, function(index, post) {
+            data.forEach(function(post) {
                 var d = new Date(post.date_gmt+"Z");
                 var photo = { title: fixupTitle(post.title.rendered),
                               id: post.id,
@@ -4180,7 +4159,7 @@ $(function () {
                 rp.session.loadAfter = null;
             }
 
-            $.each(data.posts, function(i, post) {
+            data.posts.forEach(function(post) {
                 var d = new Date(post.date);
                 var photo = { title: post.title,
                               id: post.ID,
@@ -4214,7 +4193,6 @@ $(function () {
 
     var processTumblrPost = function(photo, post) {
         var rc = false;
-        var pic;
 
         var val = dedupVal(post.blog_name, post.id);
         if (val) {
@@ -4248,8 +4226,8 @@ $(function () {
 
         if (post.type == "photo") {
             photo = initPhotoAlbum(photo, false);
-            $.each(post.photos, function(i, item) {
-                pic =  { url: item.original_size.url,
+            post.photos.forEach(function(item) {
+                var pic =  { url: item.original_size.url,
                          type: imageTypes.image,
                          title: fixupTitle(item.caption || photo.title) }
                 if (processPhoto(pic)) {
@@ -4285,8 +4263,8 @@ $(function () {
                 var embed;
 
                 log.info("processing unknown video_type: "+photo.orig_url);
-                log.debug(item);
-                $.each(post.player, function (i, item) {
+                log.debug(post);
+                post.player.forEach(function (item) {
                     if (width === undefined ||
                         item.width > width) {
                         width = item.width;
@@ -4355,7 +4333,7 @@ $(function () {
                 rp.session.loadAfter = null;
             }
 
-            $.each(data.response.posts, function (i, post) {
+            data.response.posts.forEach(function (post) {
                 var image = { title: fixupTitle(post.summary || unescapeHTML(post.caption) || data.response.blog.title),
                               id: post.id,
                               over18: data.response.blog.is_nsfw || data.response.blog.is_adult,
@@ -4431,7 +4409,7 @@ $(function () {
                  } else { // Found all posts
                      rp.session.loadAfter = null;
                  }
-                $.each(data.items, function (i, post) {
+                data.items.forEach(function (post) {
                     var d = new Date(post.updated);
                     var image = { title: fixupTitle(post.title),
                                   id: post.id,
@@ -4482,8 +4460,7 @@ $(function () {
                           video: { thumbnail: post.posterUrl,
                                    webm: post.webmUrl,
                                    mp4: post.mp4Url
-                                 },
-                          date: post.createDate
+                                 }
                         };
             if (post.userName != 'anonymous')
                 image.extra = localLink('https://gfycat.com/@'+post.userName,
@@ -4497,7 +4474,7 @@ $(function () {
 
         var handleData = function (data) {
             if (data.gfycats.length)
-                $.each(data.gfycats, function (i, post) {
+                data.gfycats.forEach(function (post) {
                     var image = gfycat2pic(post);
                     addImageSlide(image);
                 });
@@ -4522,7 +4499,7 @@ $(function () {
             if (data.totalItemCount == 0)
                 return;
 
-            $.each(data.items, function (i, album) {
+            data.items.forEach(function (album) {
                 var photo = { title: album.title,
                               url: 'https://gfycat.com/@'+user+'/'+album.linkText,
                               gfycat: { album: album.title },
@@ -4533,7 +4510,7 @@ $(function () {
                 var hd = function (data) {
                     if (data.pub == 0)
                         return;
-                    $.each(data.publishedGfys, function (i, post) {
+                    data.publishedGfys.forEach(function (post) {
                         var pic = gfycat2pic(post);
                         addAlbumItem(photo, pic);
                     });
@@ -4697,7 +4674,7 @@ $(function () {
 
             clearSlideTimeout();
             var orig_index = data.index;
-            $.each(data.photos, function(i, photo) {
+            data.photos.forEach(function(photo) {
                 var index = photo.index;
                 // This allows the photo to be re-added
                 delete photo.index;
@@ -4709,7 +4686,7 @@ $(function () {
                         dedupAdd(photo.tumblr.blog, photo.tumblr.id);
                     if (photo.duplicates.length == 0)
                         return;
-                    $.each(photo.duplicates, function(i, dupe) {
+                    photo.duplicates.forEach(function(dupe) {
                         if (dupe.subreddit)
                             dedupAdd(dupe.subreddit, dupe.id, '/r/'+photo.subreddit+'/'+photo.id);
                         else if (dupe.tumblr)
