@@ -1837,6 +1837,9 @@ $(function () {
         var i = 0;
 
         switch (code) {
+        case A_KEY:
+            open_in_background("#navboxAlbumOrigLink");
+            break;
         case C_KEY:
             $('#controlsDiv .collapser').click();
             break;
@@ -1852,6 +1855,9 @@ $(function () {
             break;
         case F_KEY:
             $('#fullscreen').click();
+            break;
+        case L_KEY:
+            open_in_background("#navboxOrigLink");
             break;
         case M_KEY:
             $('#mute').click();
