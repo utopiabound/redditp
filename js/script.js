@@ -199,6 +199,18 @@ $(function () {
         fail:  'broken_image'
     };
 
+    const configNames = {
+        nsfw: "nsfw",
+        embed: "showEmbed",
+        shouldAutoNextSlide: "shouldAutoNextSlide",
+        timeToNextSlide: "timeToNextSlide",
+        redditBearer: 'redditBearer',
+        redditRefreshBy: 'redditRefreshBy',
+        blogger: 'blogger',
+        wpv2: 'wordpressv2',
+        insecure: 'insecure'
+    };
+
     // takes an integer number of seconds and returns eithe days, hours or minutes
     function sec2dms(secs) {
         if (secs >= 31556736)
@@ -694,17 +706,10 @@ $(function () {
         }
     });
 
-    var configNames = {
-        nsfw: "nsfw",
-        embed: "showEmbed",
-        shouldAutoNextSlide: "shouldAutoNextSlide",
-        timeToNextSlide: "timeToNextSlide",
-        redditBearer: 'redditBearer',
-        redditRefreshBy: 'redditRefreshBy',
-        blogger: 'blogger',
-        wpv2: 'wordpressv2',
-        insecure: 'insecure'
-    };
+    $(document).on('click', 'input.icontoggle', function() {
+        var attrname = $(this).is(':checked') ?"icon-on" :"icon-off";
+        $('label[for="'+$(this).attr('id')+'"] i').text($(this).attr(attrname));
+    });
 
     var setConfig = function (c_name, c_value) {
         var value = JSON.stringify(c_value);
@@ -1957,12 +1962,6 @@ $(function () {
                 getRedditComments(rp.photos[rp.session.activeIndex], item.id);
         });
     });
-
-    $(document).on('change', 'input.icontoggle', function() {
-        var attrname = $(this).is(':checked') ?"icon-on" :"icon-off";
-        $('label[for="'+$(this).attr('id')+'"] i').text($(this).attr(attrname));
-    });
-
 
     // Bind to PopState Event
     //rp.history.Adapter.bind(window, 'popstate', function(e) {
@@ -4713,6 +4712,7 @@ $(function () {
 
             log.info("Restored "+path+" and "+rp.photos.length+" images of "+data.photos.length+" at index "+data.index+"."+data.album);
             rp.session.isAnimating = false;
+            setupRedditChoices();
             startAnimation(data.index, data.album);
 
         } else if (rp.url.subreddit.startsWith('/imgur/'))
