@@ -706,10 +706,15 @@ $(function () {
         }
     });
 
-    $(document).on('click', 'input.icontoggle', function() {
+    // Called to fixup input.icontoggle
+    // can be invoked: fixIconToggle.call($('#NAME'))
+    var fixIconToggle = function() {
         var attrname = $(this).is(':checked') ?"icon-on" :"icon-off";
         $('label[for="'+$(this).attr('id')+'"] i').text($(this).attr(attrname));
-    });
+    };
+
+    $(document).on('click', 'input.icontoggle', fixIconToggle);
+
 
     var setConfig = function (c_name, c_value) {
         var value = JSON.stringify(c_value);
@@ -789,6 +794,20 @@ $(function () {
             aud.prop('muted', videoMuted);
     };
 
+    var updateAutoNextSlide = function () {
+        rp.settings.shouldAutoNextSlide = $("#autoNextSlide").is(':checked');
+        if (rp.settings.shouldAutoNextSlide) {
+            $('#controlsDiv .collapser').css({color: 'red'});
+        } else {
+            $('#controlsDiv .collapser').css({color: ""});
+        }
+        setConfig(configNames.shouldAutoNextSlide, rp.settings.shouldAutoNextSlide);
+        // Check if active image is a video before reseting timer
+        if (rp.session.activeIndex == -1 ||
+            rp.photos[rp.session.activeIndex].times === undefined)
+            resetNextSlideTimer();
+    };
+
     var updateCommentsLoad = function () {
         var photo = rp.photos[rp.session.activeIndex];
         if (!photo.comments || !photo.commentsCount)
@@ -807,50 +826,33 @@ $(function () {
         if (rp.insecure === undefined)
             rp.insecure = {};
 
-        var nsfwByConfig = getConfig(configNames.nsfw);
-        $('#nsfw').change(function () {
-            rp.settings.nsfw = $("#nsfw").is(':checked');
-            setConfig(configNames.nsfw, rp.settings.nsfw);
-        });
-        if (nsfwByConfig !== undefined) {
-            rp.settings.nsfw = nsfwByConfig;
+        ["nsfw", "embed"].forEach(function (item) {
+            var config = getConfig(configNames[item]);
+            var ref = $('#'+item);
+            ref.change(function () {
+                var id = $(this).attr('id');
+                rp.settings[id] = $(this).is(':checked');
+                setConfig(configNames[id], rp.settings[id]);
+            });
+            if (config !== undefined)
+                rp.settings[item] = config;
 
-            if ($("#nsfw").is(':checked') != rp.settings.nsfw)
-                $("#nsfw").click();
-        }
-
-        var embedByConfig = getConfig(configNames.embed);
-        $('#embed').change(function () {
-            rp.settings.embed = !$("#embed").is(':checked');
-            setConfig(configNames.embed, rp.settings.embed);
+            if (ref.is(':checked') != rp.settings[item])
+                ref.click();
+            else
+                fixIconToggle.call(ref)
         });
-        if (embedByConfig !== undefined) {
-            rp.settings.embed = embedByConfig;
-            if ($("#embed").is(':checked') != rp.settings.embed)
-                $("#embed").click();
-        }
 
         $('#mute').change(updateVideoMute);
 
         var autoByConfig = getConfig(configNames.shouldAutoNextSlide);
-        $('#autoNextSlide').change(function () {
-            rp.settings.shouldAutoNextSlide = $("#autoNextSlide").is(':checked');
-            if (rp.settings.shouldAutoNextSlide) {
-                $('#controlsDiv .collapser').css({color: 'red'});
-            } else {
-                $('#controlsDiv .collapser').css({color: ""});
-            }
-            setConfig(configNames.shouldAutoNextSlide, rp.settings.shouldAutoNextSlide);
-            // Check if active image is a video before reseting timer
-            if (rp.session.activeIndex == -1 ||
-                rp.photos[rp.session.activeIndex].times === undefined)
-                resetNextSlideTimer();
-        });
-        if (autoByConfig !== undefined) {
+        $('#autoNextSlide').change(updateAutoNextSlide);
+        if (autoByConfig !== undefined)
             rp.settings.shouldAutoNextSlide = autoByConfig;
-            if ($("#autoNextSlide").is(':checked') != rp.settings.shouldAutoNextSlide)
-                $("#autoNextSlide").click();
-        }
+        if ($("#autoNextSlide").is(':checked') != rp.settings.shouldAutoNextSlide)
+            $("#autoNextSlide").click();
+        else
+            updateAutoNextSlide();
 
         var updateTimeToNextSlide = function (c_val) {
             if (!isFinite(c_val))
