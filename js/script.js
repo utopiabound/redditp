@@ -132,8 +132,7 @@ rp.session = {
     loadingNextImages: false,
     loadAfter: null,
 
-    is_ios: false,
-    is_pre10ios: false,
+    needsPlayButton: false,
     fakeStorage: false,
     redditHdr: {}
 };
@@ -917,11 +916,10 @@ $(function () {
 
         // OS/Browser Specific
         if (/iPad|iPhone|iPod/.test(navigator.platform)) {
-            rp.session.is_ios = true;
             var v = (navigator.appVersion).match(/OS (\d+)/);
             if (parseInt(v[1], 10) < 10) {
                 log.debug("User Agent is pre-10 iOS");
-                rp.session.is_pre10ios = true;
+                rp.session.needsPlayButton = true;
             } else {
                 log.debug("User Agent is 10+ iOS");
             }
@@ -2549,7 +2547,7 @@ $(function () {
             });
 
             // Set Autoplay for iOS devices
-            if (rp.session.is_ios) {
+            if (rp.session.needsPlayButton) {
                 var addPlayButton = function () {
                     $(video).off('canplay canplaythrough', addPlayButton);
 
@@ -2568,15 +2566,9 @@ $(function () {
                     divNode.prepend($('<span>', { id: 'playbutton' }).html(lem));
                 };
 
-                // iOS version < 10 do not autoplay, so timeout
-                if (rp.session.is_pre10ios) {
-                    $(video).on('canplay canplaythrough', addPlayButton);
-                    if ($(video)[0].readyState > 3)
-                        addPlayButton();
-                } else {
-                    log.debug('iOS device detected setting autoplay');
-                    $(video).attr('autoplay', true);
-                }
+                $(video).on('canplay canplaythrough', addPlayButton);
+                if ($(video)[0].readyState > 3)
+                    addPlayButton();
 
             } else {
                 var onCanPlay = function() {
@@ -4618,23 +4610,29 @@ $(function () {
         // Auth Response - only ever uses window.location
         if (rp.url.subreddit == "/auth" ||
             rp.url.subreddit == "/" && rp.url.path.startsWith('/access_token')) {
-            var matches = /[\/#?&]access_token=([^&#=]*)/.exec(window.location.href);
-            var bearer = matches[1];
-            setConfig(configNames.redditBearer, bearer);
+            var matches = /[/#?&]access_token=([^&#=]*)/.exec(window.location.href);
+            var url;
+            if (matches) {
+                var bearer = matches[1];
+                setConfig(configNames.redditBearer, bearer);
 
-            matches = /[#?&]expires_in=([^&#=]*)/.exec(window.location.href);
-            // if failed to process, default to an hour
-            var time = parseInt(decodeURIComponent(matches[1]), 10);
-            var by = time+Math.ceil(Date.now()/1000);
+                matches = /[#?&]expires_in=([^&#=]*)/.exec(window.location.href);
+                // if failed to process, default to an hour
+                var time = parseInt(decodeURIComponent(matches[1]), 10);
+                var by = time+Math.ceil(Date.now()/1000);
 
-            setConfig(configNames.redditRefreshBy, by);
+                setConfig(configNames.redditRefreshBy, by);
 
-            setupRedditLogin(bearer, by);
+                setupRedditLogin(bearer, by);
 
-            matches = /[#?&]state=([^&#=]*)/.exec(window.location.href);
-            var url = decodeURIComponent(matches[1]);
-            if (url.startsWith('/auth'))
-                url = '/';
+                matches = /[#?&]state=([^&#=]*)/.exec(window.location.href);
+                url = decodeURIComponent(matches[1]);
+                if (url.startsWith('/auth'))
+                    url = '/';
+            } else {
+                log.error("Failed to load auth: "+window.location.href);
+                url = "/";
+            }
             processUrls(url);
             loadRedditMultiList();
             return;
