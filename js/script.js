@@ -1324,7 +1324,7 @@ $(function () {
         var hostname = hostnameOf(pic.url, true);
         var sld = hostname.match(/[^.]*/)[0];
 
-        if (rp.favicons[sld])
+        if (rp.favicons[sld] && pic.type != imageTypes.thumb)
             pic.favicon = rp.favicons[sld];
 
         // If this already has an album attached
@@ -1745,8 +1745,18 @@ $(function () {
         var fixFavicon = function(e) {
             if (e.type == "error" ||
                 $(this)[0].naturalHeight <= 1 ||
-                $(this)[0].naturalWidth <= 1)
-                e.data.elem.html(e.data.backup);
+                $(this)[0].naturalWidth <= 1) {
+                var b;
+                if (e.data.backup.length > 0) {
+                    var origin = e.data.backup.shift();
+                    b = $("<img />", {'class': 'redditp favicon', src: origin+'/favicon.ico'});
+                    b.on('error', { elem: e.data.elem, backup: e.data.backup }, fixFavicon);
+                    b.on('load', { elem: e.data.elem, backup: e.data.backup }, fixFavicon);
+                } else
+                    b = googleIcon("link")
+
+                e.data.elem.html(b);
+            }
         };
 
         if (url === undefined)
@@ -1770,28 +1780,21 @@ $(function () {
         }
 
         // #4 try //site/favicon.ico
-        var img = $("<img />", {'class': 'redditp favicon', src: originOf(url)+'/favicon.ico'});
+        var origin = originOf(url);
+        var img = $("<img />", {'class': 'redditp favicon', src: origin+'/favicon.ico'});
 
         // #5a try originOf(pic.url)/favicon.ico (if different from pic.orig_url)
         // #5b try sld-only hostname of url
         // #FINAL fallback to just link icon
         var origin;
-        if (hostname != hostnameOf(pic.url) && pic.url != pic.thumbnail) {
-            origin = originOf(pic.url);
-
-        } else if (hostname != hostnameOf(url, true)) {
-            origin = originOf(url).replace(hostname,  hostnameOf(url, true));
+        var backup = [];
+        var a = hostname.split('.');
+        while (a.length > 2) {
+            a.shift();
+            var hn = a.join('.');
+            backup.push(origin.replace(hostname, hn));
         }
 
-        var backup;
-        if (origin) {
-            backup = $("<img />", {'class': 'redditp favicon', src: origin+'/favicon.ico'});
-            backup.on('error', { elem: elem, backup: googleIcon("link") }, fixFavicon);
-            backup.on('load', { elem: elem, backup: googleIcon("link") }, fixFavicon);
-
-        } else {
-            backup = googleIcon("link");
-        }
         img.on('error', { elem: elem, backup: backup }, fixFavicon);
         img.on('load',  { elem: elem, backup: backup }, fixFavicon);
 
