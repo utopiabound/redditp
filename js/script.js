@@ -1506,8 +1506,11 @@ $(function () {
             initPhotoEmbed(pic, 'https://www.openload.co/embed/'+shortid);
 
         } else if (hostname == 'xvideos.com') {
+            // https://www.xvideos.com/videoSHORTID/title_of_video
+
             // no autostart
-            initPhotoEmbed(pic, 'https://www.xvideos.com/embedframe/'+url2shortid(pic.url));
+            shortid = url2shortid(pic.url, 1);
+            initPhotoEmbed(pic, 'https://www.xvideos.com/embedframe/'+shortid.replace("video", ""));
 
         } else if (hostname == 'keezmovies.com') {
             // no autostart
@@ -1574,14 +1577,19 @@ $(function () {
             log.info("REJECTED: "+pic.orig_url);
             return false;
 
-        } else if (isVideoExtension(pic.url)) {
-            initPhotoVideo(pic);
-
         } else if (hostname == 'webm.land') {
             shortid = url2shortid(pic.url);
             initPhotoVideo(pic, 'http://webm.land/media/'+shortid+".webm");
 
         } else if (hostname == 'gfycat.com') {
+            // set photo url to sane value (incase it's originally a thumb link)
+            shortid = url2shortid(pic.url);
+            // Strip everything trailing '-'
+            if (shortid.indexOf('-') != -1)
+                shortid = shortid.substr(0, shortid.lastIndexOf('-'));
+
+            pic.url = 'https://gfycat.com/'+shortid;
+
             // These domains should be processed later, unless direct link to video
             pic.type = imageTypes.later;
 
@@ -1595,6 +1603,9 @@ $(function () {
             } else if (!isImageExtension(pic.url) )
                 pic.type = imageTypes.later;
             // else valid image
+
+        } else if (isVideoExtension(pic.url)) {
+            initPhotoVideo(pic);
 
         } else if (isImageExtension(pic.url) ||
                    fqdn == 'i.reddituploads.com') {
@@ -2723,14 +2734,7 @@ $(function () {
         var shortid = url2shortid(url);
 
         if (hostname == 'gfycat.com') {
-            // Strip everything trailing '-'
-            if (shortid.indexOf('-') != -1)
-                shortid = shortid.substr(0, shortid.lastIndexOf('-'));
-
             jsonUrl = "https://gfycat.com/cajax/get/" + shortid;
-
-            // set photo url to sane value (incase it's originally a thumb link)
-            photo.url = 'https://gfycat.com/'+shortid;
 
             handleData = function (data) {
                 if (data.gfyItem === undefined) {
