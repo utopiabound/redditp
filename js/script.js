@@ -3191,7 +3191,7 @@ $(function () {
         }
     };
 
-    var setupRedditChoices = function () {
+    var setupChoices = function () {
         // Supported choices:
         // /[*best*, hot, new, top, rising, controversial]
         // /r/SUBREDDIT/[*hot*, new, top, rising, controversial]
@@ -3204,7 +3204,16 @@ $(function () {
         var base;
         var mod;
 
-        if (s[1] == 'r') {
+        if (mod = arr.indexOf(s[1]) >= 0) {
+            base = '/';
+            prefix = '';
+
+        } else if (rp.url.subreddit == '/') {
+            base = '/';
+            prefix = '';
+            mod = 0;
+
+        } else if (s[1] == 'r') {
             base = s.slice(0,3).join('/');
             arr = [ "hot", "new", "top", "rising", "controversial" ];
             mod = (s.length > 3) ?arr.indexOf(s[3]) :0;
@@ -3230,22 +3239,16 @@ $(function () {
             arr = [ "hot", "new", "top", "rising", "controversial" ];
             mod = (s.length > 4) ?arr.indexOf(s[4]) :0;
 
-        } else if (rp.url.subreddit == '/') {
-            base = '/';
-            prefix = '';
-            mod = 0;
+        } else if (s[1] == 'wp' ||
+                   s[1] == 'wp2') {
+            arr = [ "new", "old" ];
+            base = s.slice(0,3).join('/');
+            mod = (s.length > 3) ?arr.indexOf(s[3]) :0;
 
         } else {
-            mod = arr.indexOf(s[1]);
-
-            // Not choice elidgable
-            if (mod < 0)
-                // $('#choiceLi').hide(); already called in processUrls()
-                return;
-
-            base = '/';
-            prefix = '';
+            return;
         }
+
         if (mod < 0)
             mod = 0;
 
@@ -3672,7 +3675,7 @@ $(function () {
                 $('#subredditLink').prop('href', rp.redditBaseUrl + rp.url.subreddit);
                 $('#subredditUrl').val(rp.url.subreddit);
                 // fix choices after determining correct subreddit
-                setupRedditChoices();
+                setupChoices();
             }
 
             var handleDuplicatesData = function(data) {
@@ -4719,7 +4722,7 @@ $(function () {
 
             log.info("Restored "+path+" and "+rp.photos.length+" images of "+data.photos.length+" at index "+data.index+"."+data.album);
             rp.session.isAnimating = false;
-            setupRedditChoices();
+            setupChoices();
             startAnimation(data.index, data.album);
 
         } else if (rp.url.subreddit.startsWith('/imgur/'))
@@ -4728,20 +4731,22 @@ $(function () {
         else if (rp.url.subreddit.startsWith('/tumblr/'))
             getTumblrBlog();
 
-        else if (rp.url.subreddit.startsWith('/wp/'))
+        else if (rp.url.subreddit.startsWith('/wp/')) {
+            setupChoices();
             getWordPressBlog();
 
-        else if (rp.url.subreddit.startsWith('/wp2/'))
+        } else if (rp.url.subreddit.startsWith('/wp2/')) {
+            setupChoices();
             getWordPressBlogV2();
 
-        else if (rp.url.subreddit.startsWith('/blogger/'))
+        } else if (rp.url.subreddit.startsWith('/blogger/'))
             getBloggerBlog();
 
         else if (rp.url.subreddit.startsWith('/gfycat/user/'))
             getGfycatUser();
 
         else {
-            setupRedditChoices();
+            setupChoices();
             getRedditImages();
         }
     };
