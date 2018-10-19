@@ -49,7 +49,7 @@
  *      author:         TEXT reddit username
  *      comments:       URL  link to photo comments
  *      commentsCount:  INT  Number of comments (if this is set, comments needs to be set too)
- *      commentsLoaded: BOOL Have loaded comments for extra images
+ *      extraLoaded:    BOOL Have loaded comment images or duplicate listings
  *      cross_id:       TXT  ID in duplictes of original link
  *      extra:          HTML Extra information for links concerning photo
  *      thumbnail:      URL  thumbnail of image (e.g. cached version from reddit)
@@ -456,8 +456,7 @@ $(function () {
 
     var titleFLink = function(url, text) {
         var data = $('<div/>');
-        data.append($('<a>', { href: url, class: "infor" }
-                     ).html(text));
+        data.append($('<a>', { href: url, class: "infor" }).html(text));
         return data.html();
     };
 
@@ -807,14 +806,14 @@ $(function () {
             resetNextSlideTimer();
     };
 
-    var updateCommentsLoad = function () {
+    var updateExtraLoad = function () {
         var photo = rp.photos[rp.session.activeIndex];
-        if (!photo.comments || !photo.commentsCount)
-            $('#navboxCommentsLoad').html(googleIcon("speaker_notes_off")).attr('title', 'No Comments Available');
-        else if (photo.commentsLoaded)
-            $('#navboxCommentsLoad').html(googleIcon("check_box")).attr('title', "Comments already loaded");
+        if (photo.extraLoaded)
+            $('#navboxExtraLoad').html(googleIcon("check_box")).attr('title', "Comments already loaded");
+        else if (!photo.comments || !photo.commentsCount)
+            $('#navboxExtraLoad').html(googleIcon("speaker_notes_off")).attr('title', 'No Comments Available');
         else
-            $('#navboxCommentsLoad').html(googleIcon("mms")).attr('title', "Load links from Comments (s)");
+            $('#navboxExtraLoad').html(googleIcon("mms")).attr('title', "Load links from Comments (s)");
     };
 
     var initState = function () {
@@ -1786,7 +1785,6 @@ $(function () {
         // #5a try originOf(pic.url)/favicon.ico (if different from pic.orig_url)
         // #5b try sld-only hostname of url
         // #FINAL fallback to just link icon
-        var origin;
         var backup = [];
         var a = hostname.split('.');
         while (a.length > 2) {
@@ -1889,7 +1887,7 @@ $(function () {
             open_in_background("#navboxDuplicatesMulti");
             break;
         case S_KEY:
-            $('#navboxCommentsLoad').click();
+            $('#navboxExtraLoad').click();
             break;
         case SPACE:
             $("#autoNextSlide").click();
@@ -1965,15 +1963,23 @@ $(function () {
                        $(this).data("index"));
     });
 
-    $(document).on('click', '#navboxCommentsLoad', function (event) {
+    $(document).on('click', '#navboxExtraLoad', function (event) {
         if (event) {
             event.preventDefault();
             event.stopImmediatePropagation();
         }
-        getRedditComments(rp.photos[rp.session.activeIndex]);
-        rp.photos[rp.session.activeIndex].duplicates.forEach(function (item) {
-            if (item.id)
-                getRedditComments(rp.photos[rp.session.activeIndex], item.id);
+        var photo = rp.photos[rp.session.activeIndex];
+        if (photo.subreddit)
+            getRedditComments(photo);
+
+        else if (photo.tumblr)
+            getRedditDupe(photo);
+
+        photo.duplicates.forEach(function(item) {
+            if (item.subreddit)
+                getRedditComments(photo, item);
+            else if (item.tumblr)
+                getRedditDupe(photo, item);
         });
     });
 
@@ -2159,6 +2165,50 @@ $(function () {
         }
     };
 
+    var updateDuplicates = function(photo) {
+        if (!isActive(photo))
+            return;
+        $('#duplicateUl').html("");
+        if (photo.duplicates.length > 0) {
+            if ($('#duplicateCollapser').attr(OPENSTATE_ATTR) == "open")
+                $('#duplicateDiv').show();
+            var multi = []
+            if (photo.subreddit)
+                multi.push(photo.subreddit);
+            photo.duplicates.forEach(function(item) {
+                var li = $("<li>", { class: 'list'});
+
+                if (item.subreddit) {
+                    var subr = '/r/' +item.subreddit;
+
+                    multi.push(item.subreddit);
+                    li.html(redditLink(subr, picTitleText(item)));
+                    li.append($("<a>", { href: rp.redditBaseUrl + subr + "/comments/"+item.id,
+                                         class: 'info infoc',
+                                         title: 'Comments'
+                                       }).text('('+item.commentCount+')'));
+
+                } else if (item.tumblr) {
+                    li.html(localLink(item.url, item.tumblr, '/tumblr/'+item.tumblr));
+
+                } else {
+                    log.error("Unknown Duplicate Type", item);
+                    return;
+                }
+
+                if (photo.cross_id && photo.cross_id == item.id)
+                    li.addClass('xorig');
+                $('#duplicateUl').append(li);
+            });
+            if (multi) {
+                $('#navboxDuplicatesMulti').attr('href', rp.redditBaseUrl+'/r/'+multi.join('+'));
+                $('#navboxDuplicatesMultiP').attr('href', rp.url.base+'/r/'+multi.join('+'));
+            }
+        } else {
+            $('#duplicateDiv').hide();
+        }
+    };
+
     //
     // Animate the navigation box
     //
@@ -2183,7 +2233,7 @@ $(function () {
         var authName = image.author || photo.author;
 
         // COMMENTS/BUTTON LIST Box
-        updateCommentsLoad();
+        updateExtraLoad();
         $('#navboxCommentsLink').attr('href', photo.comments||photo.orig_url);
         if (photo.score)
             $('#navboxScore').text(photo.score);
@@ -2195,7 +2245,7 @@ $(function () {
         setFavicon($('#navboxOrigLink'), image, url);
 
         if (albumIndex >= 0) {
-            $('#navboxAlbumOrigLink').attr('href', photo.orig_url);
+            $('#navboxAlbumOrigLink').attr('href', photo.orig_url).attr('title', photo.title+" (a)");
             setFavicon($('#navboxAlbumOrigLink'), photo);
             $('#navboxAlbumOrigLink').removeClass('hidden');
         } else {
@@ -2249,44 +2299,8 @@ $(function () {
 
         $('#navboxDuplicatesLink').attr('href',  rp.redditBaseUrl + '/r/' +
                                         photo.subreddit + '/duplicates/' + photo.id);
-        $('#duplicateUl').html("");
-        if (photo.duplicates.length > 0) {
-            if ($('#duplicateCollapser').attr(OPENSTATE_ATTR) == "open")
-                $('#duplicateDiv').show();
-            var multi = photo.subreddit;
-            photo.duplicates.forEach(function(item) {
-                var li = $("<li>", { class: 'list'});
 
-                if (item.subreddit) {
-                    var subr = '/r/' +item.subreddit;
-
-                    multi += '+'+item.subreddit;
-                    li.html(redditLink(subr, picTitleText(item)));
-                    li.append($("<a>", { href: rp.redditBaseUrl + subr + "/comments/"+item.id,
-                                         class: 'info infoc',
-                                         title: 'Comments'
-                                       }).text('('+item.commentCount+')'));
-
-                } else if (item.tumblr) {
-                    li.html(localLink(item.url, item.tumblr, '/tumblr/'+item.tumblr));
-
-                } else {
-                    log.error("Unknown Duplicate Type", item);
-                    return;
-
-                }
-
-                if (photo.cross_id && photo.cross_id == item.id)
-                    li.addClass('xorig');
-                $('#duplicateUl').append(li);
-            });
-            if (multi) {
-                $('#navboxDuplicatesMulti').attr('href', rp.redditBaseUrl+'/r/'+multi);
-                $('#navboxDuplicatesMultiP').attr('href', rp.url.base+'/r/'+multi);
-            }
-        } else {
-            $('#duplicateDiv').hide();
-        }
+        updateDuplicates(photo);
 
         if (oldIndex != imageIndex) {
             toggleNumberButton(oldIndex, false);
@@ -3271,36 +3285,88 @@ $(function () {
     // Site Specific Loading / Processing
     //
 
+    // Get duplicate reddit entries for a non-reddit photo.url
+    // Also load comments of new subreddits
+    var getRedditDupe = function(photo, dupe) {
+        var site;
+        var shortid;
+
+        if (dupe) {
+            shortid = dupe.id;
+            if (dupe.tumblr)
+                site = dupe.tumblr;
+
+            if (!site || dupe.extraLoaded)
+                return;
+
+            dupe.extraLoaded = true;
+
+        } else if (photo.tumblr) {
+            site = photo.tumblr.blog;
+            shortid = photo.tumblr.id;
+
+            if (photo.extraLoaded)
+                return;
+
+            photo.extraLoaded = true;
+
+        } else
+            return;
+
+        // https://www.reddit.com/search.json?q=url:SHORTID+site:HOSTNAME
+        var jsonUrl = rp.url.get + '/search.json?include_over_18=on&q=url:'+shortid+'+site:'+site;
+        var hdrData = rp.session.redditHdr;
+        var handleData = function (data) {
+            if (isActive(photo))
+                updateExtraLoad();
+            if (data.data.dist == 0)
+                return;
+            data.data.children.forEach(function (dupe) {
+                var len = photo.duplicates.push({subreddit: dupe.data.subreddit,
+                                                 commentCount: dupe.data.num_comments,
+                                                 title: dupe.data.title,
+                                                 date: dupe.data.created,
+                                                 id: dupe.data.id});
+                getRedditComments(photo, photo.duplicates[len-1]);
+            });
+            updateDuplicates(photo);
+        };
+
+        log.info("loading alternate submissions: "+site+":"+shortid);
+        $.ajax({url: jsonUrl,
+                headers: hdrData,
+                dataType: 'json',
+                success: handleData,
+                error: failedAjax,
+                timeout: rp.settings.ajaxTimeout,
+                crossDomain: true,
+               });
+    };
+
     // Assume: photo has been run through processPhoto() at least once
-    var getRedditComments = function (photo, id) {
+    var getRedditComments = function (photo, dupe) {
         var comments;
-        if (id) {
+        if (dupe) {
             // This could be:
             // comments = [rp.rp.redditBaseUrl, "comments", id].join('/');
-            for(var i = 0; i < photo.duplicates.length; ++i) {
-                if (photo.duplicates[i].id != id)
-                    continue;
-                if (!photo.duplicates[i].commentCount || photo.duplicates[i].commentsLoaded)
+            if (!dupe.commentCount || dupe.extraLoaded)
                     return;
-                photo.duplicates[i].commentsLoaded = true;
-                comments = [rp.redditBaseUrl, 'r', photo.duplicates[i].subreddit, "comments", id].join("/");
-            }
-            if (!comments)
-                return;
+            dupe.extraLoaded = true;
+            comments = [rp.redditBaseUrl, 'r', dupe.subreddit, "comments", dupe.id].join("/");
 
         } else {
             // Only load comments once per photo
-            if (photo.commentsLoaded || !photo.commentsCount || !photo.comments)
+            if (photo.extraLoaded || !photo.commentsCount || !photo.comments)
                 return;
             else
-                photo.commentsLoaded = true;
+                photo.extraLoaded = true;
             comments = photo.comments;
         }
 
         var jsonUrl = rp.url.get + pathnameOf(comments) + '.json';
         var hdrData = rp.session.redditHdr;
         var failedData = function (xhr, ajaxOptions, thrownError) {
-            photo.commentsLoaded = false;
+            photo.extraLoaded = false;
             failedAjax(xhr, ajaxOptions, thrownError);
         }
         var handleData = function (data) {
@@ -3308,7 +3374,7 @@ $(function () {
             var img, i;
 
             if (isActive(photo))
-                updateCommentsLoad();
+                updateExtraLoad();
 
             photo = initPhotoAlbum(photo, true);
 
@@ -3928,7 +3994,7 @@ $(function () {
             initPhotoAlbum(photo);
             data.forEach(function(item) {
                 var pic = { url: item.source_url,
-                            title: item.caption.rendered || item.alt_text || item.title.rendered };
+                            title: unescapeHTML(item.caption.rendered) || item.alt_text || item.title.rendered };
                 if (processPhoto(pic)) {
                     addAlbumItem(photo, pic);
                     rc2 = true;
@@ -3979,6 +4045,11 @@ $(function () {
             var hn = hostnameOf(post.URL);
             pic.extra = localLink(post.URL.substring(0, post.URL.indexOf(':'))+'://'+hn,
                                   post.author.name, '/wp/'+hn);
+        }
+
+        if (post.is_reblogged) {
+            log.info("*@@* DUPLICATE: ", post);
+            // @@ do duplicate processing
         }
 
         // Process Post
