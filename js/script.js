@@ -391,7 +391,11 @@ $(function () {
     };
 
     var shouldStillPlay = function(index) {
+        if (index != rp.session.activeIndex)
+            return false;
         var photo = rp.photos[index];
+        if (!photo)
+            return false;
         if (photo.times == 1) {
             if (photo.duration < rp.settings.timeToNextSlide)
                 photo.times = Math.ceil(rp.settings.timeToNextSlide/photo.duration);
@@ -933,6 +937,12 @@ $(function () {
             }
         });
 
+        // Remove elements that require ability to login
+        if (hostnameOf(rp.redirect) != window.location.hostname)
+            $('.canlogin').remove();
+        else
+            $('.canlogin').show();
+
         // OS/Browser Specific
         if (/iPad|iPhone|iPod/.test(navigator.platform)) {
             var v = (navigator.appVersion).match(/OS (\d+)/);
@@ -943,7 +953,7 @@ $(function () {
                 log.debug("User Agent is 10+ iOS");
             }
             // Hide useless "fullscreen" button on iOS safari
-            $('#fullscreen').parent().hide();
+            $('#fullscreen').parent().remove();
 
             // Remove :hover on #loginLi, so it only responds to clicks
             $('#loginLi').removeClass('use-hover');
@@ -2286,14 +2296,9 @@ $(function () {
             $('#navboxAlbumOrigLink').addClass('hidden');
         }
 
-        if (rp.session.loginExpire) {
-            $('#loginLi').removeClass('hidden');
-            if (now > rp.session.loginExpire-30)
+        if (rp.session.loginExpire &&
+            now > rp.session.loginExpire-30)
                 clearRedditLogin();
-            // if user does a login in another window/tab, this will update with getRedditImages().
-        } else {
-            $('#loginLi').addClass('hidden');
-        }
 
         // TITLE BOX
         $('#navboxTitle').html(picTitle(image));
@@ -3158,15 +3163,16 @@ $(function () {
     };
 
     var clearRedditLogin = function () {
-        if (rp.session.loginExpire === 1)
+        if (rp.session.loginExpire)
             return;
 
-        rp.session.loginExpire = 1;
+        rp.session.loginExpire = 0;
         rp.session.redditHdr = {};
         rp.url.get = rp.redditBaseUrl;
         $('#loginUsername').html(googleIcon('account_box'));
         $('#loginUsername').attr('title', 'Expired');
         $('label[for=login]').html(googleIcon('account_box'));
+        $('.needlogin').hide();
         log.debug("Clearing bearer is obsolete EOL:"+rp.session.loginExpire+" < now:"+Date.now()/1000);
         clearConfig(configNames.redditBearer);
         clearConfig(configNames.redditRefreshBy);
@@ -3184,14 +3190,17 @@ $(function () {
 
             data.forEach(function(item) {
                 var path;
+                var cl = "";
                 if (item.data.visibility == "public") 
                     path = item.data.path;
-                else
+                else {
                     path = "/me/m/"+item.data.name;
+                    cl = "needlogin";
+                }
 
                 var link = redditLink(path, item.data.description_md, item.data.display_name);
 
-                list.append($('<li>').html(link));
+                list.append($('<li>', {class: cl}).html(link));
             });
         };
 
@@ -3228,15 +3237,15 @@ $(function () {
             var d = new Date(by*1000);
             rp.session.loginExpire = by;
             rp.session.redditHdr = { Authorization: 'bearer '+bearer };
+            $('.needlogin').show();
             $('#loginUsername').html(googleIcon('verified_user'));
             $('#loginUsername').attr('title', 'Expires at '+d);
             $('label[for=login]').html(googleIcon('verified_user'));
             rp.url.get = 'https://oauth.reddit.com';
             loadRedditMultiList();
 
-        } else {
-            clearRedditLogin();
-        }
+        } else
+             clearRedditLogin();
     };
 
     var setupChoices = function () {

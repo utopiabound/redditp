@@ -45,21 +45,20 @@
 		<li><a href="/controversial" class="info infol local">controversial</a></li>
 		<li><a href="/top" class="info infop local">top</a></li>
 	    </ul></div>
-	  </li><li id="loginLi" class="hidden use-hover">
-	    <!-- Start this off as hidden, and only show if login is possible -->
+	  </li><li id="loginLi" class="use-hover">
 	    <input class="checkbox" type="checkbox" name="login" id="login" value="Auto" />
 	    <label class="checkbox colortoggle" for="login" title="show user info">
 	      <i class="material-icons">account_box</i></label>
 	    <div id="multiListDiv" class="clouds">
-	      <ul><li><i>Login to Load</i></li></ul>
-	      <hr>
+	      <ul class="canlogin"><li><i>Login to Load</i></li></ul>
+	      <hr class="canlogin">
 	      <ul><li><a href="/" class="info infol local" title="Front Page"><i class="material-icons">home</i></a></li>
 		<li><a href="/r/popular" class="info infol local" title="Popular"><i class="material-icons">thumb_up</i></a></li>
 		<li><a href="/r/all" class="info infol local" title="All"><i class="material-icons">all_inclusive</i></a></li>
-		<li><a href="/r/friends" class="info infol local" title="Friends"><i class="material-icons">people_outline</i></a></li>
 		<li><a href="/r/random" class="info infol local" title="Random"><i class="material-icons">child_friendly</i></a></li>
 		<li><a href="/r/randnsfw" class="info infol local" title="Random (NSFW)"><i class="material-icons">wc</i></a></li>
-		<li class="right"><a id="loginUsername" class="info infop" href="/"><i class="unset material-icons">account_box</i></a>
+		<li class="right canlogin"><a id="loginUsername" class="info infop" href="/"><i class="unset material-icons">account_box</i></a>
+		<li class="right canlogin needlogin"><a href="/r/friends" class="info infol local" title="Friends"><i class="material-icons">people_outline</i></a></li>
 	      </ul>
 	      </div>
 	  </li><li>
@@ -69,9 +68,9 @@
 	      <i class="material-icons">child_friendly</i></label>
 	  </li><li>
 	    <input class="checkbox icontoggle" type="checkbox" name="embed" id="embed" value="Auto"
-		   icon-on="personal_video" icon-off="ondemand_video" checked />
+		   icon-on="personal_video" icon-off="ondemand_video" />
 	    <label class="icontoggle colortoggle embed" for="embed" title="Autoplay embeded content">
-	      <i class="material-icons">personal_video</i></label>
+	      <i class="material-icons">ondemand_video</i></label>
 	  </li><li>
 	    <input class="checkbox icontoggle" type="checkbox" name="mute" id="mute" value="Auto"
 		   icon-on="volume_off" icon-off="volume_up" checked />
