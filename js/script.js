@@ -223,6 +223,7 @@ $(function () {
         embed: "showEmbed",
         shouldAutoNextSlide: "shouldAutoNextSlide",
         timeToNextSlide: "timeToNextSlide",
+        minScore: "minScore",
         redditBearer: 'redditBearer',
         redditRefreshBy: 'redditRefreshBy',
         blogger: 'blogger',
@@ -244,6 +245,14 @@ $(function () {
             return Math.floor(secs/60)+'m';
         else
             return "1m";
+    }
+
+    function humanReadInt(val) {
+        if (val >= 1000000)
+            return (val/1000000).toFixed(1)+"M";
+        if (val >= 1000)
+            return (val/1000).toFixed(1)+"K";
+        return val;
     }
 
     var getNextPhotoOk = function(pic) {
@@ -268,7 +277,7 @@ $(function () {
     };
 
     var getPrevSlideIndex = function(currentIndex) {
-        for (var i = currentIndex - 1; i >= 0; i--) {
+        for(var i = currentIndex - 1; i >= 0; i--) {
             if (!getNextPhotoOk(rp.photos[i]))
                 continue;
              return i;
@@ -488,8 +497,7 @@ $(function () {
     // text - Text of foreign link
     var infoLink = function(url, text) {
         var data = $('<div/>');
-        data.append($('<a>', { href: url, class: "info infol" }
-                     ).html(text));
+        data.append($('<a>', { href: url, class: "info infol" }).html(text));
         return data.html();
     };
 
@@ -833,11 +841,11 @@ $(function () {
     var updateExtraLoad = function () {
         var photo = rp.photos[rp.session.activeIndex];
         if (photo.extraLoaded)
-            $('#navboxExtraLoad').html(googleIcon("check_box")).attr('title', "Comments already loaded");
+            $('#navboxExtraLoad').html(googleIcon("check_box")).attr('title', "Extras Already Loaded");
         else if (!photo.comments || !photo.commentsCount)
             $('#navboxExtraLoad').html(googleIcon("speaker_notes_off")).attr('title', 'No Comments Available');
         else
-            $('#navboxExtraLoad').html(googleIcon("mms")).attr('title', "Load links from Comments (s)");
+            $('#navboxExtraLoad').html(googleIcon("mms")).attr('title', "Load Extras from Comments (e)");
     };
 
     var initState = function () {
@@ -886,9 +894,17 @@ $(function () {
             setConfig(configNames.timeToNextSlide, rp.settings.timeToNextSlide);
             $('#timeToNextSlide').val(rp.settings.timeToNextSlide);
         };
+        updateTimeToNextSlide(getConfig(configNames.timeToNextSlide));
 
-        var timeByConfig = getConfig(configNames.timeToNextSlide);
-        updateTimeToNextSlide(timeByConfig);
+        var updateMinScore = function(c_val) {
+            if (c_val === undefined)
+                c_val = $('#minScore').val();
+            var val = parseInt(c_val);
+            rp.settings.minScore = val;
+            setConfig(configNames.minScore, rp.settings.minScore);
+            $('#minScore').val(rp.settings.minScore);
+        };
+        updateMinScore(getConfig(configNames.minScore));
 
         $('#fullscreen').change(function() {
             var elem = document.getElementById('page');
@@ -917,6 +933,7 @@ $(function () {
         });
 
         $('#timeToNextSlide').keyup(updateTimeToNextSlide);
+        $('#minScore').keyup(updateMinScore);
 
         $('#prevButton').click(prevAlbumSlide);
         $('#nextButton').click(nextAlbumSlide);
@@ -1868,6 +1885,7 @@ $(function () {
     const A_KEY = 65;
     const C_KEY = 67;
     const D_KEY = 68;
+    const E_KEY = 69;
     const F_KEY = 70;
     const I_KEY = 73;
     const L_KEY = 76;
@@ -1875,7 +1893,6 @@ $(function () {
     const O_KEY = 79;
     const P_KEY = 80;
     const R_KEY = 82;
-    const S_KEY = 83;
     const T_KEY = 84;
     const U_KEY = 85;
 
@@ -1924,13 +1941,11 @@ $(function () {
         case M_KEY:
             $('#mute').click();
             break;
-        case O_KEY:
-            open_in_background("#navboxCommentsLink");
-            break;
+            // O_KEY is with ZERO_KEY below
         case R_KEY:
             open_in_background("#navboxDuplicatesMulti");
             break;
-        case S_KEY:
+        case E_KEY:
             $('#navboxExtraLoad').click();
             break;
         case SPACE:
@@ -1976,8 +1991,9 @@ $(function () {
             if ($('#duplicateUl li .infor')[i])
                 open_in_background_url($('#duplicateUl li .infor')[i]);
             break;
+        case O_KEY:
         case ZERO_KEY:
-            open_in_background_url($('#navboxSubreddit a.infor')[0]);
+            open_in_background_url($('#navboxSubreddit a:last-of-type')[0]);
             break;
         }
     });
@@ -2278,11 +2294,11 @@ $(function () {
 
         // COMMENTS/BUTTON LIST Box
         updateExtraLoad();
-        $('#navboxCommentsLink').attr('href', photo.comments||photo.orig_url);
-        if (photo.score)
-            $('#navboxScore').text(photo.score);
-        else
-            $('#navboxScore').text("N/A");
+        if (photo.score) {
+            $('#navboxScore').removeClass("hidden");
+            $('#navboxScore').text(humanReadInt(photo.score));
+        } else
+            $('#navboxScore').addClass("hidden");
 
         var url = image.orig_url || image.url;
         $('#navboxOrigLink').attr('href', url);
@@ -2292,9 +2308,8 @@ $(function () {
             $('#navboxAlbumOrigLink').attr('href', photo.orig_url).attr('title', photo.title+" (a)");
             setFavicon($('#navboxAlbumOrigLink'), photo);
             $('#navboxAlbumOrigLink').removeClass('hidden');
-        } else {
+        } else
             $('#navboxAlbumOrigLink').addClass('hidden');
-        }
 
         if (rp.session.loginExpire &&
             now > rp.session.loginExpire-30)
@@ -2325,7 +2340,7 @@ $(function () {
         else
             $('#navboxAuthor').hide();
 
-        if (photo.commentsCount)
+        if (photo.comments)
             $('#navboxSubreddit').append($('<a>', { href: photo.comments,
                                                     class: "info infoc",
                                                     title: "Comments (o)" }
@@ -3223,7 +3238,7 @@ $(function () {
         if (by === undefined)
             by = getConfig(configNames.redditRefreshBy);
         if (rp.session.loginExpire &&
-            rp.session.loginExpire > (Date.now()/1000)-30)
+            rp.session.loginExpire > (Date.now()/1000)-60)
             return;
         $('#loginUsername').attr('href', rp.redditBaseUrl + '/api/v1/authorize?' + 
                                  ['client_id=' + rp.api_key.reddit,
@@ -3233,7 +3248,7 @@ $(function () {
                                   // read - /r/ALL, /me/m/ALL
                                   // history - /user/USER/submitted
                                   'scope=read,history'].join('&'));
-        if (bearer !== undefined && by !== undefined && by-30 > Date.now()/1000) {
+        if (bearer !== undefined && by !== undefined && by-60 > Date.now()/1000) {
             var d = new Date(by*1000);
             rp.session.loginExpire = by;
             rp.session.redditHdr = { Authorization: 'bearer '+bearer };
@@ -3408,7 +3423,7 @@ $(function () {
 
             photo.extraLoaded = true;
 
-            if (photo.url != photo.orig_url && photo.type != imageTypes.thumbnail)
+            if (photo.url != photo.orig_url && photo.type != imageTypes.thumb)
                 getRedditDupe(photo, {site: hostnameOf(photo.url), id:url2shortid(photo.url)});
 
             if (!photo.commentsCount || !photo.comments)

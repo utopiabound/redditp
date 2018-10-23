@@ -165,6 +165,8 @@ h3 { padding: 2px; font-weight: bold; font-size: 16px; }
 /* info comment link (between infol and infop */
 .infoc { margin: 3px 5px -5px 0px; }
 
+label.textlabel { font-weight: bold; font-size: 12px; margin: 0px 0px 0px 2px; }
+input.textlabel { margin: 0px 5px 0px 0px; }
 
 .navbox p { padding:20px 20px 20px 20px; font-size:13px; color:#111; }
 .navbox p.bottom { position:absolute; bottom:5px; right:5px; }
@@ -212,6 +214,9 @@ label.checkbox { font-weight: bold; }
 
 .favicon:hover {
     background-color: rgba(255, 255, 255, 0.7);
+}
+.favicon {
+    padding-top: 5px;
 }
 
 .clouds { opacity: 0.9; background-color: rgba(0,0,0,0.7); }
@@ -284,10 +289,6 @@ input[type=checkbox]:checked + label.colortoggle {
     font-size: 24px;
 }
 
-#timeToNextSlide {
-    text-align: center;
-}
-
 #fullScreenButton {
     width: 20px;
     padding-left: 10px;
@@ -301,6 +302,7 @@ input[type=checkbox]:checked + label.colortoggle {
 }
 
 .redditp {
+    text-align: center;
     height: 16px;
     width: 16px;
     margin: 0;
@@ -314,7 +316,6 @@ input[type=checkbox]:checked + label.colortoggle {
     border: 0;
 }
 
-.score {
-    width: 5ex;
+.right {
     float: right;
 }

@@ -89,20 +89,21 @@
 	  </li>
 	</ul>
 	<ul class="nbmenu">
-	  <li>
-	    Refresh:<input type="text" class="redditp" name="timeToNextSlide" id="timeToNextSlide" value="8" size="2" /> seconds
-	  </li><li>
-	    Score: <div class="score" id="navboxScore">N/A</div>
-	  </li><li>
-	    <a id='navboxCommentsLink' href='#' title="Comments (o)">comments</a>
+	  <li title="auto-refresh interval in seconds">
+	    <label for="timeToNextSlide" class="textlabel">Refresh:</label>
+	    <input type="text" class="redditp textlabel" name="timeToNextSlide" id="timeToNextSlide" value="8" size="2"/>
+	  </li><li title="Minimum score for displayed posts (only used during load)">
+	    <label for="timeToNextSlide" class="textlabel"> Min Score:</label>
+	    <input type="text" class="redditp textlabel" name="minScore" id="minScore" value="1" size="2" />
 	  </li><li>
 	    <a id='navboxExtraLoad' href='#' title="placeholder"><i class="material-icons">mms</i></a>
-	  </li><li>
-	    <a id='navboxLink' href='#' title='placeholder'>Loading</a>
-	  </li><li>
-	    <a id='navboxOrigLink' href='#' title='original link (l)'><i class="redditp material-icons">link</i></a>
-	  </li><li>
+	    <!-- These are in reverse order because of float: right -->
+	  </li><li class="right">
 	    <a id='navboxAlbumOrigLink' href='#' title='original album link (a)' class="hidden"><i class="redditp material-icons">link</i></a>
+	  </li><li class="right">
+	    <a id='navboxOrigLink' href='#' title='original link (l)'><i class="redditp material-icons">link</i></a>
+	  </li><li class="right">
+	    <a id='navboxLink' href='#' title='placeholder'>Loading</a>
 	  </li>
 	</ul>
 	<div id="allNumberButtonList" class="numberButtonList">
@@ -118,6 +119,7 @@
 	<h2 id='navboxTitle' class="title">
 	  <noscript>Javascript is required for redditp to work :(</noscript>
 	</h2>
+	<div><span id="navboxScore" class="info infol hidden" title="Post Score"></span></div>
 	<div id="navboxSubreddit"></div>
 	<div><span id="navboxDate" class="info infod" title=""></span></div>
 	<div id="navboxAuthor"></div>
@@ -126,7 +128,7 @@
       <div id="duplicateCollapser" class="vcollapser" data-opensym="&#8858;" data-closesym="&otimes;"
 	   data-openstate="open" data-controldiv="duplicateDiv" title="Hide/Show Duplicates (u)">&#8858;</div>
       <div id="duplicateDiv" class='navbox'>
-	<h3><a id='navboxDuplicatesLink' href="#" class="infol" title="Show Duplciates (p)">Duplicates
+	<h3><a id='navboxDuplicatesLink' href="#" class="infol" title="Show Duplciates (d)">Duplicates
 	  </a><a id='navboxDuplicatesMultiP' href="#" class="infop local"><img class="redditp" src="images/favicon.png" />
 	  </a><a id='navboxDuplicatesMulti' href="#" title="MultiReddit of duplicate subreddits (r)" class="infoc">
 	    <img class="reddit" src="images/reddit.svg" /></a>
