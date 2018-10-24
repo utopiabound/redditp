@@ -35,6 +35,7 @@
  * processPhoto() - initial processing of photo.url, if it can be determined to be photo/video/later
  * createDiv()    - where photo's tagged as later, are processed via ajax callout
  * fixupTitle()   - any urls that can be added/processed from a photo.title (only affects photo.title)
+ * fixupUrl()     - known https: sites
  *
  * per-Site Duplicate handling:
  * addPhotoDupe()
@@ -1086,7 +1087,7 @@ $(function () {
             return;
 
         for (var i = index; i < photo.album.length; ++i) {
-            var a = $('#albumNumberButtons ul').children(":nth-child("+(i+1)+")").children();
+            var a = $('#albumNumberButtons ul').children(":nth-child("+(i+1)+")").children("a");
             var oldindex = a.data('index');
 
             a.attr('id', "albumButton" + (i+1)).data('index', i).text(i+1);
@@ -1196,7 +1197,7 @@ $(function () {
                 photo.insertAt = index;
                 photo.album.splice(index, 1);
                 if (isActive(photo)) {
-                    $('#allNumberButtons ul').children(":nth-child("+(index+1)+")").remove();
+                    $('#albumNumberButtons ul').children(":nth-child("+(index+1)+")").remove();
                     reindexPhotoAlbum(photo, index);
                 }
             }
@@ -1353,11 +1354,11 @@ $(function () {
             if (button == undefined)
                 button = $('#numberButton'+(pic.index+1));
 
-        } else if (parent.index != rp.session.activeIndex)
+        } else if (!isActive(parent))
             return;
 
         else if (button == undefined)
-            button = $('#allNumberButtons ul').children(":nth-child("+(parent.index+1)+")");
+            button = $('#albumNumberButtons ul').children(":nth-child("+(parent.album.indexOf(pic)+1)+")").children("a");
 
         button.removeClass('embed album over18 later video');
         if (isActive(parent))
@@ -1716,15 +1717,16 @@ $(function () {
         if (photo.over18)
             button.addClass("over18");
 
+        if (photo.type == imageTypes.album && isActive(photo))
+            $("#albumNumberButtons").show();
+
         if (pic.type == imageTypes.embed)
             button.addClass("embed");
 
-        else if (pic.type == imageTypes.album) {
+        else if (pic.type == imageTypes.album)
             button.addClass("album");
-            if (isActive(photo))
-                $("#albumNumberButtons").show();
 
-        } else if (pic.type == imageTypes.video)
+        else if (pic.type == imageTypes.video)
             button.addClass("video");
 
         else if (pic.type == imageTypes.later)
@@ -3123,6 +3125,8 @@ $(function () {
             return ((rp.insecure[hostname]) ?"http:" :"https:")+url;
 
         if (hostname == 'gfycat.com' ||
+            hostname == 'wp.com' ||
+            hostname == 'wordpress.com' ||
             hostname == 'pornhub.com' ||
             hostname == 'xhamster.com' ||
             hostname == 'youporn.com' ||
@@ -4019,7 +4023,7 @@ $(function () {
         var rc = false;
 
         photo = initPhotoAlbum(photo);
-        $('<div />').html(html).find('img, video, iframe').each(function(item) {
+        $('<div />').html(html).find('img, video, iframe').each(function(index, item) {
             // init url for relative urls/srcs
             var pic = { url: photo.url, title: item.alt };
             if (processNeedle(pic, item) && processPhoto(pic)) {
@@ -4112,7 +4116,8 @@ $(function () {
         } else {
             var hn = hostnameOf(post.URL);
             pic.extra = localLink(post.URL.substring(0, post.URL.indexOf(':'))+'://'+hn,
-                                  post.author.name, '/wp/'+hn);
+                                  post.author.name, '/wp/'+hn, post.author.nice_name,
+                                  pic.favicon);
         }
 
         if (post.is_reblogged) {
@@ -4121,10 +4126,6 @@ $(function () {
         }
 
         // Process Post
-        var photo = initPhotoAlbum(pic, false);
-        if (processHaystack(pic, post.content))
-            rc = true;
-
         var processAttachment = function(att, img) {
             img.id = att.ID;
             if (att.mime_type.startsWith('image/')) {
@@ -4141,6 +4142,8 @@ $(function () {
         };
 
         var k, att;
+
+        var photo = initPhotoAlbum(pic, false);
         for(k in post.attachments) {
             att = post.attachments[k];
             var img = { title: att.caption || att.title };
@@ -4149,6 +4152,9 @@ $(function () {
                 rc = true;
             }
         }
+        if (processHaystack(pic, post.content))
+            rc = true;
+
         checkPhotoAlbum(photo);
 
         if (!rc) {
