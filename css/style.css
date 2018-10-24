@@ -1,5 +1,5 @@
 /* BASIC RESET */
-* { margin:0; padding:0; }
+* { margin:0; padding:0; border: 0; }
 
 /* HTML ELEMENTS */
 body {
@@ -171,6 +171,10 @@ input.textlabel { margin: 0px 5px 0px 0px; }
 .navbox p { padding:20px 20px 20px 20px; font-size:13px; color:#111; }
 .navbox p.bottom { position:absolute; bottom:5px; right:5px; }
 
+.origlink {
+    margin-top: 5px;
+}
+
 .nbmenu {
     margin: 0 0 0 5px;
     width: 100%;
@@ -179,7 +183,7 @@ input.textlabel { margin: 0px 5px 0px 0px; }
 
 .nbmenu li {
     text-align: left;
-    padding: 5px 2px 5px 3px;
+    padding: 2px 2px 5px 3px;
     max-width: 300px;
     overflow: hidden;
 }
@@ -214,9 +218,6 @@ label.checkbox { font-weight: bold; }
 
 .favicon:hover {
     background-color: rgba(255, 255, 255, 0.7);
-}
-.favicon {
-    padding-top: 5px;
 }
 
 .clouds { opacity: 0.9; background-color: rgba(0,0,0,0.7); }
@@ -305,8 +306,6 @@ input[type=checkbox]:checked + label.colortoggle {
     text-align: center;
     height: 16px;
     width: 16px;
-    margin: 0;
-    border: 0;
 }
 
 .reddit {
