@@ -900,7 +900,7 @@ $(function () {
         var updateMinScore = function(c_val) {
             if (c_val === undefined)
                 c_val = $('#minScore').val();
-            var val = parseInt(c_val);
+            var val = parseInt(c_val, 10);
             rp.settings.minScore = val;
             setConfig(configNames.minScore, rp.settings.minScore);
             $('#minScore').val(rp.settings.minScore);
@@ -3290,9 +3290,9 @@ $(function () {
         var s = rp.url.subreddit.split('/');
         var prefix = '/';
         var base;
-        var mod;
+        var mod = arr.indexOf(s[1]);
 
-        if (mod = arr.indexOf(s[1]) >= 0) {
+        if (mod >= 0) {
             base = '/';
             prefix = '';
 
@@ -4384,7 +4384,8 @@ $(function () {
         if (photo.duplicates === undefined)
             photo.duplicates = [];
         if (post.reblogged_root_id) {
-            if (val = dedupVal(post.reblogged_root_name, post.reblogged_root_id)) {
+            val = dedupVal(post.reblogged_root_name, post.reblogged_root_id);
+            if (val) {
                 log.info("cannot display url [cross-duplicate:"+val+"]: "+photo.url);
                 return false;
             }
@@ -4397,7 +4398,8 @@ $(function () {
                 photo.cross_id = post.reblogged_root_id;
         }
         if (post.reblogged_from_id && post.reblogged_from_id !== post.reblogged_root_id) {
-            if (val = dedupVal(post.reblogged_from_name, post.reblogged_from_id)) {
+            val = dedupVal(post.reblogged_from_name, post.reblogged_from_id);
+            if (val) {
                 log.info("cannot display url [cross-duplicate:"+val+"]: "+photo.url);
                 return false;
             }
