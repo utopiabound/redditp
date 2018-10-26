@@ -109,7 +109,7 @@ rp.settings = {
     ajaxTimeout: 10000,
     // Speed of the animation
     animationSpeed: 1000,
-    shouldAutoNextSlide: true,
+    shouldAutoNextSlide: false,
     timeToNextSlide: 8,
     goodImageExtensions: ['jpg', 'jpeg', 'gif', 'bmp', 'png'],
     goodVideoExtensions: ['webm', 'mp4', 'mov'], // Matched entry required in rp.mime2ext
@@ -1368,7 +1368,8 @@ $(function () {
     };
 
     var processPhoto = function(pic) {
-        if (pic === undefined)
+        if (pic === undefined ||
+            pic.url === undefined)
             return false;
 
         if (pic.orig_url === undefined)
@@ -1418,11 +1419,18 @@ $(function () {
             // otherwise simple image
         } else if (hostname == 'wordpress.com' ||
                    hostname == 'wp.com') {
+            // https://iN.wp.com/WP-SITE/wp-content/uploads/YYYY/MM/INDEX.jpg ==
+            // https://WP-SITE/wp-content/uploads/YYYY/MM/INDEX.jpg
+
             // strip out search portion
             if (isImageExtension(pic.url)) {
                 var anc = $('<a>', { href: pic.url });
                 pic.url = anc.prop('origin')+anc.prop('pathname');
-
+                if (hostname == 'wp.com') {
+                    var a = anc.prop('pathname').split('/');
+                    if (a[2] == 'wp-content')
+                        pic.url = 'https://'+a.slice(1).join('/');
+                }
             } else if (pic.thumbnail === "") {
                 log.info('cannot display url [no thumbnail]: ' + pic.url);
                 return false;
@@ -2267,6 +2275,10 @@ $(function () {
                 $('#navboxDuplicatesMultiP').attr('href', rp.url.base+'/r/'+multi.join('+'));
             }
         } else {
+            if (photo.subreddit) {
+                $('#navboxDuplicatesMulti').attr('href', rp.redditBaseUrl+'/r/'+photo.subreddit);
+                $('#navboxDuplicatesMultiP').attr('href', rp.url.base+'/r/'+photo.subreddit);
+            }
             $('#duplicateDiv').hide();
         }
     };
@@ -3182,7 +3194,7 @@ $(function () {
     };
 
     var clearRedditLogin = function () {
-        if (rp.session.loginExpire)
+        if (!rp.session.loginExpire)
             return;
 
         rp.session.loginExpire = 0;
@@ -3991,7 +4003,7 @@ $(function () {
 
                 initPhotoVideo(pic, [], item.poster);
 
-                item.children.forEach(function(source) {
+                $.each(item.children, function(index, source) {
                     var src = source.getAttribute('src');
                     if (src === null)
                         return;
@@ -4025,7 +4037,7 @@ $(function () {
         photo = initPhotoAlbum(photo);
         $('<div />').html(html).find('img, video, iframe').each(function(index, item) {
             // init url for relative urls/srcs
-            var pic = { url: photo.url, title: item.alt };
+            var pic = { url: item.src || item.currentSrc, title: item.alt || item.title };
             if (processNeedle(pic, item) && processPhoto(pic)) {
                 addAlbumItem(photo, pic);
                 rc = true;
@@ -4050,7 +4062,13 @@ $(function () {
         photo.extra = localLink(originOf(photo.url), hn, "/wp2/"+hn, "", rp.favicons['wordpress']);
         if (photo.orig_url === undefined)
             photo.orig_url = photo.url;
-        var rc = processHaystack(photo, post.content.rendered, true);
+        var rc = false;
+
+        if (post.content && processHaystack(photo, post.content.rendered, true))
+            rc = true;
+
+        if (post.description && processHaystack(photo, post.description.rendered, true))
+            rc = true;
 
         // Pull down 100, but only videos and images
         var jsonUrl = post._links["wp:attachment"][0].href + '&per_page=100';

@@ -204,6 +204,10 @@ input.textlabel { margin: 0px 5px 0px 0px; }
     font-size: 18px;
 }
 
+li.origlink i {
+    font-size: 18px;
+}
+
 label.checkbox { font-weight: bold; }
 
 .linkflair { 
