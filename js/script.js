@@ -248,12 +248,21 @@ $(function () {
             return "1m";
     }
 
+    // Limit output to 3 significant digits
     function humanReadInt(val) {
-        if (val >= 1000000)
-            return (val/1000000).toFixed(1)+"M";
-        if (val >= 1000)
-            return (val/1000).toFixed(1)+"K";
-        return val;
+        if (val >= 1000000) {
+            val /= 1000000;
+            suffix = "M";
+        } else if (val >= 1000) {
+            val /= 1000;
+            suffix = "K";
+        } else
+            return val;
+
+        if (val > 100)
+            return val.toFixed(0)+suffix;
+        else
+            return val.toFixed(1)+suffix;
     }
 
     var getNextPhotoOk = function(pic) {
@@ -2308,9 +2317,9 @@ $(function () {
 
         // COMMENTS/BUTTON LIST Box
         updateExtraLoad();
-        if (photo.score) {
+        if (photo.score !== undefined) {
             $('#navboxScore').removeClass("hidden");
-            $('#navboxScore').text(humanReadInt(photo.score));
+            $('#navboxScore span').attr('title', 'Score: '+photo.score).text(humanReadInt(photo.score));
         } else
             $('#navboxScore').addClass("hidden");
 

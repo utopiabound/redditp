@@ -188,6 +188,22 @@ input.textlabel { margin: 0px 5px 0px 0px; }
     overflow: hidden;
 }
 
+#navboxScore {
+    position: relative;
+}
+#navboxScore div.reddit {
+    position: absolute;
+    background-image: url(images/upvote.svg);
+    opacity: 0.4;
+    z-index: -1;
+    left: 15px;
+    /* height / width set from .reddit */
+}
+#navboxScore span {
+    width: 34px;
+    text-align: center;
+}
+
 #navboxContents {
     padding: 0px 28px 2px 0;
     margin: 0;
