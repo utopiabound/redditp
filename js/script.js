@@ -1754,6 +1754,7 @@ $(function () {
             } else if (hostname == 'flickr.com') {
                 path = pathnameOf(pic.url);
                 shortid = url2shortid(pic.url, 3);
+                // TODO: albums/sets
                 if (path.startsWith('/photos/') && shortid != 'sets' && shortid != 'albums')
                     pic.type = imageTypes.later;
 
@@ -2987,7 +2988,7 @@ $(function () {
             if (shortid == 'album' || shortid == 'sets') {
                 jsonUrl = flickrJsonURL('flickr.photosets.getPhotos', { photoset_id: url2shortid(photo.url, 4),
                                                                         user_id: userid,
-                                                                        extras: 'url_o,url_h,url_k,url_b'})
+                                                                        extras: 'media,url_o,url_h,url_k,url_b'})
 
                 handleData = function(data) {
                     initPhotoAlbum(photo, false);
@@ -3009,16 +3010,35 @@ $(function () {
                         showImage(photo.thumbnail);
                         return;
                     }
-                    var size = 0;
+                    var sp = 0, sv = 0;
+                    var p, v;
                     for (i = 0; i < data.sizes.size.length; ++i) {
-                        var s = data.sizes.size[i].width+data.sizes.size[i].height;
-                        if (s <= size)
-                            continue;
+                        var s = parseInt(data.sizes.size[i].width, 10)+parseInt(data.sizes.size[i].height, 10);
+                        if (data.sizes.size[i].media == 'photo') {
+                            if (s <= sp)
+                                continue;
 
-                        size = s;
-                        initPhotoImage(photo, data.sizes.size[i].source);
+                            sp = s;
+                            p = data.sizes.size[i];
+                        } else if (data.sizes.size[i].media == 'video') {
+                            if (s <= sv)
+                                continue;
+                            if (extensionOf(data.sizes.size[i].source) == 'swf')
+                                continue;
+                            sv = s;
+                            v = data.sizes.size[i];
+                        }
                     }
-                    if (size == 0)
+                    if (v) {
+                        initPhotoVideo(photo, [], p.source);
+                        if (v.label.toLowerCase().indexOf('mp4') >= 0)
+                            addVideoUrl(photo, 'mp4', v.source);
+                        if (v.label.toLowerCase().indexOf('webm') >= 0)
+                            addVideoUrl(photo, 'webm', v.source);
+                        photo.url = v.url;
+                    } else if (p)
+                        initPhotoImage(photo, p.source);
+                    else
                         initPhotoFailed(photo);
 
                     showPic(photo);
