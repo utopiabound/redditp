@@ -3288,8 +3288,8 @@ $(function () {
         });
 
         // @InstagramName
-        t1 = t1.replace(/(?=^|\W)@([\w.]+)/g, function(match, p1, name) {
-            return p1+titleFLink('https://instagram.com/'+name, '@'+name); });
+        t1 = t1.replace(/(?=^|\W)@([\w.]+)/g, function(match, p1) {
+            return titleFLink('https://instagram.com/'+p1, '@'+p1); });
 
         // r/subreddit
         t1 = t1.replace(/(?=^|\W|\b)\/?(r\/[\w-]+)\s*/gi, function(match, p1) {
