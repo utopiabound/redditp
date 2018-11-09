@@ -449,6 +449,14 @@ $(function () {
         return 'https://api.tumblr.com/v2/blog/'+hn+'/posts?reblog_info=true&api_key='+rp.api_key.tumblr+sid;
     }
 
+    var _infoAnchor = function(url, text, urlalt, classes) {
+        if (urlalt === undefined)
+            urlalt = "";
+        if (classes === undefined)
+            classes = "info infol";
+        return $('<a>', {href: url, class: classes, title: urlalt}).html(text);
+    }
+
     // url - foreign URL
     // local - local URL
     // -- optional --
@@ -466,17 +474,12 @@ $(function () {
             classes = "info";
 
         var data = $('<div/>');
-        data.append($('<a>', { href: rp.url.base+local,
-                               class: classes+" infol local",
-                               title: urlalt }
-                     ).html(text));
-        var link = $('<a>', { href: url,
-                              class: classes+" infor",
-                              title: urlalt });
+        data.append(_infoAnchor(rp.url.base+local, text, urlalt, classes+" infol local"));
+        var link = _infoAnchor(url, '', urlalt, classes+" infor");
         if (favicon === "reddit")
             link.html($('<img>', { class: "reddit",
                                    src: rp.url.root+'images/reddit.svg' }));
-        else
+        else if (favicon !== null)
             setFavicon(link, { url: url, favicon: favicon });
         data.append(link);
         return data.html();
@@ -509,7 +512,7 @@ $(function () {
     // text - Text of foreign link
     var infoLink = function(url, text) {
         var data = $('<div/>');
-        data.append($('<a>', { href: url, class: "info infol" }).html(text));
+        data.append(_infoAnchor(url, text));
         return data.html();
     };
 
@@ -1795,9 +1798,9 @@ $(function () {
         }
 
         var numberButton = $("<a />").html(index + 1)
-                .data("index", index)
-                .attr("title", picTitleText(rp.photos[index]))
-                .attr("id", "numberButton" + (index + 1));
+            .data("index", index)
+            .attr("title", picTitleText(rp.photos[index]))
+            .attr("id", "numberButton" + (index + 1));
 
 
         addButtonClass(numberButton, photo);
@@ -2116,7 +2119,7 @@ $(function () {
             // save prev-1, but don't create it
             next = getPrevSlideIndex(prev);
             if (oldCache[next])
-                 rp.cache[next] = oldCache[next];
+                rp.cache[next] = oldCache[next];
         }
 
         // Preload previous image
@@ -2175,7 +2178,7 @@ $(function () {
 
             if (albumIndex >= rp.photos[imageIndex].album.length) {
                 log.error("["+imageIndex+"] album index ("+albumIndex+") past end of album length:"+
-                      rp.photos[imageIndex].album.length);
+                          rp.photos[imageIndex].album.length);
                 return;
             }
             if (rp.session.activeAlbumIndex == albumIndex && albumIndex >= 0)
@@ -3315,7 +3318,8 @@ $(function () {
             prefix = '';
             mod = 0;
 
-        } else if (s[1] == 'r') {
+        } else if (s[1] == 'r' ||
+                   s[1] == 'domain') {
             base = s.slice(0,3).join('/');
             arr = [ "hot", "new", "top", "rising", "controversial" ];
             mod = (s.length > 3) ?arr.indexOf(s[3]) :0;
@@ -3357,12 +3361,23 @@ $(function () {
         var list = $('#subredditPopup ul');
         list.empty();
         for(var i = 0; i < arr.length; ++i) {
-            var a = $('<a>', { class: "info infol local",
-                               href: rp.url.base+base+((i) ?prefix+arr[i] :""),
-                               title: arr[i] }).text(arr[i]);
+            var a = _infoAnchor(rp.url.base+base+((i) ?prefix+arr[i] :""),
+                                arr[i], arr[i], "info infol local");
             if (mod == i)
                 a.addClass('selected');
-            list.append($('<li>').append(a));
+            var li = $('<li>').append(a);
+            if (arr[i] == 'top') {
+                var tsel = searchValueOf(rp.url.get+rp.url.path, 't');
+                var times = ['day', 'week', 'month', 'year', 'all'];
+                for (var t in times) {
+                    a = _infoAnchor(rp.url.base+base+prefix+"top?sort=top&t="+times[t],
+                                    times[t][0].toUpperCase(), times[t], "info infol local");
+                    if (tsel == times[t])
+                        a.addClass('selected');
+                    li.append(a);
+                }
+            }
+            list.append(li);
         }
 
         $('#choiceTitle').text(base);
@@ -3442,7 +3457,7 @@ $(function () {
             // This could be:
             // comments = [rp.rp.redditBaseUrl, "comments", id].join('/');
             if (!dupe.commentCount || dupe.extraLoaded)
-                    return;
+                return;
             dupe.extraLoaded = true;
             comments = [rp.redditBaseUrl, 'r', dupe.subreddit, "comments", dupe.id].join("/");
 
@@ -4207,14 +4222,9 @@ $(function () {
 
         var hostname = a[2];
 
-        // newest to oldest
-        var urlorder = 'desc';
-        if (a.length > 3) {
-            if (a[3] == "old")
-                urlorder = 'asc';
-            else if (a[3] == "new")
-                urlorder = 'desc';
-        }
+        // desc: newest to oldest
+        // asc: oldest to newest
+        var urlorder = (a.length > 3 && a[3] == 'old') ?'asc' :'desc';
 
         if (rp.wpv2[hostname] === false) {
             rp.session.loadingNextImages = false;
@@ -4306,14 +4316,9 @@ $(function () {
 
         var hostname = a[2];
 
-        // newest to oldest
-        var urlorder = 'DESC';
-        if (a.length > 3) {
-            if (a[3] == "old")
-                urlorder = 'ASC';
-            else if (a[3] == "new")
-                urlorder = 'DESC';
-        }
+        // DESC: newest to oldest
+        // ASC: oldest to newest
+        var urlorder = (a.length > 3 && a[3] == 'old') ?'ASC' :'DESC';
 
         $('#subredditUrl').val('/wp/'+hostname+((a.length > 3) ? "/"+a[3] :""));
 
