@@ -3609,28 +3609,26 @@ $(function () {
                     log.info("cannot display comment["+comment.permalink+"] [no body]: "+photo.url);
                 }
 
-                if (links)
-                    // Add parent image as first child, to ensure it's shown
-                    for (j = 0; j < links.length; ++j) {
-                        img = { author: comment.data.author,
-                                url: links[j].href
-                              };
+                for (j = 0; j < links.length; ++j) {
+                    img = { author: comment.data.author,
+                            url: links[j].href
+                          };
 
-                        if (links[j].innerText !== "" &&
-                            links[j].innerText !== img.url)
-                            img.title = links[j].innerText;
+                    if (links[j].innerText !== "" &&
+                        links[j].innerText !== img.url)
+                        img.title = links[j].innerText;
 
-                        log.debug("RC-Try:["+photo.comments+"]:"+img.url);
-                        if (processPhoto(img))
-                            addAlbumItem(photo, img);
-                        else
-                            // this can be VERY verbose
-                            log.debug("cannot load comment link [no photos]: "+img.url);
-                    }
+                    log.debug("RC-Try:["+photo.comments+"]:"+img.url);
+                    if (processPhoto(img))
+                        addAlbumItem(photo, img);
+                    else
+                        // this can be VERY verbose
+                        log.debug("cannot load comment link [no photos]: "+img.url);
+                }
 
-                if (comment.replies)
-                    for (j = 0; j < comment.replies.data.children.length; ++j)
-                        processRedditComment(photo, comment.replies.data.children[j]);
+                if (comment.data.replies)
+                    for (j = 0; j < comment.data.replies.data.children.length; ++j)
+                        processRedditComment(photo, comment.data.replies.data.children[j]);
             };
 
             for (i = 0; i < comments.length; ++i)
