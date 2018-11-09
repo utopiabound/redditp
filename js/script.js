@@ -41,7 +41,6 @@
  * per-Site Duplicate handling:
  * addPhotoDupe()
  * getRedditDupe()
- * '#navboxExtraLoad'.click()
  * updateDuplicates()
  * animateNavigationBox()
  * processUrls() - RESTORE
@@ -2097,13 +2096,13 @@ $(function () {
         if (photo.subreddit)
             getRedditComments(photo);
 
-        else if (photo.tumblr)
+        else
             getRedditDupe(photo);
 
         photo.duplicates.forEach(function(item) {
             if (item.subreddit)
                 getRedditComments(photo, item);
-            else if (item.tumblr)
+            else
                 getRedditDupe(photo, item);
         });
     });
@@ -3511,6 +3510,10 @@ $(function () {
                 return;
 
             photo.extraLoaded = true;
+
+        } else if (photo.flickr) {
+            site = 'flickr.com';
+            shortid = photo.id;
 
         } else
             return;
