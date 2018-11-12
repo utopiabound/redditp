@@ -996,7 +996,7 @@ $(function () {
         if (hostnameOf(rp.redirect) != window.location.hostname)
             $('.canlogin').remove();
         else
-            $('.canlogin').show();
+            $('.needlogin').hide();
 
         // OS/Browser Specific
         if (/iPad|iPhone|iPod/.test(navigator.platform)) {

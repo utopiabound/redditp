@@ -38,8 +38,6 @@ body {
 #multiListDiv hr { margin: 0; }
 #multiListDiv i.material-icons { font-size: 18px; }
 /* toggled on/off when logged in */
-.needlogin { display: none; }
-.canlogin { display: none; }
 
 /* Selector popup */
 #choiceLi { margin-left: -27px; }
