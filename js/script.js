@@ -3413,12 +3413,13 @@ $(function () {
 
     var setupChoices = function () {
         // Supported choices:
-        // /[*best*, hot, new, top, rising, controversial]
-        // /r/SUBREDDIT/[*hot*, new, top, rising, controversial]
-        // /me/m/MULTI/[*hot*, new, top, rising, controversial]
-        // /user/USERNAME/m/MULTI/[*hot*, new, top, rising, controversial]
-        // /user/USERNAME/submitted?sort=[*new*, top, controversial]
-        var arr = [ "best", "hot", "new", "top", "rising", "controversial" ];
+        // /[*best*, hot, new, top, rising, controversial, gilded]
+        // /r/SUBREDDIT/[*hot*, new, top, rising, controversial, gilded]
+        // /r/freinds [*new*, gilded]
+        // /me/m/MULTI/[*hot*, new, top, rising, controversial, gilded]
+        // /user/USERNAME/m/MULTI/[*hot*, new, top, rising, controversial, gilded]
+        // /user/USERNAME/submitted?sort=[*new*, top, controversial, gilded]
+        var arr = [ "best", "hot", "new", "top", "rising", "controversial", "gilded" ];
         var s = rp.url.subreddit.split('/');
         var prefix = '/';
         var base;
@@ -3433,21 +3434,26 @@ $(function () {
             prefix = '';
             mod = 0;
 
+        } else if (s[2] == 'friends' && s[1] == 'r') {
+            base = s.slice(0,3).join('/');
+            arr = [ "new", 'gilded' ];
+            mod = (s.length > 3) ?arr.indexOf(s[3]) :0;
+
         } else if (s[1] == 'r' ||
                    s[1] == 'domain') {
             base = s.slice(0,3).join('/');
-            arr = [ "hot", "new", "top", "rising", "controversial" ];
+            arr = [ "hot", "new", "top", "rising", "controversial", 'gilded' ];
             mod = (s.length > 3) ?arr.indexOf(s[3]) :0;
 
         } else if (s[1] == 'user') {
             if (s[3] == 'submitted') {
                 // @@ deal with setting vars
-                arr = [ "new", "top", "controversial" ];
+                arr = [ "new", "top", "controversial", 'gilded' ];
                 return;
 
             } else if (s[3] == 'm') {
                 base = s.slice(0,5).join('/');
-                arr = [ "hot", "new", "top", "rising", "controversial" ];
+                arr = [ "hot", "new", "top", "rising", "controversial", 'gilded' ];
                 mod = (s.length > 5) ?arr.indexOf(s[5]) :0;
 
             } else {
@@ -3457,7 +3463,7 @@ $(function () {
 
         } else if (s[1] == 'me') {
             base = s.slice(0,4).join('/');
-            arr = [ "hot", "new", "top", "rising", "controversial" ];
+            arr = [ "hot", "new", "top", "rising", "controversial", 'gilded' ];
             mod = (s.length > 4) ?arr.indexOf(s[4]) :0;
 
         } else if (s[1] == 'wp' ||
