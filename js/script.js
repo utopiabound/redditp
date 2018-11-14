@@ -604,10 +604,13 @@ $(function () {
     };
 
     // Take a URL and strip it down to the "shortid"
-    // url2shortid(url [, index])
+    // url2shortid(url [, index [, seperator]])
     // Index actually starts at 1 since 0 is always empty
     // "/this/is/a/path/".split('/') == [ "", "this", "is", "a", "path", "" ]
-    var url2shortid = function(url, index) {
+    // seperator (usually '-') seperates chafe from shortid
+    // hostname.tld/media/this-is-a-title-SHORTID/widget.extention
+    // url2shortid(url, 2, '-') yields SHORTID
+    var url2shortid = function(url, index, sep) {
         var shortid;
         var path = pathnameOf(url);
 
@@ -615,7 +618,7 @@ $(function () {
         if (a[a.length-1] == "")
             a.pop();
 
-        if (index === undefined || index == -1)
+        if (index === undefined || index == -1 || index >= a.length)
             index = a.length-1;
 
         shortid = a[index];
@@ -623,6 +626,10 @@ $(function () {
         // Trim off file extenstion
         if (shortid.indexOf('.') != -1)
             shortid = shortid.substr(0, shortid.lastIndexOf('.'));
+
+        // Trim down chafe-chafe-chafe<SEP><SHORTID>
+        if (sep !== undefined && shortid.indexOf(sep) != -1)
+            shortid = shortid.substr(shortid.lastIndexOf(sep)+1);
 
         return shortid;
     };
@@ -1505,9 +1512,7 @@ $(function () {
                 pic.type = imageTypes.later;
 
             } else if (hostname == 'gifs.com') {
-                shortid = url2shortid(pic.url);
-                if (shortid.indexOf('-') != -1)
-                    shortid = shortid.substr(shortid.lastIndexOf('-')+1);
+                shortid = url2shortid(pic.url, -1, '-');
 
                 initPhotoVideo(pic, [ 'https://j.gifs.com/'+shortid+'@large.mp4',
                                       'https://j.gifs.com/'+shortid+'.mp4' ],
@@ -1517,16 +1522,8 @@ $(function () {
                 //giphy.com/gifs/NAME-OF-VIDEO-SHORTID
                 //media.giphy.com/media/SHORTID/giphy.TYPE
                 //i.giphy.com/SHORTID.TYPE
-                shortid = pathnameOf(pic.url).split('/')[2];
-                if (shortid)
-                    shortid = shortid.substr(shortid.lastIndexOf('-')+1);
-                else
-                    shortid = url2shortid(pic.url);
-
-                if (shortid)
-                    initPhotoVideo(pic, 'https://i.giphy.com/media/'+shortid+'/giphy.mp4');
-                else
-                    log.info("cannot display video [error parsing]: "+pic.url);
+                shortid = url2shortid(pic.url, 2, '-');
+                initPhotoVideo(pic, 'https://i.giphy.com/media/'+shortid+'/giphy.mp4');
 
             } else if (hostname == 'youtube.com') {
                 // Types of URLS
@@ -1570,8 +1567,7 @@ $(function () {
                 // https://xhamster.com/videos/NAME-OF-VIDEO-SHORTID
                 // https://xhamster.com/movies/SHORID/NAME_OF_VIDEO.html
                 if (pic.url.indexOf('/videos/') > 0) {
-                    shortid = url2shortid(pic.url);
-                    shortid = shortid.substr(shortid.lastIndexOf('-')+1);
+                    shortid = url2shortid(pic.url, -1, '-');
 
                 } else if (pic.url.indexOf('/movies/') > 0) {
                     shortid = url2shortid(pic.url, 2);
@@ -1639,8 +1635,7 @@ $(function () {
                 if (! (path.startsWith('/widge/video-embed') ||
                        path.startsWith('/video/')) )
                     return false;
-                shortid = url2shortid(pic.url);
-                shortid = shortid.substr(shortid.lastIndexOf('-')+1);
+                shortid = url2shortid(pic.url, -1, '-');
 
                 // no autostart
                 initPhotoEmbed(pic, "https://www.nbcnews.com/widget/video-embed/"+shortid);
