@@ -2905,7 +2905,7 @@ $(function () {
             headerData = { Authorization: "Client-ID "+ rp.api_key.imgur };
 
             var imgurHandleAlbum = function (data) {
-                if (data.data.images.length > 1) {
+                if (data.data.images.length > 0) {
                     photo = initPhotoAlbum(photo, false);
                     data.data.images.forEach(function(item) {
                         var pic = { title: fixupTitle(item.title || item.description),
@@ -2920,14 +2920,6 @@ $(function () {
                         addAlbumItem(photo, pic);
                     });
                     checkPhotoAlbum(photo);
-
-                } else if (data.data.images.length == 1) { // single image album
-                    var item = data.data.images[0];
-                    if (item.animated)
-                        initPhotoVideo(photo, fixImgurPicUrl(item.mp4));
-
-                    else
-                        initPhotoImage(photo, fixImgurPicUrl(item.link));
 
                 } else // An empty album
                     initPhotoFailed(photo);
