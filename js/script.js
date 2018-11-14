@@ -1712,6 +1712,9 @@ $(function () {
             } else if (isVideoExtension(pic.url)) {
                 initPhotoVideo(pic);
 
+            } else if (fqdn == 'preview.redd.it') {
+                pic.url = 'https://i.redd.it'+pathnameOf(pic.url);
+
             } else if (isImageExtension(pic.url) ||
                        fqdn == 'i.reddituploads.com') {
                 // simple image
@@ -2308,7 +2311,7 @@ $(function () {
                     li.html(redditLink(subr, item.title));
                     li.append($("<a>", { href: rp.redditBaseUrl + subr + "/comments/"+item.id,
                                          class: 'info infoc',
-                                         title: 'Comments'
+                                         title: (new Date(item.date*1000)).toString(),
                                        }).text('('+item.commentCount+')'));
 
                 } else if (item.tumblr) {
@@ -2460,6 +2463,8 @@ $(function () {
     };
 
     var failedAjax = function (xhr, ajaxOptions, thrownError) {
+        if (xhr.status == 401 && rp.session.loginExpire)
+            clearRedditLogin();
         log.info("ActiveIndex:["+rp.session.activeIndex+"]["+rp.session.activeAlbumIndex+"]");
         log.info("xhr:", xhr);
         log.info("ajaxOptions:", ajaxOptions);
@@ -3326,7 +3331,7 @@ $(function () {
         $('#loginUsername').attr('title', 'Expired');
         $('label[for=login]').html(googleIcon('account_box'));
         $('.needlogin').hide();
-        log.debug("Clearing bearer is obsolete EOL:"+rp.session.loginExpire+" < now:"+Date.now()/1000);
+        log.info("Clearing bearer is obsolete EOL:"+rp.session.loginExpire+" < now:"+Date.now()/1000);
         clearConfig(configNames.redditBearer);
         clearConfig(configNames.redditRefreshBy);
     };
