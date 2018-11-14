@@ -891,6 +891,9 @@ $(function () {
         rp.insecure = getConfig(configNames.insecure);
         if (rp.insecure === undefined)
             rp.insecure = {};
+        rp.blogger = getConfig(configNames.blogger);
+        if (rp.blogger === undefined)
+            rp.blogger = {};
         rp.flickr.u2nsid = getConfig(configNames.nsid);
         // Build reverse map
         if (rp.flickr.u2nsid)
@@ -3861,7 +3864,7 @@ $(function () {
                     return;
                 }
 
-            } else if (( !rp.blogger[hn] || rp.blogger[hn] > 0) &&
+            } else if (( rp.blogger[hn] === undefined || rp.blogger[hn] > 0) &&
                        (path.match(/^\/(?:\d+\/)*([a-z0-9]+(?:-[a-z0-9]+)*.html)$/))) {
                 // Blogger:
                 // 1. lookup blogger blogID by url
