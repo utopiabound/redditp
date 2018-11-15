@@ -459,7 +459,7 @@ $(function () {
         if (!args)
             args = {};
         return 'https://www.flickr.com/services/rest/?method='+method+'&api_key='+rp.api_key.flickr+
-            Object.keys(args).map(k=>'&'+k+'='+args[k]).join("")+
+            Object.keys(args).map((k) => '&'+k+'='+args[k]).join("")+
             '&format=json&jsoncallback=?';
     }
 
@@ -2981,26 +2981,27 @@ $(function () {
                                 extras: 'media,url_o,url_h,url_k,url_b'};
                 jsonUrl = flickrJsonURL('flickr.photosets.getPhotos', ReqData)
                 handleData = function(data) {
-                    var i;
                     if (data.stat !== 'ok') {
-                        if (data.code == 2) {
-                            flickrUserLookup(userid, handleData, 'flickr.photosets.getPhotos', ReqData);
-                        } else {
+                        var errFunc = function(data) {
                             log.info("failed to load flickr [error: "+data.message+"]: "+photo.url)
                             initPhotoFailed(photo);
                             showImage(photo.thumbnail);
-                        }
+                        };
+                        if (data.code == 2)
+                            flickrUserLookup(userid, handleData, 'flickr.photosets.getPhotos', ReqData, errFunc);
+                        else
+                            errFunc(data);
                         return;
                     }
 
                     photo = initPhotoAlbum(photo, false);
                     // TODO: check to see if data.photoset.total > data.photoset.perpage
                     $.each(data.photoset.photo, function(i, item) {
-                        pic = { extra: localLink('https://flickr.com/'+userid,
+                        var pic = { extra: localLink('https://flickr.com/'+userid,
                                                  flickrUserPP(userid),
                                                  '/flickr/'+flickrUserNSID(userid)),
                                 url: flickrPhotoUrl(item),
-                                orig_url: ['https://flickr.com/photos', userid, item.id],
+                                orig_url: ['https://flickr.com/photos', userid, item.id].join('/'),
                                 thumbnail: flickrThumbnail(item) };
                         if (processPhoto(pic))
                             addAlbumItem(photo, pic);
@@ -3433,6 +3434,7 @@ $(function () {
         // /me/m/MULTI/[*hot*, new, top, rising, controversial, gilded]
         // /user/USERNAME/m/MULTI/[*hot*, new, top, rising, controversial, gilded]
         // /user/USERNAME/submitted?sort=[*new*, top, controversial, gilded]
+        // /flickr/USERNAME/[*photos*, albums]
         var arr = [ "best", "hot", "new", "top", "rising", "controversial", "gilded" ];
         var s = rp.url.subreddit.split('/');
         var prefix = '/';
@@ -3483,6 +3485,11 @@ $(function () {
         } else if (s[1] == 'wp' ||
                    s[1] == 'wp2') {
             arr = [ "new", "old" ];
+            base = s.slice(0,3).join('/');
+            mod = (s.length > 3) ?arr.indexOf(s[3]) :0;
+
+        } else if (s[1] == 'flickr') {
+            arr = [ "photos", "albums" ];
             base = s.slice(0,3).join('/');
             mod = (s.length > 3) ?arr.indexOf(s[3]) :0;
 
@@ -4788,7 +4795,10 @@ $(function () {
     };
 
     var flickrThumbnail = function(post) {
-        return 'https://farm'+post.farm+'.staticflickr.com/'+post.server+'/'+post.id+'_'+post.secret+'_z.jpg';
+        if (post.id && post.secret && post.farm && post.server)
+            return 'https://farm'+post.farm+'.staticflickr.com/'+post.server+'/'+post.id+'_'+post.secret+'_z.jpg';
+        else
+            return '';
     }
     // assumes extras included: url_o,url_h,url_k,url_b
     var flickrPhotoUrl = function(post) {
@@ -4820,13 +4830,11 @@ $(function () {
         setConfig(configNames.nsid, rp.flickr.u2nsid);
     };
 
-    var flickrUserLookup = function(user, callback, ReqFunc, ReqData) {
-        jsonUrl = flickrJsonURL('flickr.urls.lookupUser', { url: 'https://flickr.com/photos/'+user });
+    var flickrUserLookup = function(user, callback, ReqFunc, ReqData, errFunc) {
+        var jsonUrl = flickrJsonURL('flickr.urls.lookupUser', { url: 'https://flickr.com/photos/'+user });
         var handleData = function(data) {
             if (data.stat !== 'ok') {
-                log.info("failed to load flickr [error: "+data.message+"]: "+photo.url)
-                initPhotoFailed(photo);
-                showImage(photo.thumbnail);
+                errFunc(data);
                 return;
             }
             flickrAddUserMap(user, data.user.id);
@@ -4851,7 +4859,7 @@ $(function () {
         });
     };
 
-    // URL: /flickr/USER[/ALBUM]
+    // URL: /flickr/USER[/albums]
     // Need user login for safe-search to be off
     // Sizes:
     // o - original
@@ -4867,46 +4875,78 @@ $(function () {
         var a = rp.url.subreddit.split('/');
         var user = a[2];
 
-        // TODO: album/sets
-        // assume: user == flickr.user-id
         if (rp.session.after == undefined)
             rp.session.after = 1;
 
-        var jsonUrl = flickrJsonURL('flickr.people.getPhotos', {user_id: flickrUserNSID(user),
-                                                                extras: 'url_o,url_h,url_k,url_b,date_upload',
-                                                                page: rp.session.after});
-        var handleError = function (xhr) {
-            initPhotoFailed(photo);
-            showImage(photo.thumbnail);
-            //failedAjax(xhr, ajaxOptions, thrownError);
-            log.info('failed to load url [error '+xhr.status+']: ' + photo.url);
-        };
+        var reqFunc, reqData;
+        if (a[3] == 'sets' || a[3] == 'albums') {
+            reqFunc = 'flickr.photosets.getList';
+            reqData = { user_id: flickrUserNSID(user),
+                        primary_photo_extras: 'url_o,url_h,url_k,url_b',
+                        per_page: 20,
+                        page: rp.session.after};
+        } else {
+            reqFunc = 'flickr.people.getPhotos';
+            reqData = { user_id: flickrUserNSID(user),
+                        extras: 'url_o,url_h,url_k,url_b,date_upload',
+                        page: rp.session.after};
+        }
+
+        var jsonUrl = flickrJsonURL(reqFunc, reqData);
+
         var handleData = function(data) {
             if (data.stat !== 'ok') {
-                log.error("cannot load images: "+data.message);
-                rp.session.loadingNextImages = false;
+                var errFunc = function(data) {
+                    log.error("cannot load images: "+data.message);
+                    rp.session.loadingNextImages = false;
+                };
+                if (data.code == 2)
+                    flickrUserLookup(reqData.user_id, handleData, reqFunc, reqData, errFunc);
+                else
+                    errFunc(data);
                 return;
             }
-            if (data.photos.pages == 0) {
+            var info, arrData, arrProcess;
+            if (data.photos) {
+                info = data.photos;
+                arrData = data.photos.photo;
+                arrProcess = function(post) {
+                    if (post.owner != user)
+                        flickrAddUserMap(user, post.owner);
+                    return { title: post.title,
+                             id: post.id,
+                             flickr: { nsid: post.owner },
+                             date: post.dateupload,
+                             url: flickrPhotoUrl(post),
+                             orig_url: ['https://www.flickr.com/photos', post.owner, post.id].join("/"),
+                             over18: false };
+                };
+
+            } else if (data.photosets) {
+                info = data.photosets;
+                arrData = data.photosets.photoset;
+                arrProcess = function(post) {
+                    return { title: post.title._content,
+                             id: post.id,
+                             flickr: { nsid: reqData.user_id },
+                             date: post.date_create,
+                             url: ['https://www.flickr.com/photos', reqData.user_id, 'sets', post.id].join("/"),
+                             thumbnail: flickrPhotoUrl(post.primary_photo_extras),
+                             over18: false };
+                };
+            }
+            if (info.pages == 0) {
                 failCleanup("Flickr user has no images");
                 return;
             }
-            if (data.photos.page < data.photos.pages) {
+            if (info.page < info.pages) {
                 rp.session.loadAfter = getFlickr;
-                rp.session.after = data.photos.page+1;
+                rp.session.after = info.page+1;
             } else
                 rp.session.loadAfter = null;
 
-            data.photos.photo.forEach(function(post) {
-                if (post.owner != user)
-                    flickrAddUserMap(user, post.owner);
-                var photo = { title: post.title,
-                              id: post.id,
-                              flickr: { nsid: post.owner },
-                              date: post.dateupload,
-                              url: flickrPhotoUrl(post),
-                              orig_url: ['https://www.flickr.com/photos', post.owner, post.id].join("/"),
-                              over18: false };
+            arrData.forEach(function(post) {
+                var photo = arrProcess(post);
                 if (processPhoto(photo))
                     addImageSlide(photo);
             });
@@ -5152,6 +5192,7 @@ $(function () {
 
         $('#choiceLi').hide();
 
+        setupChoices();
         if (data && data.photos) {
             log.debug("RESTORING STATE: "+path);
             if (data.photos.length > 1)
@@ -5189,7 +5230,6 @@ $(function () {
 
             log.info("Restored "+path+" and "+rp.photos.length+" images of "+data.photos.length+" at index "+data.index+"."+data.album);
             rp.session.isAnimating = false;
-            setupChoices();
             startAnimation(data.index, data.album);
 
         } else if (rp.url.subreddit.startsWith('/imgur/'))
@@ -5198,15 +5238,13 @@ $(function () {
         else if (rp.url.subreddit.startsWith('/tumblr/'))
             getTumblrBlog();
 
-        else if (rp.url.subreddit.startsWith('/wp/')) {
-            setupChoices();
+        else if (rp.url.subreddit.startsWith('/wp/'))
             getWordPressBlog();
 
-        } else if (rp.url.subreddit.startsWith('/wp2/')) {
-            setupChoices();
+        else if (rp.url.subreddit.startsWith('/wp2/'))
             getWordPressBlogV2();
 
-        } else if (rp.url.subreddit.startsWith('/blogger/'))
+        else if (rp.url.subreddit.startsWith('/blogger/'))
             getBloggerBlog();
 
         else if (rp.url.subreddit.startsWith('/gfycat/user/'))
@@ -5215,10 +5253,8 @@ $(function () {
         else if (rp.url.subreddit.startsWith('/flickr/'))
             getFlickr();
 
-        else {
-            setupChoices();
+        else
             getRedditImages();
-        }
     };
 
     if (rp.settings.alwaysSecure)
