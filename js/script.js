@@ -2911,13 +2911,13 @@ $(function () {
         } else if (hostname == 'imgur.com') {
             headerData = { Authorization: "Client-ID "+ rp.api_key.imgur };
 
-            var imgurHandleAlbum = function (data) {
-                if (data.data.images.length > 0) {
+            var imgurHandleAlbum = function (list, o_link) {
+                if (list.length > 0) {
                     photo = initPhotoAlbum(photo, false);
-                    data.data.images.forEach(function(item) {
+                    list.forEach(function(item) {
                         var pic = { title: fixupTitle(item.title || item.description),
                                     url: item.link,
-                                    o_url: data.data.link,
+                                    o_url: o_link,
                                   };
                         if (item.animated)
                             initPhotoVideo(pic, fixImgurPicUrl(item.mp4));
@@ -2937,10 +2937,12 @@ $(function () {
             if (photo.url.indexOf('/a/') > 0) {
                 jsonUrl = "https://api.imgur.com/3/album/" + shortid;
 
-                handleData = imgurHandleAlbum;
+                handleData = function(data) {
+                    imgurHandleAlbum(data.data.images, data.data.link);
+                }
 
             } else if (photo.url.indexOf('/gallery/') > 0) {
-                jsonUrl = "https://api.imgur.com/3/album/" + shortid;
+                jsonUrl = "https://api.imgur.com/3/gallery/" + shortid;
 
                 handleError = function () {
                     initPhotoImage(photo, "https://i.imgur.com/"+shortid+".jpg");
@@ -2955,7 +2957,14 @@ $(function () {
                         showImage(photo.url);
                         return;
                     }
-                    imgurHandleAlbum(data);
+                    var list;
+                    if (Array.isArray(data.data))
+                        list = data.data;
+                    else if (data.data.is_album)
+                        list = data.data.images;
+                    else
+                        list = [ data.data ];
+                    imgurHandleAlbum(list, "https://imgur.com/gallery/"+shortid);
                 };
 
             } else {
