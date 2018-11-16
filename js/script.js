@@ -1519,10 +1519,12 @@ $(function () {
 
             } else if (hostname == 'streamable.com' ||
                        hostname == 'vid.me' ||
+                       hostname == 'apnews.com' ||
                        hostname == 'pornbot.net' ||
                        hostname == 'deviantart.com') {
-                // These domains should always be processed later
-                pic.type = imageTypes.later;
+                if (url2shortid(pic.url))
+                    // These domains should always be processed later
+                    pic.type = imageTypes.later;
 
             } else if (hostname == 'gifs.com') {
                 shortid = url2shortid(pic.url, -1, '-');
@@ -3066,6 +3068,30 @@ $(function () {
                     showPic(photo);
                 };
             }
+
+        } else if (hostname == 'apnews.com') {
+            jsonUrl = 'https://storage.googleapis.com/afs-prod/contents/urn:publicid:ap.org:'+shortid;
+
+            handleData = function(data) {
+                if (data.mediaCount == 0) {
+                    initPhotoThumb(photo);
+                    showPic(photo);
+                    return;
+                }
+                photo = initPhotoAlbum(photo, false);
+                data.media.forEach(function(item) {
+                    var pic = { url: item.gcsBaseUrl+item.imageRenderedSizes[0]+item.imageFileExtension,
+                                title: item.flattenedCaption || item.altText };
+                    if (item.videoFileExtension)
+                        initPhotoVideo(pic, item.gcsBaseUrl+item.videoRenderedSizes[0]+item.videoFileExtension,
+                                       pic.url);
+
+                    if (processPhoto(pic))
+                        addAlbumItem(photo, pic);
+                    });
+                checkPhotoAlbum(photo);
+                showPic(photo);
+            };
 
         } else if (hostname == 'vid.me') {
             jsonUrl = 'https://api.vid.me/videoByUrl/' + shortid;
