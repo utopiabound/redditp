@@ -1272,19 +1272,6 @@ $(function () {
         return photo;
     };
 
-    // Get the nth album item from the parent of pic
-    // This is for if a pic may have been removed and the album reindex
-    var photoIndex = function (pic, index) {
-        var photo = photoParent(pic);
-        if (photo.type != imageTypes.album)
-            return photo;
-        if (index == -1)
-            index = 0;
-        else if (index == LOAD_PREV_ALBUM)
-            index = photo.album.length-1;
-        return photo.album[index];
-    };
-
     // Call to destroy album
     var laterPhotoFailed = function(photo) {
         // don't clear if album was populated
@@ -1308,11 +1295,14 @@ $(function () {
         if (imageIndex < 0)
             return 0;
 
-        if (albumIndex !== undefined && albumIndex >= 0)
-            return albumIndex;
+        if (albumIndex !== undefined) {
+            if (albumIndex == LOAD_PREV_ALBUM ||
+                albumIndex >= photo.album.length)
+                return photo.album.length-1;
 
-        if (albumIndex === LOAD_PREV_ALBUM)
-            return photo.album.length-1;
+            if (albumIndex >= 0)
+                return albumIndex;
+        }
 
         if (imageIndex != rp.session.activeIndex)
             return 0;
@@ -2931,7 +2921,7 @@ $(function () {
                 } else // An empty album
                     initPhotoFailed(photo);
 
-                showPic(photoIndex(photo, albumIndex));
+                showPic(photo);
             };
 
             if (photo.url.indexOf('/a/') > 0) {
@@ -3200,7 +3190,7 @@ $(function () {
                 photo.extra = localLink(data.response.blog.url, data.response.blog.name,
                                         '/tumblr/'+data.response.blog.name, data.response.blog.title, rp.favicons.tumblr);
                 processTumblrPost(photo, data.response.posts[0]);
-                showPic(photoIndex(photo, albumIndex));
+                showPic(photo);
             };
 
         } else if (hostname == 'wordpress.com') {
@@ -3211,7 +3201,7 @@ $(function () {
 
             handleData = function(data) {
                 processWordPressPost(photo, data);
-                showPic(photoIndex(photo, albumIndex));
+                showPic(photo);
             };
 
         } else {
