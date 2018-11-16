@@ -3259,20 +3259,20 @@ $(function () {
         }
 
         // process individual file
-        if (hostname.indexOf('i.') !== 0) {
+        if (hostname.indexOf('i.') !== 0)
             url = url.replace(/[\w.]*imgur.com/i, 'i.imgur.com');
-        }
         // convert gifs to videos
         url = url.replace(/gifv$/, "mp4");
 
         if (isImageExtension(url)) {
             // remove _d.jpg which is thumbnail
-            url = url.replace(/_d(.[^./])/, "$1");
+            url = url.replace(/_d(\.[^./])/, "$1");
+            // remove r.jpg which is reduced size
+            url = url.replace(/(\/\w{7})r/, "$1");
 
+        } else if (!isVideoExtension(url))
             // imgur is really nice and serves the image with whatever extension
             // you give it. '.jpg' is arbitrary
-        } else if (!isImageExtension(url) &&
-                   !isVideoExtension(url))
             url += ".jpg";
         return url;
     };
