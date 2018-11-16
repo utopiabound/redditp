@@ -2357,20 +2357,17 @@ $(function () {
 
         // COMMENTS/BUTTON LIST Box
         updateExtraLoad();
-        if (photo.score !== undefined) {
-            $('#navboxScore').removeClass("hidden");
-            $('#navboxScore span').attr('title', 'Score: '+photo.score).text(humanReadInt(photo.score));
-        } else
-            $('#navboxScore').addClass("hidden");
 
         var url = image.o_url || image.url;
-        $('#navboxOrigLink').attr('href', url);
+        $('#navboxOrigLink').attr('href', url).removeClass('hidden');
         setFavicon($('#navboxOrigLink'), image, url);
 
         if (albumIndex >= 0) {
             $('#navboxAlbumOrigLink').attr('href', photo.o_url).attr('title', photo.title+" (a)");
             setFavicon($('#navboxAlbumOrigLink'), photo);
             $('#navboxAlbumOrigLink').removeClass('hidden');
+            if (url == photo.o_url)
+                $('#navboxOrigLink').addClass('hidden');
         } else
             $('#navboxAlbumOrigLink').addClass('hidden');
 
@@ -2383,6 +2380,11 @@ $(function () {
         var flair = picFlair(image);
         if (flair)
             $('#navboxTitle').prepend($('<span>', { class: 'linkflair' }).text(flair));
+        if (photo.score !== undefined) {
+            $('#navboxScore').removeClass("hidden");
+            $('#navboxScore span').attr('title', 'Score: '+photo.score).text(humanReadInt(photo.score));
+        } else
+            $('#navboxScore').addClass("hidden");
         $('#navboxLink').attr('href', image.url).attr('title', picTitleText(image)+" (i)").html(typeIcon(image.type));
         $('#navboxExtra').html(picExtra(image));
         if (albumIndex >= 0)
