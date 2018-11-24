@@ -5157,6 +5157,12 @@ $(function () {
         // replace /u/ with /user/
         rp.url.subreddit = rp.url.subreddit.replace(/\/u\//, "/user/");
 
+        $('a.hardlink').each(function(index, item) {
+            var href = pathnameOf(item.href);
+            item.href = rp.url.base+href;
+            item.classList.remove('hardlink');
+        });
+
         // Auth Response - only ever uses window.location
         if (rp.url.subreddit == "/auth" ||
             rp.url.subreddit == "/" && rp.url.path.startsWith('/access_token')) {
