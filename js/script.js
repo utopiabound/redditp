@@ -1581,17 +1581,12 @@ $(function () {
             } else if (hostname == 'xhamster.com') {
                 // https://xhamster.com/videos/NAME-OF-VIDEO-SHORTID
                 // https://xhamster.com/movies/SHORID/NAME_OF_VIDEO.html
-                if (pic.url.indexOf('/videos/') > 0) {
-                    shortid = url2shortid(pic.url, -1, '-');
-
-                } else if (pic.url.indexOf('/movies/') > 0) {
-                    shortid = url2shortid(pic.url, 2);
-
-                } else {
-                    log.info("cannot parse url [unknown format]: "+pic.url);
+                shortid = url2shortid(pic.url, 2, '-');
+                if (!shortid.match(/^\d+$/)) {
+                    log.info("cannot display photo [unknown format]: "+pic.url);
                     return false;
                 }
-                initPhotoEmbed(pic, "https://xhamster.com/xembed.php?video="+shortid+'&autoplay=1');
+                initPhotoEmbed(pic, "https://xhamster.com/embed/"+shortid+'?autoplay=1');
 
             } else if (hostname == 'tube8.com') {
                 shortid = pathnameOf(pic.url);
@@ -1601,15 +1596,19 @@ $(function () {
                 shortid = url2shortid(pic.url);
                 initPhotoEmbed(pic, 'https://embed.redtube.com/?bgcolor=000000&autoplay=1&id='+shortid);
 
-            } else if (hostname == 'youporn.com') {
-                // https://www.youporn.com/watch/SHORTID/TEXT-NAME-IN-URL/
-                shortid = url2shortid(pic.url, 2);
-                initPhotoEmbed(pic, "https://www.youporn.com/embed/"+shortid+'?autoplay=1');
-
             } else if (hostname == 'vimeo.com') {
                 shortid = url2shortid(pic.url);
                 initPhotoEmbed(pic, 'https://player.vimeo.com/video/'+shortid+'?autoplay=1');
 
+            } else if (hostname == 'keezmovies.com' ||
+                       hostname == 'extremetube.com' ||
+                       hostname == 'youporn.com' ||
+                       hostname == 'dirtybase.com' ||
+                       hostname == 'sendvid.com' ||
+                       hostname == 'smutr.com') {
+                // not all of these sites support autoplay
+                shortid = url2shortid(pic.url, 2);
+                initPhotoEmbed(pic, originOf(pic.url)+'/embed/'+shortid+'?autoplay=1');
 
                 // NO AUTOPLAY BELOW HERE
 
@@ -1629,10 +1628,6 @@ $(function () {
                 // no autostart
                 shortid = url2shortid(pic.url, 1);
                 initPhotoEmbed(pic, 'https://www.xvideos.com/embedframe/'+shortid.replace("video", ""));
-
-            } else if (hostname == 'keezmovies.com') {
-                // no autostart
-                initPhotoEmbed(pic, 'https://www.keezemovies.com/embed/'+url2shortid(pic.url));
 
             } else if (hostname == 'spankbang.com') {
                 // no autostart
@@ -1734,14 +1729,6 @@ $(function () {
             } else if (hostname == 'gyazo.com') {
                 shortid = url2shortid(pic.url);
                 pic.url = 'https://i.gyazo.com/'+shortid+'.png';
-
-            } else if (hostname == 'sendvid.com') {
-                shortid = url2shortid(pic.url);
-                // this currently redirects to a 404
-                //initPhotoVideo(pic, 'https://cache.sendvid.com/'+shortid+'.mp4',
-                //               'https://cache.sendvid.com/'+shortid+'.jpg');
-                // no autostart
-                initPhotoEmbed(pic, 'https://sendvid.com/embed/'+shortid);
 
             } else if (hostname == 'vidble.com') {
                 if (pic.url.indexOf("/watch?v=") > 0) {
@@ -3323,6 +3310,7 @@ $(function () {
             hostname == 'xhamster.com' ||
             hostname == 'youporn.com' ||
             hostname == 'imgur.com' ||
+            hostname == 'sendvid.com' ||
             hostname == 'pornbot.net')
             url = url.replace(/^http:/, "https:");
 
