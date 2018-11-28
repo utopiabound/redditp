@@ -3670,31 +3670,33 @@ $(function () {
                     return;
                 }
 
-                var links = [];
-                if (comment.data.body_html) {
+                if (comment.data.score >= rp.session.minScore) {
+                    var links = [];
+                    if (comment.data.body_html) {
 
-                    var haystack = $('<div />').html(unescapeHTML(comment.data.body_html));
+                        var haystack = $('<div />').html(unescapeHTML(comment.data.body_html));
 
-                    links = haystack.find('a');
-                } else {
-                    log.info("cannot display comment["+comment.permalink+"] [no body]: "+photo.url);
-                }
+                        links = haystack.find('a');
+                    } else {
+                        log.info("cannot display comment["+comment.permalink+"] [no body]: "+photo.url);
+                    }
 
-                for (j = 0; j < links.length; ++j) {
-                    img = { author: comment.data.author,
-                            url: links[j].href
-                          };
+                    for (j = 0; j < links.length; ++j) {
+                        img = { author: comment.data.author,
+                                url: links[j].href
+                              };
 
-                    if (links[j].innerText !== "" &&
-                        links[j].innerText !== img.url)
-                        img.title = links[j].innerText;
+                        if (links[j].innerText !== "" &&
+                            links[j].innerText !== img.url)
+                            img.title = links[j].innerText;
 
-                    log.debug("RC-Try:["+photo.comments+"]:"+img.url);
-                    if (processPhoto(img))
-                        addAlbumItem(photo, img);
-                    else
-                        // this can be VERY verbose
-                        log.debug("cannot load comment link [no photos]: "+img.url);
+                        log.debug("RC-Try:["+photo.comments+"]:"+img.url);
+                        if (processPhoto(img))
+                            addAlbumItem(photo, img);
+                        else
+                            // this can be VERY verbose
+                            log.debug("cannot load comment link [no photos]: "+img.url);
+                    }
                 }
 
                 if (comment.data.replies)
