@@ -1489,10 +1489,6 @@ $(function () {
                         if (a[2] == 'wp-content')
                             pic.url = 'https://'+a.slice(1).join('/');
                     }
-                } else if (pic.thumb === "") {
-                    log.info('cannot display url [no thumbnail]: ' + pic.url);
-                    return false;
-
                 } else if (url2shortid(pic.url) === "") {
                     log.info('cannot display url [no shortid]: ' + pic.url);
                     return false;
@@ -3216,7 +3212,7 @@ $(function () {
 
             handleData = function(data) {
                 processWordPressPost(photo, data);
-                showPic(photo);
+                showPic(photoParent(photo));
             };
 
         } else {
@@ -3670,7 +3666,7 @@ $(function () {
                     return;
                 }
 
-                if (comment.data.score >= rp.session.minScore) {
+                if (comment.data.score >= rp.settings.minScore) {
                     var links = [];
                     if (comment.data.body_html) {
 
