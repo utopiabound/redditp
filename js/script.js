@@ -2228,6 +2228,7 @@ $(function () {
                       index: rp.session.activeIndex,
                       album: rp.session.activeAlbumIndex,
                       after: rp.session.after,
+                      subreddit: rp.url.subreddit,
                       loadAfter: (rp.session.loadAfter) ?rp.session.loadAfter.name :null,
                       filler: null};
         rp.history.replaceState(state, "", rp.url.path); 
@@ -5104,9 +5105,21 @@ $(function () {
         var results = regex.exec(path);
 
         log.debug('url split results: '+results);
-        if (results !== null) {
+        if (data) {
+            rp.url.subreddit = data.subreddit;
+            if (results)
+                rp.url.vars = decodeUrl(results[2]);
+
+        } else if (results !== null) {
             rp.url.subreddit = results[1];
             rp.url.vars = decodeUrl(results[2]);
+
+            // Remove .compact as it interferes with .json (we got "/r/all/.compact.json" which doesn't work).
+            rp.url.subreddit = rp.url.subreddit.replace(/.compact/, "");
+            // Consolidate double slashes to avoid r/all/.compact/ -> r/all//
+            rp.url.subreddit = rp.url.subreddit.replace(/\/{2,}/, "/");
+            // replace /u/ with /user/
+            rp.url.subreddit = rp.url.subreddit.replace(/\/u\//, "/user/");
 
         } else {
             rp.url.vars = '';
@@ -5135,13 +5148,6 @@ $(function () {
 
         if (rp.url.vars !== '')
             rp.url.vars = '&' + rp.url.vars;
-
-        // Remove .compact as it interferes with .json (we got "/r/all/.compact.json" which doesn't work).
-        rp.url.subreddit = rp.url.subreddit.replace(/.compact/, "");
-        // Consolidate double slashes to avoid r/all/.compact/ -> r/all//
-        rp.url.subreddit = rp.url.subreddit.replace(/\/{2,}/, "/");
-        // replace /u/ with /user/
-        rp.url.subreddit = rp.url.subreddit.replace(/\/u\//, "/user/");
 
         $('a.hardlink').each(function(index, item) {
             var href = pathnameOf(item.href);
