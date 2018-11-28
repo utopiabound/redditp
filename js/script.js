@@ -2866,7 +2866,7 @@ $(function () {
         var shortid = url2shortid(url);
 
         if (hostname == 'gfycat.com') {
-            jsonUrl = "https://gfycat.com/cajax/get/" + shortid;
+            jsonUrl = "https://api.gfycat.com/v1/gfycats/" + shortid;
 
             handleData = function (data) {
                 if (data.gfyItem === undefined) {
