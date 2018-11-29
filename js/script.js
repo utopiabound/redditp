@@ -3279,8 +3279,8 @@ $(function () {
         if (isImageExtension(url)) {
             // remove _d.jpg which is thumbnail
             url = url.replace(/_d(\.[^./])/, "$1");
-            // remove r.jpg which is reduced size
-            url = url.replace(/(\/\w{7})r/, "$1");
+            // remove thumbnail modifier
+            url = url.replace(/(\/\w{7})[sbtrlg]/, "$1");
 
         } else if (!isVideoExtension(url))
             // imgur is really nice and serves the image with whatever extension
