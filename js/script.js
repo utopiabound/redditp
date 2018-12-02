@@ -475,7 +475,7 @@ $(function () {
         if (!args)
             args = {};
         return 'https://www.flickr.com/services/rest/?method='+method+'&api_key='+rp.api_key.flickr+
-            Object.keys(args).map((k) => '&'+k+'='+args[k]).join("")+
+            Object.keys(args).map(function(k){ return '&'+k+'='+args[k]}).join("")+
             '&format=json&jsoncallback=?';
     }
 
