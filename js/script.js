@@ -1465,7 +1465,14 @@ $(function () {
         var orig_hn = hostnameOf(pic.o_url, true);
 
         try {
-            if (hostname == 'imgur.com') {
+            if (pic.type == imageTypes.thumb &&
+                (orig_hn == 'dropbox.com' ||
+                 orig_hn == 'tumblr.com')) {
+                // capture items we want to skip from tryPreview()
+                log.info("REJECTED: "+pic.o_url);
+                return false;
+
+            } else if (hostname == 'imgur.com') {
                 pic.url = fixImgurPicUrl(pic.url);
                 if (pic.url.indexOf("/a/") > 0 ||
                     pic.url.indexOf('/gallery/') > 0)
@@ -1679,11 +1686,6 @@ $(function () {
                 } else {
                     return false;
                 }
-
-            } else if (orig_hn == 'dropbox.com' && pic.type == imageTypes.thumb) {
-                // capture items we want to skip from tryPreview()
-                log.info("REJECTED: "+pic.o_url);
-                return false;
 
             } else if (hostname == 'webm.land') {
                 shortid = url2shortid(pic.url);
