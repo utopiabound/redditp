@@ -20,6 +20,7 @@
  * redditp-redditRefreshBy      - int     - time that bearer token expires
  * redditp-shouldAutoNextSlide  - boolean - on timeout, go to next image
  * redditp-showEmbed            - boolean - Show embeded content (iframes, no timeout)
+ * redditp-showUserSub          - boolean - Show user subreddits in duplicates
  * redditp-timeToNextSlide      - int     - timeout in seconds
  * redditp-wordpressv2          - hash of booleans      - cached result of speculative WPv2 lookup
  * redditp-insecure             - hash of booleans      - cached result of https GET of WPv2 lookup
@@ -123,7 +124,9 @@ rp.settings = {
     // show Embeded Items
     embed: false,
     // show NSFW Items
-    nsfw: false
+    nsfw: false,
+    // Show user subreddit links in duplicates
+    usersub: false,
 };
 
 rp.mime2ext = {
@@ -244,6 +247,7 @@ $(function () {
     const configNames = {
         nsfw: "nsfw",
         embed: "showEmbed",
+        usersub: "showUserSub",
         shouldAutoNextSlide: "shouldAutoNextSlide",
         timeToNextSlide: "timeToNextSlide",
         minScore: "minScore",
@@ -741,54 +745,59 @@ $(function () {
         preventDefaultEvents: false
     });
 
-    var OPENSTATE_ATTR = "data-openstate";
+    var STATE = "openstate";
     $('.collapser').click(function () {
-        var state = $(this).attr(OPENSTATE_ATTR);
+        var state = $(this).data(STATE);
         if (state == "open") {
             // close it
-            $(this).html("&rarr;");
+            sym = $(this).attr('symbol-close');
+            if (sym)
+                $(this).html(sym);
+            else
+                $(this).html("&rarr;");
             // move to the left just enough so the collapser arrow is visible
             var arrowLeftPoint = $(this).position().left;
             $(this).parent().animate({
                 left: "-" + arrowLeftPoint + "px"
             });
-            $(this).attr(OPENSTATE_ATTR, "closed");
+            $(this).data(STATE, "closed");
         } else {
             // open it
-            $(this).html("&larr;");
+            sym = $(this).attr('symbol-open');
+            if (sym)
+                $(this).html(sym);
+            else
+                $(this).html("&larr;");
             $(this).parent().animate({
                 left: "0px"
             });
-            $(this).attr(OPENSTATE_ATTR, "open");
+            $(this).data(STATE, "open");
         }
     });
 
-    var CONTROLDIV_ATTR="data-controldiv";
-    var OPENSYMBOL_ATTR="data-opensym";
-    var CLOSESYMBOL_ATTR="data-closesym";
     $('.vcollapser').click(function () {
-        var state = $(this).attr(OPENSTATE_ATTR);
-        var divname = $(this).attr(CONTROLDIV_ATTR);
+        var state = $(this).data(STATE);
+        var divname = $(this).data('controldiv');
         var div = $('#'+divname);
         var sym;
         if (state == "open") {
             // close it
-            sym = $(this).attr(CLOSESYMBOL_ATTR);
+            sym = $(this).attr('symbol-close');
             if (sym)
                 $(this).html(sym);
             else
                 $(this).html("&darr;"); // down arrow
             $(div).hide();
-            $(this).attr(OPENSTATE_ATTR, "closed");
-        } else {
+            $(this).data(STATE, "closed");
+        } else { // closed or empty
             // open it
-            sym = $(this).attr(OPENSYMBOL_ATTR);
+            sym = $(this).attr('symbol-open');
             if (sym)
                 $(this).html(sym);
             else
                 $(this).html("&uarr;"); // up arrow
             $(div).show();
-            $(this).attr(OPENSTATE_ATTR, "open");
+            $(this).data(STATE, "open");
         }
     });
 
@@ -924,12 +933,19 @@ $(function () {
         else
             rp.flickr.u2nsid = {};
 
-        ["nsfw", "embed"].forEach(function (item) {
+        ["nsfw", "embed", "usersub"].forEach(function (item) {
             var config = getConfig(configNames[item]);
             var ref = $('#'+item);
             ref.change(function () {
                 var id = $(this).attr('id');
                 rp.settings[id] = $(this).is(':checked');
+                var cl = $(this).data('toggle-class');
+                if (cl) {
+                    if (rp.settings[id])
+                        $('.'+cl).removeClass('hidden');
+                    else
+                        $('.'+cl).addClass('hidden');
+                }
                 setConfig(configNames[id], rp.settings[id]);
             });
             if (config !== undefined)
@@ -1340,7 +1356,7 @@ $(function () {
                 ul.append(albumButtonLi(pic, index));
             });
 
-            if ($('#albumCollapser').attr(OPENSTATE_ATTR) == "closed")
+            if ($('#albumCollapser').data(STATE) == "closed")
                 $(div).hide();
         } else {
             $(div).hide();
@@ -2276,9 +2292,8 @@ $(function () {
         if (!isActive(photo))
             return;
         $('#duplicateUl').html("");
+        var total = 0;
         if (photo.dupes.length > 0) {
-            if ($('#duplicateCollapser').attr(OPENSTATE_ATTR) == "open")
-                $('#duplicateDiv').show();
             var multi = []
             if (photo.subreddit)
                 multi.push(photo.subreddit);
@@ -2287,6 +2302,15 @@ $(function () {
 
                 if (item.subreddit) {
                     var subr = '/r/' +item.subreddit;
+
+                    if (item.subreddit.startsWith('u_')) {
+                        li.addClass('usersub');
+                        if (rp.settings.usersub)
+                            ++ total;
+                        else
+                            li.addClass('hidden');
+                    } else
+                        ++ total;
 
                     multi.push(item.subreddit);
                     li.html(redditLink(subr, item.title));
@@ -2316,8 +2340,15 @@ $(function () {
                 $('#navboxDuplicatesMulti').attr('href', rp.redditBaseUrl+'/r/'+photo.subreddit);
                 $('#navboxDuplicatesMultiP').attr('href', rp.url.base+'/r/'+photo.subreddit);
             }
-            $('#duplicateDiv').hide();
         }
+        if ($('#duplicateCollapser').data(STATE) != "closed")
+            if (total > 0) {
+                $('#duplicateCollapser').data(STATE, 'open');
+                $('#duplicates').show();
+            } else {
+                $('#duplicateCollapser').data(STATE, 'empty');
+                $('#duplicates').hide();
+            }
     };
 
     //

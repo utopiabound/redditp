@@ -50,7 +50,6 @@ body {
 #choiceLi a { display: inline-block; }
 #choiceLi li { display: block; padding: 2px; }
 
-
 /* PLAY BUTTON */
 #playbutton {
     top: 45%;
@@ -143,7 +142,7 @@ a.embed:before { content: "ondemand_video"; }
 
 #controlsDiv {position: absolute; bottom: 0; left: 0; }
 #titleDiv { position: absolute; top: 0; left: 0; right: 0; }
-#duplicateDiv { position: relative; top: 0; left: 0; right: 0; overflow: auto; }
+#duplicates { position: relative; top: 0; left: 0; right: 0; overflow: auto; }
 #subredditUrl { border: 1px dashed; background-color: black; color: white; }
 
 .title { padding: 2px; font-weight: bold; font-size: 20px; }
@@ -321,16 +320,15 @@ input[type=checkbox]:checked + label.colortoggle {
 }
 
 .redditp {
-    text-align: center;
-    height: 16px;
-    width: 16px;
+    height: 24px;
+    width: 24px;
+    margin: -5px;
 }
 
 .reddit {
     height: 24px;
     width: 24px;
     margin: -5px;
-    border: 0;
 }
 
 .right {

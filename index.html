@@ -24,7 +24,7 @@
 
     <div id="controlsDiv" class="navbox clouds fadeOnIdle">
       <div class="collapser" data-openstate="open">&larr;</div>
-      <div id="albumCollapser" class="vcollapser" data-opensym="&#8858;" data-closesym="&otimes;"
+      <div id="albumCollapser" class="vcollapser" symbol-open="&#8858;" symbol-close="&otimes;"
 	   data-openstate="open" data-controldiv="albumNumberButtons" title="Show Album Buttons">&#8858;</div>
       <div id="navboxContents">
 	<ul class="nbmenu">
@@ -125,14 +125,21 @@
 	<div id="navboxAuthor"></div>
 	<div id="navboxExtra"></div>
       </div>
-      <div id="duplicateCollapser" class="vcollapser" data-opensym="&#8858;" data-closesym="&otimes;"
-	   data-openstate="open" data-controldiv="duplicateDiv" title="Hide/Show Duplicates (u)">&#8858;</div>
-      <div id="duplicateDiv" class='navbox'>
-	<h3><a id='navboxDuplicatesLink' href="#" class="infol" title="Show Duplciates (d)">Duplicates
-	  </a><a id='navboxDuplicatesMultiP' href="#" class="infop local"><img class="redditp" src="images/favicon.png" />
-	  </a><a id='navboxDuplicatesMulti' href="#" title="MultiReddit of duplicate subreddits (r)" class="infoc">
-	    <img class="reddit" src="images/reddit.svg" /></a>
-	</h3>
+      <div id="duplicateCollapser" class="vcollapser" symbol-open="&#8858;" symbol-close="&otimes;"
+	   data-openstate="open" data-controldiv="duplicates" title="Hide/Show Duplicates (u)">&#8858;</div>
+      <div id="duplicates" class='navbox'>
+	<ul>
+	<li><h3><a id='navboxDuplicatesLink' href="#" class="infol" title="Show Duplciates (d)">Duplicates</a></h3></li>
+	<li><a id='navboxDuplicatesMultiP' href="#" class="infop local"><img class="redditp" src="images/favicon.png" /></a></li>
+	<li><a id='navboxDuplicatesMulti' href="#" title="MultiReddit of duplicate subreddits (r)" class="infoc">
+	    <img class="reddit" src="images/reddit.svg" /></a></li>
+	<li>
+	    <input class="checkbox icontoggle" type="checkbox" name="usersub" id="usersub" value="Auto"
+		   data-toggle-class="usersub" icon-on="person_add" icon-off="person_outline" />
+	    <label class="infoc icontoggle colortoggle" for="usersub" title="Show User subreddits">
+	      <i class="material-icons">person_outline</i></label>
+	</li>
+	</ul>
 	<ul id="duplicateUl" />
       </div>
     </div>
