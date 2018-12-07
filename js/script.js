@@ -1436,7 +1436,7 @@ $(function () {
         else if (button == undefined)
             button = $('#albumNumberButtons ul').children(":nth-child("+(parent.album.indexOf(pic)+1)+")").children("a");
 
-        button.removeClass('embed album over18 later video');
+        button.removeClass('embed album over18 later video failed');
         if (isActive(parent))
             $("#albumNumberButtons").hide();
 
@@ -1635,6 +1635,7 @@ $(function () {
                 // NO AUTOPLAY BELOW HERE
 
             } else if (hostname == 'openload.co' ||
+                       hostname == 'oload.icu' ||
                        hostname == 'oload.download') {
                 // //openload.co/embed/SHORTID/Name_Of_original_file
                 // //openload.co/f/SHORTID/Title_of_picture
