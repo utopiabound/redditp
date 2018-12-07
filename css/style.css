@@ -163,7 +163,12 @@ h3 { padding: 2px; font-weight: bold; font-size: 16px; }
 .infoc { margin: 3px 5px -5px 0px; }
 
 label.textlabel { font-weight: bold; font-size: 12px; margin: 0px 0px 0px 2px; }
-input.textlabel { margin: 0px 5px 0px 0px; }
+input.textlabel {
+    height: 16px;
+    width: 16px;
+    text-align: center;
+    margin: 0px 5px 0px 0px;
+}
 
 .navbox p { padding:20px 20px 20px 20px; font-size:13px; color:#111; }
 .navbox p.bottom { position:absolute; bottom:5px; right:5px; }
@@ -231,6 +236,11 @@ label.checkbox { font-weight: bold; }
     font-weight: normal;
     margin: 1px;
     padding: 1px;
+}
+
+.favicon {
+    height: 16px;
+    width: 16px;
 }
 
 .favicon:hover {

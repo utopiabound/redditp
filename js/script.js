@@ -981,9 +981,11 @@ $(function () {
         updateTimeToNextSlide(getConfig(configNames.timeToNextSlide));
 
         var updateMinScore = function(c_val) {
-            if (c_val === undefined)
+            if (!isFinite(c_val))
                 c_val = $('#minScore').val();
             var val = parseInt(c_val, 10);
+            if (!(val >= 0))
+                return;
             rp.settings.minScore = val;
             setConfig(configNames.minScore, rp.settings.minScore);
             $('#minScore').val(rp.settings.minScore);
@@ -1871,7 +1873,7 @@ $(function () {
                 var b;
                 if (e.data.backup.length > 0) {
                     var origin = e.data.backup.shift();
-                    b = $("<img />", {'class': 'redditp favicon', src: origin+'/favicon.ico'});
+                    b = $("<img />", {'class': 'favicon', src: origin+'/favicon.ico'});
                     b.on('error', { elem: e.data.elem, backup: e.data.backup }, fixFavicon);
                     b.on('load', { elem: e.data.elem, backup: e.data.backup }, fixFavicon);
                 } else
@@ -1897,13 +1899,13 @@ $(function () {
                 fav = rp.favicons.wordpress;
         }
         if (fav) {
-            elem.html($("<img />", {'class': 'redditp favicon', src: fav}));
+            elem.html($("<img />", {'class': 'favicon', src: fav}));
             return;
         }
 
         // #4 try //site/favicon.ico
         var origin = originOf(url);
-        var img = $("<img />", {'class': 'redditp favicon', src: origin+'/favicon.ico'});
+        var img = $("<img />", {'class': 'favicon', src: origin+'/favicon.ico'});
 
         // #5a try originOf(pic.url)/favicon.ico (if different from pic.o_url)
         // #5b try sld-only hostname of url
