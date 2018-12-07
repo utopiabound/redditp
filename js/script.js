@@ -2305,19 +2305,25 @@ $(function () {
                 var li = $("<li>", { class: 'list'});
 
                 if (item.subreddit) {
-                    var subr = '/r/' +item.subreddit;
+                    var nli = $('#duplicateUl').find('[subreddit='+item.subreddit+']');
+                    if (nli.length) {
+                        li = $(nli);
+                    } else {
+                        var subr = '/r/' +item.subreddit;
+                        li.attr('subreddit', item.subreddit);
 
-                    if (item.subreddit.startsWith('u_')) {
-                        li.addClass('usersub');
-                        if (rp.settings.usersub)
+                        if (item.subreddit.startsWith('u_')) {
+                            li.addClass('usersub');
+                            if (rp.settings.usersub)
+                                ++ total;
+                            else
+                                li.addClass('hidden');
+                        } else
                             ++ total;
-                        else
-                            li.addClass('hidden');
-                    } else
-                        ++ total;
 
-                    multi.push(item.subreddit);
-                    li.html(redditLink(subr, item.title));
+                        multi.push(item.subreddit);
+                        li.html(redditLink(subr, item.title));
+                    }
                     li.append($("<a>", { href: rp.redditBaseUrl + subr + "/comments/"+item.id,
                                          class: 'info infoc',
                                          title: (new Date(item.date*1000)).toString(),
@@ -2325,6 +2331,7 @@ $(function () {
 
                 } else if (item.tumblr) {
                     li.html(localLink(item.url, item.tumblr, '/tumblr/'+item.tumblr, item.title));
+                    ++ total;
 
                 } else {
                     log.error("Unknown Duplicate Type", item);
@@ -2333,7 +2340,8 @@ $(function () {
 
                 if (photo.cross_id && photo.cross_id == item.id)
                     li.addClass('xorig');
-                $('#duplicateUl').append(li);
+                if (li.parent().length == 0)
+                    $('#duplicateUl').append(li);
             });
             if (multi) {
                 $('#navboxDuplicatesMulti').attr('href', rp.redditBaseUrl+'/r/'+multi.join('+'));
