@@ -748,6 +748,7 @@ $(function () {
     var STATE = "openstate";
     $('.collapser').click(function () {
         var state = $(this).data(STATE);
+        var sym;
         if (state == "open") {
             // close it
             sym = $(this).attr('symbol-close');
@@ -3237,7 +3238,7 @@ $(function () {
                 photo.extra = localLink(data.response.blog.url, data.response.blog.name,
                                         '/tumblr/'+data.response.blog.name, data.response.blog.title, rp.favicons.tumblr);
                 processTumblrPost(photo, data.response.posts[0]);
-                showPic(photo);
+                showPic(photoParent(photo));
             };
 
         } else if (hostname == 'wordpress.com') {
@@ -4587,56 +4588,66 @@ $(function () {
         });
     };
 
-    var processTumblrPost = function(photo, post) {
+    var processTumblrPost = function(opic, post) {
         var rc = false;
+        var dupe = false;
+        var pic;
+
+        opic.tumblr = { blog: post.blog_name,
+                       id: post.id };
+
+        var photo = initPhotoAlbum(opic, false);
 
         var val = dedupVal(post.blog_name, post.id);
         if (val) {
-            log.info("cannot display url [duplicate:"+val+"]: "+photo.url);
-            return false;
-        }
+            log.info("cannot display url [duplicate:"+val+"]: "+opic.url);
+            dupe = true;
 
-        photo.tumblr = { blog: post.blog_name,
-                         id: post.id };
-
-        if (photo.dupes === undefined)
-            photo.dupes = [];
-        if (post.reblogged_root_id) {
-            val = dedupVal(post.reblogged_root_name, post.reblogged_root_id);
-            if (val) {
-                log.info("cannot display url [cross-duplicate:"+val+"]: "+photo.url);
-                return false;
+        } else if (opic == photo) {
+            if (photo.dupes === undefined)
+                photo.dupes = [];
+            if (post.reblogged_root_id && post.reblogged_root_name) {
+                val = dedupVal(post.reblogged_root_name, post.reblogged_root_id);
+                if (val) {
+                    log.info("cannot display url [cross-duplicate:"+val+"]: "+photo.url);
+                    dupe = true;
+                } else {
+                    photo.dupes.push({tumblr: post.reblogged_root_name,
+                                      title: post.reblogged_root_title,
+                                      url: post.reblogged_root_url,
+                                      id: (post.reblogged_root_id) ?post.reblogged_root_id :post.reblogged_root_uuid.split('.')[0]});
+                    dedupAdd(post.reblogged_root_name, post.reblogged_root_id, '/tumblr/'+photo.tumblr.blog+'/'+photo.tumblr.id);
+                    if (!photo.cross_id)
+                        photo.cross_id = post.reblogged_root_id;
+                }
             }
-            photo.dupes.push({tumblr: post.reblogged_root_name,
-                                   title: post.reblogged_root_title,
-                                   url: post.reblogged_root_url,
-                                   id: (post.reblogged_root_id) ?post.reblogged_root_id :post.reblogged_root_uuid.split('.')[0]});
-            dedupAdd(post.reblogged_root_name, post.reblogged_root_id, '/tumblr/'+photo.tumblr.blog+'/'+photo.tumblr.id);
-            if (!photo.cross_id)
-                photo.cross_id = post.reblogged_root_id;
-        }
-        if (post.reblogged_from_id && post.reblogged_from_id !== post.reblogged_root_id) {
-            val = dedupVal(post.reblogged_from_name, post.reblogged_from_id);
-            if (val) {
-                log.info("cannot display url [cross-duplicate:"+val+"]: "+photo.url);
-                return false;
+            if (rc && post.reblogged_from_name && post.reblogged_from_id &&
+                post.reblogged_from_id !== post.reblogged_root_id) {
+                val = dedupVal(post.reblogged_from_name, post.reblogged_from_id);
+                if (val) {
+                    log.info("cannot display url [cross-duplicate:"+val+"]: "+photo.url);
+                    dupe = true;
+                } else {
+                    photo.dupes.push({tumblr: post.reblogged_from_name,
+                                      title: post.reblogged_from_title,
+                                      url: post.reblogged_from_url,
+                                      id: (post.reblogged_from_id) ?post.reblogged_from_id :post.reblogged_from_uuid.split('.')[0]});
+                    dedupAdd(post.reblogged_from_name, post.reblogged_from_id, '/tumblr/'+photo.tumblr.blog+'/'+photo.tumblr.id);
+                    if (!photo.cross_id)
+                        photo.cross_id = post.reblogged_from_id;
+
+                    dedupAdd(photo.tumblr.blog, photo.tumblr.id);
+                }
             }
-            photo.dupes.push({tumblr: post.reblogged_from_name,
-                                   title: post.reblogged_from_title,
-                                   url: post.reblogged_from_url,
-                                   id: (post.reblogged_from_id) ?post.reblogged_from_id :post.reblogged_from_uuid.split('.')[0]});
-            dedupAdd(post.reblogged_from_name, post.reblogged_from_id, '/tumblr/'+photo.tumblr.blog+'/'+photo.tumblr.id);
-            if (!photo.cross_id)
-                photo.cross_id = post.reblogged_from_id;
         }
 
-        dedupAdd(photo.tumblr.blog, photo.tumblr.id);
-
-        if (post.type == "photo") {
-            photo = initPhotoAlbum(photo, false);
+        if (dupe) {
+            // Duplicate
+        } else if (post.type == "photo") {
             post.photos.forEach(function(item) {
                 var pic =  { url: item.original_size.url,
                              type: imageTypes.image,
+                             tumblr: opic.tumblr,
                              title: fixupTitle(item.caption || photo.title) }
                 if (processPhoto(pic)) {
                     addAlbumItem(photo, pic);
@@ -4644,8 +4655,8 @@ $(function () {
                 }
             });
             if (post.link_url) {
-                var pic = { url: post.link_url,
-                            title: fixupTitle(post.title || post.caption || photo.title) };
+                pic = { url: post.link_url,
+                        title: fixupTitle(post.title || post.caption || photo.title) };
                 if (processPhoto(pic)) {
                     addAlbumItem(photo, pic);
                     rc = true;
@@ -4654,17 +4665,23 @@ $(function () {
             processHaystack(photo, (post.caption||post.title));
 
         } else if (post.type == 'video') {
-            photo.thumb = post.thumbnail_url;
+            pic =  { url: opic.url,
+                     thumb: post.thumbnail_url,
+                     tumblr: opic.tumblr,
+                     title: fixupTitle(post.summary || post.caption || opic.title) }
             rc = true;
             if (post.video_type == "youtube") {
                 if (post.video === undefined) {
-                    initPhotoFailed(photo);
-                    return false;
+                    initPhotoFailed(pic);
+                    rc = false;
+                } else {
+                    initPhotoEmbed(pic, youtubeURL(post.video.youtube.video_id));
+                    addAlbumItem(photo, pic);
                 }
-                initPhotoEmbed(photo, youtubeURL(post.video.youtube.video_id));
 
             } else if (post.video_url) {
-                initPhotoVideo(photo, post.video_url, post.thumbnail_url);
+                initPhotoVideo(pic, post.video_url, post.thumbnail_url);
+                addAlbumItem(photo, pic);
 
             } else if (post.video_type == "unknown") {
                 var width;
@@ -4685,28 +4702,30 @@ $(function () {
             } else {
                 log.info("cannot process post [unknown type:"+post.video_type+
                          "]: "+photo.o_url);
-                return false;
+                rc = false;
             }
 
         } else if (post.type == 'html') {
-            photo = initPhotoAlbum(photo, false);
             rc = processHaystack(photo, post.description);
 
         } else if (post.type == 'text') {
-            photo = initPhotoAlbum(photo, false);
             rc = processHaystack(photo, post.body);
 
         } else if (post.type == 'link') {
-            photo.o_url = photo.url;
-            photo.url = post.url;
-            rc = processPhoto(photo);
+            pic = { o_url: opic.url,
+                    url: post.url,
+                    tumblr: opic.tumblr,
+                    title: fixupTitle(post.summary || opic.title || photo.title) };
+            rc = processPhoto(pic);
+            if (rc)
+                addAlbumItem(photo, pic);
         }
         checkPhotoAlbum(photo);
 
-        if (!rc) {
+        if (!rc && !dupe) {
             log.info("cannot display url [bad Tumblr post type: "+post.type+"]: "+
                      photo.url);
-            laterPhotoFailed(photo);
+            laterPhotoFailed(opic);
         }
 
         return rc;
