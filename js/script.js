@@ -2071,7 +2071,7 @@ $(function () {
             if ($('#duplicateUl li .infor')[i])
                 open_in_background_url($('#duplicateUl li .infor')[i]);
             break;
-        case O_KEY:
+        case O_KEY: // open comment
         case ZERO_KEY:
             open_in_background_url($('#navboxSubreddit a:last-of-type')[0]);
             break;
@@ -2415,6 +2415,7 @@ $(function () {
                 $('#navboxOrigLink').addClass('hidden');
         } else
             $('#navboxAlbumOrigLink').addClass('hidden');
+        $('#navboxOrigDomain').attr('href', '/domain/'+hostnameOf(photo.o_url));
 
         if (rp.session.loginExpire &&
             now > rp.session.loginExpire-30)
