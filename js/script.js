@@ -1098,7 +1098,7 @@ $(function () {
         if (url !== undefined)
             photo.url = url;
         if (thumb && !photo.thumb)
-            pic.thumb = thumb;
+            photo.thumb = thumb;
         fixPhotoButton(photo);
     };
 
@@ -1889,7 +1889,7 @@ $(function () {
                 var b;
                 if (e.data.backup.length > 0) {
                     var origin = e.data.backup.shift();
-                    b = $("<img />", {'class': 'favicon', src: origin+'/favicon.ico'});
+                    b = $("<img />", {'class': 'favicon', src: origin});
                     b.on('error', { elem: e.data.elem, backup: e.data.backup }, fixFavicon);
                     b.on('load', { elem: e.data.elem, backup: e.data.backup }, fixFavicon);
                 } else
@@ -1908,8 +1908,6 @@ $(function () {
             var sld = hostnameOf(url, true).match(/[^.]*/)[0];
             fav = rp.favicons[sld];
         }
-        // #3 check if wordpress v2 site
-        var hostname = hostnameOf(url);
         if (fav === undefined) {
             if (rp.wpv2[hostname] === true)
                 fav = rp.favicons.wordpress;
@@ -1919,20 +1917,24 @@ $(function () {
             return;
         }
 
-        // #4 try //site/favicon.ico
+        // #3 try //site/favicon.ico
         var origin = originOf(url);
         var img = $("<img />", {'class': 'favicon', src: origin+'/favicon.ico'});
 
-        // #5a try originOf(pic.url)/favicon.ico (if different from pic.o_url)
-        // #5b try sld-only hostname of url
+        // #4a try originOf(pic.url)/favicon.ico (if different from pic.o_url)
+        // #4b try sld-only hostname of url
         // #FINAL fallback to just link icon
+        var hostname = hostnameOf(url);
         var backup = [];
         var a = hostname.split('.');
         while (a.length > 2) {
             a.shift();
             var hn = a.join('.');
-            backup.push(origin.replace(hostname, hn));
+            backup.push(origin.replace(hostname, hn)+'/favicon.ico');
         }
+        // #4c check if wordpress v2 site
+        if (rp.wpv2[hostname] === true)
+            backup.push(rp.favicons.wordpress);
 
         img.on('error', { elem: elem, backup: backup }, fixFavicon);
         img.on('load',  { elem: elem, backup: backup }, fixFavicon);
@@ -3939,7 +3941,7 @@ $(function () {
             var a, handleData, jsonUrl, failedData;
 
             if (rp.wpv2[hn] !== false &&
-                (a = path.match(/^\/(?:\d+\/)*([a-z0-9]+(?:-[a-z0-9]+)*)\/$/))) {
+                (a = path.match(/^\/(?:\d+\/)*([a-z0-9]+(?:-[a-z0-9]+)*)\/?$/))) {
                 // This check to see if bare url is actually a wordpress site
 
                 var slug = a[1];
@@ -4321,7 +4323,6 @@ $(function () {
             return;
         }
         var hn = hostnameOf(photo.url);
-        photo.favicon = rp.favicons.wordpress;
         photo.extra = localLink(originOf(photo.url), hn, "/wp2/"+hn, "", rp.favicons['wordpress']);
         if (photo.o_url === undefined)
             photo.o_url = photo.url;
@@ -4390,7 +4391,6 @@ $(function () {
         var rc = false;
 
         // Setup some photo defaults
-        pic.favicon = rp.favicons.wordpress;
         if (post.author.URL) {
             pic.extra = localLink(post.author.URL, post.author.name,
                                   '/wp/'+hostnameOf(post.author.URL));
@@ -4428,7 +4428,7 @@ $(function () {
         for(k in post.attachments) {
             att = post.attachments[k];
             var img = { title: att.caption || att.title };
-            if (processAttachment(att, img)) {
+            if (processAttachment(att, img) && processPhoto(img)) {
                 addAlbumItem(photo, img);
                 rc = true;
             }
@@ -4438,7 +4438,9 @@ $(function () {
 
         checkPhotoAlbum(photo);
 
-        if (!rc) {
+        if (rc) {
+            pic.favicon = rp.favicons.wordpress;
+        } else {
             log.info("cannot display wp [no content]: "+pic.url);
             laterPhotoFailed(pic);
         }
