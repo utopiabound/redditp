@@ -22,6 +22,7 @@
  * redditp-showEmbed            - boolean - Show embeded content (iframes, no timeout)
  * redditp-showUserSub          - boolean - Show user subreddits in duplicates
  * redditp-timeToNextSlide      - int     - timeout in seconds
+ * redditp-favicons             - hash of strings       - cached result of hostname to favicon url
  * redditp-wordpressv2          - hash of booleans      - cached result of speculative WPv2 lookup
  * redditp-insecure             - hash of booleans      - cached result of https GET of WPv2 lookup
  * redditp-blogger              - hash of booleans      - cached result of speculative blogger lookup
@@ -161,6 +162,7 @@ rp.session = {
     // Reddit filter "After"
     after: "",
 
+    loginExpire: undefined, // Used to determin if login has expired
     loadedMultiList: false,
     loadingNextImages: false,
     loadAfter: null,
@@ -179,6 +181,7 @@ rp.insecure = {};
 rp.blogger = {};
 rp.flickr = { nsid2u: {},
               u2nsid: {} };
+rp.faviconcache = {};
 
 rp.history = window.history;
 
@@ -256,6 +259,7 @@ $(function () {
         blogger: 'blogger',
         wpv2: 'wordpressv2',
         nsid: 'flickrnsid',
+        favicon: 'favicon',
         insecure: 'insecure'
     };
 
@@ -831,7 +835,7 @@ $(function () {
         }
     };
 
-    var getConfig = function (c_name) {
+    var getConfig = function (c_name, defaultValue) {
         // undefined in case nothing found
         var value;
         var name = "redditp-"+c_name;
@@ -839,10 +843,9 @@ $(function () {
             value = rp.storage[c_name];
         else
             value = window.localStorage[name];
-        if (value === "undefined")
-            return undefined;
-        if (value !== undefined)
-            value = JSON.parse(value);
+        if (value === "undefined" || value == undefined)
+            return defaultValue;
+        value = JSON.parse(value);
         log.debug("Getting Config "+c_name+" = "+value);
         return value;
     };
@@ -915,24 +918,17 @@ $(function () {
     };
 
     var initState = function () {
-        rp.wpv2 = getConfig(configNames.wpv2);
-        if (rp.wpv2 === undefined)
-            rp.wpv2 = {};
-        rp.insecure = getConfig(configNames.insecure);
-        if (rp.insecure === undefined)
-            rp.insecure = {};
-        rp.blogger = getConfig(configNames.blogger);
-        if (rp.blogger === undefined)
-            rp.blogger = {};
-        rp.flickr.u2nsid = getConfig(configNames.nsid);
+        rp.wpv2 = getConfig(configNames.wpv2, {});
+        rp.insecure = getConfig(configNames.insecure, {});
+        rp.blogger = getConfig(configNames.blogger, {});
+        rp.flickr.u2nsid = getConfig(configNames.nsid, {});
         // Build reverse map
         if (rp.flickr.u2nsid)
             rp.flickr.nsid2u = Object.keys(rp.flickr.u2nsid).reduce(function(obj,key){
                 obj[ rp.flickr.u2nsid[key] ] = key;
                 return obj;
             }, {});
-        else
-            rp.flickr.u2nsid = {};
+        rp.faviconcache = getConfig(configNames.favicon, {});
 
         ["nsfw", "embed", "usersub"].forEach(function (item) {
             var config = getConfig(configNames[item]);
@@ -1715,12 +1711,12 @@ $(function () {
                         hostname == 'thegirlsbay.com' ||
                         hostname == 'teensgosex.com' ||
                         hostname == 'girlsolotouch.com')) {
-                matches = pathnameOf(pic.url).match('^(/gst)?/videos/[^.]*');
-                if (!matches)
+                a = pathnameOf(pic.url).match('^(/gst)?/videos/[^.]*');
+                if (!a)
                     return false;
 
-                a = originOf(pic.url)+matches[0];
-                initPhotoVideo(pic, a+'.mp4', a+'.jpg');
+                o = originOf(pic.url)+a[0];
+                initPhotoVideo(pic, o+'.mp4', o+'.jpg');
 
             } else if (hostname == 'supload.com') {
                 if (extensionOf(pic.url) == 'gifv' || url2shortid(pic.url) == 'thumb') {
@@ -1884,18 +1880,24 @@ $(function () {
     var setFavicon = function(elem, pic, url) {
         var fixFavicon = function(e) {
             if (e.type == "error" ||
-                $(this)[0].naturalHeight <= 1 ||
-                $(this)[0].naturalWidth <= 1) {
+                this.naturalHeight <= 1 ||
+                this.naturalWidth <= 1) {
                 var b;
                 if (e.data.backup.length > 0) {
                     var origin = e.data.backup.shift();
                     b = $("<img />", {'class': 'favicon', src: origin});
-                    b.on('error', { elem: e.data.elem, backup: e.data.backup }, fixFavicon);
-                    b.on('load', { elem: e.data.elem, backup: e.data.backup }, fixFavicon);
-                } else
+                    b.on('error', e.data, fixFavicon);
+                    b.on('load',  e.data, fixFavicon);
+                } else {
+                    rp.faviconcache[e.data.hn] = "";
+                    setConfig(configNames.favicon, rp.faviconcache);
                     b = googleIcon("link")
+                }
 
                 e.data.elem.html(b);
+            } else {
+                rp.faviconcache[e.data.hn] = $(this).attr('src');
+                setConfig(configNames.favicon, rp.faviconcache);
             }
         };
 
@@ -1908,9 +1910,15 @@ $(function () {
             var sld = hostnameOf(url, true).match(/[^.]*/)[0];
             fav = rp.favicons[sld];
         }
+        var hostname = hostnameOf(url);
+        // #3 rp.faviconcache
         if (fav === undefined) {
-            if (rp.wpv2[hostname] === true)
-                fav = rp.favicons.wordpress;
+            // cached failed lookup
+            if (rp.faviconcache[hostname] === "") {
+                elem.html(googleIcon("link"));
+                return;
+            }
+            fav = rp.faviconcache[hostname];
         }
         if (fav) {
             elem.html($("<img />", {'class': 'favicon', src: fav}));
@@ -1924,20 +1932,20 @@ $(function () {
         // #4a try originOf(pic.url)/favicon.ico (if different from pic.o_url)
         // #4b try sld-only hostname of url
         // #FINAL fallback to just link icon
-        var hostname = hostnameOf(url);
         var backup = [];
         var a = hostname.split('.');
         while (a.length > 2) {
             a.shift();
             var hn = a.join('.');
             backup.push(origin.replace(hostname, hn)+'/favicon.ico');
+            backup.push(origin.replace(hostname, hn)+'/favicon.png');
         }
         // #4c check if wordpress v2 site
         if (rp.wpv2[hostname] === true)
             backup.push(rp.favicons.wordpress);
 
-        img.on('error', { elem: elem, backup: backup }, fixFavicon);
-        img.on('load',  { elem: elem, backup: backup }, fixFavicon);
+        img.on('error', { hn: hostname, elem: elem, backup: backup }, fixFavicon);
+        img.on('load',  { hn: hostname, elem: elem, backup: backup }, fixFavicon);
 
         elem.html(img);
     };
@@ -3487,9 +3495,9 @@ $(function () {
         if (hostnameOf(rp.redirect) != window.location.hostname)
             return;
         if (bearer === undefined)
-            bearer = getConfig(configNames.redditBearer);
+            bearer = getConfig(configNames.redditBearer, '');
         if (by === undefined)
-            by = getConfig(configNames.redditRefreshBy);
+            by = getConfig(configNames.redditRefreshBy, 0);
         if (rp.session.loginExpire &&
             rp.session.loginExpire > (Date.now()/1000)-60)
             return;
@@ -3501,7 +3509,7 @@ $(function () {
                                   // read - /r/ALL, /me/m/ALL
                                   // history - /user/USER/submitted
                                   'scope=read,history'].join('&'));
-        if (bearer !== undefined && by !== undefined && by-60 > Date.now()/1000) {
+        if (by-60 > Date.now()/1000) {
             var d = new Date(by*1000);
             rp.session.loginExpire = by;
             rp.session.redditHdr = { Authorization: 'bearer '+bearer };
