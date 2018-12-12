@@ -562,6 +562,21 @@ $(function () {
         return $('<i>', { class: 'material-icons' }).text(icon_name);
     };
 
+    var playButton = function(cb) {
+        var lem = $('<a>', { title: 'Play Video (Enter)',
+                             href: '#' }).html(googleIcon('play_circle_filled'));
+        lem.click(function (event) {
+            if (event) {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+            }
+            clearSlideTimeout();
+            $('#playbutton').remove();
+            cb();
+        });
+        return $('<span>', { id: 'playbutton' }).html(lem);
+    }
+
     var unescapeHTML = function(blob) {
         return $('<div />').html(blob).text();
     };
@@ -2771,19 +2786,7 @@ $(function () {
                 var addPlayButton = function () {
                     $(video).off('canplay canplaythrough', addPlayButton);
 
-                    var lem = $('<a>', { title: 'Play Video (Enter)',
-                                         href: '#' }).html(googleIcon('play_circle_filled'));
-                    lem.click(function (event) {
-                        if (event) {
-                            event.preventDefault();
-                            event.stopImmediatePropagation();
-                        }
-                        clearSlideTimeout();
-                        $(video)[0].play();
-                        $('#playbutton').remove();
-                    });
-
-                    divNode.prepend($('<span>', { id: 'playbutton' }).html(lem));
+                    divNode.prepend(playButton(function() { $(video)[0].play(); }));
                 };
 
                 $(video).on('canplay canplaythrough', addPlayButton);
@@ -2868,19 +2871,12 @@ $(function () {
                 if (pic.thumb)
                     showImage(pic.thumb);
                 // Add play button
-                lem = $('<a>', { title: 'Play Video (Enter)',
-                                 href: '#' }).html(googleIcon('play_circle_filled'));
-                lem.click(function (event) {
-                    if (event) {
-                        event.preventDefault();
-                        event.stopImmediatePropagation();
-                    }
-                    clearSlideTimeout();
+                lem = playButton(function() {
                     replaceBackgroundDiv($('<div>').html(iFrameUrl(pic.url)));
                 });
 
                 var title = $('<span>', { class: "title" }).html(hostnameOf(pic.url, true));
-                divNode.prepend($('<span>', { id: 'playbutton' }).html(lem).append(title));
+                divNode.prepend($(lem).append(title));
 
             } else if (pic.type == imageTypes.fail)
                 showImage(pic.thumb);
