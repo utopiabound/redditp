@@ -2845,9 +2845,9 @@ $(function () {
 
         var showPic = function(pic) {
             if (pic.type == imageTypes.album) {
-                var index = indexPhotoAlbum(photo, imageIndex, albumIndex);
+                var index = indexPhotoAlbum(photoParent(pic), imageIndex, albumIndex);
                 if (index < 0) {
-                    log.error("["+imageIndex+"]["+albumIndex+"] album is zero-length, failing to thumbnail: "+pic.url);
+                    log.error("["+imageIndex+"]["+albumIndex+"] album is zero-length ("+index+") failing to thumbnail: "+pic.url);
                     showImage(pic.thumb);
                     return;
                 }
@@ -2887,8 +2887,7 @@ $(function () {
 
             else if (pic.type == imageTypes.later) {
                 log.error("called showPic() on later type: "+pic.url);
-                showImage(pic.thumb);
-                throw "Invalid Image Type";
+                fillLaterDiv(photo, showPic);
 
             } else // Default to image type
                 showImage(pic.url);
@@ -2924,6 +2923,11 @@ $(function () {
             return divNode;
         }
 
+        fillLaterDiv(photo, showPic);
+        return divNode;
+    };
+
+    var fillLaterDiv = function(photo, showCB) {
         var jsonUrl;
         var dataType = 'json';
         var postType = 'GET';
@@ -2932,7 +2936,7 @@ $(function () {
         var headerData;
         var handleError = function (xhr) {
             initPhotoFailed(photo);
-            showImage(photo.thumb);
+            showCB(photo);
             //failedAjax(xhr, ajaxOptions, thrownError);
             log.info('failed to load url [error '+xhr.status+']: ' + photo.url);
         };
@@ -2949,9 +2953,9 @@ $(function () {
                 if (data.gfyItem === undefined) {
                     if (data.error !== undefined) {
                         log.info("failed to display gfycat [error]: "+data.error);
-                        initPhotoFailed(photo);
                     }
-                    showImage(photo.thumb);
+                    initPhotoFailed(photo);
+                    showCB(photo);
                     return;
                 }
 
@@ -2963,15 +2967,16 @@ $(function () {
                 initPhotoVideo(photo, [ data.gfyItem.mp4Url,  data.gfyItem.webmUrl ],
                                data.gfyItem.posterUrl);
 
-                showVideo(photo.video);
+                showCB(photo);
             };
 
         } else if (hostname == 'imgur.com') {
             headerData = { Authorization: "Client-ID "+ rp.api_key.imgur };
+            var a = pathnameOf(photo.url).split('/');
 
             var imgurHandleAlbum = function (list, o_link) {
+                photo = initPhotoAlbum(photo, false);
                 if (list.length > 0) {
-                    photo = initPhotoAlbum(photo, false);
                     list.forEach(function(item) {
                         var pic = { title: fixupTitle(item.title || item.description),
                                     url: item.link,
@@ -2984,35 +2989,33 @@ $(function () {
 
                         addAlbumItem(photo, pic);
                     });
-                    checkPhotoAlbum(photo);
+                }
+                checkPhotoAlbum(photo);
 
-                } else // An empty album
-                    initPhotoFailed(photo);
-
-                showPic(photo);
+                showCB(photo);
             };
 
-            if (photo.url.indexOf('/a/') > 0) {
-                jsonUrl = "https://api.imgur.com/3/album/" + shortid;
+            if (a[1] == 'a') {
+                jsonUrl = "https://api.imgur.com/3/album/" + a[2];
 
                 handleData = function(data) {
                     imgurHandleAlbum(data.data.images, data.data.link);
                 }
 
-            } else if (photo.url.indexOf('/gallery/') > 0) {
-                jsonUrl = "https://api.imgur.com/3/gallery/" + shortid;
+            } else if (a[1] == 'gallery') {
+                jsonUrl = "https://api.imgur.com/3/gallery/" + a[2];
 
                 handleError = function () {
                     initPhotoImage(photo, "https://i.imgur.com/"+shortid+".jpg");
 
-                    showImage(photo.url);
+                    showCB(photo);
                     return;
                 };
 
                 handleData = function (data) {
                     if (data === undefined) {
                         initPhotoImage(photo, "https://i.imgur.com/"+shortid+".jpg");
-                        showImage(photo.url);
+                        showCB(photo);
                         return;
                     }
                     var list;
@@ -3037,7 +3040,7 @@ $(function () {
                     else
                         initPhotoImage(photo, fixImgurPicUrl(data.data.link));
 
-                    showPic(photo);
+                    showCB(photo);
                 };
             }
 
@@ -3058,7 +3061,7 @@ $(function () {
                         var errFunc = function(data) {
                             log.info("failed to load flickr [error: "+data.message+"]: "+photo.url)
                             initPhotoFailed(photo);
-                            showImage(photo.thumb);
+                            showCB(photo);
                         };
                         if (data.code == 2)
                             flickrUserLookup(userid, handleData, 'flickr.photosets.getPhotos', ReqData, errFunc);
@@ -3080,7 +3083,7 @@ $(function () {
                             addAlbumItem(photo, pic);
                     });
                     checkPhotoAlbum(photo);
-                    showPic(photo);
+                    showCB(photo);
                 };
 
             } else {
@@ -3095,7 +3098,7 @@ $(function () {
                     if (data.stat !== 'ok') {
                         log.info("failed to load flickr [error: "+data.message+"]: "+photo.url)
                         initPhotoFailed(photo);
-                        showImage(photo.thumb);
+                        showCB(photo);
                         return;
                     }
                     var sp = 0, sv = 0;
@@ -3129,7 +3132,7 @@ $(function () {
                     else
                         initPhotoFailed(photo);
 
-                    showPic(photo);
+                    showCB(photo);
                 };
             }
 
@@ -3139,7 +3142,7 @@ $(function () {
             handleData = function(data) {
                 if (data.mediaCount == 0) {
                     initPhotoThumb(photo);
-                    showPic(photo);
+                    showCB(photo);
                     return;
                 }
                 photo = initPhotoAlbum(photo, false);
@@ -3154,7 +3157,7 @@ $(function () {
                         addAlbumItem(photo, pic);
                     });
                 checkPhotoAlbum(photo);
-                showPic(photo);
+                showCB(photo);
             };
 
         } else if (hostname == 'vid.me') {
@@ -3162,13 +3165,12 @@ $(function () {
             handleData = function (data) {
                 if (data.video.state == 'success') {
                     initPhotoVideo(photo, data.video.complete_url, data.video.thumbnail_url);
-                    showVideo(photo.video);
 
                 } else {
                     log.info("failed to load video [error:"+shortid+"]: "+data.video.state);
                     initPhotoFailed(photo);
-                    showImage(data.video.thumbnail_url);
                 }
+                showCB(photo);
             };
 
         } else if (hostname == 'streamable.com') {
@@ -3187,7 +3189,7 @@ $(function () {
                     log.info("cannot to load video [no files]: "+photo.url);
                     initPhotoFailed(photo);
                 }
-                showPic(photo);
+                showCB(photo);
             };
 
         } else if (hostname == 'supload.com') {
@@ -3198,9 +3200,9 @@ $(function () {
 
             handleData = function(data) {
                 if (data.errors) {
-                    initPhotoFailed(photo);
-                    showImage(photo.thumb);
                     log.info("cannot get info ["+data.errors[0].message+"]: "+photo.url);
+                    initPhotoFailed(photo);
+                    showCB(photo);
                     return;
                 }
                 if (data.data.image.adult)
@@ -3226,7 +3228,7 @@ $(function () {
                     addAlbumItem(photo, pic);
                 });
                 checkPhotoAlbum(photo);
-                showPic(photo);
+                showCB(photo);
             };
 
         } else if (hostname == 'pornbot.net') {
@@ -3240,14 +3242,14 @@ $(function () {
                 if (data.error !== undefined) {
                     log.info("failed to load video [error]: "+data.error);
                     initPhotoFailed(photo);
-                    showImage(photo.thumb);
+                    showCB(photo);
                     return;
                 }
 
                 // weirdism, 720pb.mp4 always fail while 720p.mp4 work
                 initPhotoVideo(photo, [ (data.mp4Url) ?data.mp4Url.replace(/pb.mp4$/, 'p.mp4') :undefined,
                                         data.webmUrl ], data.poster);
-                showVideo(photo.video);
+                showCB(photo);
             };
 
         } else if (hostname == 'deviantart.com') {
@@ -3269,7 +3271,7 @@ $(function () {
                     log.info("cannot display url [unk type "+data.type+"]: "+photo.url);
                     initPhotoFailed(photo);
                 }
-                showPic(photo);
+                showCB(photo);
             };
 
         } else if (hostname == 'tumblr.com') {
@@ -3282,7 +3284,7 @@ $(function () {
                 photo.extra = localLink(data.response.blog.url, data.response.blog.name,
                                         '/tumblr/'+data.response.blog.name, data.response.blog.title, rp.favicons.tumblr);
                 processTumblrPost(photo, data.response.posts[0]);
-                showPic(photoParent(photo));
+                showCB(photoParent(photo));
             };
 
         } else if (hostname == 'wordpress.com') {
@@ -3293,21 +3295,21 @@ $(function () {
 
             handleData = function(data) {
                 processWordPressPost(photo, data);
-                showPic(photoParent(photo));
+                showCB(photoParent(photo));
             };
 
         } else {
             log.error("["+photo.index+"] Unknown site ["+hostname+"]: "+photo.url);
             initPhotoFailed(photo);
-            showImage(photo.thumb);
+            showCB(photo);
         }
 
         if (jsonUrl !== undefined) {
             var wrapHandleData = function(data) {
                 handleData(data);
                 // Refresh navbox
-                if (rp.session.activeIndex == imageIndex)
-                    animateNavigationBox(imageIndex, imageIndex, rp.session.activeAlbumIndex);
+                if (isActive(photo))
+                    animateNavigationBox(photo.index, photo.index, rp.session.activeAlbumIndex);
             };
 
             $.ajax({
@@ -3322,12 +3324,10 @@ $(function () {
                 crossDomain: true
             });
 
-        } else if (rp.session.activeIndex == imageIndex) {
+        } else if (isActive(photo)) {
             // refresh navbox
-            animateNavigationBox(imageIndex, imageIndex, rp.session.activeAlbumIndex);
+            animateNavigationBox(photo.index, photo.index, rp.session.activeAlbumIndex);
         }
-
-        return divNode;
     };
 
     var fixImgurPicUrl = function (url) {
