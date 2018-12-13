@@ -1716,6 +1716,8 @@ $(function () {
                 // Strip everything trailing '-'
                 if (shortid.indexOf('-') != -1)
                     shortid = shortid.substr(0, shortid.lastIndexOf('-'));
+                if (shortid == 'about')
+                    return false;
 
                 pic.url = 'https://gfycat.com/'+shortid;
 
@@ -3204,6 +3206,8 @@ $(function () {
                 if (data.data.image.adult)
                     photo.over18 = true;
 
+                if (data.data.image.uname)
+                    photo.extra = infoLink('https://supload.com/u/'+data.data.image.uname, data.data.image.uname);
                 photo = initPhotoAlbum(photo, false);
                 data.data.image.images.forEach(function(img) {
                     var pic = { title: img.description || data.data.image.title };
@@ -3356,7 +3360,7 @@ $(function () {
             // remove _d.jpg which is thumbnail
             url = url.replace(/_d(\.[^./])/, "$1");
             // remove thumbnail modifier
-            url = url.replace(/(\/\w{7})[sbtrlg]/, "$1");
+            url = url.replace(/(\/\w{7}|\/\w{5})[sbtrlg]\./, "$1.");
 
         } else if (!isVideoExtension(url))
             // imgur is really nice and serves the image with whatever extension
