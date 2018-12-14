@@ -162,8 +162,12 @@ rp.session = {
     // Reddit filter "After"
     after: "",
 
+    // Login dependent values
     loginExpire: undefined, // Used to determin if login has expired
     loadedMultiList: false,
+    loginNeeded: false, // true if current subreddit needs a login to work correctly
+
+    // Status variables
     loadingNextImages: false,
     loadAfter: null,
 
@@ -213,9 +217,11 @@ rp.cache = {};
 // use dedupAdd() and dedupVal()
 rp.dedup = {};
 rp.url = {
+    choice: "", // c.f. setupChoices()
+    root:   '', // root of redditp app
     subreddit: "",
     base: '',
-    get: '',
+    get:  '',
     path: '',
     vars: ""
 };
@@ -328,6 +334,12 @@ $(function () {
         return currentIndex;
     };
 
+    function loadMoreSlides() {
+        if (rp.session.loadAfter !== null &&
+            (!rp.session.loginNeeded || rp.session.loginExpire))
+            rp.session.loadAfter();
+    }
+
     function nextAlbumSlide() {
         nextSlide(true);
     }
@@ -339,8 +351,7 @@ $(function () {
             albumIndex = -1; // need to increment
             index = getNextSlideIndex(rp.session.activeIndex);
             if (index == rp.session.activeIndex) {
-                if (rp.session.loadAfter !== null)
-                    rp.session.loadAfter();
+                loadMoreSlides()
                 return;
             }
 
@@ -372,8 +383,7 @@ $(function () {
 
             albumIndex = getNextSlideIndex(index);
             if (albumIndex == index) {
-                if (rp.session.loadAfter !== null)
-                    rp.session.loadAfter();
+                loadMoreSlides();
                 return;
             }
 
@@ -2172,8 +2182,8 @@ $(function () {
             // Load if last image, but not if first image This is because
             // for dedup, we'll get called by image 0, before other images
             // have come in.
-            if (rp.session.loadAfter !== null && imageIndex != 0)
-                rp.session.loadAfter();
+            if (imageIndex != 0)
+                loadMoreSlides();
             return;
 
         } else if (rp.cache[next] === undefined) {
@@ -2247,9 +2257,8 @@ $(function () {
             rp.session.isAnimating || rp.photos.length == 0) {
 
             log.debug("NOT ANIMATING photo.length=="+rp.photos.length+" isAnimating:"+rp.session.isAnimating);
-            if (imageIndex >= rp.photos.length &&
-                rp.session.loadAfter !== null)
-                rp.session.loadAfter();
+            if (imageIndex >= rp.photos.length)
+                loadMoreSlides();
             if (rp.session.isAnimating)
                 rp.session.needReanimation=true;
             return;
@@ -3538,6 +3547,7 @@ $(function () {
         var prefix = '/';
         var base;
         var mod = arr.indexOf(s[1]);
+        rp.url.choice = "";
 
         if (mod >= 0) {
             base = '/';
@@ -3597,6 +3607,8 @@ $(function () {
 
         if (mod < 0)
             mod = 0;
+        else if (mod > 0)
+            rp.url.choice = arr[mod];
 
         var list = $('#subredditPopup ul');
         list.empty();
@@ -3605,6 +3617,7 @@ $(function () {
                                 arr[i], arr[i], "info infol local");
             if (mod == i)
                 a.addClass('selected');
+
             var li = $('<li>').append(a);
             if (arr[i] == 'top') {
                 var tsel = searchValueOf(rp.url.get+rp.url.path, 't');
@@ -5298,6 +5311,17 @@ $(function () {
 
         document.title = "redditP - " + subredditName;
 
+        $('#choiceLi').hide();
+        setupChoices();
+
+        if ((rp.session.loginExpire &&
+             rp.url.subreddit.substr(0, rp.url.subreddit.length-rp.url.choice.length) == '/') ||
+            rp.url.subreddit.startsWith('/me') ||
+            rp.url.subreddit.startsWith('/r/friends'))
+            rp.session.loginNeeded = true;
+        else
+            rp.session.loginNeeded = false;
+
         // if ever found even 1 image, don't show the error
         $('#recommend').hide();
 
@@ -5319,9 +5343,6 @@ $(function () {
         $("#albumNumberButtons").detach();
         $('#allNumberButtonList').append($("<ul/>", { id: 'allNumberButtons' }));
 
-        $('#choiceLi').hide();
-
-        setupChoices();
         if (data && data.photos) {
             log.debug("RESTORING STATE: "+path);
             if (data.photos.length > 1)
