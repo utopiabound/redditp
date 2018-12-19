@@ -550,6 +550,10 @@ $(function () {
         return _localLink(url, local, text, urlalt, favicon);
     };
 
+    var localLinkFailed = function(url, text, local, urlalt, favicon) {
+        return _localLink(url, local, text, urlalt, favicon, "info failed");
+    };
+
     var titleFLink = function(url, text) {
         var data = $('<div/>');
         data.append($('<a>', { href: url, class: "infor" }).html(text));
@@ -2380,7 +2384,10 @@ $(function () {
                                        }).text('('+item.commentN+')'));
 
                 } else if (item.tumblr) {
-                    li.html(localLink(item.url, item.tumblr, '/tumblr/'+item.tumblr, item.title));
+                    if (item.off)
+                        li.html(localLinkFailed(item.url, item.tumblr, '/tumblr/'+item.tumblr, item.title));
+                    else
+                        li.html(localLink(item.url, item.tumblr, '/tumblr/'+item.tumblr, item.title));
                     ++ total;
 
                 } else {
@@ -3081,8 +3088,8 @@ $(function () {
                     // TODO: check to see if data.photoset.total > data.photoset.perpage
                     $.each(data.photoset.photo, function(i, item) {
                         var pic = { extra: localLink('https://flickr.com/'+userid,
-                                                 flickrUserPP(userid),
-                                                 '/flickr/'+flickrUserNSID(userid)),
+                                                     flickrUserPP(userid),
+                                                     '/flickr/'+flickrUserNSID(userid)),
                                 url: flickrPhotoUrl(item),
                                 o_url: ['https://flickr.com/photos', userid, item.id].join('/'),
                                 thumb: flickrThumbnail(item) };
@@ -3291,7 +3298,8 @@ $(function () {
 
             handleData = function(data) {
                 photo.extra = localLink(data.response.blog.url, data.response.blog.name,
-                                        '/tumblr/'+data.response.blog.name, data.response.blog.title, rp.favicons.tumblr);
+                                        '/tumblr/'+data.response.blog.name,
+                                        data.response.blog.title, rp.favicons.tumblr);
                 processTumblrPost(photo, data.response.posts[0]);
                 showCB(photoParent(photo));
             };
@@ -4651,7 +4659,7 @@ $(function () {
         var pic;
 
         opic.tumblr = { blog: post.blog_name,
-                       id: post.id };
+                        id: post.id };
 
         var photo = initPhotoAlbum(opic, false);
 
@@ -4661,35 +4669,42 @@ $(function () {
             dupe = true;
 
         } else if (opic == photo) {
+            var name, off;
             if (photo.dupes === undefined)
                 photo.dupes = [];
             if (post.reblogged_root_id && post.reblogged_root_name) {
-                val = dedupVal(post.reblogged_root_name, post.reblogged_root_id);
+                name = post.reblogged_root_name.replace(/-deactivated\d+$/, '')
+                off = (name != post.reblogged_root_name);
+                val = dedupVal(name, post.reblogged_root_id);
                 if (val) {
                     log.info("cannot display url [cross-duplicate:"+val+"]: "+photo.url);
                     dupe = true;
                 } else {
-                    photo.dupes.push({tumblr: post.reblogged_root_name,
+                    photo.dupes.push({tumblr: name,
+                                      off: off,
                                       title: post.reblogged_root_title,
                                       url: post.reblogged_root_url,
                                       id: (post.reblogged_root_id) ?post.reblogged_root_id :post.reblogged_root_uuid.split('.')[0]});
-                    dedupAdd(post.reblogged_root_name, post.reblogged_root_id, '/tumblr/'+photo.tumblr.blog+'/'+photo.tumblr.id);
+                    dedupAdd(name, post.reblogged_root_id, '/tumblr/'+photo.tumblr.blog+'/'+photo.tumblr.id);
                     if (!photo.cross_id)
                         photo.cross_id = post.reblogged_root_id;
                 }
             }
             if (rc && post.reblogged_from_name && post.reblogged_from_id &&
                 post.reblogged_from_id !== post.reblogged_root_id) {
-                val = dedupVal(post.reblogged_from_name, post.reblogged_from_id);
+                name = post.reblogged_from_name.replace(/-deactivated\d+$/, '')
+                off = (name != post.reblogged_from_name);
+                val = dedupVal(name, post.reblogged_from_id);
                 if (val) {
                     log.info("cannot display url [cross-duplicate:"+val+"]: "+photo.url);
                     dupe = true;
                 } else {
-                    photo.dupes.push({tumblr: post.reblogged_from_name,
+                    photo.dupes.push({tumblr: name,
+                                      off: off,
                                       title: post.reblogged_from_title,
                                       url: post.reblogged_from_url,
                                       id: (post.reblogged_from_id) ?post.reblogged_from_id :post.reblogged_from_uuid.split('.')[0]});
-                    dedupAdd(post.reblogged_from_name, post.reblogged_from_id, '/tumblr/'+photo.tumblr.blog+'/'+photo.tumblr.id);
+                    dedupAdd(name, post.reblogged_from_id, '/tumblr/'+photo.tumblr.blog+'/'+photo.tumblr.id);
                     if (!photo.cross_id)
                         photo.cross_id = post.reblogged_from_id;
 
