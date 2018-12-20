@@ -36,7 +36,7 @@
  * Locations for per-Site processing:
  * rp.favicons    - limited number of favicons based on second level domain (for major sites that don't support http://fqdn/favicon.ico)
  * processPhoto() - initial processing of photo.url, if it can be determined to be photo/video/later
- * createDiv()    - where photo's tagged as later, are processed via ajax callout
+ * fillLaterDiv() - where photo's tagged as later, are processed via ajax callout
  * fixupTitle()   - any urls that can be added/processed from a photo.title (only affects photo.title)
  * fixupUrl()     - known https: sites
  *
@@ -687,6 +687,9 @@ $(function () {
         // Trim down chafe-chafe-chafe<SEP><SHORTID>
         if (sep !== undefined && shortid.indexOf(sep) != -1)
             shortid = shortid.substr(shortid.lastIndexOf(sep)+sep.length);
+
+        if (!shortid)
+            throw("No shortid for url");
 
         return shortid;
     };
@@ -1542,27 +1545,24 @@ $(function () {
                         if (a[2] == 'wp-content')
                             pic.url = 'https://'+a.slice(1).join('/');
                     }
-                } else if (url2shortid(pic.url) === "") {
-                    log.info('cannot display url [no shortid]: ' + pic.url);
-                    return false;
+                } else if (pathnameOf(pic.url) == "/")
+                    throw "full-blog not post";
 
-                } else if (pathnameOf(pic.url) == "/") {
-                    log.info('cannot display url [full-blog not post]: '+pic.url);
-                    return false;
-
-                } else {
+                else if (url2shortid(pic.url))
                     pic.type = imageTypes.later;
-                }
+
+                else
+                    return false;
 
             } else if (hostname == 'tumblr.com') {
-                if (isImageExtension(pic.url)) {
+                if (isImageExtension(pic.url))
                     pic.url = pic.url;
-                    return true;
-                }
-                if (pic.url.indexOf('/post/') > 0)
+
+                else if (pic.url.indexOf('/post/') > 0)
                     // Don't process bare tumblr blogs, nor /day/YYYY/MM/DD/ format
                     // only BLOGNAME.tumblr.com/post/SHORTID/...
                     pic.type = imageTypes.later;
+
                 else
                     return false;
 
@@ -1611,10 +1611,9 @@ $(function () {
 
                 if (shortid)
                     initPhotoEmbed(pic, 'https://www.pornhub.com/embed/'+shortid+'?autoplay=1');
-                else {
-                    log.info("cannot parse url [bad search]: "+pic.url);
-                    return false;
-                }
+
+                else
+                    throw "search not supported";
 
             } else if (hostname == 'thumbzilla.com') {
                 shortid = url2shortid(pic.url, 2);
@@ -1700,25 +1699,22 @@ $(function () {
                                          'https://cdn.iloopit.net/resources/'+shortid+'/converted.webm'],
                                    'https://cdn.iloopit.net/resources/'+shortid+'/thumb.jpeg');
 
-                } else if (ext == 'gifv') {
+                } else if (ext == 'gifv')
                     initPhotoEmbed(pic);
 
-                } else {
-                    //log.info('cannot process url [unknown format]: '+pic.url);
-                    return false;
-                }
+                else
+                    throw "unknown iloopit format";
 
             } else if (hostname == 'dropbox.com') {
                 pic.url = originOf(pic.url)+pathnameOf(pic.url)+'?dl=1';
-                if (isVideoExtension(pic.url)) {
+                if (isVideoExtension(pic.url))
                     initPhotoVideo(pic);
 
-                } else if (isImageExtension(pic.url)) {
-                    // simple image
+                else if (isImageExtension(pic.url))
+                    pic.url = pic.url;
 
-                } else {
+                else
                     return false;
-                }
 
             } else if (hostname == 'webm.land') {
                 shortid = url2shortid(pic.url);
@@ -1750,7 +1746,8 @@ $(function () {
                 initPhotoVideo(pic, o+'.mp4', o+'.jpg');
 
             } else if (hostname == 'supload.com') {
-                if (extensionOf(pic.url) == 'gifv' || url2shortid(pic.url) == 'thumb') {
+                if (extensionOf(pic.url) == 'gifv' ||
+                    url2shortid(pic.url) == 'thumb') {
                     shortid = url2shortid(pic.url, 1);
                     pic.url = 'https://supload.com/'+shortid;
                     initPhotoVideo(pic, [ 'https://i.supload.com/'+shortid+'-hd.webm',
@@ -1777,33 +1774,27 @@ $(function () {
             } else if (hostname == 'vidble.com') {
                 if (pic.url.indexOf("/watch?v=") > 0) {
                     shortid = /[#?&]v=([^&#=]*)/.exec(pic.url);
-                    if (shortid === undefined || shortid === null) {
-                        log.error("Failed to parse vidble url: "+pic.url);
-                        return false;
-                    }
+                    if (!shortid)
+                        throw("Failed to parse vidble url");
+
                     shortid = shortid[1];
                     initPhotoVideo(pic, 'https://www.vidble.com/'+shortid+'.mp4',
                                    'https://www.vidble.com/'+shortid+'.png');
 
-                } else if (pic.url.indexOf("/album/") > 0) {
+                } else if (pic.url.indexOf("/album/") > 0)
                     // TODO : figure out /album/ on vidble.com/api
-                    log.info("cannot display url [no album processing]: "+pic.url);
-                    return false;
+                    throw("no vidble album processing");
 
-                } else {
-                    shortid = url2shortid(pic.url);
-                    pic.url = 'https://www.vidble.com/'+shortid+'.jpg';
-                }
+                else
+                    pic.url = 'https://www.vidble.com/'+url2shortid(pic.url)+'.jpg';
 
             } else if (hostname == 'flickr.com') {
                 shortid = url2shortid(pic.url, 3);
-                if (pathnameOf(pic.url).startsWith('/photos/')) {
+                if (pathnameOf(pic.url).startsWith('/photos/'))
                     pic.type = imageTypes.later;
 
-                } else {
-                    log.info("cannot display url [unknown flickr url]: "+pic.url);
-                    return false;
-                }
+                else
+                    throw("unknown flickr url");
 
             } else if (pic.type != imageTypes.thumb) {
                 a = pathnameOf(pic.url).split('/');
@@ -1824,8 +1815,7 @@ $(function () {
                 return false;
             }
         } catch (e) {
-            log.info("cannot display url [threw exception]: "+pic.url);
-            log.error(e, e.stack);
+            log.info("cannot display url ["+e+"]: "+pic.url);
             return false;
         }
         return true;
