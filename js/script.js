@@ -2001,6 +2001,7 @@ $(function () {
     const I_KEY = 73;
     const L_KEY = 76;
     const M_KEY = 77;
+    const N_KEY = 78;
     const O_KEY = 79;
     const P_KEY = 80;
     const R_KEY = 82;
@@ -2051,6 +2052,9 @@ $(function () {
             break;
         case M_KEY:
             $('#mute').click();
+            break;
+        case N_KEY:
+            $('#nsfw').click();
             break;
             // O_KEY is with ZERO_KEY below
         case R_KEY:

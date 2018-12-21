@@ -23,6 +23,7 @@ Hotkeys
 * u - hide/show duplciates box
 * f - toggle full screen mode
 * m - unmute/mute videos
+* n - toggle nsfw
 * s - load images from comments
 * Arrow keys, pgup/pgdown change slides
 ** Up/Down, page-up / page-down - switch Albums
