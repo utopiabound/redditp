@@ -1276,25 +1276,23 @@ $(function () {
 
         if (photo.type != imageTypes.album) {
             var img;
-            if (photo.type == imageTypes.image ||
-                photo.type == imageTypes.embed ||
-                photo.type == imageTypes.thumb ||
-                photo.type == imageTypes.later) {
-                img = { url: photo.url,
-                        type: photo.type };
-            } else if (photo.type == imageTypes.video) {
+            if (photo.type == imageTypes.video) {
                 img = { url: photo.url,
                         type: photo.type,
                         thumb: photo.thumb,
                         video: photo.video };
                 delete photo.video;
-            }
+
+            } else
+                img = { url: photo.url, thumb: photo.thumb, type: photo.type };
 
             photo.type = imageTypes.album;
             photo.insertAt = -1;
             photo.album = [];
 
-            if (keepfirst && processPhoto(img)) {
+            if (keepfirst) {
+                if (!processPhoto(img))
+                    initPhotoFailed(img);
                 log.debug("moved primary to first album item: "+img.url);
                 addAlbumItem(photo, img);
             }
@@ -1570,10 +1568,23 @@ $(function () {
                        hostname == 'vid.me' ||
                        hostname == 'apnews.com' ||
                        hostname == 'pornbot.net' ||
+                       fqdn == 'clips.twitch.tv' ||
                        hostname == 'deviantart.com') {
                 if (url2shortid(pic.url))
                     // These domains should always be processed later
                     pic.type = imageTypes.later;
+
+            } else if (hostname == 'twitch.tv') {
+                a = pathnameOf(pic.url).split('/');
+                if (a[1] == 'videos')
+                    initPhotoEmbed(pic, 'https://player.twitch.tv/?video=v'+a[2]);
+
+                else if (a[2] == 'clip') {
+                    pic.url = 'https://clips.twitch.tv/'+a[3];
+                    pic.type = imageTypes.later;
+
+                } else
+                    throw "unknown twitch url";
 
             } else if (hostname == 'gifs.com') {
                 shortid = url2shortid(pic.url, -1, '-');
@@ -3296,6 +3307,14 @@ $(function () {
                                         data.response.blog.title, rp.favicons.tumblr);
                 processTumblrPost(photo, data.response.posts[0]);
                 showCB(photoParent(photo));
+            };
+
+        } else if (fqdn == 'clips.twitch.tv') {
+            jsonUrl = 'https://clips.twitch.tv/api/v2/clips/'+shortid+'/status';
+
+            handleData = function(data) {
+                initPhotoVideo(photo, data.quality_options[0].source);
+                showCB(photo);
             };
 
         } else if (hostname == 'wordpress.com') {
