@@ -3800,7 +3800,7 @@ $(function () {
 
                         if (links[j].innerText !== "" &&
                             links[j].innerText !== img.url)
-                            img.title = links[j].innerText;
+                            img.title = fixupTitle(links[j].innerText);
 
                         log.debug("RC-Try:["+photo.comments+"]:"+img.url);
                         if (processPhoto(img))
@@ -4396,7 +4396,7 @@ $(function () {
                     addAlbumItem(photo, pic);
                     rc2 = true;
                 } else
-                    log.info("cannot display item [unkown type: "
+                    log.info("cannot display item [unknown type: "
                              + item.media_type +"]: "+item.source_url);
             });
             checkPhotoAlbum(photo);
@@ -5343,7 +5343,7 @@ $(function () {
         $('#choiceLi').hide();
         setupChoices();
 
-        if ((rp.session.loginExpire &&
+        if (((rp.session.loginExpire || rp.session.loginNeeded) &&
              rp.url.subreddit.substr(0, rp.url.subreddit.length-rp.url.choice.length) == '/') ||
             rp.url.subreddit.startsWith('/me') ||
             rp.url.subreddit.startsWith('/r/friends'))
