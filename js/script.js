@@ -68,6 +68,7 @@
  *      flair:          TEXT text flair put next to title
  *      favicon:        URL  link to favicon for photo (c.f. setFavicon())
  *      score:          INT  Score (upvotes - downvotes)
+ *      fallback:       ARRAY of URLs Fallback urls (if processed pic.url fails, try pic.fallback)
  *
  *      -- Other, NOT creator setable --
  *      o_url:          URL original URL [set by processPhoto()]
@@ -1821,7 +1822,8 @@ $(function () {
             } else if (hostname == 'gyazo.com') {
                 shortid = url2shortid(pic.url);
                 pic.url = 'https://i.gyazo.com/'+shortid+'.png';
-                // possibly also 'https://i.gyazo.com/'+shortid+'.mp4' ...
+                pic.fallback = [ 'https://i.gyazo.com/'+shortid+'.jpg',
+                                 'https://i.gyazo.com/'+shortid+'.mp4' ];
 
             } else if (hostname == 'vidble.com') {
                 if (pic.url.indexOf("/watch?v=") > 0) {
@@ -2734,6 +2736,14 @@ $(function () {
             var img = $('<img />', { class: "fullscreen", src: url});
 
             img.on('error', function() {
+                if (photo.fallback && photo.fallback.length) {
+                    photo.url = photo.fallback.shift();
+                    delete photo.type;
+                    if (processPhoto(photo)) {
+                        showPic(photo);
+                        return;
+                    }
+                }
                 log.info("cannot display photo [load error]: "+photo.url);
                 initPhotoFailed(photo);
                 // ensure no infinite loop
@@ -2788,7 +2798,7 @@ $(function () {
                     video.append(lastsource);
                 });
             });
-            divNode.append(video);
+            divNode.html(video);
 
             if (data.audio !== undefined) {
                 var audio = $('<audio id="gfyaudio" />');
@@ -2816,6 +2826,16 @@ $(function () {
 
             $(lastsource).on('error', function() {
                 log.info("["+imageIndex+"] video failed to load last source: "+photo.url);
+                if (photo.fallback && photo.fallback.length) {
+                    photo.url = photo.fallback.shift();
+
+                    delete photo.type;
+                    delete photo.video;
+                    if (processPhoto(photo)) {
+                        showPic(photo);
+                        return;
+                    }
+                }
                 initPhotoFailed(photo);
                 resetNextSlideTimer();
             });
