@@ -15,6 +15,7 @@
  * - "pic" generally refers to either photo or album item (usually in presence of photo variable)
  * 
  * In Browser Storage (window.storage)
+ * redditp-decivolume           - int     - Volume of videos (value/10)
  * redditp-nsfw                 - boolean - load NSFW content
  * redditp-redditBearer         - string  - auth bearer token from reddit.com
  * redditp-redditRefreshBy      - int     - time that bearer token expires
@@ -122,6 +123,7 @@ rp.settings = {
     goodVideoExtensions: ['webm', 'mp4', 'mov'], // Matched entry required in rp.mime2ext
     alwaysSecure: true,
     minScore: 1,
+    decivolume: 5,
     // show Embeded Items
     embed: false,
     // show NSFW Items
@@ -266,6 +268,7 @@ $(function () {
         wpv2: 'wordpressv2',
         nsid: 'flickrnsid',
         favicon: 'favicon',
+        decivolume:  'decivolume',
         insecure: 'insecure'
     };
 
@@ -613,6 +616,31 @@ $(function () {
         window.open(link.href, '_blank');
     }
 
+    var volume_set = function(vol) {
+        if (!isFinite(vol))
+            vol = parseInt($('#volume').val(), 10);
+        var viaclick = false;
+        if (vol > 10)
+            vol = 10;
+        else if (vol <= 0) {
+            if (!isVideoMuted())
+                viaclick = true;
+            vol = 1;
+        }
+        rp.settings.decivolume = vol;
+        setConfig(configNames.decivolume, rp.settings.decivolume);
+        $('#volume').val(rp.settings.decivolume);
+
+        if (viaclick)
+            $('#mute').click();
+        else
+            updateVideoMute();
+    }
+
+    var volume_adjust = function(val) {
+        volume_set(rp.settings.decivolume+val);
+    }
+
     // **************************************************************
     // URL processign Helpers
     //
@@ -919,10 +947,14 @@ $(function () {
         var vid = $('#gfyvid');
         var aud = $('#gfyaudio');
         var videoMuted = isVideoMuted();
-        if (vid !== undefined)
+        if (vid !== undefined) {
             vid.prop('muted', videoMuted);
-        if (aud !== undefined)
+            vid.prop('volume', rp.settings.decivolume/10);
+        }
+        if (aud !== undefined) {
             aud.prop('muted', videoMuted);
+            aud.prop('volume', rp.settings.decivolume/10);
+        }
     };
 
     var updateAutoNextSlide = function () {
@@ -1020,6 +1052,9 @@ $(function () {
             $('#minScore').val(rp.settings.minScore);
         };
         updateMinScore(getConfig(configNames.minScore));
+
+        volume_set(getConfig(configNames.decivolume));
+        $("#volume").keyup(volume_set);
 
         $('#fullscreen').change(function() {
             var elem = document.getElementById('page');
@@ -1989,16 +2024,20 @@ $(function () {
         right: 39,
         down: 40
     };
-    const ZERO_KEY = 48;
-    const ONE_KEY = 49;
-    const TWO_KEY = 50;
+    const KP_MINUS_KEY = 109; // '-'
+    const KP_PLUS_KEY  = 107; // '+'
+    const MINUS_KEY = 173; // '-' / '_'
+    const EQUALS_KEY = 61; // '=' / '+'
+    const ZERO_KEY  = 48;
+    const ONE_KEY   = 49;
+    const TWO_KEY   = 50;
     const THREE_KEY = 51;
-    const FOUR_KEY = 52;
-    const FIVE_KEY = 53;
-    const SIX_KEY = 54;
+    const FOUR_KEY  = 52;
+    const FIVE_KEY  = 53;
+    const SIX_KEY   = 54;
     const SEVEN_KEY = 55;
     const EIGHT_KEY = 56;
-    const NINE_KEY = 57;
+    const NINE_KEY  = 57;
 
     const SPACE = 32;
     const PAGEUP = 33;
@@ -2080,6 +2119,14 @@ $(function () {
             break;
         case ENTER:
             $('#playbutton a').click();
+            break;
+        case KP_PLUS_KEY:
+        case EQUALS_KEY:
+            volume_adjust(+1);
+            break;
+        case KP_MINUS_KEY:
+        case MINUS_KEY:
+            volume_adjust(-1);
             break;
         case PAGEUP:
         case arrow.up:
@@ -2742,6 +2789,7 @@ $(function () {
                 var audio = $('<audio id="gfyaudio" />');
                 if (isVideoMuted())
                     audio.prop('muted', true);
+                audio.prop('volume', rp.settings.decivolume/10);
                 var type, ls;
                 for (type in data.audio) {
                     ls = $('<source />', { src: data.audio[type],
