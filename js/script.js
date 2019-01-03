@@ -469,8 +469,12 @@ $(function () {
         return true;
     };
 
-    var youtubeURL = function(id) {
-        var ytExtra = '?autoplay=1&origin='+encodeURI(window.location.protocol +
+    var youtubeURL = function(id, start) {
+        var ytExtra = '?';
+        if (start !== undefined)
+            ytExtra += 'start='+start+'&';
+
+        ytExtra += 'autoplay=1&origin='+encodeURI(window.location.protocol +
                                                       "//" + window.location.host + "/");
         //var ytExtra = '?enablejsapi=1';
         return 'https://www.youtube.com/embed/'+id+ytExtra;
@@ -1636,14 +1640,15 @@ $(function () {
 
             } else if (hostname == 'youtube.com' ||
                        hostname == 'youtu.be') {
-                // Types of URLS:
-                //   youtu.be/SHORTID
-                //   www.youtube.com/embed/SHORTID
-                //   www.youtube.com/watch?v=SHORTID
+                // youtu.be/SHORTID
+                // www.youtube.com/embed/SHORTID
+                // www.youtube.com/watch?v=SHORTID
                 shortid = url2shortid(pic.url);
+                a = searchOf(pic.url);
+                var start;
                 if (shortid == 'watch')
-                    shortid = searchValueOf(pic.url, 'v');
-                initPhotoEmbed(pic, youtubeURL(shortid), youtubeThumb(shortid));
+                    shortid = a.v;
+                initPhotoEmbed(pic, youtubeURL(shortid, a.t || a.start), youtubeThumb(shortid));
 
             } else if (hostname == 'pornhub.com') {
                 // JSON Info about video
