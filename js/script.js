@@ -531,7 +531,7 @@ $(function () {
 
         var data = $('<div/>');
         data.append(_infoAnchor(rp.url.base+local, text, urlalt, classes+" infol local"));
-        var link = _infoAnchor(url, '', urlalt, classes+" infor");
+        var link = _infoAnchor(url, '', urlalt, classes+" infor remote");
         if (favicon === "reddit")
             link.html($('<img>', { class: "reddit",
                                    src: rp.url.root+'images/reddit.svg' }));
@@ -564,7 +564,7 @@ $(function () {
 
     var titleFLink = function(url, text) {
         var data = $('<div/>');
-        data.append($('<a>', { href: url, class: "infor" }).html(text));
+        data.append($('<a>', { href: url, class: "remote infor" }).html(text));
         return data.html();
     };
 
@@ -1132,6 +1132,14 @@ $(function () {
 
             // Remove :hover on #loginLi, so it only responds to clicks
             $('#loginLi').removeClass('use-hover');
+
+            $(document).on('click', 'a.remote', function (event) {
+                if (event) {
+                    event.preventDefault();
+                    event.stopImmediatePropagation();
+                }
+                open_in_background($(this));
+            });
         }
     };
 
@@ -2059,12 +2067,12 @@ $(function () {
     const D_KEY = 68;
     const E_KEY = 69;
     const F_KEY = 70;
+    const G_KEY = 71;
     const I_KEY = 73;
     const L_KEY = 76;
     const M_KEY = 77;
     const N_KEY = 78;
     const O_KEY = 79;
-    const P_KEY = 80;
     const R_KEY = 82;
     const T_KEY = 84;
     const U_KEY = 85;
@@ -2098,15 +2106,17 @@ $(function () {
         case T_KEY:
             $('#titleDiv .collapser').click();
             break;
-        case I_KEY:
-            open_in_background("#navboxLink");
-            break;
-        case P_KEY: // legacy
         case D_KEY:
             open_in_background("#navboxDuplicatesLink");
             break;
         case F_KEY:
             $('#fullscreen').click();
+            break;
+        case G_KEY:
+            open_in_background('#navboxImageSearch');
+            break;
+        case I_KEY:
+            open_in_background("#navboxLink");
             break;
         case L_KEY:
             open_in_background("#navboxOrigLink");
@@ -2512,6 +2522,16 @@ $(function () {
         var url = image.o_url || image.url;
         $('#navboxOrigLink').attr('href', url).removeClass('hidden');
         setFavicon($('#navboxOrigLink'), image, url);
+        $('#navboxImageSearch').attr('href', 'https://www.google.com/searchbyimage?encoded_image=&image_content=&filename=&hl=en&image_url='+image.url).removeClass('hidden');
+        switch (image.type) {
+        case imageTypes.image:
+        case imageTypes.thumb:
+        case imageTypes.fail:
+            break;
+        default:
+            $('#navboxImageSearch').addClass('hidden');
+            break;
+        }
 
         if (albumIndex >= 0) {
             $('#navboxAlbumOrigLink').attr('href', photo.o_url).attr('title', photo.title+" (a)");
@@ -3510,10 +3530,8 @@ $(function () {
 
         // Do URLs first, so we don't pickup those added later
         var t1 = title.replace(urlregexp, function(match) {
-            // This duplicates titleFLink()
-            var ancor = $('<a>', {href: match, class: "infor" });
-            var fqdn = ancor.prop('hostname');
-            var path = ancor.prop('pathname');
+            var fqdn = hostnameOf(match);
+            var path = pathnameOf(match);
 
             var domains = fqdn.split('.').reverse();
             var hn = domains[1]+'.'+domains[0];
@@ -3523,7 +3541,7 @@ $(function () {
             if (hn == 'instagram.com')
                 return titleFLink(match, '@'+path.replace(/^[/]/, '').replace(/\/.*/,''));
             else
-                return $('<div>').html(ancor.html(fqdn+path)).html();
+                return titleFLink(match, fqdn+path);
         });
 
         // @InstagramName

@@ -29,7 +29,7 @@ body {
 #loginLi div {
     display: none;
     position: absolute;
-    bottom: 100%
+    bottom: 100%;
 }
 #loginLi a { display: inline-block; }
 
@@ -45,7 +45,7 @@ body {
 #choiceLi div {
     display: none;
     position: absolute;
-    bottom: 100%
+    bottom: 100%;
 }
 #choiceLi a { display: inline-block; }
 #choiceLi li { display: block; padding: 2px; }

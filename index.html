@@ -29,7 +29,7 @@
       <div id="navboxContents">
 	<ul class="nbmenu">
 	  <li><form id="subredditForm" onsubmit="return false">
-	      <a id="subredditLink" href="#"><img class="reddit" src="images/reddit.svg" /></a>
+	      <a id="subredditLink" class="remote" href="#"><img class="reddit" src="images/reddit.svg" /></a>
 	      <input type="text" id="subredditUrl" size="17"/></form>
 	  </li><li id="choiceLi">
 	    <input class="checkbox" type="checkbox" name="choice" id="choice" value="Auto" />
@@ -103,15 +103,17 @@
 	    <a id='navboxVolumeUp'   class="volume" data-value="+1" href='#' title="Increase Volume (+)"><i class="material-icons">volume_up</i></a>
 	  </li><li>
 	    <a id='navboxExtraLoad' href='#' title="placeholder"><i class="material-icons">mms</i></a>
+	  </li><li>
+	    <a id='navboxImageSearch' href='#' class="remote" title="Image Search"><i class="material-icons">camera</i></a>
 	    <!-- These are in reverse order because of float: right -->
 	  </li><li class="right">
 	    <a id='navboxOrigDomain' href='#' title="Other posts from domain" class='local'><img class="redditp" src="images/favicon.png" /></a>
 	  </li><li class="right origlink">
-	    <a id='navboxAlbumOrigLink' href='#' title='original album link (a)' class="hidden"><i class="redditp material-icons">link</i></a>
+	    <a id='navboxAlbumOrigLink' href='#' title='original album link (a)' class="remote redditp hidden"><i class="material-icons">link</i></a>
 	  </li><li class="right origlink">
-	    <a id='navboxOrigLink' href='#' title='original link (l)'><i class="redditp material-icons">link</i></a>
+	    <a id='navboxOrigLink' href='#' title='original link (l)' class="remote"><i class="redditp material-icons">link</i></a>
 	  </li><li class="right">
-	    <a id='navboxLink' href='#' title='placeholder'>Loading</a>
+	    <a id='navboxLink' href='#' class="remote" title='placeholder'>Loading</a>
 	  </li>
 	</ul>
 	<div id="allNumberButtonList" class="numberButtonList">
