@@ -623,7 +623,7 @@ $(function () {
 
     var volume_set = function(vol) {
         if (!isFinite(vol))
-            vol = parseInt($('#volume').val(), 10);
+            vol = rp.settings.decivolume;
         var viaclick = false;
         if (vol > 10)
             vol = 10;
@@ -631,10 +631,11 @@ $(function () {
             if (!isVideoMuted())
                 viaclick = true;
             vol = 1;
-        }
+        } else if (isVideoMuted() && vol > rp.settings.decivolume)
+            viaclick = true;
         rp.settings.decivolume = vol;
         setConfig(configNames.decivolume, rp.settings.decivolume);
-        $('#volume').val(rp.settings.decivolume);
+        $('#navboxVolume').html(rp.settings.decivolume);
 
         if (viaclick)
             $('#mute').click();
@@ -643,6 +644,8 @@ $(function () {
     }
 
     var volume_adjust = function(val) {
+        if (!isFinite(val))
+            val = parseInt($(this).data('value'), 10);
         volume_set(rp.settings.decivolume+val);
     }
 
@@ -1059,7 +1062,7 @@ $(function () {
         updateMinScore(getConfig(configNames.minScore));
 
         volume_set(getConfig(configNames.decivolume));
-        $("#volume").keyup(volume_set);
+        $("a.volume").click(volume_adjust);
 
         $('#fullscreen').change(function() {
             var elem = document.getElementById('page');

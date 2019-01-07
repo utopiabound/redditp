@@ -190,6 +190,16 @@ input.textlabel {
     overflow: hidden;
 }
 
+.nbmenu li.list-start {
+    padding: 2px 0px 5px 3px;
+}
+.nbmenu li.list-item {
+    padding: 2px 1px 5px 0px;
+}
+.nbmenu li.list-end {
+    padding: 2px 2px 5px 1px;
+}
+
 #navboxScore {
     position: relative;
 }
