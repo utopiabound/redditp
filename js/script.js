@@ -262,6 +262,7 @@ $(function () {
         nsfw: "nsfw",
         embed: "showEmbed",
         usersub: "showUserSub",
+        mute: "videoMute",
         shouldAutoNextSlide: "shouldAutoNextSlide",
         timeToNextSlide: "timeToNextSlide",
         minScore: "minScore",
@@ -1004,7 +1005,7 @@ $(function () {
             }, {});
         rp.faviconcache = getConfig(configNames.favicon, {});
 
-        ["nsfw", "embed", "usersub"].forEach(function (item) {
+        ["nsfw", "embed", "usersub", "mute"].forEach(function (item) {
             var config = getConfig(configNames[item]);
             var ref = $('#'+item);
             ref.change(function () {
