@@ -173,6 +173,8 @@ rp.session = {
     // Status variables
     loadingNextImages: false,
     loadAfter: null,
+    loading: 0,
+    loadingMessage: "",
 
     needsPlayButton: false,
     fakeStorage: false,
@@ -2611,6 +2613,33 @@ $(function () {
             toggleAlbumButton(oldAlbumIndex, false);
             toggleAlbumButton(albumIndex, true);
         }
+    };
+
+    var setupLoading = function(val, msg) {
+        if (rp.session.loadingNextImages)
+            return false;
+        if (rp.session.loading != 0) {
+            log.error("Loading not zero: "+rp.session.loading);
+            rp.session.loading = 0;
+        }
+        addLoading(val);
+        rp.session.loadingNextImages = true;
+        if (msg)
+            rp.session.loadingMessage = msg;
+        else
+            rp.session.loadingMessage = "";
+        return true;
+    };
+
+    addLoading = function(val) {
+        if (!isFinite(val))
+            val = 1;
+        rp.session.loading += val;
+    };
+
+    var doneLoading = function(message) {
+        if (--rp.session.loading == 0)
+            failCleanup(message);
     };
 
     var failCleanup = function(message) {
@@ -5218,9 +5247,8 @@ $(function () {
     };
 
     var getGfycatUser = function() {
-        if (rp.session.loadingNextImages)
+        if (!setupLoading(2, "gfycat user "+user+" has no videos"))
             return;
-        rp.session.loadingNextImages = true;
 
         // URL: /gfycat/u/USER
         var a = rp.url.subreddit.split('/');
@@ -5254,10 +5282,7 @@ $(function () {
                     var image = gfycat2pic(post);
                     addImageSlide(image);
                 });
-            else
-                failCleanup('No public gfycats for user @'+user);
-
-            rp.session.loadingNextImages = false;
+            doneLoading();
         };
 
         $.ajax({
@@ -5272,8 +5297,10 @@ $(function () {
         // Get all Albums
         jsonUrl = 'https://api.gfycat.com/v1/users/'+user+'/albums';
         handleData = function (data) {
-            if (data.totalItemCount == 0)
+            if (data.totalItemCount == 0) {
+                doneLoading();
                 return;
+            }
 
             data.items.forEach(function (album) {
                 var photo = { title: album.title,
@@ -5292,7 +5319,9 @@ $(function () {
                     });
                     checkPhotoAlbum(photo);
                     addImageSlide(photo);
+                    doneLoading();
                 };
+                addLoading();
                 $.ajax({
                     url: url,
                     dataType: 'json',
@@ -5302,11 +5331,12 @@ $(function () {
                     crossDomain: true
                 });
             });
-            rp.session.loadingNextImages = false;
+            doneLoading();
+
         };
         var handleError = function (xhr, ajaxOptions, thrownError) {
             if (xhr.status == 404) {
-                log.info("gfycat user "+user+" has no albums");
+                tryCleanup("gfycat user "+user+" has no videos");
                 return;
             }
             failedAjax(xhr, ajaxOptions, thrownError);
