@@ -43,7 +43,7 @@ Features
 	* Imgur		(Album support) /imgur/a/<ALBUMID>
 	* Tumblr	(Album support) /tumblr/<HOSTNAME>
 	* WordPress	(Album support) /wp/<HOSTNAME> (both self, and wp hosted)
-	* Gfycat	(User support)  /gfycat/u/<USERNAME>
+	* Gfycat	(User support)  /gfycat/<USERNAME>
 	* Blogger	(Album support) /blogger/<HOSTNAME>
 	* vimeo		(embed only - no autonext)
 	* Youtube	(embed only - no autonext)

@@ -131,6 +131,7 @@ rp.settings = {
     nsfw: false,
     // Show user subreddit links in duplicates
     usersub: false,
+    mute: true,
 };
 
 rp.mime2ext = {
@@ -2646,7 +2647,7 @@ $(function () {
     var failCleanup = function(message) {
         rp.session.loadingNextImages = false;
         if (message === undefined)
-            message = '';
+            message = rp.session.loadingMessage;
         if (rp.photos.length > 0) {
             // already loaded images, don't ruin the existing experience
             return;
@@ -3246,7 +3247,7 @@ $(function () {
                 if (data.gfyItem.userName !== 'anonymous')
                     photo.extra = localLink('https://gfycat.com/@'+data.gfyItem.userName,
                                             data.gfyItem.userName,
-                                            '/gfycat/u/'+data.gfyItem.userName);
+                                            '/gfycat/'+data.gfyItem.userName);
 
                 initPhotoVideo(photo, [ data.gfyItem.mp4Url,  data.gfyItem.webmUrl ],
                                data.gfyItem.posterUrl);
@@ -5248,13 +5249,12 @@ $(function () {
     };
 
     var getGfycatUser = function() {
+        // URL: /gfycat/USER
+        var a = rp.url.subreddit.split('/');
+        var user = a[2];
+
         if (!setupLoading(2, "gfycat user "+user+" has no videos"))
             return;
-
-        // URL: /gfycat/u/USER
-        var a = rp.url.subreddit.split('/');
-
-        var user = a[3];
 
         var gfycat2pic = function(post) {
             var image = { url: 'https://gfycat.com/'+post.gfyName,
@@ -5270,7 +5270,7 @@ $(function () {
             if (post.userName != 'anonymous')
                 image.extra = localLink('https://gfycat.com/@'+post.userName,
                                         post.userName,
-                                        '/gfycat/u/'+post.userName);
+                                        '/gfycat/'+post.userName);
             return image;
         };
 
@@ -5337,7 +5337,7 @@ $(function () {
         };
         var handleError = function (xhr, ajaxOptions, thrownError) {
             if (xhr.status == 404) {
-                tryCleanup("gfycat user "+user+" has no videos");
+                doneLoading();
                 return;
             }
             failedAjax(xhr, ajaxOptions, thrownError);
@@ -5357,7 +5357,7 @@ $(function () {
         // Detect predefined reddit url paths. If you modify this be sure to fix
         // .htaccess
         // This is a good idea so we can give a quick 404 page when appropriate.
-        var regexS = "(/(?:(?:imgur/a/)|(?:gfycat/u/)|(?:tumblr/)|(?:flickr/)|(?:blogger/)|(?:wp2?/)|(?:auth)|"+
+        var regexS = "(/(?:(?:imgur/)|(?:gfycat/)|(?:tumblr/)|(?:flickr/)|(?:blogger/)|(?:wp2?/)|(?:auth)|"+
             "(?:r/)|(?:u/)|(?:user/)|(?:domain/)|(?:search)|(?:me)|(?:hot)|(?:top)|(?:new)|(?:rising)|(?:controversial))"+
             "[^&#?]*)[?]?(.*)";
 
@@ -5551,7 +5551,7 @@ $(function () {
         else if (rp.url.subreddit.startsWith('/blogger/'))
             getBloggerBlog();
 
-        else if (rp.url.subreddit.startsWith('/gfycat/user/'))
+        else if (rp.url.subreddit.startsWith('/gfycat/'))
             getGfycatUser();
 
         else if (rp.url.subreddit.startsWith('/flickr/'))
