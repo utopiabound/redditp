@@ -40,7 +40,7 @@ Features
 * Video support (either direct or embeded)
 * Autonext waits for the end of a video (does not work for gif, but does work for gifv)
 * Parsing for a collection of domains including: (see createDiv() and processPhoto() for complete list)
-	* Imgur		(Album support) /imgur/a/<ALBUMID>
+	* Imgur		(User support)  /imgur/<USERID>
 	* Tumblr	(Album support) /tumblr/<HOSTNAME>
 	* WordPress	(Album support) /wp/<HOSTNAME> (both self, and wp hosted)
 	* Gfycat	(User support)  /gfycat/<USERNAME>
