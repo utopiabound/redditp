@@ -697,7 +697,10 @@ $(function () {
         var dotLocation = path.lastIndexOf('.');
         if (dotLocation < 0)
             return '';
-        return path.substring(dotLocation+1);
+        var end = path.lastIndexOf(':');
+        if (end < dotLocation)
+            end = undefined;
+        return path.substring(dotLocation+1, end);
     };
 
     // Take a URL and strip it down to the "shortid"
@@ -3644,10 +3647,11 @@ $(function () {
                 var cl = "";
                 if (item.data.visibility == "public") 
                     path = item.data.path;
-                else {
+                else if (item.data.visibility == "private") {
                     path = "/me/m/"+item.data.name;
                     cl = "needlogin";
-                }
+                } else // hidden == ignore
+                    return;
 
                 var link = redditLink(path, item.data.description_md, item.data.display_name);
 

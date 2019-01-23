@@ -342,7 +342,6 @@ input[type=checkbox]:checked + label.colortoggle {
 .redditp {
     height: 24px;
     width: 24px;
-    margin: 0px -5px 0px -5px;
 }
 
 .reddit {
