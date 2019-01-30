@@ -1697,6 +1697,10 @@ $(function () {
                 shortid = url2shortid(pic.url, 2);
                 initPhotoEmbed(pic, 'https://www.pornhub.com/embed/'+shortid+'?autoplay=1');
 
+            } else if (hostname == 'tnaflix.com') {
+                shortid = url2shortid(pic.url, -1, 'video');
+                initPhotoEmbed(pic, 'https://player.tnaflix.com/video/'+shortid);
+
             } else if (hostname == 'tube8.com') {
                 shortid = pathnameOf(pic.url);
                 initPhotoEmbed(pic, 'https://www.tube8.com/embed'+shortid+'?autoplay=1');
@@ -3929,6 +3933,8 @@ $(function () {
                     log.error("unknown comment type ["+comment.kind+"]: "+photo.url);
                     return;
                 }
+                if (comment.data.author == 'AutoModerator')
+                    return;
 
                 if (comment.data.score >= rp.settings.minScore) {
                     var links = [];
@@ -3954,8 +3960,7 @@ $(function () {
                         if (processPhoto(img))
                             addAlbumItem(photo, img);
                         else
-                            // this can be VERY verbose
-                            log.debug("cannot load comment link [no photos]: "+img.url);
+                            log.info("cannot load comment link [no photos]: "+img.url);
                     }
                 }
 
