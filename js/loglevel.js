@@ -1,9 +1,4 @@
-/*
-* loglevel - https://github.com/pimterry/loglevel
-*
-* Copyright (c) 2013 Tim Perry
-* Licensed under the MIT license.
-*/
+/*! loglevel - v1.6.1 - https://github.com/pimterry/loglevel - (c) 2018 Tim Perry - licensed MIT */
 (function (root, definition) {
     "use strict";
     if (typeof define === 'function' && define.amd) {
@@ -158,6 +153,8 @@
        *
        */
 
+      self.name = name;
+
       self.levels = { "TRACE": 0, "DEBUG": 1, "INFO": 2, "WARN": 3,
           "ERROR": 4, "SILENT": 5};
 
@@ -238,6 +235,10 @@
         }
 
         return defaultLogger;
+    };
+
+    defaultLogger.getLoggers = function getLoggers() {
+        return _loggersByName;
     };
 
     return defaultLogger;
