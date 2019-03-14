@@ -1664,7 +1664,6 @@ $(function () {
                 // www.youtube.com/watch?v=SHORTID
                 shortid = url2shortid(pic.url);
                 a = searchOf(pic.url);
-                var start;
                 if (shortid == 'watch')
                     shortid = a.v;
                 initPhotoEmbed(pic, youtubeURL(shortid, a.t || a.start), youtubeThumb(shortid));
@@ -2285,13 +2284,26 @@ $(function () {
             if (rp.cache[next][0] === undefined)
                 rp.cache[next][0] = createDiv(next);
 
-            // save next+1, but don't create it
-            var newnext = getNextSlideIndex(next);
-            if (newnext != next && oldCache[newnext])
-                rp.cache[newnext] = oldCache[newnext];
+            // Also create next+1
+            var next1 = getNextSlideIndex(next);
+            if (next1 == next)
+                loadMoreSlides();
+            else if (oldCache[next1])
+                rp.cache[next1] = oldCache[next1];
+            else {
+                    rp.cache[next1] = {};
+                    rp.cache[next1][0] = createDiv(next1);
+            }
+
+            // save next+2, but don't create it
+            var next2 = getNextSlideIndex(next1);
+            if (next2 == next1 && next2 != next)
+                loadMoreSlides();
+            else if (oldCache[next2])
+                rp.cache[next2] = oldCache[next2];
 
             // save previous
-            if (oldCache[prev])
+            if (prev >= 0 && oldCache[prev])
                 rp.cache[prev] = oldCache[prev];
 
             if (oldCache[rp.session.activeIndex])
@@ -2640,7 +2652,7 @@ $(function () {
         return true;
     };
 
-    addLoading = function(val) {
+    var addLoading = function(val) {
         if (!isFinite(val))
             val = 1;
         rp.session.loading += val;
