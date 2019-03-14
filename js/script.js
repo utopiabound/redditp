@@ -597,7 +597,6 @@ $(function () {
                 event.stopImmediatePropagation();
             }
             clearSlideTimeout();
-            $('#playbutton').remove();
             cb();
         });
         return $('<span>', { id: 'playbutton' }).html(lem);
@@ -2956,7 +2955,7 @@ $(function () {
                 var addPlayButton = function () {
                     $(video).off('canplay canplaythrough', addPlayButton);
 
-                    divNode.prepend(playButton(function() { $(video)[0].play(); }));
+                    divNode.prepend(playButton(function() { $(video)[0].play(); $('#playbutton').remove(); }));
                 };
 
                 $(video).on('canplay canplaythrough', addPlayButton);
