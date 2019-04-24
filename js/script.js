@@ -1352,7 +1352,8 @@ $(function () {
                     initPhotoFailed(img);
                 log.debug("moved primary to first album item: "+img.url);
                 addAlbumItem(photo, img);
-            }
+            } else if (photo.o_url === undefined)
+                photo.o_url = photo.url;
             return photo;
         }
 
@@ -1467,13 +1468,19 @@ $(function () {
             pic.parent = parent;
     };
 
+    var isAlbumDupe = function (photo, url) {
+        for(var i = 0; i < photo.album.length; ++i) {
+            if (photo.album[i].url == url)
+                return true
+        }
+        return false;
+    }
+
     var addAlbumItem = function (photo, pic) {
         // check for duplicates
-        for(var i = 0; i < photo.album.length; ++i) {
-            if (photo.album[i].url == pic.url) {
-                log.debug("cannot display url [sub-album dup]: ["+i+"] exists: "+pic.url);
-                return;
-            }
+        if (isAlbumDupe(photo, pic.url)) {
+            log.debug("cannot display url [sub-album dup]: "+pic.url);
+            return;
         }
         // promote nsfw tag from album item to main photo
         if (pic.over18 === true)
@@ -3539,8 +3546,8 @@ $(function () {
 
         if (url.indexOf("/a/") > 0 ||
             url.indexOf('/gallery/') > 0) {
-            url = url.replace(/\/new$/, '');
-            return url;
+            a = url.split('/');
+            return ['https://imgur.com', a[3], a[4].split(".")[0]].join("/");
         }
 
         // process individual file
@@ -4495,7 +4502,8 @@ $(function () {
         $('<div />').html(html).find('img, video, iframe').each(function(index, item) {
             // init url for relative urls/srcs
             var pic = { url: item.src || item.currentSrc, title: item.alt || item.title };
-            if (processNeedle(pic, item) && processPhoto(pic)) {
+            if (processNeedle(pic, item) && processPhoto(pic) &&
+                !isAlbumDupe(photo, pic.url.replace(/-\d+x\d+\./, "."))) {
                 addAlbumItem(photo, pic);
                 rc = true;
             }
@@ -4537,7 +4545,7 @@ $(function () {
                 return;
             }
             var rc2 = false;
-            initPhotoAlbum(photo);
+            initPhotoAlbum(photo, false);
             data.forEach(function(item) {
                 var pic = { url: item.source_url,
                             title: unescapeHTML(item.caption.rendered) || item.alt_text || item.title.rendered };
@@ -5025,6 +5033,7 @@ $(function () {
     var processBloggerPost = function(photo, post) {
         photo.extra = localLink(post.author.url, post.author.displayName,
                                 '/blogger/'+hostnameOf(photo.url));
+        initPhotoAlbum(photo, false);
         return processHaystack(photo, post.content, true);
     };
 
