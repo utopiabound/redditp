@@ -1730,8 +1730,6 @@ $(function () {
                 shortid = url2shortid(pic.url, 2, '-');
                 initPhotoEmbed(pic, originOf(pic.url)+'/videos/embed/'+shortid);
 
-                // NO AUTOPLAY BELOW HERE
-
             } else if (hostname == 'openload.co' ||
                        hostname.startsWith('oload.')) {
                 // //openload.co/embed/SHORTID/Name_Of_original_file
@@ -1824,6 +1822,10 @@ $(function () {
                 o = originOf(pic.url)+a[0];
                 initPhotoVideo(pic, o+'.mp4', o+'.jpg');
 
+            } else if (hostname == "gounlimited.to") {
+                shortid = url2shortid(pic.url, 1, '-');
+                initPhotoEmbed(pic, originOf(pic.url)+"/embed-"+shortid+".html");
+
             } else if (hostname == 'supload.com') {
                 if (extensionOf(pic.url) == 'gifv' ||
                     url2shortid(pic.url) == 'thumb') {
@@ -1835,6 +1837,8 @@ $(function () {
                 } else if (!isImageExtension(pic.url) )
                     pic.type = imageTypes.later;
                 // else valid image
+
+                // PROCESS VIDEO EXTENSION
 
             } else if (isVideoExtension(pic.url)) {
                 initPhotoVideo(pic);
@@ -3023,11 +3027,12 @@ $(function () {
         };
 
         var showPic = function(pic) {
+            var thumb = pic.thumb || photoParent(pic).thumb;
             if (pic.type == imageTypes.album) {
                 var index = indexPhotoAlbum(photoParent(pic), imageIndex, albumIndex);
                 if (index < 0) {
                     log.error("["+imageIndex+"]["+albumIndex+"] album is zero-length ("+index+") failing to thumbnail: "+pic.url);
-                    showImage(pic.thumb);
+                    showImage(thumb);
                     return;
                 }
                 pic = pic.album[index];
@@ -3044,8 +3049,8 @@ $(function () {
                     divNode.append(lem);
                     return;
                 }
-                if (pic.thumb)
-                    showImage(pic.thumb);
+                if (thumb)
+                    showImage(thumb);
                 // Add play button
                 lem = playButton(function() {
                     replaceBackgroundDiv($('<div>').html(iFrameUrl(pic.url)));
@@ -3055,7 +3060,7 @@ $(function () {
                 divNode.prepend($(lem).append(title));
 
             } else if (pic.type == imageTypes.fail)
-                showImage(pic.thumb);
+                showImage(thumb);
 
             else if (pic.type == imageTypes.later) {
                 log.error("called showPic() on later type: "+pic.url);
@@ -3072,7 +3077,7 @@ $(function () {
         }
 
         if (photo.type == imageTypes.fail) {
-            showImage(photo.thumb, false);
+            showImage(thumb, false);
             return divNode;
         }
 
