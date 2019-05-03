@@ -3931,6 +3931,81 @@ $(function () {
             photo.extraLoaded = false;
             failedAjax(xhr, ajaxOptions, thrownError);
         }
+
+        var handleMoreComments = function(data) {
+            var comments = data.json.data.things;
+            var i;
+
+            photo = initPhotoAlbum(photo, true);
+
+            for (i = 0; i < comments.length; ++i)
+                processRedditComment(photo, comments[i]);
+
+            checkPhotoAlbum(photo);
+        };
+
+        var processRedditComment = function(photo, comment) {
+            var j;
+            if (comment.kind == "more") {
+                // @@ API hits CORS issue
+                // var jsonUrl = rp.url.get+'/api/morechildren';
+                // var postData = 'limit_children=False&api_type=json&children='+comment.data.children.join(",")+
+                //     "&link_id="+(comment.data.link_id || comment.data.link)+
+                //     "&id="+(comment.data.name || comment.data.id);
+                // log.info("loading more comments: "+comment.data.id);
+                // $.ajax({
+                //     url: jsonUrl,
+                //     headers: hdrData,
+                //     type: postType,
+                //     data: postData,
+                //     dataType: 'json',
+                //     success: handleMoreComments,
+                //     error: failedData,
+                //     timeout: rp.settings.ajaxTimeout,
+                //     crossDomain: true,
+                // });
+                return;
+            }
+            if (comment.kind != "t1") {
+                log.error("unknown comment type ["+comment.kind+"]: "+photo.url);
+                return;
+            }
+            if (comment.data.author == 'AutoModerator')
+                return;
+
+            if (comment.data.score >= rp.settings.minScore) {
+                var links = [];
+                if (comment.data.body_html) {
+
+                    var haystack = $('<div />').html(unescapeHTML(comment.data.body_html));
+
+                    links = haystack.find('a');
+                } else {
+                    log.info("cannot display comment["+comment.permalink+"] [no body]: "+photo.url);
+                }
+
+                for (j = 0; j < links.length; ++j) {
+                    img = { author: comment.data.author,
+                            url: links[j].href
+                          };
+
+                    if (links[j].innerText !== "" &&
+                        links[j].innerText !== img.url)
+                        img.title = fixupTitle(links[j].innerText);
+
+                    log.debug("RC-Try:["+photo.comments+"]:"+img.url);
+                    if (processPhoto(img))
+                        addAlbumItem(photo, img);
+                    else
+                        log.info("cannot load comment link [no photos]: "+img.url);
+                }
+            }
+
+            if (comment.data.replies)
+                for (j = 0; j < comment.data.replies.data.children.length; ++j)
+                    processRedditComment(photo, comment.data.replies.data.children[j]);
+        };
+
         var handleData = function (data) {
             var comments = data[1].data.children;
             var img, i;
@@ -3939,53 +4014,6 @@ $(function () {
                 updateExtraLoad();
 
             photo = initPhotoAlbum(photo, true);
-
-            var processRedditComment = function(photo, comment) {
-                var j;
-                if (comment.kind == "more") {
-                    // @@ LOAD MORE COMMENTS
-                    log.info("MORE COMMENTS [comment:"+photo.comments+" id:"+comment.data.id+"]: "+photo.url);
-                    return;
-                }
-                if (comment.kind != "t1") {
-                    log.error("unknown comment type ["+comment.kind+"]: "+photo.url);
-                    return;
-                }
-                if (comment.data.author == 'AutoModerator')
-                    return;
-
-                if (comment.data.score >= rp.settings.minScore) {
-                    var links = [];
-                    if (comment.data.body_html) {
-
-                        var haystack = $('<div />').html(unescapeHTML(comment.data.body_html));
-
-                        links = haystack.find('a');
-                    } else {
-                        log.info("cannot display comment["+comment.permalink+"] [no body]: "+photo.url);
-                    }
-
-                    for (j = 0; j < links.length; ++j) {
-                        img = { author: comment.data.author,
-                                url: links[j].href
-                              };
-
-                        if (links[j].innerText !== "" &&
-                            links[j].innerText !== img.url)
-                            img.title = fixupTitle(links[j].innerText);
-
-                        log.debug("RC-Try:["+photo.comments+"]:"+img.url);
-                        if (processPhoto(img))
-                            addAlbumItem(photo, img);
-                        else
-                            log.info("cannot load comment link [no photos]: "+img.url);
-                    }
-                }
-
-                if (comment.data.replies)
-                    for (j = 0; j < comment.data.replies.data.children.length; ++j)
-                        processRedditComment(photo, comment.data.replies.data.children[j]);
-            };
 
             for (i = 0; i < comments.length; ++i)
                 processRedditComment(photo, comments[i]);
