@@ -1802,7 +1802,7 @@ $(function () {
                 shortid = url2shortid(pic.url);
                 // Strip everything trailing '-'
                 if (shortid.indexOf('-') != -1)
-                    shortid = shortid.substr(0, shortid.lastIndexOf('-'));
+                    shortid = shortid.substr(0, shortid.indexOf('-'));
                 if (shortid == 'about')
                     return false;
 
@@ -3077,7 +3077,7 @@ $(function () {
         }
 
         if (photo.type == imageTypes.fail) {
-            showImage(thumb, false);
+            showImage(photo.thumb, false);
             return divNode;
         }
 
