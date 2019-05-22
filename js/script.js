@@ -3320,7 +3320,6 @@ $(function () {
 
             if (a[1] == 'a') {
                 jsonUrl = "https://api.imgur.com/3/album/" + a[2];
-
                 handleData = function(data) {
                     if (data.data.account_url)
                         photo.extra = localLink('https://'+data.data.account_url+'.imgur.com',
@@ -3332,10 +3331,31 @@ $(function () {
                 jsonUrl = "https://api.imgur.com/3/gallery/" + a[2];
 
                 handleError = function () {
-                    initPhotoImage(photo, "https://i.imgur.com/"+shortid+".jpg");
+                    jsonUrl = "https://api.imgur.com/3/album/" + a[2];
+                    hdata = function (data) {
+                        if (data.data.account_url)
+                            photo.extra = localLink('https://'+data.data.account_url+'.imgur.com',
+                                                    data.data.account_url, '/imgur/'+data.data.account_url);
+                        imgurHandleAlbum(data.data.images, data.data.link);
+                        if (isActive(photo))
+                            animateNavigationBox(photo.index, photo.index, rp.session.activeAlbumIndex);
+                    };
+                    herr = function() {
+                        initPhotoImage(photo, "https://i.imgur.com/"+shortid+".jpg");
 
-                    showCB(photo);
-                    return;
+                        showCB(photo);
+                    };
+                    $.ajax({
+                        url: jsonUrl,
+                        type: postType,
+                        data: postData,
+                        headers: headerData,
+                        dataType: dataType,
+                        success: hdata,
+                        error: herr,
+                        timeout: rp.settings.ajaxTimeout,
+                        crossDomain: true
+                    });
                 };
 
                 handleData = function (data) {
