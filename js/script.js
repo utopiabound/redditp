@@ -1740,12 +1740,6 @@ $(function () {
                 // no autostart
                 initPhotoEmbed(pic, 'https://www.openload.co/embed/'+shortid);
 
-            } else if (hostname == 'xvideos.com') {
-                // https://www.xvideos.com/videoSHORTID/title_of_video
-                // no autostart
-                shortid = url2shortid(pic.url, 1, "video");
-                initPhotoEmbed(pic, 'https://www.xvideos.com/embedframe/'+shortid);
-
             } else if (hostname == 'spankbang.com') {
                 // no autostart
                 initPhotoEmbed(pic, 'https://spankbang.com/embed/'+url2shortid(pic.url, 1));
@@ -1887,12 +1881,18 @@ $(function () {
                     a[1] == 'videos' ||
                     a[1] == 'watch' ||
                     a[1] == 'v') {
-
                     shortid = url2shortid(pic.url, 2, '-');
+                    href = $('<a>').attr('href', pic.url);
+                    if (href.prop('hostname').startsWith('m.'))
+                        href.prop('hostname', href.prop('hostname').replace('m.', 'www.'));
+
                     if (shortid.match(/^\d+$/)) {
-                        initPhotoEmbed(pic, originOf(pic.url)+'/embed/'+shortid+'?autoplay=1');
+                        initPhotoEmbed(pic, href.prop('origin')+'/embed/'+shortid+'?autoplay=1');
                         return true;
                     }
+                    shortid = url2shortid(pic.url, 2);
+                    initPhotoEmbed(pic, href.prop('origin')+'/embed/'+shortid+'?autoplay=1');
+                    return true;
                 }
                 return false;
 
