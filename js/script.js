@@ -4184,6 +4184,33 @@ $(function () {
             var hn = hostnameOf(photo.url);
             var a, handleData, jsonUrl, failedData;
 
+            var tryWPv2 = function () {
+                var origin = originOf(photo.url);
+                var slug = url2shortid(photo.url);
+                jsonUrl = origin+'/wp-json/wp/v2/posts/?slug='+slug+'&_jsonp=?';
+                log.debug("WPv2 Trying: "+photo.url);
+                handleData = function (data) {
+                    if (rp.wpv2[hn] !== true) {
+                        rp.wpv2[hn] = true;
+                        setConfig(configNames.wpv2, rp.wpv2);
+                    }
+                    getPostWPv2(photo, data[0], function() { tryPreview(photo, idorig, "WPv2 no photos"); });
+                };
+                failedData = function () {
+                    rp.wpv2[hn] = false;
+                    setConfig(configNames.wpv2, rp.wpv2);
+                    tryPreview(photo, idorig, "not WPv2 site");
+                };
+                $.ajax({
+                    url: jsonUrl,
+                    dataType: 'jsonp',
+                    success: handleData,
+                    error: failedData,
+                    timeout: rp.settings.ajaxTimeout,
+                    crossDomain: true
+                });
+            };
+
             if (rp.wpv2[hn] !== false &&
                 (a = path.match(/^\/(?:\d+\/)*([a-z0-9]+(?:-[a-z0-9]+)*)\/?$/))) {
                 // This check to see if bare url is actually a wordpress site
@@ -4199,37 +4226,16 @@ $(function () {
                     else
                         tryPreview(photo, idorig, "WP no photos");
                 };
-                failedData = function () {
-                    //log.info("cannot display wordpress [not wp site]: "+photo.url);
-                    var origin = originOf(photo.url);
-                    jsonUrl = origin+'/wp-json/wp/v2/posts/?slug='+slug+'&_jsonp=?';
-                    log.debug("WPv2 Trying: "+photo.url);
-                    handleData = function (data) {
-                        if (rp.wpv2[hn] !== true) {
-                            rp.wpv2[hn] = true;
-                            setConfig(configNames.wpv2, rp.wpv2);
-                        }
-                        getPostWPv2(photo, data[0], function() { tryPreview(photo, idorig, "WPv2 no photos"); });
-                    };
-                    failedData = function () {
-                        rp.wpv2[hn] = false;
-                        setConfig(configNames.wpv2, rp.wpv2);
-                        tryPreview(photo, idorig, "not WPv2 site");
-                    };
-                    $.ajax({
-                        url: jsonUrl,
-                        dataType: 'jsonp',
-                        success: handleData,
-                        error: failedData,
-                        timeout: rp.settings.ajaxTimeout,
-                        crossDomain: true
-                    });
-                };
+                failedData = tryWPv2;
                 // We already know we need to talk directly to site:
                 if (rp.wpv2[hn] === true) {
                     failedData();
                     return;
                 }
+
+            } else if (rp.wpv2[hn] !== false &&
+                       (a = path.match(/^\/index.php\/(?:\d+\/)*([a-z0-9]+(?:-[a-z0-9]+)*)\/?$/))) {
+                tryWPv2();
 
             } else if (( rp.blogger[hn] === undefined || rp.blogger[hn] > 0) &&
                        (path.match(/^\/(?:\d+\/)*([a-z0-9]+(?:-[a-z0-9]+)*.html)$/))) {
