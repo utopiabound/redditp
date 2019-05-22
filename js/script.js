@@ -816,8 +816,8 @@ $(function () {
         // wipeLeft means the user moved his finger from right to left.
         wipeLeft: nextAlbumSlide,
         wipeRight: prevAlbumSlide,
-        wipeUp: nextSlide,
-        wipeDown: prevSlide,
+        wipeUp: prevSlide,
+        wipeDown: nextSlide,
         min_move_x: 20,
         min_move_y: 20,
         preventDefaultEvents: false
@@ -5456,6 +5456,8 @@ $(function () {
             path = $('#subredditUrl').val();
         if (initial === undefined)
             initial = false;
+
+        path = path.replace(/^\/+/, '/');
 
         var regex = new RegExp(regexS);
         var results = regex.exec(path);
