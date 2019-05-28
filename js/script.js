@@ -3993,9 +3993,9 @@ $(function () {
                 var links = [];
                 if (comment.data.body_html) {
 
-                    var haystack = $('<div />').html(unescapeHTML(comment.data.body_html));
+                    var ownerDocument = document.implementation.createHTMLDocument('virtual');
 
-                    links = haystack.find('a');
+                    links = $('<div />', ownerDocument).html(unescapeHTML(comment.data.body_html)).find('a');
                 } else {
                     log.info("cannot display comment["+comment.permalink+"] [no body]: "+photo.url);
                 }
@@ -4549,7 +4549,9 @@ $(function () {
         var rc = false;
 
         photo = initPhotoAlbum(photo);
-        $('<div />').html(html).find('img, video, iframe').each(function(index, item) {
+        // Create virtual document so that external references are not loaded
+        var ownerDocument = document.implementation.createHTMLDocument('virtual');
+        $('<div />', ownerDocument).html(html).find('img, video, iframe').each(function(index, item) {
             // init url for relative urls/srcs
             var pic = { url: item.src || item.currentSrc, title: item.alt || item.title };
             if (processNeedle(pic, item) && processPhoto(pic) &&
