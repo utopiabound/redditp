@@ -4583,14 +4583,15 @@ $(function () {
         }
         var hn = hostnameOf(photo.url);
         photo.extra = localLink(originOf(photo.url), hn, "/wp2/"+hn, "", rp.favicons['wordpress']);
+        initPhotoAlbum(photo, false);
         if (photo.o_url === undefined)
             photo.o_url = photo.url;
         var rc = false;
 
-        if (post.content && processHaystack(photo, post.content.rendered, true))
+        if (post.content && processHaystack(photo, post.content.rendered, false))
             rc = true;
 
-        if (post.description && processHaystack(photo, post.description.rendered, true))
+        if (post.description && processHaystack(photo, post.description.rendered, false))
             rc = true;
 
         // Pull down 100, but only videos and images
@@ -4598,23 +4599,19 @@ $(function () {
         var handleData = function(data) {
             if (data.length == 100)
                 log.notice("Found Full Page, should ask for more: "+photo.url);
-            if (data.length == 0) {
-                if (!rc && errorcb)
-                    errorcb();
-                return;
-            }
             var rc2 = false;
-            initPhotoAlbum(photo, false);
-            data.forEach(function(item) {
-                var pic = { url: item.source_url,
-                            title: unescapeHTML(item.caption.rendered) || item.alt_text || item.title.rendered };
-                if (processPhoto(pic)) {
-                    addAlbumItem(photo, pic);
-                    rc2 = true;
-                } else
-                    log.info("cannot display item [unknown type: "
-                             + item.media_type +"]: "+item.source_url);
-            });
+            if (data.length) {
+                data.forEach(function(item) {
+                    var pic = { url: item.source_url,
+                                title: unescapeHTML(item.caption.rendered) || item.alt_text || item.title.rendered };
+                    if (processPhoto(pic)) {
+                        addAlbumItem(photo, pic);
+                        rc2 = true;
+                    } else
+                        log.info("cannot display item [unknown type: "
+                                 + item.media_type +"]: "+item.source_url);
+                });
+            }
             checkPhotoAlbum(photo);
             if (rc || rc2)
                 addImageSlide(photo);
@@ -4623,6 +4620,7 @@ $(function () {
         };
 
         var handleError = function(xhr, ajaxOptions, thrownError) {
+            checkPhotoAlbum(photo);
             if (rc)
                 addImageSlide(photo);
             else if (errorcb)
@@ -4639,8 +4637,6 @@ $(function () {
             timeout: rp.settings.ajaxTimeout,
             crossDomain: true
         });
-        if (rc)
-            addImageSlide(photo);
     };
 
     // This is for public-api.wordpress.com which uses API v1.1
