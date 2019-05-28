@@ -1357,9 +1357,13 @@ $(function () {
             return photo;
         }
 
+        // If we want to keep everything, just return
+        if (keepfirst)
+            return photo;
+
         // if initPhotoAlbum(photo, true) was called but we need to kill it, if it's
         // re-called with false.
-        if (!keepfirst && photo.album.length > 0 && pic == photo && photo.url == photo.album[0].url)
+        if (photo.album.length > 0 && pic == photo && photo.url == photo.album[0].url)
             pic = photo.album[0];
 
         if (photo !== pic) {
