@@ -2033,7 +2033,7 @@ $(function () {
 
         // #3 try //site/favicon.ico
         var origin = originOf(url);
-        var img = $("<img />", {'class': 'favicon', src: origin+'/favicon.ico'});
+        var img = $("<img />", {'class': 'favicon', src: fixupUrl(origin+'/favicon.ico')});
 
         // #4a try originOf(pic.url)/favicon.ico (if different from pic.o_url)
         // #4b try sld-only hostname of url
@@ -3583,7 +3583,7 @@ $(function () {
         var hostname = hostnameOf(url, true);
 
         if (url.startsWith('//'))
-            return ((rp.insecure[hostname]) ?"http:" :"https:")+url;
+            url = ((rp.insecure[hostname]) ?"http:" :"https:")+url;
 
         if (hostname == 'gfycat.com' ||
             hostname == 'wp.com' ||
