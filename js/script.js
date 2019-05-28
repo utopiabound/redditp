@@ -1875,6 +1875,18 @@ $(function () {
                 else
                     throw("unknown flickr url");
 
+            } else if (hostname == 'hotnessrater.com') {
+                a = pathnameOf(pic.url).split('/');
+                initPhotoImage(pic, ["https://img1.hotnessrater.com", a[2], a[3]].join("/")+".jpg");
+
+            } else if (hostname == 'pornflip.com') {
+                a = pathnameOf(pic.url).split('/');
+                if (a[1].length < 3)
+                    shortid = a[2];
+                else
+                    shortid = a[1];
+                initPhotoEmbed(pic, originOf(pic.url)+'/embed/'+shortid+'?quality=720&autoplay=1');
+
             } else if (pic.type != imageTypes.thumb) {
                 a = pathnameOf(pic.url).split('/');
                 if (a[1] == 'video' ||
@@ -3593,6 +3605,7 @@ $(function () {
             hostname == 'youporn.com' ||
             hostname == 'imgur.com' ||
             hostname == 'sendvid.com' ||
+            hostname == 'juicygif.com' ||
             hostname == 'pornbot.net')
             url = url.replace(/^http:/, "https:");
 
