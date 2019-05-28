@@ -2984,7 +2984,7 @@ $(function () {
         };
 
         // Called with showEmbed(urlForIframe)
-        var iFrameUrl = function(url) {
+        var iFrame = function(pic) {
             var iframe = $('<iframe/>', { id: "gfyembed",
                                           class: "fullscreen",
                                           frameborder: 0,
@@ -2994,35 +2994,14 @@ $(function () {
             // ensure updateAutoNext doesn't reset timer
             photo.times = 1;
 
-            $(iframe).bind("load", function() {
-                var iframe = $('#gfyembed');
+            $(iframe).bind("load", function(data) {
+                var iframe = data.target;
                 var c = $(iframe).contents();
-                var video = $(c).find("video")[0];
-                if (!video) {
-                    log.info("["+imageIndex+"] X-Site Protection: Auto-next not triggered");
-                    return;
-                }
-                $(video).attr("id", "gfyvid");
-                updateVideoMute();
-
-                log.info("["+imageIndex+"] embed video found: "+video.attr("src"));
-
-                $(video).on("loadeddata", function(e) {
-                    photo.duration = e.target.duration;
-                    log.debug("["+imageIndex+"] embed video metadata.duration: "+e.target.duration );
-                    // preload, don't mess with timeout
-                    if (imageIndex !== rp.session.activeIndex)
-                        return;
-                    log.debug("["+imageIndex+"] embed video loadeddata running for active image");
-                    video.prop('autoplay', true);
-                    video[0].play();
-                    if (rp.settings.shouldAutoNextSlide && photo.duration > rp.settings.timeToNextSlide)
-                        resetNextSlideTimer(photo.duration);
-                    else
-                        resetNextSlideTimer();
-                });
             });
-            $(iframe).attr('src', url);
+            $(iframe).bind("error", function(data) {
+                log.info("["+imageIndex+"] FAILED TO LOAD: "+pic.url);
+            });
+            $(iframe).attr('src', pic.url);
             return iframe;
         };
 
@@ -3045,15 +3024,14 @@ $(function () {
                 var lem;
                 // @@ Fix enable/disable embed option for cached div's
                 if (rp.settings.embed) {
-                    lem = iFrameUrl(pic.url);
-                    divNode.append(lem);
+                    divNode.append(iFrame(pic));
                     return;
                 }
                 if (thumb)
                     showImage(thumb);
                 // Add play button
                 lem = playButton(function() {
-                    replaceBackgroundDiv($('<div>').html(iFrameUrl(pic.url)));
+                    replaceBackgroundDiv($('<div>').html(iFrame(pic)));
                 });
 
                 var title = $('<span>', { class: "title" }).html(hostnameOf(pic.url, true));
