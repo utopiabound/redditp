@@ -80,10 +80,12 @@
  *      -- Depending on host site getRedditImages() vs getTumblrBlog() --
  *      subreddit:      TEXT of subreddit name
  *      tumblr:         HASH (e.g. 'https://'+tumblr.blog+'.tumblr.com'+/post/+tumblr.id )
- *              blog:         TEXT blog name
- *              id:           TEXT tumblr post id
+ *              blog:   TEXT blog name
+ *              id:     TEXT tumblr post id
  *      flickr:         HASH
  *              nsid:   TEXT of flickr user NSID
+ *      gfycat:         HASH
+ *              user:   TEXT username
  *      -- Depending on image Type --
  *      video:          HASH for video ext to url + thumbnail (see showVideo() / rp.mime2ext)
  *              thumb:  URL of thumbnail
@@ -2614,7 +2616,8 @@ $(function () {
         if (photo.subreddit)
             $('#navboxSubreddit').html(redditLink(subreddit)).show();
         else if (photo.gfycat)
-            $('#navboxSubreddit').html($('<span>', { class: 'info infol' }).text(photo.gfycat.album)).show();
+            $('#navboxSubreddit').html(localLink('https://gfycat.com/@'+photo.gfycat.user,
+                                                 photo.gfycat.user, '/gfycat/'+photo.gfycat.user));
         else if (photo.tumblr)
             $('#navboxSubreddit').html(localLink('https://'+photo.tumblr.blog+'.tumblr.com',
                                                  photo.tumblr.blog, '/tumblr/'+photo.tumblr.blog));
@@ -3880,6 +3883,10 @@ $(function () {
                 return;
 
             photo.extraLoaded = true;
+
+        } else if (photo.gfycat) {
+            site = 'gfycat.com';
+            shortid = url2shortid(photo.url);
 
         } else if (photo.flickr) {
             site = 'flickr.com';
@@ -5351,10 +5358,12 @@ $(function () {
                                    mp4: post.mp4Url
                                  }
                         };
-            if (post.userName != 'anonymous')
+            if (post.userName != 'anonymous') {
                 image.extra = localLink('https://gfycat.com/@'+post.userName,
                                         post.userName,
                                         '/gfycat/'+post.userName);
+                image.gfycat = { user: post.userName };
+            }
             return image;
         };
 
@@ -5388,22 +5397,16 @@ $(function () {
             }
 
             data.items.forEach(function (album) {
-                var photo = { title: album.title,
-                              url: 'https://gfycat.com/@'+user+'/'+album.linkText,
-                              gfycat: { album: album.title },
-                              thumb: album.posterUrl };
-                initPhotoAlbum(photo, false);
-
                 var url = 'https://api.gfycat.com/v1/users/'+user+'/albums/'+album.id;
                 var hd = function (data) {
                     if (data.pub == 0)
                         return;
                     data.publishedGfys.forEach(function (post) {
-                        var pic = gfycat2pic(post);
-                        addAlbumItem(photo, pic);
+                        var photo = gfycat2pic(post);
+                        photo.extra = localLink('https://gfycat.com/@'+user+'/'+album.linkText,
+                                                album.title, '/gfycat/'+user);
+                        addImageSlide(photo);
                     });
-                    checkPhotoAlbum(photo);
-                    addImageSlide(photo);
                     doneLoading();
                 };
                 addLoading();
