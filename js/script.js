@@ -2739,6 +2739,7 @@ $(function () {
         }
         newDiv.prependTo("#pictureSlider");
         newDiv.fadeIn(rp.settings.animationSpeed);
+        newDiv.trigger("rpdisplay");
         oldDiv.fadeOut(rp.settings.animationSpeed, function () {
             oldDiv.detach();
 
@@ -2826,6 +2827,7 @@ $(function () {
 
         // Used by showVideo and showImage
         var divNode = $("<div />");
+        divNode.on("rpdisplay", function() {});
 
         if (photo === undefined)
             return divNode;
@@ -3024,6 +3026,23 @@ $(function () {
             return iframe;
         };
 
+        var showEmbed = function(pic) {
+            if (rp.settings.embed) {
+                divNode.append(iFrame(pic));
+                return;
+            }
+            var thumb = pic.thumb || photoParent(pic).thumb;
+            if (thumb)
+                showImage(thumb);
+            // Add play button
+            lem = playButton(function() {
+                replaceBackgroundDiv($('<div>').html(iFrame(pic)));
+            });
+
+            var title = $('<span>', { class: "title" }).html(hostnameOf(pic.url, true));
+            divNode.prepend($(lem).append(title));
+        }
+
         var showPic = function(pic) {
             var thumb = pic.thumb || photoParent(pic).thumb;
             if (pic.type == imageTypes.album) {
@@ -3042,19 +3061,10 @@ $(function () {
             else if (pic.type == imageTypes.embed) {
                 var lem;
                 // @@ Fix enable/disable embed option for cached div's
-                if (rp.settings.embed) {
-                    divNode.append(iFrame(pic));
-                    return;
-                }
-                if (thumb)
-                    showImage(thumb);
-                // Add play button
-                lem = playButton(function() {
-                    replaceBackgroundDiv($('<div>').html(iFrame(pic)));
+                divNode.on("rpdisplay", function (event) {
+                    divNode.empty();
+                    showEmbed(pic);
                 });
-
-                var title = $('<span>', { class: "title" }).html(hostnameOf(pic.url, true));
-                divNode.prepend($(lem).append(title));
 
             } else if (pic.type == imageTypes.fail)
                 showImage(thumb);
