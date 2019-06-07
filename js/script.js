@@ -1750,6 +1750,14 @@ $(function () {
                 // no autostart
                 initPhotoEmbed(pic, 'https://spankbang.com/embed/'+url2shortid(pic.url, 1));
 
+            } else if (hostname == 'msnbc.com') {
+                // https://www.msnbc.com/SHOW/watch/TITLE-OF-VIDEO-ID
+                a = pathnameOf(pic.url).split('/');
+                if (a[2] != "watch")
+                    return false;
+                shortid = url2shortid(pic.url, -1, '-');
+                initPhotoEmbed(pic, "https://www.msnbc.com/msnbc/embedded-video/mmvo"+shortid);
+
             } else if (hostname == 'nbcnews.com') {
                 // https://www.nbcnews.com/widget/video-embed/ID
                 // https://www.nbcnews.com/video/title-of-video-ID
