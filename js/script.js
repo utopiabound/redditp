@@ -1676,6 +1676,11 @@ $(function () {
                 // www.youtube.com/watch?v=SHORTID
                 shortid = url2shortid(pic.url);
                 a = searchOf(pic.url);
+                if (shortid == 'attribution_link') {
+                    o = originOf(pic.url)+decodeUrl(a.u);
+                    shortid = url2shortid(o);
+                    a = searchOf(o);
+                }
                 if (shortid == 'watch')
                     shortid = a.v;
                 initPhotoEmbed(pic, youtubeURL(shortid, a.t || a.start), youtubeThumb(shortid));
