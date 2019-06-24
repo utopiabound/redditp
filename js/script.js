@@ -111,7 +111,7 @@ var rp = {};
 // This can be set to TRACE, DEBUG, INFO, WARN. ERROR, SLIENT (nothing printed)
 log.setLevel(log.levels.INFO);
 RegExp.quote = function(str) {
-    var re = /[.*+?^${}\(\)\\|\[\]]/g;
+    var re = /[.*+?^${}()\\|[\]]/g;
     return (str+'').replace(re, "\\$&");
 };
 
@@ -1913,7 +1913,7 @@ $(function () {
                     a[1] == 'watch' ||
                     a[1] == 'v') {
                     shortid = url2shortid(pic.url, 2, '-');
-                    href = $('<a>').attr('href', pic.url);
+                    var href = $('<a>').attr('href', pic.url);
                     if (href.prop('hostname').startsWith('m.'))
                         href.prop('hostname', href.prop('hostname').replace('m.', 'www.'));
 
@@ -3028,11 +3028,7 @@ $(function () {
             // ensure updateAutoNext doesn't reset timer
             photo.times = 1;
 
-            $(iframe).bind("load", function(data) {
-                var iframe = data.target;
-                var c = $(iframe).contents();
-            });
-            $(iframe).bind("error", function(data) {
+            $(iframe).on("error", function() {
                 log.info("["+imageIndex+"] FAILED TO LOAD: "+pic.url);
             });
             $(iframe).attr('src', pic.url);
@@ -3048,7 +3044,7 @@ $(function () {
             if (thumb)
                 showImage(thumb);
             // Add play button
-            lem = playButton(function() {
+            var lem = playButton(function() {
                 replaceBackgroundDiv($('<div>').html(iFrame(pic)));
             });
 
@@ -3072,9 +3068,7 @@ $(function () {
                 showVideo(pic.video);
 
             else if (pic.type == imageTypes.embed) {
-                var lem;
-                // @@ Fix enable/disable embed option for cached div's
-                divNode.on("rpdisplay", function (event) {
+                divNode.on("rpdisplay", function () {
                     divNode.empty();
                     showEmbed(pic);
                 });
@@ -3352,7 +3346,7 @@ $(function () {
 
                 handleError = function () {
                     jsonUrl = "https://api.imgur.com/3/album/" + a[2];
-                    hdata = function (data) {
+                    var hdata = function (data) {
                         if (data.data.account_url)
                             photo.extra = localLink('https://'+data.data.account_url+'.imgur.com',
                                                     data.data.account_url, '/imgur/'+data.data.account_url);
@@ -3360,7 +3354,7 @@ $(function () {
                         if (isActive(photo))
                             animateNavigationBox(photo.index, photo.index, rp.session.activeAlbumIndex);
                     };
-                    herr = function() {
+                    var herr = function() {
                         initPhotoImage(photo, "https://i.imgur.com/"+shortid+".jpg");
 
                         showCB(photo);
@@ -3591,7 +3585,7 @@ $(function () {
 
         if (url.indexOf("/a/") > 0 ||
             url.indexOf('/gallery/') > 0) {
-            a = url.split('/');
+            var a = url.split('/');
             return ['https://imgur.com', a[3], a[4].split(".")[0]].join("/");
         }
 
@@ -3642,7 +3636,7 @@ $(function () {
         return url;
     };
 
-    var urlregexp = new RegExp('https?:\/\/[\\w\._-]{2,256}\.[a-z]{2,6}(\/[\\w\/\.\-]*)?', 'gi');
+    var urlregexp = new RegExp('https?://[\\w\\._-]{1,256}\\.[a-z]{2,6}(/[\\w/\\.-]*)?', 'gi');
 
     var fixupTitle = function(origtitle) {
         var title = unescapeHTML(origtitle);
@@ -3982,17 +3976,17 @@ $(function () {
             failedAjax(xhr, ajaxOptions, thrownError);
         }
 
-        var handleMoreComments = function(data) {
-            var comments = data.json.data.things;
-            var i;
+        // var handleMoreComments = function(data) {
+        //     var comments = data.json.data.things;
+        //     var i;
 
-            photo = initPhotoAlbum(photo, true);
+        //     photo = initPhotoAlbum(photo, true);
 
-            for (i = 0; i < comments.length; ++i)
-                processRedditComment(photo, comments[i]);
+        //     for (i = 0; i < comments.length; ++i)
+        //         processRedditComment(photo, comments[i]);
 
-            checkPhotoAlbum(photo);
-        };
+        //     checkPhotoAlbum(photo);
+        // };
 
         var processRedditComment = function(photo, comment) {
             var j;
@@ -4035,9 +4029,9 @@ $(function () {
                 }
 
                 for (j = 0; j < links.length; ++j) {
-                    img = { author: comment.data.author,
-                            url: links[j].href
-                          };
+                    var img = { author: comment.data.author,
+                                url: links[j].href
+                              };
 
                     if (links[j].innerText !== "" &&
                         links[j].innerText !== img.url)
@@ -4058,7 +4052,7 @@ $(function () {
 
         var handleData = function (data) {
             var comments = data[1].data.children;
-            var img, i;
+            var i;
 
             if (isActive(photo))
                 updateExtraLoad();
@@ -4210,12 +4204,12 @@ $(function () {
 
             if ((photo.type != imageTypes.fail) &&
                 (photo.flair.toLowerCase() == 'request' ||
-                 photo.title.match(/[\[\(\{]request[\]\)\}]/i) ||
+                 photo.title.match(/[[({]request[\])}]/i) ||
                  photo.title.match(/^psbattle:/i) ||
                  photo.flair.match(/(more|source|video|album).*in.*com/i) ||
                  idorig.title.match(/(source|more|video|album).*in.*com/i) ||
                  idorig.title.match(/in.*comment/i) ||
-                 idorig.title.match(/[\[\(\{\d\s][asvm]ic([\]\)\}]|$)/i)))
+                 idorig.title.match(/[[({\d\s][asvm]ic([\])}]|$)/i)))
                 getRedditComments(photo);
 
             if (rc) {
