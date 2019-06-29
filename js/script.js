@@ -1476,7 +1476,13 @@ $(function () {
 
     var isAlbumDupe = function (photo, url) {
         for(var i = 0; i < photo.album.length; ++i) {
-            if (photo.album[i].url == url)
+            if ((photo.album[i].url == url) ||
+                (photo.album[i].o_url && photo.album[i].o_url == url)
+               )
+                return true
+            if (photo.album[i].type == imageTypes.video &&
+                Object.values(photo.album[i].video).includes(url)
+               )
                 return true
         }
         return false;
@@ -1598,6 +1604,9 @@ $(function () {
                 else if (isVideoExtension(pic.url))
                     initPhotoVideo(pic);
 
+                else if (extensionOf(pic.url) == 'gif')
+                    pic.type = imageTypes.later;
+
                 // otherwise simple image
             } else if (hostname == 'wordpress.com' ||
                        hostname == 'wp.com') {
@@ -1684,6 +1693,16 @@ $(function () {
                 if (shortid == 'watch')
                     shortid = a.v;
                 initPhotoEmbed(pic, youtubeURL(shortid, a.t || a.start), youtubeThumb(shortid));
+
+            } else if (hostname == 'makeagif.com') {
+                a = pathnameOf(pic.url).split('/');
+                if (a[1] == 'media') {
+                    o = pic.url.substring(0, pic.url.lastIndexOf('.'));
+                    initPhotoVideo(pic, o+".mp4", o+".jpg");
+                } else {
+                    shortid = url2shortid(pic.url, -1, '-');
+                    initPhotoEmbed(pic, 'https://makeagif.com/i/'+shortid);
+                }
 
             } else if (hostname == 'pornhub.com') {
                 // JSON Info about video
@@ -1839,6 +1858,10 @@ $(function () {
                 shortid = url2shortid(pic.url, 1, '-');
                 initPhotoEmbed(pic, originOf(pic.url)+"/embed-"+shortid+".html");
 
+            } else if (hostname == "verystream.com") {
+                shortid = url2shortid(pic.url, 2);
+                initPhotoEmbed(pic, originOf(pic.url)+"/e/"+shortid+"/")
+
             } else if (hostname == 'supload.com') {
                 if (extensionOf(pic.url) == 'gifv' ||
                     url2shortid(pic.url) == 'thumb') {
@@ -1906,12 +1929,17 @@ $(function () {
                     shortid = a[1];
                 initPhotoEmbed(pic, originOf(pic.url)+'/embed/'+shortid+'?quality=720&autoplay=1');
 
+            } else if (hostname == 'pornyp.com') {
+                a = pathnameOf(pic.url).split('/');
+                initPhotoEmbed(pic, originOf(pic.url)+(["", a[1], a[2], "embed"].join("/")));
+
             } else if (pic.type != imageTypes.thumb) {
                 a = pathnameOf(pic.url).split('/');
-                if (a[1] == 'video' ||
-                    a[1] == 'videos' ||
-                    a[1] == 'watch' ||
-                    a[1] == 'v') {
+                if (a.length > 2 &&
+                    (a[1] == 'video' ||
+                     a[1] == 'videos' ||
+                     a[1] == 'watch' ||
+                     a[1] == 'v')) {
                     shortid = url2shortid(pic.url, 2, '-');
                     var href = $('<a>').attr('href', pic.url);
                     if (href.prop('hostname').startsWith('m.'))
@@ -3398,12 +3426,15 @@ $(function () {
                     if (data.data.account_url)
                         photo.extra = localLink('https://'+data.data.account_url+'.imgur.com',
                                                 data.data.account_url, '/imgur/'+data.data.account_url);
-                    if (data.data.animated == true)
-                        initPhotoVideo(photo,
-                                       [ fixImgurPicUrl(data.data.mp4),
-                                         fixImgurPicUrl(data.data.webm) ]);
+                    if (data.data.animated == true) {
+                        var arr = [];
+                        if (data.data.mp4)
+                            arr.push(data.data.mp4)
+                        if (data.data.webm)
+                            arr.push(data.data.webm)
+                        initPhotoVideo(photo, arr);
 
-                    else
+                    } else
                         initPhotoImage(photo, fixImgurPicUrl(data.data.link));
 
                     showCB(photo);
