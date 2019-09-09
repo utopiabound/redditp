@@ -1357,7 +1357,7 @@ $(function () {
                 delete photo.video;
 
             } else if (pic.type == imageTypes.html) {
-                img = { url: photot.url,
+                img = { url: photo.url,
                         type: photo.type,
                         thumb: photo.thumb,
                         html: photo.html };
