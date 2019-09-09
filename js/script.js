@@ -1617,11 +1617,7 @@ $(function () {
                 if (isImageExtension(pic.url)) {
                     var anc = $('<a>', { href: pic.url });
                     pic.url = anc.prop('origin')+anc.prop('pathname');
-                    if (hostname == 'wp.com') {
-                        a = anc.prop('pathname').split('/');
-                        if (a[2] == 'wp-content')
-                            pic.url = 'https://'+a.slice(1).join('/');
-                    }
+
                 } else if (pathnameOf(pic.url) == "/")
                     throw "full-blog not post";
 
@@ -1770,10 +1766,6 @@ $(function () {
                 // no autostart
                 initPhotoEmbed(pic, 'https://www.openload.co/embed/'+shortid);
 
-            } else if (hostname == 'spankbang.com') {
-                // no autostart
-                initPhotoEmbed(pic, 'https://spankbang.com/embed/'+url2shortid(pic.url, 1));
-
             } else if (hostname == 'msnbc.com') {
                 // https://www.msnbc.com/SHOW/watch/TITLE-OF-VIDEO-ID
                 a = pathnameOf(pic.url).split('/');
@@ -1825,10 +1817,6 @@ $(function () {
                 else
                     return false;
 
-            } else if (hostname == 'webm.land') {
-                shortid = url2shortid(pic.url);
-                initPhotoVideo(pic, 'http://webm.land/media/'+shortid+".webm");
-
             } else if (hostname == 'gfycat.com') {
                 // set photo url to sane value (incase it's originally a thumb link)
                 shortid = url2shortid(pic.url);
@@ -1842,6 +1830,16 @@ $(function () {
 
                 // These domains should be processed later, unless direct link to video
                 pic.type = imageTypes.later;
+
+            } else if (hostname == 'clippituser.tv' ||
+                       hostname == 'clippit.tv') {
+                if (fqdn == 'clips.clippit.tv')
+                    shortid = url2shortid(pic.url, 1);
+                else
+                    shortid = url2shortid(pic.url);
+                initPhotoVideo(pic, ['https://clips.clippit.tv/'+shortid+'/720.mp4',
+                                     'https://clips.clippit.tv/'+shortid+'/360.mp4'],
+                               'https://clips.clippit.tv/'+shortid+'/thumbnail.jpg');
 
             } else if ((hostname == 'ftvgirlsbay.com' ||
                         hostname == 'thegirlsbay.com' ||
@@ -1885,6 +1883,10 @@ $(function () {
             } else if (isImageExtension(pic.url) ||
                        fqdn == 'i.reddituploads.com') {
                 // simple image
+
+            } else if (hostname == 'spankbang.com') {
+                // no autostart
+                initPhotoEmbed(pic, 'https://spankbang.com/embed/'+url2shortid(pic.url, 1));
 
             } else if (hostname == 'gyazo.com') {
                 shortid = url2shortid(pic.url);
@@ -3655,12 +3657,13 @@ $(function () {
             url = ((rp.insecure[hostname]) ?"http:" :"https:")+url;
 
         if (hostname == 'gfycat.com' ||
+            hostname == 'imgur.com' ||
             hostname == 'wp.com' ||
             hostname == 'wordpress.com' ||
             hostname == 'pornhub.com' ||
             hostname == 'xhamster.com' ||
             hostname == 'youporn.com' ||
-            hostname == 'imgur.com' ||
+            hostname == 'xvideos.com' ||
             hostname == 'sendvid.com' ||
             hostname == 'juicygif.com' ||
             hostname == 'pornbot.net')
