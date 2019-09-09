@@ -2517,7 +2517,8 @@ $(function () {
         $('#duplicateUl').html("");
         var total = 0;
         if (photo.dupes.length > 0) {
-            var multi = []
+            var multi = [];
+            var usermulti = [];
             if (photo.subreddit)
                 multi.push(photo.subreddit);
             photo.dupes.forEach(function(item) {
@@ -2537,10 +2538,11 @@ $(function () {
                                 ++ total;
                             else
                                 li.addClass('hidden');
-                        } else
+                            usermulti.push(item.subreddit);
+                        } else {
                             ++ total;
-
-                        multi.push(item.subreddit);
+                            multi.push(item.subreddit);
+                        }
                         li.html(redditLink(subr, item.title));
                     }
                     li.append($("<a>", { href: rp.redditBaseUrl + subr + "/comments/"+item.id,
@@ -2565,6 +2567,7 @@ $(function () {
                 if (li.parent().length == 0)
                     $('#duplicateUl').append(li);
             });
+            // @@ usermulti
             if (multi) {
                 $('#navboxDuplicatesMulti').attr('href', rp.redditBaseUrl+'/r/'+multi.join('+'));
                 $('#navboxDuplicatesMultiP').attr('href', rp.url.base+'/r/'+multi.join('+'));
