@@ -2305,8 +2305,7 @@ $(function () {
         if (photo.subreddit)
             getRedditComments(photo);
 
-        else
-            getRedditDupe(photo);
+        getRedditDupe(photo);
 
         photo.dupes.forEach(function(item) {
             if (item.subreddit)
@@ -3913,6 +3912,8 @@ $(function () {
         var site;
         var shortid;
 
+        var hn = hostnameOf(photo.url, true);
+
         if (dupe) {
             shortid = dupe.id;
             if (dupe.tumblr)
@@ -3942,6 +3943,10 @@ $(function () {
         } else if (photo.flickr) {
             site = 'flickr.com';
             shortid = photo.id;
+
+        } else if (hn == 'imgur.com') {
+            site = hn;
+            shortid = url2shortid(photo.url);
 
         } else
             return;
