@@ -1135,11 +1135,13 @@ $(function () {
             if (parseInt(v[1], 10) < 10) {
                 log.debug("User Agent is pre-10 iOS");
                 rp.session.needsPlayButton = true;
+                // @@ no mute/unmute support
             } else {
                 log.debug("User Agent is 10+ iOS");
             }
             // Hide useless "fullscreen" button on iOS safari
             $('#fullscreen').parent().remove();
+            // @@ no volume up/down support
 
             // Remove :hover on #loginLi, so it only responds to clicks
             $('#loginLi').removeClass('use-hover');
@@ -1560,7 +1562,7 @@ $(function () {
         else if (button == undefined)
             button = $('#albumNumberButtons ul').children(":nth-child("+(parent.album.indexOf(pic)+1)+")").children("a");
 
-        button.removeClass('embed album over18 later video failed');
+        button.removeClass('embed album over18 later video failed html');
         if (isActive(parent))
             $("#albumNumberButtons").hide();
 
@@ -1597,6 +1599,10 @@ $(function () {
         // return if already setup as video
         if (pic.type == imageTypes.video &&
             pic.video !== undefined)
+            return true;
+
+        if (pic.type == imageTypes.html &&
+            pic.html !== undefined)
             return true;
 
         // return if already setup as embeded
