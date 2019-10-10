@@ -1883,7 +1883,8 @@ $(function () {
                 shortid = url2shortid(pic.url, 1, '-');
                 initPhotoEmbed(pic, originOf(pic.url)+"/embed-"+shortid+".html");
 
-            } else if (hostname == "verystream.com") {
+            } else if (hostname == "verystream.com" ||
+                       hostname == "woof.tube") {
                 shortid = url2shortid(pic.url, 2);
                 initPhotoEmbed(pic, originOf(pic.url)+"/e/"+shortid+"/")
 
@@ -2129,7 +2130,7 @@ $(function () {
         // #4a try originOf(pic.url)/favicon.ico (if different from pic.o_url)
         // #4b try sld-only hostname of url
         // #FINAL fallback to just link icon
-        var backup = [];
+        var backup = [fixupUrl(origin+'/favicon.png')];
         var a = hostname.split('.');
         while (a.length > 2) {
             a.shift();
@@ -3993,7 +3994,7 @@ $(function () {
 
             photo.extraLoaded = true;
 
-        } else if (photo.gfycat) {
+        } else if (photo.gfycat || hn == 'gfycat.com') {
             site = 'gfycat.com';
             shortid = url2shortid(photo.url);
 
