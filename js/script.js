@@ -41,6 +41,8 @@
  * fixupTitle()   - any urls that can be added/processed from a photo.title (only affects photo.title)
  * fixupUrl()     - known https: sites
  *
+ * initPhotoYoutube() - wrapper around initPhotoEmbed()
+ *
  * per-Site Duplicate handling:
  * addPhotoDupe()
  * getRedditDupe()
@@ -69,6 +71,7 @@
  *      favicon:        URL  link to favicon for photo (c.f. setFavicon())
  *      score:          INT  Score (upvotes - downvotes)
  *      fallback:       ARRAY of URLs Fallback urls (if processed pic.url fails, try pic.fallback)
+ *      fb_thumb:       ARRAY of URLs Fallback thumbnail urls (must be images)
  *
  *      -- Other, NOT creator setable --
  *      o_url:          URL original URL [set by processPhoto()]
@@ -488,13 +491,6 @@ $(function () {
                                                       "//" + window.location.host + "/");
         //var ytExtra = '?enablejsapi=1';
         return 'https://www.youtube.com/embed/'+id+ytExtra;
-    };
-
-    var youtubeThumb = function(id) {
-        return 'https://i.ytimg.com/vi/'+id+'/maxresdefault.jpg';
-        // should be able to fall back to:
-        // 'https://i.ytimg.com/vi/'+id+'/hqdefault.jpg';
-        // if maxres doesn't exist
     };
 
     var tumblrJsonURL = function(hn, id) {
@@ -1194,6 +1190,17 @@ $(function () {
         fixPhotoButton(photo);
     };
 
+    var initPhotoYoutube = function(photo, shortid, startat) {
+        var oldthumb = photo.thumb;
+        initPhotoEmbed(photo, youtubeURL(shortid, startat));
+        photo.thumb = 'https://i.ytimg.com/vi/'+shortid+'/maxresdefault.jpg';
+        if (!photo.fb_thumb)
+            photo.fb_thumb = [];
+        photo.fb_thumb.push('https://i.ytimg.com/vi/'+shortid+'/hqdefault.jpg');
+        if (oldthumb)
+            photo.fb_thumb.push(oldthumb);
+    };
+
     var addPhotoDupe = function(photo, dupe) {
         if (photo.id == dupe.id &&
             photo.subreddit == dupe.subreddit &&
@@ -1715,7 +1722,7 @@ $(function () {
                 }
                 if (shortid == 'watch')
                     shortid = a.v;
-                initPhotoEmbed(pic, youtubeURL(shortid, a.t || a.start), youtubeThumb(shortid));
+                initPhotoYoutube(pic, shortid, a.t || a.start);
 
             } else if (hostname == 'makeagif.com') {
                 a = pathnameOf(pic.url).split('/');
@@ -2908,46 +2915,97 @@ $(function () {
         if (photo === undefined)
             return divNode;
 
+        var find_fallback = function(pic, thumb) {
+            if (thumb) {
+                var url;
+                var photo = photoParent(pic);
+                if (pic.fb_thumb && pic.fb_thumb.length)
+                    pic.thumb = pic.fb_thumb.shift();
+
+                else if (photo == pic)
+                    return false;
+
+                else if (pic.thumb != photo.thumb)
+                    pic.thumb = photo.thumb;
+
+                else {
+                    var rc = find_fallback(photo);
+                    pic.thumb = photo.thumb;
+                    return rc;
+                }
+                if (pic.thumb) {
+                    showPic(pic);
+                    return true;
+                }
+
+            } else {
+                if (pic.fallback && pic.fallback.length) {
+                    pic.url = pic.fallback.shift();
+                    delete pic.type;
+                    if (processPhoto(pic)) {
+                        showPic(pic);
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
         // Create a new div and apply the CSS
-        var showImage = function(url, needreset) {
+        var showImage = function(url, needreset, thumb) {
             if (needreset === undefined)
                 needreset = true;
+            if (thumb === undefined)
+                thumb = false;
 
             var img = $('<img />', { class: "fullscreen", src: url});
 
             img.on('error', function() {
-                if (photo.fallback && photo.fallback.length) {
-                    photo.url = photo.fallback.shift();
-                    delete photo.type;
-                    if (processPhoto(photo)) {
-                        showPic(photo);
-                        return;
-                    }
-                }
+                if (find_fallback(photo, thumb))
+                    return;
                 log.info("cannot display photo [load error]: "+photo.url);
                 initPhotoFailed(photo);
                 // ensure no infinite loop
-                if (photo.thumb != url)
-                    showImage(photo.thumb);
+                if (!thumb)
+                    showThumb(photo);
             });
+
+            var hn = hostnameOf(url, true);
             // https://i.redd.it/removed.png is 130x60
-            if (hostnameOf(url) == 'i.redd.it')
+            if (hn == 'redd.it')
                 img.on('load', function() {
                     if ($(this)[0].naturalHeight == 60 &&
                         $(this)[0].naturalWidth == 130) {
                         log.info("["+photo.index+"] Image has been removed: "+photo.url);
                         initPhotoFailed(photo);
-                        showImage(photo.thumb);
+                        showThumb(photo);
                     }
                 });
             // https://i.imgur.com/removed.png is 161x81
-            if (hostnameOf(url, true) == 'imgur.com')
+            else if (hn == 'imgur.com')
                 img.on('load', function() {
                     if ($(this)[0].naturalHeight == 81 &&
                         $(this)[0].naturalWidth == 161) {
                         log.info("["+photo.index+"] Image has been removed: "+photo.url);
                         initPhotoFailed(photo);
-                        showImage(photo.thumb);
+                        showThumb(photo);
+                    }
+                });
+            // YouTube 404 thumbnail is 120x90
+            else if (hn == 'youtube.com' ||
+                     hn == 'youtu.be' ||
+                     hn == 'ytimg.com')
+                img.on('load', function() {
+                    if ($(this)[0].naturalHeight == 90 &&
+                        $(this)[0].naturalWidth == 120) {
+                        if (thumb) {
+                            log.info("cannot display thumb [place holder]: "+url);
+                            find_fallback(photo, thumb);
+                            return;
+                        }
+                        log.info("["+photo.index+"] Image has been removed: "+url);
+                        initPhotoFailed(photo);
+                        showThumb(photo);
                     }
                 });
             divNode.html(img);
@@ -2955,6 +3013,12 @@ $(function () {
             if (needreset && imageIndex == rp.session.activeIndex)
                 resetNextSlideTimer();
         };
+
+        var showThumb = function(pic, needreset) {
+            var thumb = pic.thumb || photoParent(pic).thumb;
+            if (thumb)
+                showImage(thumb, needreset, true);
+        }
 
         // Called with showVideo({'thumbnail': jpgurl, 'mp4': mp4url, 'webm': webmurl})
         var showVideo = function(data) {
@@ -3046,8 +3110,7 @@ $(function () {
                     log.info("cannot display video [copyright claim]: "+photo.url);
                     initPhotoFailed(photo);
                     resetNextSlideTimer();
-                    if (photo.thumb)
-                        showImage(photo.thumb);
+                    showThumb(photo);
                }
                 photo.duration = e.target.duration;
                 if (photo.duration < rp.settings.timeToNextSlide) {
@@ -3103,9 +3166,7 @@ $(function () {
                 divNode.append(iFrame(pic));
                 return;
             }
-            var thumb = pic.thumb || photoParent(pic).thumb;
-            if (thumb)
-                showImage(thumb);
+            showThumb(pic);
             // Add play button
             var lem = playButton(function() {
                 replaceBackgroundDiv($('<div>').html(iFrame(pic)));
@@ -3132,12 +3193,11 @@ $(function () {
         }
 
         var showPic = function(pic) {
-            var thumb = pic.thumb || photoParent(pic).thumb;
             if (pic.type == imageTypes.album) {
                 var index = indexPhotoAlbum(photoParent(pic), imageIndex, albumIndex);
                 if (index < 0) {
                     log.error("["+imageIndex+"]["+albumIndex+"] album is zero-length ("+index+") failing to thumbnail: "+pic.url);
-                    showImage(thumb);
+                    showThumb(pic);
                     return;
                 }
                 pic = pic.album[index];
@@ -3150,13 +3210,19 @@ $(function () {
                 showHtml(pic.html)
 
             else if (pic.type == imageTypes.embed) {
+                // If divNode already attached, just redisplay
+                if (divNode.parent()[0] == $('#pictureSlider')[0]) {
+                    divNode.trigger("rpdisplay");
+                    return;
+                }
+                // triggered in replaceBackgroundDiv
                 divNode.on("rpdisplay", function () {
                     divNode.empty();
                     showEmbed(pic);
                 });
 
             } else if (pic.type == imageTypes.fail)
-                showImage(thumb);
+                showThumb(pic);
 
             else if (pic.type == imageTypes.later) {
                 log.error("called showPic() on later type: "+pic.url);
@@ -3172,7 +3238,7 @@ $(function () {
             return divNode;
 
         } else if (photo.type == imageTypes.fail) {
-            showImage(photo.thumb, false);
+            showThumb(photo, false);
             return divNode;
 
         } else if (photo.type == imageTypes.html) {
@@ -5091,7 +5157,7 @@ $(function () {
                     initPhotoFailed(pic);
                     rc = false;
                 } else {
-                    initPhotoEmbed(pic, youtubeURL(post.video.youtube.video_id));
+                    initPhotoYoutube(pic, post.video.youtube.video_id);
                     addAlbumItem(photo, pic);
                 }
 
