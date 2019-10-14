@@ -126,7 +126,7 @@ rp.settings = {
     animationSpeed: 1000,
     shouldAutoNextSlide: false,
     timeToNextSlide: 8,
-    goodImageExtensions: ['jpg', 'jpeg', 'gif', 'bmp', 'png'],
+    goodImageExtensions: ['jpg', 'jpeg', 'gif', 'bmp', 'png', 'svg'],
     goodVideoExtensions: ['webm', 'mp4', 'mov'], // Matched entry required in rp.mime2ext
     alwaysSecure: true,
     minScore: 1,
@@ -1811,9 +1811,11 @@ $(function () {
             } else if (hostname == 'nbcnews.com') {
                 // https://www.nbcnews.com/widget/video-embed/ID
                 // https://www.nbcnews.com/video/title-of-video-ID
-                path = pathnameOf(pic.url);
-                if (! (path.startsWith('/widge/video-embed') ||
-                       path.startsWith('/video/')) )
+                // https://www.nbcnews.com/SHOW/video/title-of-video-ID
+                a = pathnameOf(pic.url).split('/');
+                if (! (a[1] == 'video' ||
+                       a[2] == 'video' ||
+                       a[2] == 'video-embed') )
                     return false;
                 shortid = url2shortid(pic.url, -1, '-');
 
@@ -1827,6 +1829,7 @@ $(function () {
                 // https://cdn.iloopit.net/resources/UUID/thumb.jpeg
                 // GIFV: (no easy way to convert ID (uint32-ish) to VIDEO UUID)
                 // https://iloopit.net/ID/TITLE-NAME.gifv
+                // https://iloopit.net/ID/TITLE/ - though text in title doesn't matter
                 var ext = extensionOf(pic.url);
                 if (ext == 'gif' || isVideoExtension(pic.url)) {
                     shortid = url2shortid(pic.url, 2);
@@ -1837,7 +1840,14 @@ $(function () {
                 } else if (ext == 'gifv')
                     initPhotoEmbed(pic);
 
-                else
+                else if (ext == "") {
+                    shortid = searchValueOf(pic.url, 'loopid');
+                    if (shortid)
+                        initPhotoEmbed(pic, 'https://iloopit.net/'+shortid+'/loopit/');
+                    else
+                        initPhotoEmbed(pic);
+
+                } else
                     throw "unknown iloopit format";
 
             } else if (hostname == 'dropbox.com') {
@@ -1895,47 +1905,19 @@ $(function () {
                 shortid = url2shortid(pic.url, 2);
                 initPhotoEmbed(pic, originOf(pic.url)+"/e/"+shortid+"/")
 
-            } else if (hostname == 'supload.com') {
-                if (extensionOf(pic.url) == 'gifv' ||
-                    url2shortid(pic.url) == 'thumb') {
-                    shortid = url2shortid(pic.url, 1);
-                    pic.url = 'https://supload.com/'+shortid;
-                    initPhotoVideo(pic, [ 'https://i.supload.com/'+shortid+'-hd.webm',
-                                          'https://i.supload.com/'+shortid+'-hd.mp4' ],
-                                   'https://i.supload.com/'+shortid+'/thumb.jpg');
-                } else if (!isImageExtension(pic.url) )
-                    pic.type = imageTypes.later;
-                // else valid image
-
-                // PROCESS VIDEO EXTENSION
-
             } else if (isVideoExtension(pic.url)) {
                 initPhotoVideo(pic);
 
             } else if (fqdn == 'preview.redd.it') {
                 pic.url = 'https://i.redd.it'+pathnameOf(pic.url);
 
-            } else if (isImageExtension(pic.url) ||
-                       fqdn == 'i.reddituploads.com') {
-                // simple image
-
-            } else if (hostname == 'spankbang.com') {
-                // no autostart
-                initPhotoEmbed(pic, 'https://spankbang.com/embed/'+url2shortid(pic.url, 1));
-
-            } else if (hostname == 'gyazo.com') {
-                shortid = url2shortid(pic.url);
-                pic.url = 'https://i.gyazo.com/'+shortid+'.png';
-                pic.fallback = [ 'https://i.gyazo.com/'+shortid+'.jpg',
-                                 'https://i.gyazo.com/'+shortid+'.mp4' ];
-
             } else if (hostname == 'vidble.com') {
-                if (pic.url.indexOf("/watch?v=") > 0) {
-                    shortid = /[#?&]v=([^&#=]*)/.exec(pic.url);
+                shortid = url2shortid(pic.url);
+                if (shortid == 'watch') {
+                    shortid = searchValueOf(pic.url, 'v');
                     if (!shortid)
                         throw("Failed to parse vidble url");
 
-                    shortid = shortid[1];
                     initPhotoVideo(pic, 'https://www.vidble.com/'+shortid+'.mp4',
                                    'https://www.vidble.com/'+shortid+'.png');
 
@@ -1943,8 +1925,24 @@ $(function () {
                     // TODO : figure out /album/ on vidble.com/api
                     throw("no vidble album processing");
 
-                else
-                    pic.url = 'https://www.vidble.com/'+url2shortid(pic.url)+'.jpg';
+                else {
+                    shortid = shortid.replace(/_.+/, '');
+                    pic.url = 'https://www.vidble.com/'+shortid+'.jpg';
+                }
+
+            } else if (isImageExtension(pic.url) ||
+                       fqdn == 'i.reddituploads.com') {
+                // simple image
+
+            } else if (hostname == 'gyazo.com') {
+                shortid = url2shortid(pic.url);
+                pic.url = 'https://i.gyazo.com/'+shortid+'.png';
+                pic.fallback = [ 'https://i.gyazo.com/'+shortid+'.jpg',
+                                 'https://i.gyazo.com/'+shortid+'.mp4' ];
+
+            } else if (hostname == 'spankbang.com') {
+                // no autostart
+                initPhotoEmbed(pic, 'https://spankbang.com/embed/'+url2shortid(pic.url, 1));
 
             } else if (hostname == 'flickr.com') {
                 shortid = url2shortid(pic.url, 3);
@@ -1964,11 +1962,7 @@ $(function () {
                     shortid = a[2];
                 else
                     shortid = a[1];
-                initPhotoEmbed(pic, originOf(pic.url)+'/embed/'+shortid+'?quality=720&autoplay=1');
-
-            } else if (hostname == 'pornyp.com') {
-                a = pathnameOf(pic.url).split('/');
-                initPhotoEmbed(pic, originOf(pic.url)+(["", a[1], a[2], "embed"].join("/")));
+                initPhotoEmbed(pic, originOf(pic.url)+'/embed/'+shortid+'?t=00:00&quality=720');
 
             } else if (pic.type != imageTypes.thumb) {
                 a = pathnameOf(pic.url).split('/');
