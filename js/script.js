@@ -1750,6 +1750,10 @@ $(function () {
                 else
                     throw "search not supported";
 
+            } else if (hostname == 'xtube.com') {
+                shortid = url2shortid(pic.url);
+                initPhotoEmbed(pic, 'https://www.xtube.com/video-watch/embedded/'+shortid+'?embedsize=big')
+
             } else if (hostname == 'redtube.com') {
                 shortid = url2shortid(pic.url);
                 initPhotoEmbed(pic, 'https://embed.redtube.com/?bgcolor=000000&autoplay=1&id='+shortid);
@@ -1934,6 +1938,16 @@ $(function () {
                        fqdn == 'i.reddituploads.com') {
                 // simple image
 
+            } else if (hostname == 'facebook.com') {
+                a = pathnameOf(pic.url).split('/');
+                if (a[1] == 'watch' || a[2] == 'videos')
+                    // @@ mute doesn't change with toggle
+                    initPhotoEmbed(pic, 'https://www.facebook.com/plugins/video.php?autoplay=1&mute='+
+                                   ((isVideoMuted()) ?"1" :"0")
+                                   +'&show_text=0&href='+encodeURIComponent(pic.url))
+                else
+                    return false;
+
             } else if (hostname == 'gyazo.com') {
                 shortid = url2shortid(pic.url);
                 pic.url = 'https://i.gyazo.com/'+shortid+'.png';
@@ -1971,6 +1985,11 @@ $(function () {
                      a[1] == 'videos' ||
                      a[1] == 'watch' ||
                      a[1] == 'v')) {
+                    // Sites that definitely don't work with above
+                    if (hostname == 'mulemax.com' ||
+                        hostname == 'xfantasy.tv')
+                        return false;
+
                     shortid = url2shortid(pic.url, 2, '-');
                     var href = $('<a>').attr('href', pic.url);
                     if (href.prop('hostname').startsWith('m.'))
@@ -2131,13 +2150,14 @@ $(function () {
         // #4a try originOf(pic.url)/favicon.ico (if different from pic.o_url)
         // #4b try sld-only hostname of url
         // #FINAL fallback to just link icon
-        var backup = [fixupUrl(origin+'/favicon.png')];
+        var backup = [fixupUrl(origin+'/favicon.png'), fixupUrl(origin+'/favicon-16x16.png')];
         var a = hostname.split('.');
         while (a.length > 2) {
             a.shift();
             var hn = a.join('.');
             backup.push(origin.replace(hostname, hn)+'/favicon.ico');
             backup.push(origin.replace(hostname, hn)+'/favicon.png');
+            backup.push(origin.replace(hostname, hn)+'/favicon-16x16.png');
         }
         // #4c check if wordpress v2 site
         if (rp.wpv2[hostname] === true)
