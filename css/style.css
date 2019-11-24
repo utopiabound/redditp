@@ -37,6 +37,8 @@ body {
 #multiListDiv ul li.right { float: right; }
 #multiListDiv hr { margin: 0; }
 #multiListDiv i.material-icons { font-size: 18px; }
+
+#multiListDiv span.icon { font-size: 18px; }
 /* toggled on/off when logged in */
 
 /* Selector popup */
@@ -102,6 +104,13 @@ a:hover {
 .over18 { color: #f99; }
 
 .error { color: red; }
+
+/* Embedded html - vertically center it */
+#gfyhtml {
+    display: flex;
+    align-items: center;
+    flex-direction: row;
+}
 
 /* Decorate Photo Buttons */
 #controlsDiv a { position: relative; }

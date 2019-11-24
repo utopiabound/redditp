@@ -56,17 +56,17 @@
 	      <ul class="canlogin"><li><i>Login to Load</i></li></ul>
 	      <hr class="canlogin">
 	      <ul><li><a href="/" class="info infol local hardlink" title="Front Page"><i class="material-icons">home</i></a></li>
-		<li><a href="/r/popular" class="info infol local hardlink" title="Popular"><i class="material-icons">thumb_up</i></a></li>
+		<li><a href="/r/popular" class="info infol local hardlink" title="Popular"><i class="material-icons">whatshot</i></a></li>
 		<li><a href="/r/all" class="info infol local hardlink" title="All"><i class="material-icons">all_inclusive</i></a></li>
-		<li><a href="/r/random" class="info infol local hardlink" title="Random"><i class="material-icons">child_friendly</i></a></li>
-		<li><a href="/r/randnsfw" class="info infol local hardlink" title="Random (NSFW)"><i class="material-icons">wc</i></a></li>
-		<li class="right canlogin"><a id="loginUsername" class="info infop" href="/"><i class="unset material-icons">account_box</i></a>
+		<li><a href="/r/random" class="info infol local hardlink" title="Random"><span class="icon">?</span></a></li>
+		<li class="show-nsfw hidden"><a href="/r/randnsfw" class="info infol local hardlink" title="Random (NSFW)"><i class="material-icons">wc</i></a></li>
+		<li class="right canlogin"><a id="loginUsername" class="info infol" href="/"><i class="unset material-icons">account_box</i></a>
 		<li class="right canlogin needlogin"><a href="/r/friends" class="info infol local" title="Friends"><i class="material-icons">people_outline</i></a></li>
 	      </ul>
 	      </div>
 	  </li><li>
 	    <input class="checkbox icontoggle" type="checkbox" name="nsfw" id="nsfw" value="Auto"
-		   icon-on="wc" icon-off="child_friendly" />
+		   icon-on="wc" icon-off="child_friendly" data-toggle-class="show-nsfw"/>
 	    <label class="checkbox colortoggle over18" for="nsfw" title="Show NSFW content (n)">
 	      <i class="material-icons">child_friendly</i></label>
 	  </li><li>
