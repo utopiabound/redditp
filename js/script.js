@@ -1781,6 +1781,7 @@ $(function () {
             } else if (hostname == 'extremetube.com' ||
                        hostname == 'keezmovies.com' ||
                        hostname == 'sendvid.com' ||
+                       hostname == 'streamja.com' ||
                        hostname == 'vporn.com') {
                 // these need full shortid
                 shortid = url2shortid(pic.url);
@@ -1987,6 +1988,7 @@ $(function () {
                      a[1] == 'v')) {
                     // Sites that definitely don't work with above
                     if (hostname == 'mulemax.com' ||
+                        hostname == 'watchmygf.me' ||
                         hostname == 'xfantasy.tv')
                         return false;
 
@@ -3974,9 +3976,9 @@ $(function () {
 
         } else if (s[1] == 'user') {
             if (s[3] == 'submitted') {
-                // @@ deal with setting vars
-                arr = [ "new", "top", "controversial", 'gilded' ];
-                return;
+                base = s.slice(0,4).join('/');
+                arr = [ "hot", "new", "top", "controversial" ];
+                mod = (s.length > 4) ?arr.indexOf(s[4]) :0;
 
             } else if (s[3] == 'm') {
                 base = s.slice(0,5).join('/');
@@ -5651,6 +5653,7 @@ $(function () {
 
         var regex = new RegExp(regexS);
         var results = regex.exec(path);
+        var subreddit;
 
         log.debug('url split results: '+results);
         if (data) {
@@ -5660,6 +5663,7 @@ $(function () {
 
         } else if (results !== null) {
             rp.url.subreddit = results[1];
+            subreddit = rp.url.subreddit;
             rp.url.vars = decodeUrl(results[2]);
 
             // Remove .compact as it interferes with .json (we got "/r/all/.compact.json" which doesn't work).
@@ -5674,11 +5678,15 @@ $(function () {
             rp.url.subreddit = '/';
         }
 
+        if (!subreddit)
+            subreddit = rp.url.subreddit;
+
         // Set prefix for self links, if in subdirectory
         if (initial)
-            if (window.location.pathname != rp.url.subreddit) {
+            if (window.location.pathname != subreddit) {
                 rp.url.base = window.location.pathname + '?';
                 rp.url.root = window.location.pathname;
+                rp.url.root = rp.url.root.replace(/index.html$/, "");
             } else {
                 rp.url.root = '/';
             }
