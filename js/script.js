@@ -1139,6 +1139,9 @@ $(function () {
             $('#fullscreen').parent().remove();
             // @@ no volume up/down support
 
+            // New mobile site doesn't work for auth if not logged in
+            rp.redditLoginUrl = 'https://old.reddit.com';
+
             // Remove :hover on #loginLi, so it only responds to clicks
             $('#loginLi').removeClass('use-hover');
 
@@ -3915,7 +3918,7 @@ $(function () {
         if (rp.session.loginExpire &&
             rp.session.loginExpire > (Date.now()/1000)-60)
             return;
-        $('#loginUsername').attr('href', rp.redditBaseUrl + '/api/v1/authorize?' + 
+        $('#loginUsername').attr('href', rp.redditLoginUrl + '/api/v1/authorize?' +
                                  ['client_id=' + rp.api_key.reddit,
                                   'response_type=token',
                                   'state='+encodeURIComponent(rp.url.path),
@@ -5852,11 +5855,8 @@ $(function () {
             getRedditImages();
     };
 
-    if (rp.settings.alwaysSecure)
-        rp.redditBaseUrl = "https://www.reddit.com";
-
-    else
-        rp.redditBaseUrl = "//www.reddit.com";
+    rp.redditBaseUrl = "https://www.reddit.com";
+    rp.redditLoginUrl =  rp.redditBaseUrl;
     rp.url.get = rp.redditBaseUrl;
 
     initState();
