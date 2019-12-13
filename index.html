@@ -74,7 +74,7 @@
 		   icon-on="personal_video" icon-off="ondemand_video" />
 	    <label class="icontoggle colortoggle embed" for="embed" title="Autoplay embeded content">
 	      <i class="material-icons">ondemand_video</i></label>
-	  </li><li>
+	  </li><li class="volume-mute">
 	    <input class="checkbox icontoggle" type="checkbox" name="mute" id="mute" value="Auto"
 		   icon-on="volume_off" icon-off="volume_up" checked />
 	    <label class="icontoggle colortoggle mute" for="mute" title="toggle video sound (m)">
@@ -98,11 +98,11 @@
 	  </li><li title="Minimum score for displayed posts (only used during load)">
 	    <label for="minScore" class="textlabel"> Min Score:</label>
 	    <input type="text" pattern="[0-9]*" class="textlabel" name="minScore" id="minScore" value="1" size="2" />
-	  </li><li  class="list-start">
+	  </li><li  class="list-start volume">
 	    <a id='navboxVolumeDown' class="volume" data-value="-1" href='#' title="Decrease Volume (-)"><i class="material-icons">volume_down</i></a></span>
-	  </li><li class="list-item">
+	  </li><li class="list-item volume">
 	    <span id='navboxVolume'  class="info"></span>
-	  </li><li class="list-end">
+	  </li><li class="list-end volume">
 	    <a id='navboxVolumeUp'   class="volume" data-value="+1" href='#' title="Increase Volume (+)"><i class="material-icons">volume_up</i></a>
 	  </li><li>
 	    <a id='navboxExtraLoad' href='#' title="placeholder"><i class="material-icons">mms</i></a>

@@ -184,6 +184,7 @@ rp.session = {
     loadingMessage: "",
 
     needsPlayButton: false,
+    volumeIsMute: false,  // Volume 0/1 should be used as mute/unmount - no volume control
     fakeStorage: false,
     redditHdr: {}
 };
@@ -964,11 +965,17 @@ $(function () {
         var videoMuted = isVideoMuted();
         if (vid !== undefined) {
             vid.prop('muted', videoMuted);
-            vid.prop('volume', rp.settings.decivolume/10);
+            if (rp.session.volumeIsMute)
+                vid.prop('volume', (videoMuted) ?0 :1);
+            else
+                vid.prop('volume', rp.settings.decivolume/10);
         }
         if (aud !== undefined) {
             aud.prop('muted', videoMuted);
-            aud.prop('volume', rp.settings.decivolume/10);
+            if (rp.session.volumeIsMute)
+                aud.prop('volume', (videoMuted) ?0 :1);
+            else
+                aud.prop('volume', rp.settings.decivolume/10);
         }
     };
 
@@ -1131,10 +1138,17 @@ $(function () {
             if (parseInt(v[1], 10) < 10) {
                 log.debug("User Agent is pre-10 iOS");
                 rp.session.needsPlayButton = true;
-                // @@ no mute/unmute support
+                // no volume or mute/unmute support
+                $('.volume-mute').hide();
+                $('.volume').hide();
             } else {
+                rp.session.volumeIsMute = true;
+                // volume can be used as a mute button
+                // 0 - muted
+                // 1 - user controlled volume
                 log.debug("User Agent is 10+ iOS");
             }
+
             // Hide useless "fullscreen" button on iOS safari
             $('#fullscreen').parent().remove();
             // @@ no volume up/down support
@@ -1152,6 +1166,9 @@ $(function () {
                 }
                 open_in_background($(this));
             });
+        }
+        if (rp.session.volumeIsMute) {
+            $('.volume').hide();
         }
     };
 
@@ -3069,14 +3086,17 @@ $(function () {
 
         // Called with showVideo({'thumbnail': jpgurl, 'mp4': mp4url, 'webm': webmurl})
         var showVideo = function(data) {
-            var video = $('<video id="gfyvid" class="fullscreen" preload="auto" playsinline />');
+            var video = $('<video id="gfyvid" class="fullscreen" preload="metadata" playsinline />');
             var lastsource;
 
             video.prop('playsinline', '');
             if (data.thumb !== undefined)
                 video.attr('poster', fixupUrl(data.thumb));
-            if (isVideoMuted())
+            if (isVideoMuted()) {
                 video.prop('muted', true);
+                if (rp.session.volumeIsMute)
+                    video.prop('volume', 0);
+            }
 
             rp.settings.goodVideoExtensions.forEach(function(type) {
                 if (!data[type])
@@ -3093,9 +3113,13 @@ $(function () {
 
             if (data.audio !== undefined) {
                 var audio = $('<audio id="gfyaudio" />');
-                if (isVideoMuted())
-                    audio.prop('muted', true);
-                audio.prop('volume', rp.settings.decivolume/10);
+                if (rp.session.volumeIsMute) {
+                    audio.prop('volume', isVideoMuted() ?0 :1);
+                } else {
+                    if (isVideoMuted())
+                        audio.prop('muted', true);
+                    audio.prop('volume', rp.settings.decivolume/10);
+                }
                 var type, ls;
                 for (type in data.audio) {
                     ls = $('<source />', { src: data.audio[type],
@@ -3169,11 +3193,13 @@ $(function () {
             });
 
             // PROGRESS BAR
-            var prog = divNode.append($('<div />', { class: "progressbar" }
+            var prog = $('<div />', { class: "progressbar" }
                                        ).html($('<div />',
                                                 { class: "progress",
                                                   style: "width: 0%"
-                                                })));
+                                                }));
+            divNode.append(prog);
+
             var updateProgress = function(e) {
                 var vid = e.target;
                 if (!vid.buffered.length)
@@ -3185,15 +3211,20 @@ $(function () {
             $(video).on("progress loadedmetadata loadeddata timeupdate", prog, updateProgress);
 
             // Set Autoplay for iOS devices
+            var addPlayButton = function (e) {
+                divNode.prepend(playButton(function() {
+                    $(video)[0].play();
+                    $('#playbutton').remove();
+                }));
+                // if video starts playing, nuke play button
+                $(video).on('play', function (e) {
+                    $('#playbutton').remove();
+                });
+            };
+
             if (rp.session.needsPlayButton) {
-                var addPlayButton = function (e) {
-                    $(video).off('canplay canplaythrough', addPlayButton);
-
-                    divNode.prepend(playButton(function() { $(video)[0].play(); $('#playbutton').remove(); }));
-                };
-
-                $(video).on('canplay canplaythrough', addPlayButton);
-                if ($(video)[0].readyState > 3)
+                // Always add play button
+                if ($(video)[0].paused)
                     addPlayButton();
 
             } else {
@@ -3203,6 +3234,10 @@ $(function () {
                         $(video)[0].play();
                 };
                 $(video).on('canplaythrough', onCanPlay);
+
+                if (rp.session.volumeIsMute && !isVideoMuted())
+                    addPlayButton();
+
             }
         };
 
