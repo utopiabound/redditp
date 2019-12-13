@@ -1270,9 +1270,22 @@ $(function () {
         fixPhotoButton(photo);
     };
 
-    var isActive = function (photo) {
+    var isActive = function (pic) {
+        var photo = photoParent(pic);
         return (photo.index !== undefined &&
                 photo.index == rp.session.activeIndex);
+    };
+
+    var isActivePic = function (pic) {
+        var photo = photoParent(pic);
+        if (photo.index === undefined ||
+            photo.index != rp.session.activeIndex)
+            return false;
+
+        if (photo == pic)
+            return true;
+
+        return (photo.album.indexOf(pic) == rp.session.activeAlbumIndex);
     };
 
     // re-index Album elements starting from index
@@ -2928,7 +2941,7 @@ $(function () {
             photo = rp.photos[imageIndex];
 
         // Used by showVideo and showImage
-        var divNode = $("<div />");
+        var divNode = $("<div />", { class: "fullscreen"});
         divNode.on("rpdisplay", function() {});
 
         if (photo === undefined)
@@ -3140,9 +3153,25 @@ $(function () {
                 log.debug("["+imageIndex+"] Video loadeddata video: "+photo.duration+" playing "+photo.times);
             });
 
+            // PROGRESS BAR
+            var prog = divNode.append($('<div />', { class: "progressbar" }
+                                       ).html($('<div />',
+                                                { class: "progress",
+                                                  style: "width: 0%"
+                                                })));
+            var updateProgress = function(e) {
+                var vid = e.target;
+                if (!vid.buffered.length)
+                    return;
+                var prog = e.data.find('div.progress');
+                prog.css('width', (vid.buffered.end(0) / vid.duration * 100)+"%");
+            };
+
+            $(video).on("progress loadedmetadata loadeddata timeupdate", prog, updateProgress);
+
             // Set Autoplay for iOS devices
             if (rp.session.needsPlayButton) {
-                var addPlayButton = function () {
+                var addPlayButton = function (e) {
                     $(video).off('canplay canplaythrough', addPlayButton);
 
                     divNode.prepend(playButton(function() { $(video)[0].play(); $('#playbutton').remove(); }));
