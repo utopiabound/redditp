@@ -3040,6 +3040,21 @@ $(function () {
                         showThumb(photo);
                     }
                 });
+            // 404 221x80
+            else if (hn == 'ezgif.com')
+                img.on('load', function() {
+                    if ($(this)[0].naturalHeight == 80 &&
+                        $(this)[0].naturalWidth == 221) {
+                        if (thumb) {
+                            log.info("cannot display thumb [place holder]: "+url);
+                            find_fallback(photo, thumb);
+                            return;
+                        }
+                        log.info("["+photo.index+"] Image has been removed: "+url);
+                        initPhotoFailed(photo);
+                        showThumb(photo);
+                    }
+                });
             divNode.html(img);
 
             if (needreset && imageIndex == rp.session.activeIndex)
