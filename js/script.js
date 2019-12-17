@@ -1022,7 +1022,7 @@ $(function () {
             ref.change(function () {
                 var id = $(this).attr('id');
                 rp.settings[id] = $(this).is(':checked');
-                var cl = $(this).data('toggle-class');
+                var cl = $(this).data('toggleclass');
                 if (cl) {
                     if (rp.settings[id])
                         $('.'+cl).removeClass('hidden');
@@ -1151,7 +1151,6 @@ $(function () {
 
             // Hide useless "fullscreen" button on iOS safari
             $('#fullscreen').parent().remove();
-            // @@ no volume up/down support
 
             // New mobile site doesn't work for auth if not logged in
             rp.redditLoginUrl = 'https://old.reddit.com';
@@ -1291,18 +1290,6 @@ $(function () {
         var photo = photoParent(pic);
         return (photo.index !== undefined &&
                 photo.index == rp.session.activeIndex);
-    };
-
-    var isActivePic = function (pic) {
-        var photo = photoParent(pic);
-        if (photo.index === undefined ||
-            photo.index != rp.session.activeIndex)
-            return false;
-
-        if (photo == pic)
-            return true;
-
-        return (photo.album.indexOf(pic) == rp.session.activeAlbumIndex);
     };
 
     // re-index Album elements starting from index
@@ -1960,7 +1947,7 @@ $(function () {
                                    'https://www.vidble.com/'+shortid+'.png');
 
                 } else if (pic.url.indexOf("/album/") > 0)
-                    // TODO : figure out /album/ on vidble.com/api
+                    // @@TODO : figure out /album/ on vidble.com/api
                     throw("no vidble album processing");
 
                 else {
@@ -2966,7 +2953,6 @@ $(function () {
 
         var find_fallback = function(pic, thumb) {
             if (thumb) {
-                var url;
                 var photo = photoParent(pic);
                 if (pic.fb_thumb && pic.fb_thumb.length)
                     pic.thumb = pic.fb_thumb.shift();
@@ -3211,13 +3197,13 @@ $(function () {
             $(video).on("progress loadedmetadata loadeddata timeupdate", prog, updateProgress);
 
             // Set Autoplay for iOS devices
-            var addPlayButton = function (e) {
+            var addPlayButton = function () {
                 divNode.prepend(playButton(function() {
                     $(video)[0].play();
                     $('#playbutton').remove();
                 }));
                 // if video starts playing, nuke play button
-                $(video).on('play', function (e) {
+                $(video).on('play', function () {
                     $('#playbutton').remove();
                 });
             };
@@ -3450,7 +3436,7 @@ $(function () {
                     }
 
                     photo = initPhotoAlbum(photo, false);
-                    // TODO: check to see if data.photoset.total > data.photoset.perpage
+                    // @@TODO: check to see if data.photoset.total > data.photoset.perpage
                     $.each(data.photoset.photo, function(i, item) {
                         var pic = { extra: localLink('https://flickr.com/'+userid,
                                                      flickrUserPP(userid),
@@ -3969,6 +3955,8 @@ $(function () {
                     cl = "needlogin";
                 } else // hidden == ignore
                     return;
+                if (item.data.over_18)
+                    cl += " show-nsfw";
 
                 var link = redditLink(path, item.data.description_md, item.data.display_name);
 
@@ -4194,14 +4182,15 @@ $(function () {
         };
 
         log.info("loading alternate submissions: "+site+":"+shortid);
-        $.ajax({url: jsonUrl,
-                headers: hdrData,
-                dataType: 'json',
-                success: handleData,
-                error: failedAjax,
-                timeout: rp.settings.ajaxTimeout,
-                crossDomain: true,
-               });
+        $.ajax({
+            url: jsonUrl,
+            headers: hdrData,
+            dataType: 'json',
+            success: handleData,
+            error: failedAjax,
+            timeout: rp.settings.ajaxTimeout,
+            crossDomain: true,
+        });
     };
 
     // Assume: photo has been run through processPhoto() at least once
