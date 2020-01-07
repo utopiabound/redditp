@@ -42,7 +42,10 @@ body {
 /* toggled on/off when logged in */
 
 /* Selector popup */
-#choiceLi { margin-left: -27px; }
+#choiceLi {
+    margin-left: -44px;
+    margin-right: 14px;
+}
 #choiceLi input:checked~#subredditPopup { display: block; }
 #choiceLi div {
     display: none;

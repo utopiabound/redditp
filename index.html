@@ -31,24 +31,7 @@
 	   data-openstate="open" data-controldiv="albumNumberButtons" title="Show Album Buttons">&#8858;</div>
       <div id="navboxContents">
 	<ul class="nbmenu">
-	  <li><form id="subredditForm" onsubmit="return false">
-	      <a id="subredditLink" class="remote" href="#"><img class="reddit" src="images/reddit.svg" /></a>
-	      <input type="text" id="subredditUrl" size="17"/></form>
-	  </li><li id="choiceLi">
-	    <input class="checkbox" type="checkbox" name="choice" id="choice" value="Auto" />
-	    <label class="checkbox colortoggle" for="choice" title="choice">
-	      <i class="material-icons">arrow_drop_up</i></label>
-	    <div id="subredditPopup" class="clouds">
-	      <h3 id="choiceTitle">/</h3>
-	      <ul>
-		<li><a href="/" class="info infol local hardlink">best</a></li>
-		<li><a href="/hot" class="info infol local hardlink">hot</a></li>
-		<li><a href="/new" class="info infol local hardlink">new</a></li>
-		<li><a href="/rising" class="info infol local hardlink">rising</a></li>
-		<li><a href="/controversial" class="info infol local hardlink">controversial</a></li>
-		<li><a href="/top" class="info infop local hardlink">top</a></li>
-	    </ul></div>
-	  </li><li id="loginLi" class="use-hover">
+	  <li id="loginLi" class="use-hover">
 	    <input class="checkbox" type="checkbox" name="login" id="login" value="Auto" />
 	    <label class="checkbox colortoggle" for="login" title="show user info">
 	      <i class="material-icons">account_box</i></label>
@@ -64,6 +47,24 @@
 		<li class="right canlogin needlogin"><a href="/r/friends" class="info infol local" title="Friends"><i class="material-icons">people_outline</i></a></li>
 	      </ul>
 	      </div>
+	  </li><li><form id="subredditForm" onsubmit="return false">
+	      <input type="text" id="subredditUrl" size="17"/>
+	      <a id="subredditLink" class="remote" href="#"><img class="reddit" src="images/reddit.svg" /></a>
+	    </form>
+	  </li><li id="choiceLi">
+	    <input class="checkbox" type="checkbox" name="choice" id="choice" value="Auto" />
+	    <label class="checkbox colortoggle" for="choice" title="choice">
+	      <i class="material-icons">arrow_drop_up</i></label>
+	    <div id="subredditPopup" class="clouds">
+	      <h3 id="choiceTitle">/</h3>
+	      <ul>
+		<li><a href="/" class="info infol local hardlink">best</a></li>
+		<li><a href="/hot" class="info infol local hardlink">hot</a></li>
+		<li><a href="/new" class="info infol local hardlink">new</a></li>
+		<li><a href="/rising" class="info infol local hardlink">rising</a></li>
+		<li><a href="/controversial" class="info infol local hardlink">controversial</a></li>
+		<li><a href="/top" class="info infop local hardlink">top</a></li>
+	    </ul></div>
 	  </li><li>
 	    <input class="checkbox icontoggle" type="checkbox" name="nsfw" id="nsfw" value="Auto"
 		   icon-on="wc" icon-off="child_friendly" data-toggleclass="show-nsfw"/>
