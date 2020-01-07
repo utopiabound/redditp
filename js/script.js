@@ -1697,11 +1697,17 @@ $(function () {
                        hostname == 'deviantart.com' ||
                        hostname == 'pornbot.net' ||
                        hostname == 'streamable.com' ||
-                       hostname == 'twitter.com' ||
                        hostname == 'vid.me') {
                 if (url2shortid(pic.url))
                     // These domains should always be processed later
                     pic.type = imageTypes.later;
+
+            } else if (hostname == 'twitter.com') {
+                a = pathnameOf(pic.url).split('/');
+                if (a[2] == "status")
+                    pic.type = imageTypes.later;
+                else
+                    throw "unknown twitter url";
 
             } else if (hostname == 'twitch.tv') {
                 a = pathnameOf(pic.url).split('/');
@@ -3577,8 +3583,10 @@ $(function () {
                             photo.extra = localLink('https://'+data.data.account_url+'.imgur.com',
                                                     data.data.account_url, '/imgur/'+data.data.account_url);
                         imgurHandleAlbum(data.data.images, data.data.link);
-                        if (isActive(photo))
-                            animateNavigationBox(photo.index, photo.index, rp.session.activeAlbumIndex);
+                        if (isActive(photo)) {
+                            var p = photoParent(photo);
+                            animateNavigationBox(p.index, p.index, rp.session.activeAlbumIndex);
+                        }
                     };
                     var herr = function() {
                         initPhotoImage(photo, "https://i.imgur.com/"+shortid+".jpg");
@@ -3787,8 +3795,10 @@ $(function () {
             var wrapHandleData = function(data) {
                 handleData(data);
                 // Refresh navbox
-                if (isActive(photo))
-                    animateNavigationBox(photo.index, photo.index, rp.session.activeAlbumIndex);
+                if (isActive(photo)) {
+                    var p = photoParent(photo);
+                    animateNavigationBox(p.index, p.index, rp.session.activeAlbumIndex);
+                }
             };
 
             $.ajax({
@@ -3805,7 +3815,8 @@ $(function () {
 
         } else if (isActive(photo)) {
             // refresh navbox
-            animateNavigationBox(photo.index, photo.index, rp.session.activeAlbumIndex);
+            var p = photoParent(photo);
+            animateNavigationBox(p.index, p.index, rp.session.activeAlbumIndex);
         }
     };
 
