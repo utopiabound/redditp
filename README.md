@@ -5,7 +5,9 @@ A full screen reddit presentation or slide show.
 
 http://github.com/utopiabound/redditp
 
-Useable Link: https://utopiabound.github.io/redditp/?/r/popular
+Useable Links:
+https://utopiabound.github.io/redditp/?/r/popular
+https://redditp.utopiabound.net/
 
 Fork from Ubershmekel's
 
@@ -40,22 +42,18 @@ Features
 * Video support (either direct or embeded)
 * Autonext waits for the end of a video (does not work for gif, but does work for gifv)
 * Parsing for a collection of domains including: (see createDiv() and processPhoto() for complete list)
+* Special User / Album browsing in addition to reddit.com:
 	* Imgur		(User support)  /imgur/<USERID>
 	* Tumblr	(Album support) /tumblr/<HOSTNAME>
 	* WordPress	(Album support) /wp/<HOSTNAME> (both self, and wp hosted)
 	* Gfycat	(User support)  /gfycat/<USERNAME>
 	* Blogger	(Album support) /blogger/<HOSTNAME>
-	* vimeo		(embed only - no autonext)
-	* Youtube	(embed only - no autonext)
-	* Many Others...
+	* Flickr	(User/Album support) /flickr/<USER>[/<ALBUM>]
 * Deduplication support when browsing mulitple reddits (e.g. a multireddit /user/NAME/m/MULTIREDDIT or /r/funny+pics)
-* Add '+' to the end of single subreddit to enabled duplicate tracking
 * Albums will display inline for subreddits
-* Browse imgur gallaries/albums (/imgur/a/ID), a whole tumblr blog (/tumblr/DOMAIN), or a whole wordpress blog (/wp/DOMAIN)
 * You can save the html file locally and use it, just make sure you add a separator e.g. the question mark in file:///c/myredditp.html?/r/gifs so the browser knows to pick up the right file and go to the right subreddit.
 * Support for /r/random, /r/randnsfw, /r/popular virtual subreddits
-* Albums will be detected for title that specify it's in the comments
-* "More in comments" will result in an album of the "more" specified
+* Albums/Video/More in comments will be detected in title and automatically found
 * For subreddits that have "requests", responses will be shown as albums, also 'PsBattles:' is similarly special cased
 
 Possible future features, depending on feedback:
@@ -86,6 +84,7 @@ Special: /r/randnsfw /r/random (handled without special handling /r/all /r/popul
 /wp2/HOSTNAME		(fqdn of Self-hosted wordpress site aka API version 2)
 /tumblr/HOSTNAME	(with or without .tumblr.com)
 /blogger/HOSTNAME	(fqdn of blogger hosted site)
+/flickr/USER[/ALBUM] (username of flickr user)
 
 ** Blog Order (Tumblr, WordPress, WordPress (v2)):
 /.../new
@@ -128,7 +127,6 @@ https://utopiabound.github.io/redditp/index.html?/r/popular
 Known Issues
 ------------
 
-* iPad/iPhone support is iffy
 * access via http://HOST/redditp/r/aww fails due to the rewrite rules
 
 Credits
