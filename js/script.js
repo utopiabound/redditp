@@ -1892,7 +1892,8 @@ $(function () {
                 else
                     return false;
 
-            } else if (hostname == 'gfycat.com') {
+            } else if (hostname == 'gfycat.com' ||
+                       hostname == 'redgifs.com') {
                 // set photo url to sane value (incase it's originally a thumb link)
                 shortid = url2shortid(pic.url);
                 // Strip everything trailing '-'
@@ -3259,7 +3260,7 @@ $(function () {
             showThumb(pic);
             // Add play button
             var lem = playButton(function() {
-                replaceBackgroundDiv($('<div>').html(iFrame(pic)));
+                replaceBackgroundDiv($('<div>', { class: "fullscreen" }).html(iFrame(pic)));
             });
 
             var title = $('<span>', { class: "title" }).html(hostnameOf(pic.url, true));
