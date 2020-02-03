@@ -3020,7 +3020,8 @@ $(function () {
                         $(this)[0].naturalWidth == 130) {
                         log.info("["+photo.index+"] Image has been removed: "+photo.url);
                         initPhotoFailed(photo);
-                        showThumb(photo);
+                        if (!thumb)
+                            showThumb(photo);
                     }
                 });
             // https://i.imgur.com/removed.png is 161x81
@@ -3030,7 +3031,8 @@ $(function () {
                         $(this)[0].naturalWidth == 161) {
                         log.info("["+photo.index+"] Image has been removed: "+photo.url);
                         initPhotoFailed(photo);
-                        showThumb(photo);
+                        if (!thumb)
+                            showThumb(photo);
                     }
                 });
             // YouTube 404 thumbnail is 120x90
@@ -3047,7 +3049,8 @@ $(function () {
                         }
                         log.info("["+photo.index+"] Image has been removed: "+url);
                         initPhotoFailed(photo);
-                        showThumb(photo);
+                        if (!thumb)
+                            showThumb(photo);
                     }
                 });
             // 404 221x80
@@ -3062,7 +3065,8 @@ $(function () {
                         }
                         log.info("["+photo.index+"] Image has been removed: "+url);
                         initPhotoFailed(photo);
-                        showThumb(photo);
+                        if (!thumb)
+                            showThumb(photo);
                     }
                 });
             divNode.html(img);
