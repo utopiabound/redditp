@@ -1692,8 +1692,7 @@ $(function () {
                 else
                     return false;
 
-            } else if (fqdn == 'clips.twitch.tv' ||
-                       hostname == 'apnews.com' ||
+            } else if (hostname == 'apnews.com' ||
                        hostname == 'deviantart.com' ||
                        hostname == 'pornbot.net' ||
                        hostname == 'streamable.com' ||
@@ -1709,14 +1708,19 @@ $(function () {
                 else
                     throw "unknown twitter url";
 
+            } else if (fqdn == 'clips.twitch.tv') {
+                shortid = url2shortid(pic.url);
+                initPhotoEmbed(pic, 'https://clips.twitch.tv/embed?autoplay=1&clip='+shortid);
+                // can set muted=0|1
+
             } else if (hostname == 'twitch.tv') {
                 a = pathnameOf(pic.url).split('/');
                 if (a[1] == 'videos')
                     initPhotoEmbed(pic, 'https://player.twitch.tv/?video=v'+a[2]);
 
                 else if (a[2] == 'clip') {
-                    pic.url = 'https://clips.twitch.tv/'+a[3];
-                    pic.type = imageTypes.later;
+                    initPhotoEmbed(pic, 'https://clips.twitch.tv/embed?autoplay=1&clip='+a[2]);
+                    // can set muted=0|1
 
                 } else
                     throw "unknown twitch url";
@@ -3756,14 +3760,6 @@ $(function () {
                                         data.response.blog.title, rp.favicons.tumblr);
                 processTumblrPost(photo, data.response.posts[0]);
                 showCB(photoParent(photo));
-            };
-
-        } else if (fqdn == 'clips.twitch.tv') {
-            jsonUrl = 'https://clips.twitch.tv/api/v2/clips/'+shortid+'/status';
-
-            handleData = function(data) {
-                initPhotoVideo(photo, data.quality_options[0].source);
-                showCB(photo);
             };
 
         } else if (hostname == 'vid.me') {
