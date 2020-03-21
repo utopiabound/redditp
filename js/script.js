@@ -2010,6 +2010,11 @@ $(function () {
                     shortid = a[1];
                 initPhotoEmbed(pic, originOf(pic.url)+'/embed/'+shortid+'?t=00:00&quality=720');
 
+            } else if (hostname == 'streamvi.com') {
+                shortid = url2shortid(pic.url);
+                initPhotoVideo(pic, 'https://cdnvistreamviz.r.worldssl.net/uploads/'+shortid+'.mp4',
+                               'https://cdn.streamvi.com/uploads/'+shortid+'.jpg');
+
             } else if (pic.type != imageTypes.thumb) {
                 a = pathnameOf(pic.url).split('/');
                 if (a.length > 2 &&
@@ -2183,7 +2188,10 @@ $(function () {
         // #4a try originOf(pic.url)/favicon.ico (if different from pic.o_url)
         // #4b try sld-only hostname of url
         // #FINAL fallback to just link icon
-        var backup = [fixupUrl(origin+'/favicon.png'), fixupUrl(origin+'/favicon-16x16.png')];
+        var backup = [fixupUrl(origin+'/favicon.png'),
+                      fixupUrl(origin+'/favicon-16x16.png'),
+                      fixupUrl(origin+'/assets/img/favicon.ico')
+                     ];
         var a = hostname.split('.');
         while (a.length > 2) {
             a.shift();
