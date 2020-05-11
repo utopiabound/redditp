@@ -186,6 +186,7 @@ rp.session = {
     needsPlayButton: false,
     volumeIsMute: false,  // Volume 0/1 should be used as mute/unmount - no volume control
     fakeStorage: false,
+    showRedditLink: true,
     redditHdr: {}
 };
 // In case browser doesn't support localStorage
@@ -538,10 +539,11 @@ $(function () {
         var data = $('<div/>');
         data.append(_infoAnchor(rp.url.base+local, text, urlalt, classes+" infol local"));
         var link = _infoAnchor(url, '', urlalt, classes+" infor remote");
-        if (favicon === "reddit")
-            link.html($('<img>', { class: "reddit",
-                                   src: rp.url.root+'images/reddit.svg' }));
-        else if (favicon !== null)
+        if (favicon === "reddit") {
+            if (rp.session.showRedditLink)
+                link.html($('<img>', { class: "reddit",
+                                       src: rp.url.root+'images/reddit.svg' }));
+        } else if (favicon !== null)
             setFavicon(link, { url: url, favicon: favicon });
         data.append(link);
         return data.html();
@@ -1148,6 +1150,8 @@ $(function () {
                 // 1 - user controlled volume
                 log.debug("User Agent is 10+ iOS");
             }
+            // caues fatfinger presses
+            rp.session.showRedditLink = false;
 
             // Hide useless "fullscreen" button on iOS safari
             $('#fullscreen').parent().remove();
