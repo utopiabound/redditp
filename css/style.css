@@ -54,6 +54,9 @@ body {
 }
 #choiceLi a { display: inline-block; }
 #choiceLi li { display: block; padding: 2px; }
+#choiceLi li.multi { display: inline-block; padding: 2px; }
+
+hr.split { border: 1px inset; }
 
 /* PLAY BUTTON */
 #playbutton {

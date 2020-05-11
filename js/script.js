@@ -2015,6 +2015,15 @@ $(function () {
                 initPhotoVideo(pic, 'https://cdnvistreamviz.r.worldssl.net/uploads/'+shortid+'.mp4',
                                'https://cdn.streamvi.com/uploads/'+shortid+'.jpg');
 
+            } else if (hostname == 'triller.fail') {
+                a = searchOf(pic.url);
+                if (a.v)
+                    shortid = a.v;
+                else
+                    throw("unknown triller.fail url")
+
+                initPhotoVideo(pic, 'https://cdn.triller.fail:2053/'+shortid+'.mp4');
+
             } else if (pic.type != imageTypes.thumb) {
                 a = pathnameOf(pic.url).split('/');
                 if (a.length > 2 &&
@@ -3955,6 +3964,26 @@ $(function () {
         clearConfig(configNames.redditRefreshBy);
     };
 
+    var redditMultiAppend = function(data, list) {
+        data.forEach(function(item) {
+            var path;
+            var cl = "multi";
+            if (item.data.visibility == "public")
+                path = item.data.path;
+            else if (item.data.visibility == "private") {
+                path = "/me/m/"+item.data.name;
+                cl += " needlogin";
+            } else // hidden == ignore
+                return;
+            if (item.data.over_18)
+                cl += " show-nsfw";
+
+            var link = redditLink(path, item.data.description_md, item.data.display_name);
+
+            list.append($('<li>', {class: cl}).html(link));
+        });
+    };
+
     var loadRedditMultiList = function () {
         if (rp.session.loadedMultiList == true)
             return;
@@ -3965,23 +3994,7 @@ $(function () {
             var list = $('#multiListDiv ul:first-of-type');
             list.empty();
 
-            data.forEach(function(item) {
-                var path;
-                var cl = "";
-                if (item.data.visibility == "public") 
-                    path = item.data.path;
-                else if (item.data.visibility == "private") {
-                    path = "/me/m/"+item.data.name;
-                    cl = "needlogin";
-                } else // hidden == ignore
-                    return;
-                if (item.data.over_18)
-                    cl += " show-nsfw";
-
-                var link = redditLink(path, item.data.description_md, item.data.display_name);
-
-                list.append($('<li>', {class: cl}).html(link));
-            });
+            redditMultiAppend(data, list);
         };
 
         $.ajax({
@@ -4042,6 +4055,7 @@ $(function () {
         var prefix = '/';
         var base;
         var mod = arr.indexOf(s[1]);
+        var user;
         rp.url.choice = "";
 
         if (mod >= 0) {
@@ -4065,6 +4079,7 @@ $(function () {
             mod = (s.length > 3) ?arr.indexOf(s[3]) :0;
 
         } else if (s[1] == 'user') {
+            user = s[2];
             if (s[3] == 'submitted') {
                 base = s.slice(0,4).join('/');
                 arr = [ "hot", "new", "top", "controversial" ];
@@ -4126,6 +4141,25 @@ $(function () {
                 }
             }
             list.append(li);
+        }
+        if (user) {
+            var jsonUrl = rp.url.get + '/api/multi/user/' + user;
+            var handleData = function (data) {
+                if (data.length) {
+                    var list = $('#subredditPopup ul');
+                    list.append($('<li>').append($('<hr>', { class: "split" })));
+                    redditMultiAppend(data, list);
+                }
+            };
+            $.ajax({
+                url: jsonUrl,
+                headers: rp.session.redditHdr,
+                dataType: 'json',
+                success: handleData,
+                error: failedAjax,
+                timeout: rp.settings.ajaxTimeout,
+                crossDomain: true,
+            });
         }
 
         $('#choiceTitle').text(base);
