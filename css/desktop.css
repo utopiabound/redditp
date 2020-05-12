@@ -1,0 +1,28 @@
+#multiListDiv i.material-icons { font-size: 18px; }
+#multiListDiv span.icon { font-size: 18px; }
+
+/* Selector popup */
+#choiceLi {
+    margin-left: -44px;
+    margin-right: 14px;
+}
+
+.info { font-size: 12px; }
+
+.nbmenu { font-size: 14px; }
+
+.redditp {
+    height: 24px;
+    width: 24px;
+}
+
+.reddit {
+    height: 24px;
+    width: 24px;
+    margin: -5px;
+}
+
+.favicon {
+    height: 16px;
+    width: 16px;
+}
