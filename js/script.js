@@ -1135,8 +1135,8 @@ $(function () {
             $('.needlogin').hide();
 
         // OS/Browser Specific
-        if (/iPad|iPhone|iPod/.test(navigator.platform)) {
-            var v = (navigator.appVersion).match(/OS (\d+)/);
+        if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+            var v = (navigator.userAgent).match(/OS (\d+)/);
             if (parseInt(v[1], 10) < 10) {
                 log.debug("User Agent is pre-10 iOS");
                 rp.session.needsPlayButton = true;
