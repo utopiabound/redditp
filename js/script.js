@@ -89,6 +89,7 @@
  *              nsid:   TEXT of flickr user NSID
  *      gfycat:         HASH
  *              user:   TEXT username
+ *              type:   TEXT (gfycat|redgifs)
  *      -- Depending on image Type --
  *      video:          HASH for video ext to url + thumbnail (see showVideo() / rp.mime2ext)
  *              thumb:  URL of thumbnail
@@ -217,6 +218,7 @@ rp.redirect = 'http://redditp.utopiabound.net/auth';
 rp.favicons = { tumblr:  'https://assets.tumblr.com/images/favicons/favicon.ico',
                 wordpress: 'https://s1.wp.com/i/favicon.ico',
                 dropbox: 'https://cfl.dropboxstatic.com/static/images/favicon.ico',
+                redgifs: 'https://www.redgifs.com/assets/favicon-16x16.png',
                 // i.redd.it/v.redd.it - reddit hosted images
                 redd: 'https://www.redditstatic.com/icon.png'
               };
@@ -568,6 +570,15 @@ $(function () {
 
     var localLinkFailed = function(url, text, local, urlalt, favicon) {
         return _localLink(url, local, text, urlalt, favicon, "info failed");
+    };
+
+    var gfycatApiUserLink = function(user, type) {
+        if (type == 'gfycat')
+            return localLink('https://gfycat.com/@'+user, user, '/gfycat/'+user);
+        else if (type == 'redgifs')
+            return localLink('https://www.redgifs.com/users/'+user, user, '/redgifs/'+user);
+        else
+            throw("Uknown gfycat API user: "+type);
     };
 
     var titleFLink = function(url, text) {
@@ -1900,8 +1911,7 @@ $(function () {
                 else
                     return false;
 
-            } else if (hostname == 'gfycat.com' ||
-                       hostname == 'redgifs.com') {
+            } else if (hostname == 'gfycat.com') {
                 // set photo url to sane value (incase it's originally a thumb link)
                 shortid = url2shortid(pic.url);
                 // Strip everything trailing '-'
@@ -1913,6 +1923,13 @@ $(function () {
                 pic.url = 'https://gfycat.com/'+shortid;
 
                 // These domains should be processed later, unless direct link to video
+                pic.type = imageTypes.later;
+
+            } else if (hostname == 'redgifs.com') {
+                shortid = url2shortid(pic.url).toLowerCase();
+                if (shortid.indexOf('-') != -1)
+                    shortid = shortid.substr(0, shortid.indexOf('-'));
+                pic.url = 'https://www.redgifs.com/watch/'+shortid;
                 pic.type = imageTypes.later;
 
             } else if (hostname == 'clippituser.tv' ||
@@ -2766,9 +2783,10 @@ $(function () {
 
         if (photo.subreddit)
             $('#navboxSubreddit').html(redditLink(subreddit)).show();
+
         else if (photo.gfycat)
-            $('#navboxSubreddit').html(localLink('https://gfycat.com/@'+photo.gfycat.user,
-                                                 photo.gfycat.user, '/gfycat/'+photo.gfycat.user));
+            $('#navboxSubreddit').html(gfycatApiUserLink(photo.gfycat.user, photo.gfycat.type));
+
         else if (photo.tumblr)
             $('#navboxSubreddit').html(localLink('https://'+photo.tumblr.blog+'.tumblr.com',
                                                  photo.tumblr.blog, '/tumblr/'+photo.tumblr.blog));
@@ -3380,6 +3398,25 @@ $(function () {
         return divNode;
     };
 
+    var handleGfycatApiItem = function(photo, data, showCB, type) {
+        if (data.gfyItem === undefined) {
+            if (data.error !== undefined) {
+                log.info("failed to display gfycat [error]: "+data.error);
+            }
+            initPhotoFailed(photo);
+            showCB(photo);
+            return;
+        }
+
+        if (data.gfyItem.userName !== 'anonymous')
+            photo.extra = gfycatApiUserLink(data.gfyItem.userName, type);
+
+        initPhotoVideo(photo, [ data.gfyItem.mp4Url,  data.gfyItem.webmUrl ],
+                       data.gfyItem.posterUrl);
+
+        showCB(photo);
+    };
+
     var fillLaterDiv = function(photo, showCB) {
         var jsonUrl;
         var dataType = 'json';
@@ -3387,12 +3424,13 @@ $(function () {
         var postData;
         var handleData;
         var headerData;
-        var handleError = function (xhr) {
+        var handleErrorOrig = function (xhr) {
             initPhotoFailed(photo);
             showCB(photo);
             //failedAjax(xhr, ajaxOptions, thrownError);
             log.info('failed to load url [error '+xhr.status+']: ' + photo.url);
         };
+        var handleError = handleErrorOrig;
         var url = photo.url;
 
         var hostname = hostnameOf(url, true);
@@ -3541,24 +3579,33 @@ $(function () {
             jsonUrl = "https://api.gfycat.com/v1/gfycats/" + shortid;
 
             handleData = function (data) {
-                if (data.gfyItem === undefined) {
-                    if (data.error !== undefined) {
-                        log.info("failed to display gfycat [error]: "+data.error);
-                    }
-                    initPhotoFailed(photo);
-                    showCB(photo);
-                    return;
-                }
+                handleGfycatApiItem(photo, data, showCB, 'gfycat')
+            };
 
-                if (data.gfyItem.userName !== 'anonymous')
-                    photo.extra = localLink('https://gfycat.com/@'+data.gfyItem.userName,
-                                            data.gfyItem.userName,
-                                            '/gfycat/'+data.gfyItem.userName);
+            handleError = function() {
+                jsonUrl = "https://api.redgifs.com/v1/gfycats/" + shortid;
+                hData = function (data) {
+                    handleGfycatApiItem(photo, data, showCB, 'redgifs')
+                };
 
-                initPhotoVideo(photo, [ data.gfyItem.mp4Url,  data.gfyItem.webmUrl ],
-                               data.gfyItem.posterUrl);
+                $.ajax({
+                    url: jsonUrl,
+                    type: postType,
+                    data: postData,
+                    headers: headerData,
+                    dataType: dataType,
+                    success: hData,
+                    error: handleErrorOrig,
+                    timeout: rp.settings.ajaxTimeout,
+                    crossDomain: true
+                });
+            };
 
-                showCB(photo);
+        } else if (hostname == 'redgifs.com') {
+            jsonUrl = "https://api.redgifs.com/v1/gfycats/" + shortid;
+
+            handleData = function (data) {
+                handleGfycatApiItem(photo, data, showCB, 'redgifs')
             };
 
         } else if (hostname == 'imgur.com') {
@@ -4204,15 +4251,13 @@ $(function () {
 
             photo.extraLoaded = true;
 
-        } else if (photo.gfycat || hn == 'gfycat.com') {
-            site = 'gfycat.com';
-            shortid = url2shortid(photo.url);
-
         } else if (photo.flickr) {
             site = 'flickr.com';
             shortid = photo.id;
 
-        } else if (hn == 'imgur.com') {
+        } else if (hn == 'imgur.com' ||
+                   hn == 'gfycat.com' ||
+                   hn == 'redgifs.com') {
             site = hn;
             shortid = url2shortid(photo.url);
 
@@ -5664,16 +5709,28 @@ $(function () {
         });
     };
 
-    var getGfycatUser = function() {
-        // URL: /gfycat/USER
+    var getGfycatApiUser = function() {
+        // URL: /(gfycat|redgifs)/USER
+        var apiurl, baseurl;
         var a = rp.url.subreddit.split('/');
+        var type = a[1];
         var user = a[2];
 
-        if (!setupLoading(2, "gfycat user "+user+" has no videos"))
+        if (type == "gfycat") {
+            apiurl = "https://api.gfycat.com";
+            baseurl = "https://gfycat.com/";
+        } else if (type == "redgifs") {
+            apiurl = "https://api.redgifs.com";
+            baseurl = "https://www.redgifs.com/watch/";
+        } else {
+            throw("Bad Gfycat API User: "+type);
+        }
+
+        if (!setupLoading(2, "user "+user+" has no videos"))
             return;
 
         var gfycat2pic = function(post) {
-            var image = { url: 'https://gfycat.com/'+post.gfyName,
+            var image = { url: baseurl+post.gfyName,
                           over18: (post.nsfw != 0),
                           title: fixupTitle(post.title || post.description),
                           date: post.createDate,
@@ -5684,16 +5741,16 @@ $(function () {
                                  }
                         };
             if (post.userName != 'anonymous') {
-                image.extra = localLink('https://gfycat.com/@'+post.userName,
+                image.extra = localLink(post.userData.url,
                                         post.userName,
-                                        '/gfycat/'+post.userName);
-                image.gfycat = { user: post.userName };
+                                        '/'+type+'/'+post.userName);
+                image.gfycat = { user: post.userName, type: type };
             }
             return image;
         };
 
         // Get all Gfycats (currently gfycat.com doesn't seem to list nsfw item here)
-        var jsonUrl = 'https://api.gfycat.com/v1/users/'+user+'/gfycats';
+        var jsonUrl = apiurl+'/v1/users/'+user+'/gfycats';
 
         var handleData = function (data) {
             if (data.gfycats.length)
@@ -5714,7 +5771,7 @@ $(function () {
         });
 
         // Get all Albums
-        jsonUrl = 'https://api.gfycat.com/v1/users/'+user+'/albums';
+        jsonUrl = apiurl+'/v1/users/'+user+'/albums';
         handleData = function (data) {
             if (data.totalItemCount == 0) {
                 doneLoading();
@@ -5722,14 +5779,14 @@ $(function () {
             }
 
             data.items.forEach(function (album) {
-                var url = 'https://api.gfycat.com/v1/users/'+user+'/albums/'+album.id;
+                var url = apiurl+'/v1/users/'+user+'/albums/'+album.id;
                 var hd = function (data) {
                     if (data.pub == 0)
                         return;
                     data.publishedGfys.forEach(function (post) {
                         var photo = gfycat2pic(post);
-                        photo.extra = localLink('https://gfycat.com/@'+user+'/'+album.linkText,
-                                                album.title, '/gfycat/'+user);
+                        photo.extra = localLink(post.userData.url+'/'+album.linkText,
+                                                album.title, '/'+type+'/'+user);
                         addImageSlide(photo);
                     });
                     doneLoading();
@@ -5769,7 +5826,8 @@ $(function () {
         // Detect predefined reddit url paths. If you modify this be sure to fix
         // .htaccess
         // This is a good idea so we can give a quick 404 page when appropriate.
-        var regexS = "(/(?:(?:imgur/)|(?:gfycat/)|(?:tumblr/)|(?:flickr/)|(?:blogger/)|(?:wp2?/)|(?:auth)|"+
+        var regexS = "(/(?:(?:imgur/)|(?:gfycat/)|(?:tumblr/)|(?:flickr/)|(?:blogger/)|(?:redgifs/)|(?:wp2?/)"+
+            "|(?:auth)|"+
             "(?:r/)|(?:u/)|(?:user/)|(?:domain/)|(?:search)|(?:me)|(?:hot)|(?:top)|(?:new)|(?:rising)|(?:controversial))"+
             "[^&#?]*)[?]?(.*)";
 
@@ -5972,7 +6030,10 @@ $(function () {
             getBloggerBlog();
 
         else if (rp.url.subreddit.startsWith('/gfycat/'))
-            getGfycatUser();
+            getGfycatApiUser('gfycat');
+
+        else if (rp.url.subreddit.startsWith('/redgifs/'))
+            getGfycatApiUser('redgifs');
 
         else if (rp.url.subreddit.startsWith('/flickr/'))
             getFlickr();
