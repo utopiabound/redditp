@@ -664,7 +664,10 @@ $(function () {
     var volume_adjust = function(val) {
         if (!isFinite(val))
             val = parseInt($(this).data('value'), 10);
-        volume_set(rp.settings.decivolume+val);
+        if (val > 0 && isVideoMuted())
+            $('#mute').click();
+        else
+            volume_set(rp.settings.decivolume+val);
     }
 
     // **************************************************************
