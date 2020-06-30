@@ -26,3 +26,6 @@
     height: 16px;
     width: 16px;
 }
+
+/* 4 rows of number visible */
+.numberButtonList { max-height: 108px; }

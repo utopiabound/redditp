@@ -24,3 +24,6 @@ i.material-icons { font-size: 36px; }
     height: 24px;
     width: 24px;
 }
+
+/* 3 rows of number visible */
+.numberButtonList { max-height: 81px; }

@@ -96,8 +96,8 @@ a:hover {
 }
 
 .navbox { width:450px; max-height: 40%; overflow: visible; position:relative; }
-/* 108px so the next row is half-visible */
-.numberButtonList { overflow: auto; max-height: 108px; }
+
+.numberButtonList { overflow: auto; }
 .navbox ul { list-style-type:none; display:block; margin:0px; right:10px; top:10px; text-align: left;}
 .navbox ul li { display: inline-block; list-style-type: none; vertical-align: middle; }
 .navbox ul li.hidden { display: none; }
