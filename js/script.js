@@ -242,6 +242,8 @@ rp.url = {
     vars: ""
 };
 
+rp.fn = {};
+
 $(function () {
     $("#navboxTitle").text("Loading Reddit Slideshow");
 
@@ -753,6 +755,8 @@ $(function () {
 
         return shortid;
     };
+
+    rp.fn.url2shortid = url2shortid;
 
     var isImageExtension = function (url) {
         var extension = extensionOf(url);
@@ -1835,8 +1839,9 @@ $(function () {
                 shortid = url2shortid(pic.url);
                 initPhotoEmbed(pic, originOf(pic.url)+'/embed/'+shortid+'?autoplay=1');
 
-            } else if (hostname == 'worldsex.com') {
-                shortid = url2shortid(pic.url, 2);
+            } else if (hostname == 'worldsex.com' ||
+                       hostname == 'peertube.live') {
+                shortid = url2shortid(pic.url);
                 initPhotoEmbed(pic, originOf(pic.url)+'/videos/embed/'+shortid+'?autoplay=1');
 
             } else if (hostname == 'youjizz.com') {
@@ -1928,7 +1933,8 @@ $(function () {
                 // These domains should be processed later, unless direct link to video
                 pic.type = imageTypes.later;
 
-            } else if (hostname == 'redgifs.com') {
+            } else if (hostname == 'redgifs.com' ||
+                       hostname == 'gifdeliverynetwork.com') {
                 shortid = url2shortid(pic.url).toLowerCase();
                 if (shortid.indexOf('-') != -1)
                     shortid = shortid.substr(0, shortid.indexOf('-'));
@@ -2048,6 +2054,10 @@ $(function () {
 
                 initPhotoVideo(pic, 'https://cdn.triller.fail:2053/'+shortid+'.mp4');
 
+            } else if (hostname == 'asciinema.org') {
+                shortid = url2shortid(pic.url);
+                initPhotoEmbed(pic, "https://asciinema.org/a/"+shortid+"/embed?autoplay=1");
+
             } else if (pic.type != imageTypes.thumb) {
                 a = pathnameOf(pic.url).split('/');
                 if (a.length > 2 &&
@@ -2058,6 +2068,7 @@ $(function () {
                     // Sites that definitely don't work with above
                     if (hostname == 'mulemax.com' ||
                         hostname == 'watchmygf.me' ||
+                        hostname == 'gothdporn.com' ||
                         hostname == 'xfantasy.tv')
                         return false;
 
@@ -3288,6 +3299,7 @@ $(function () {
         var iFrame = function(pic) {
             var iframe = $('<iframe/>', { id: "gfyembed",
                                           class: "fullscreen",
+                                          sandbox: "allow-same-origin allow-scripts",
                                           frameborder: 0,
                                           webkitallowfullscreen: true,
                                           mozallowfullscreen: true,
@@ -3414,7 +3426,7 @@ $(function () {
         if (data.gfyItem.userName !== 'anonymous')
             photo.extra = gfycatApiUserLink(data.gfyItem.userName, type);
 
-        initPhotoVideo(photo, [ data.gfyItem.mp4Url,  data.gfyItem.webmUrl ],
+        initPhotoVideo(photo, [ data.gfyItem.mp4Url,  data.gfyItem.webmUrl, data.gfyItem.mobileUrl ],
                        data.gfyItem.posterUrl);
 
         showCB(photo);
@@ -4240,10 +4252,8 @@ $(function () {
             else if (dupe.site) // for fake load
                 site = dupe.site;
 
-            if (!site || dupe.extraLoaded)
+            else
                 return;
-
-            dupe.extraLoaded = true;
 
         } else if (photo.tumblr) {
             site = photo.tumblr.blog;
@@ -4258,14 +4268,18 @@ $(function () {
             site = 'flickr.com';
             shortid = photo.id;
 
-        } else if (hn == 'imgur.com' ||
-                   hn == 'gfycat.com' ||
-                   hn == 'redgifs.com') {
-            site = hn;
-            shortid = url2shortid(photo.url);
+        }
 
-        } else
-            return;
+        if (site === undefined) {
+            if (hn == 'imgur.com' ||
+                hn == 'gfycat.com' ||
+                hn == 'redgifs.com') {
+                site = hn;
+                shortid = url2shortid(photo.url);
+
+            } else
+                return;
+        }
 
         // https://www.reddit.com/search.json?q=url:SHORTID+site:HOSTNAME
         var jsonUrl = rp.url.get + '/search.json?include_over_18=on&q=url:'+shortid+'+site:'+site;
@@ -4316,9 +4330,6 @@ $(function () {
                 return;
 
             photo.extraLoaded = true;
-
-            if (photo.url != photo.o_url && photo.type != imageTypes.thumb)
-                getRedditDupe(photo, {site: hostnameOf(photo.url), id:url2shortid(photo.url)});
 
             if (!photo.commentN || !photo.comments)
                 return;
