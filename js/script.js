@@ -2017,8 +2017,10 @@ $(function () {
                                  'https://i.gyazo.com/'+shortid+'.mp4' ];
 
             } else if (hostname == 'spankbang.com') {
+                shortid = url2shortid(pic.url, 1);
+
                 // no autostart
-                initPhotoEmbed(pic, 'https://spankbang.com/embed/'+url2shortid(pic.url, 1));
+                initPhotoEmbed(pic, 'https://spankbang.com/embed/'+shortid);
 
             } else if (hostname == 'flickr.com') {
                 shortid = url2shortid(pic.url, 3);
@@ -4485,8 +4487,6 @@ $(function () {
                 idx = idx.crosspost_parent_list[0];
             }
 
-            var url = fixupUrl(idx.url);
-
             var title = fixupTitle(idorig.title)
 
             var flair = "";
@@ -4498,6 +4498,8 @@ $(function () {
                     title = title.replace(re, "").trim();
                 }
             }
+
+            var url = fixupUrl(idx.url || idx.url_overridden_by_dest);
 
             var photo = {
                 url: url,
@@ -4523,8 +4525,31 @@ $(function () {
             else if (idorig.thumbnail != 'default' && idorig.thumbnail != 'nsfw')
                 photo.thumb = fixupUrl(idorig.thumbnail);
 
+            // Reddit Gallery Function
+            if (idx.gallery_data) {
+                initPhotoAlbum(photo, false);
+
+                idx.gallery_data.items.forEach(function(item) {
+                    var t;
+                    if (item.caption)
+                        t = fixupTitle(item.caption);
+                    else
+                        t = title;
+                    var media = idx.media_metadata[item.media_id];
+                    var pic = { title: t, url: media.s.u };
+                    if (item.outbound_url)
+                        pic.extra = infoLink(item.outbound_url, 'link');
+                    // @@ check media.e != "Image"
+                    if (media.e != "Image") {
+                        log.error("Reddit Gallery element not 'Image': "+media);
+                    }
+                    if (processPhoto(pic))
+                        addAlbumItem(photo, pic)
+                });
+                checkPhotoAlbum(photo);
+            }
             // Reddit hosted videos
-            if (idx.domain == 'v.redd.it') {
+            else if (idx.domain == 'v.redd.it') {
                 // intentionally load with empty video, load mp4 below
                 initPhotoVideo(photo, []);
                 var media = (idx.media) ?idx.media.reddit_video
@@ -4535,7 +4560,7 @@ $(function () {
                     var ind = media.fallback_url.indexOf('/DASH_');
                     if (ind > 0) {
                         addVideoUrl(photo, 'mp4', media.fallback_url);
-                        photo.video.audio = { mp3: media.fallback_url.substr(0,ind)+"/audio" };
+                        photo.video.audio = { mp3: media.fallback_url.substr(0,ind)+"/DASH_audio.mp4" };
 
                     } else {
                         log.error(photo.id+": cannot display video [bad fallback_url]: "+
