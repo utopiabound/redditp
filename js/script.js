@@ -4124,6 +4124,7 @@ $(function () {
         var base;
         var mod = arr.indexOf(s[1]);
         var user;
+        var submitted = false;
         rp.url.choice = "";
 
         if (mod >= 0) {
@@ -4154,6 +4155,7 @@ $(function () {
                 mod = (s.length > 4) ?arr.indexOf(s[4]) :0;
 
             } else if (s[3] == 'm') {
+                submitted = true;
                 base = s.slice(0,5).join('/');
                 arr = [ "hot", "new", "top", "rising", "controversial", 'gilded' ];
                 mod = (s.length > 5) ?arr.indexOf(s[5]) :0;
@@ -4211,6 +4213,11 @@ $(function () {
             list.append(li);
         }
         if (user) {
+            if (submitted) {
+                var list = $('#subredditPopup ul');
+                list.append($('<li>').append($('<hr>', { class: "split" })));
+                list.append($('<li>').append(redditLink('/user/'+user+'/submitted', "submitted", "submitted")));
+            }
             var jsonUrl = rp.url.get + '/api/multi/user/' + user;
             var handleData = function (data) {
                 if (data.length) {
