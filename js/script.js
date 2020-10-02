@@ -995,6 +995,7 @@ $(function () {
             if (rp.session.volumeIsMute)
                 aud.prop('volume', (videoMuted) ?0 :1);
             else
+                aud.currentTime = vid.currentTime;
                 aud.prop('volume', rp.settings.decivolume/10);
         }
     };
@@ -3174,6 +3175,8 @@ $(function () {
                 } else {
                     if (isVideoMuted())
                         audio.prop('muted', true);
+                    else
+                        audio[0].currentTime = video[0].currentTime;
                     audio.prop('volume', rp.settings.decivolume/10);
                 }
                 var type, ls;
@@ -3190,7 +3193,7 @@ $(function () {
                 $(audio).on('error', function() {
                     log.info("Failed to load audio: "+photo.url);
                 });
-                video.on('playing', function() { audio[0].play() });
+                video.on('playing', function() { audio[0].currentTime = video[0].currentTime; audio[0].play() });
                 video.on('pause', function() { audio[0].pause() });
                 divNode.append(audio);
             }
