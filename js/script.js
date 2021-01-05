@@ -5790,9 +5790,6 @@ $(function () {
                                  }
                         };
             if (post.userName != 'anonymous') {
-                image.extra = localLink(post.userData.url,
-                                        post.userName,
-                                        '/'+type+'/'+post.userName);
                 image.gfycat = { user: post.userName, type: type };
             }
             return image;
@@ -5854,7 +5851,7 @@ $(function () {
 
         };
         var handleError = function (xhr, ajaxOptions, thrownError) {
-            if (xhr.status == 404) {
+            if (xhr.status == 404 || xhr.status == 403) {
                 doneLoading();
                 return;
             }
