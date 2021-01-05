@@ -5885,7 +5885,7 @@ $(function () {
         if (initial === undefined)
             initial = false;
 
-        path = path.replace(/^\/+/, '/');
+        path = path.replace(/^\/+/, '/').replace(/^\?+/, '');
 
         var regex = new RegExp(regexS);
         var results = regex.exec(path);
@@ -6097,7 +6097,12 @@ $(function () {
 
     initState();
 
-    var path = window.location.href.substr(window.location.origin.length);
+    var path;
+    if (window.location.origin !== "null")
+        path = window.location.href.substr(window.location.origin.length);
+    else
+        // file://PATHAME?SUBREDDIT
+        path = window.location.href.substr(window.location.pathname.length+7);
 
     processUrls(path, true);
 });
