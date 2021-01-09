@@ -1400,22 +1400,22 @@ $(function () {
             keepfirst = true;
 
         if (photo.type != imageTypes.album) {
-            var img;
+            var img = {
+                url: photo.url,
+                thumb: photo.thumb,
+                type: photo.type,
+                extra: photo.extra,
+            };
+            delete photo.extra;
+
             if (photo.type == imageTypes.video) {
-                img = { url: photo.url,
-                        type: photo.type,
-                        thumb: photo.thumb,
-                        video: photo.video };
+                img.video = photo.video;
                 delete photo.video;
 
             } else if (pic.type == imageTypes.html) {
-                img = { url: photo.url,
-                        type: photo.type,
-                        thumb: photo.thumb,
-                        html: photo.html };
-
-            } else
-                img = { url: photo.url, thumb: photo.thumb, type: photo.type };
+                img.html = photo.html;
+                delete photo.html;
+            }
 
             photo.type = imageTypes.album;
             photo.insertAt = -1;
@@ -3418,6 +3418,17 @@ $(function () {
         return divNode;
     };
 
+    // Find username from gfyItem, but ignore "anonymous" users
+    var gfyItemUser = function(item) {
+        if (item === undefined)
+            return undefined;
+        var user = item.userName || item.username;
+        if (!user && item.userData)
+            user = item.userData.username;
+        // ignore "anonymous" user
+        return (user === 'anonymous') ?undefined :user;
+    }
+
     var handleGfycatApiItem = function(photo, data, showCB, type) {
         if (data.gfyItem === undefined) {
             if (data.error !== undefined) {
@@ -3428,8 +3439,9 @@ $(function () {
             return;
         }
 
-        if (data.gfyItem.userName !== 'anonymous')
-            photo.extra = gfycatApiUserLink(data.gfyItem.userName, type);
+        user = gfyItemUser(data.gfyItem);
+        if (user)
+            photo.extra = gfycatApiUserLink(user, type);
 
         initPhotoVideo(photo, [ data.gfyItem.mp4Url,  data.gfyItem.webmUrl, data.gfyItem.mobileUrl ],
                        data.gfyItem.posterUrl);
@@ -5789,9 +5801,9 @@ $(function () {
                                    mp4: post.mp4Url
                                  }
                         };
-            if (post.userName != 'anonymous') {
-                image.gfycat = { user: post.userName, type: type };
-            }
+            var user = gfyItemUser(post);
+            if (user)
+                image.gfycat = { user: user, type: type };
             return image;
         };
 
