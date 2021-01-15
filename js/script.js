@@ -1733,8 +1733,12 @@ $(function () {
 
             } else if (fqdn == 'clips.twitch.tv') {
                 shortid = url2shortid(pic.url);
-                initPhotoEmbed(pic, 'https://clips.twitch.tv/embed?autoplay=1&clip='+shortid);
+                host = window.location.host;
+                if (host)
+                    initPhotoEmbed(pic, 'https://clips.twitch.tv/embed?autoplay=1&parent='+host+'&clip='+shortid);
                 // can set muted=0|1
+                else
+                    throw "twitch needs embedding fqdn";
 
             } else if (hostname == 'twitch.tv') {
                 a = pathnameOf(pic.url).split('/');
@@ -1742,8 +1746,12 @@ $(function () {
                     initPhotoEmbed(pic, 'https://player.twitch.tv/?video=v'+a[2]);
 
                 else if (a[2] == 'clip') {
-                    initPhotoEmbed(pic, 'https://clips.twitch.tv/embed?autoplay=1&clip='+a[2]);
+                    if (host)
+                        initPhotoEmbed(pic, 'https://clips.twitch.tv/embed?autoplay=1&parent='+host+'&clip='+shortid);
                     // can set muted=0|1
+                    else
+                        throw "twitch needs embedding fqdn";
+
 
                 } else
                     throw "unknown twitch url";
