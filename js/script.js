@@ -1735,7 +1735,7 @@ $(function () {
                 shortid = url2shortid(pic.url);
                 host = window.location.host;
                 if (host)
-                    initPhotoEmbed(pic, 'https://clips.twitch.tv/embed?autoplay=1&parent='+host+'&clip='+shortid);
+                    initPhotoEmbed(pic, 'https://clips.twitch.tv/embed?autoplay=true&parent='+host+'&clip='+shortid);
                 // can set muted=0|1
                 else
                     throw "twitch needs embedding fqdn";
@@ -1747,7 +1747,7 @@ $(function () {
 
                 else if (a[2] == 'clip') {
                     if (host)
-                        initPhotoEmbed(pic, 'https://clips.twitch.tv/embed?autoplay=1&parent='+host+'&clip='+shortid);
+                        initPhotoEmbed(pic, 'https://clips.twitch.tv/embed?autoplay=true&parent='+host+'&clip='+shortid);
                     // can set muted=0|1
                     else
                         throw "twitch needs embedding fqdn";
