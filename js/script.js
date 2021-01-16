@@ -117,6 +117,7 @@
  * TODO:
  * * Cleanup photo.dupes - should be related to local url
  * * Fix dupes on album items (currently album dupes get assigned to parent dupes list), should behave more like tags
+ * * use https://oembed.com/providers.json or a processed version for oembed reference?
  */
 
 var rp = {};
@@ -244,7 +245,7 @@ rp.api_key = { tumblr:  'sVRWGhAGTVlP042sOgkZ0oaznmUOzD8BRiRwAm5ELlzEaz4kwU',
              };
 rp.redirect = 'http://redditp.utopiabound.net/auth';
 
-// Hosts will default to originOf(url)+'/favicon.ico'
+// Hosts will default to originOf(url)+'/favicon.ico' (c.f. setFavicon())
 // this list overrides based on second level domain (e.g. mywebsite.wordpress.com -> wordpress)
 rp.favicons = { tumblr:  'https://assets.tumblr.com/images/favicons/favicon.ico',
                 wordpress: 'https://s1.wp.com/i/favicon.ico',
@@ -2340,6 +2341,23 @@ $(function () {
                 initPhotoVideo(pic, 'https://cdnvistreamviz.r.worldssl.net/uploads/'+shortid+'.mp4',
                                'https://cdn.streamvi.com/uploads/'+shortid+'.jpg');
 
+            } else if (hostname == "tiktok.com") {
+                a = pathnameOf(pic.url).split('/');
+                if (a[2] == "video" && a[3] !== undefined) {
+                    pic.type = imageTypes.later;
+                    var data = $("<div />");
+                    data.append($("<blockquote >",
+                                  { "class": "tiktok-embed",
+                                    cite: pic.url,
+                                    "data-video-id": a[3] })
+                                .append($("<section>")));
+                    data.append('<script async src="https://www.tiktok.com/embed.js"></script>');
+                    initPhotoHtml(pic, data.html())
+                } else if (a[1] == 'v' && a[2] !== undefined)
+                    pic.type = imageTypes.later;
+                else
+                    return false;
+
             } else if (hostname == 'tnaflix.com') {
                 shortid = url2shortid(pic.url, -1, 'video');
                 initPhotoEmbed(pic, 'https://player.tnaflix.com/video/'+shortid, false);
@@ -3690,7 +3708,7 @@ $(function () {
 
         // Called with showEmbed(urlForIframe)
         var iFrame = function(pic) {
-            var iframe = $('<iframe/>', { id: "gfyembed",
+            var iframe = $('<iframe/>', { id: "parent",
                                           class: "fullscreen",
                                           allow: "autoplay",
                                           sandbox: "allow-same-origin allow-scripts",
@@ -4248,6 +4266,22 @@ $(function () {
                 showCB(photo);
             };
 
+        } else if (hostname == 'tiktok.com') {
+            // currently only www.tiktok.com gets latered
+            jsonUrl = 'https://www.tiktok.com/oembed?url='+photo.url;
+            photo.type = imageTypes.html;
+
+            handleData = function(data) {
+                // this should work and resolve to:
+                // iframe of https://www.tiktok.com/embed/v2/$SHORTID?lang=en-US
+                // but it always comes back with 0 bytes
+                log.debug("ignoring html using thumbnail [tiktok]: "+photo.o_url);
+                initPhotoHtml(photo, data.html);
+                addPhotoThumb(photo, data.thumbnail_url);
+                //initPhotoImage(photo, data.thumbnail_url);
+                showCB(photo);
+            };
+
         } else if (hostname == 'tumblr.com') {
             shortid = url2shortid(photo.url, 2);
 
@@ -4595,7 +4629,7 @@ $(function () {
         rp.reddit.api = rp.reddit.base;
         $('#loginUsername').html(googleIcon('account_box'));
         $('#loginUsername').attr('title', 'Expired');
-        $('label[for=login]').html(googleIcon('account_box'));
+        $('label[for=login]').html(googleIcon('menu'));
         $('.needlogin').hide();
         log.info("Clearing bearer is obsolete EOL:"+rp.session.loginExpire+" < now:"+Date.now()/1000);
         clearConfig(configNames.redditBearer);
@@ -4734,7 +4768,7 @@ $(function () {
             $('.needlogin').show();
             $('#loginUsername').html(googleIcon('verified_user'));
             $('#loginUsername').attr('title', 'Expires at '+d);
-            $('label[for=login]').html(googleIcon('verified_user'));
+            $('label[for=login]').html(googleIcon('menu_open'));
             rp.reddit.api = rp.reddit.oauth;
             setConfig(configNames.redditBearer, bearer);
             setConfig(configNames.redditRefreshBy, by);

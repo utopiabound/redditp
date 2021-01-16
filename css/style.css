@@ -515,3 +515,8 @@ input[type="checkbox"]:checked + label.colortoggle { color: red; }
     color: red;
     border: 1px solid transparent;
 }
+
+blockquote.tiktok-embed {
+    max-width: 605px;
+    min-width: 325px;
+}
