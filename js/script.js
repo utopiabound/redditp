@@ -493,8 +493,7 @@ $(function () {
         if (start !== undefined)
             ytExtra += 'start='+start+'&';
 
-        ytExtra += 'autoplay=1&origin='+encodeURI(window.location.protocol +
-                                                      "//" + window.location.host + "/");
+        ytExtra += 'autoplay=1&origin='+encodeURI(window.location.origin);
         //var ytExtra = '?enablejsapi=1';
         return 'https://www.youtube.com/embed/'+id+ytExtra;
     };
@@ -4566,6 +4565,8 @@ $(function () {
                     else
                         t = title;
                     var media = idx.media_metadata[item.media_id];
+                    if (media.status == "failed")
+                        return;
                     var pic = { title: t, url: media.s.u };
                     if (item.outbound_url)
                         pic.extra = infoLink(item.outbound_url, 'link');
@@ -5818,19 +5819,32 @@ $(function () {
         // Get all Gfycats (currently gfycat.com doesn't seem to list nsfw item here)
         var jsonUrl = apiurl+'/v1/users/'+user+'/gfycats';
 
-        var handleData = function (data) {
-            if (data.gfycats.length)
+        var handleUserData = function (data) {
+            if (data.gfycats.length) {
                 data.gfycats.forEach(function (post) {
                     var image = gfycat2pic(post);
                     addImageSlide(image);
                 });
+                if (data.cursor) {
+                    jsonUrl = apiurl+'/v1/users/'+user+'/gfycats?cursor='+data.cursor;
+                    $.ajax({
+                        url: jsonUrl,
+                        dataType: 'json',
+                        success: handleUserData,
+                        error: failedAjaxDone,
+                        timeout: rp.settings.ajaxTimeout,
+                        crossDomain: true
+                    });
+                    return;
+                }
+            }
             doneLoading();
         };
 
         $.ajax({
             url: jsonUrl,
             dataType: 'json',
-            success: handleData,
+            success: handleUserData,
             error: failedAjaxDone,
             timeout: rp.settings.ajaxTimeout,
             crossDomain: true
@@ -5838,7 +5852,7 @@ $(function () {
 
         // Get all Albums
         jsonUrl = apiurl+'/v1/users/'+user+'/albums';
-        handleData = function (data) {
+        var handleData = function (data) {
             if (data.totalItemCount == 0) {
                 doneLoading();
                 return;
