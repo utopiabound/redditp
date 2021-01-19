@@ -845,7 +845,7 @@ $(function () {
     });
 
     var STATE = "openstate";
-    $('.collapser').click(function () {
+    $('.hcollapser').click(function () {
         var state = $(this).data(STATE);
         var sym;
         if (state == "open") {
@@ -882,7 +882,7 @@ $(function () {
         var sym;
         if (state == "open") {
             // close it
-            sym = $(this).attr('symbol-close');
+            sym = $(this).data('closehtml') || $(this).attr('symbol-close');
             if (sym)
                 $(this).html(sym);
             else
@@ -2719,6 +2719,10 @@ $(function () {
             if (multi) {
                 $('#navboxDuplicatesMulti').attr('href', rp.redditBaseUrl+'/r/'+multi.join('+'));
                 $('#navboxDuplicatesMultiP').attr('href', rp.url.base+'/r/'+multi.join('+'));
+                if (total)
+                    $('#duplicateCollapser').data('closehtml', '<span id="duplicateCount">('+total+')</span>');
+                else
+                    $('#duplicateCollapser').data('closehtml', '');
             }
         } else {
             if (photo.subreddit) {
@@ -2726,7 +2730,13 @@ $(function () {
                 $('#navboxDuplicatesMultiP').attr('href', rp.url.base+'/r/'+photo.subreddit);
             }
         }
-        if ($('#duplicateCollapser').data(STATE) != "closed")
+        if ($('#duplicateCollapser').data(STATE) == "closed") {
+            if (total)
+                $('#duplicateCollapser').html('<span id="duplicateCount">('+total+')</span>');
+            else
+                $('#duplicateCollapser').html($('#duplicateCollapser').attr('symbol-close'));
+        } else {
+            $('#duplicateCount').hide();
             if (total > 0) {
                 $('#duplicateCollapser').data(STATE, 'open');
                 $('#duplicates').show();
@@ -2734,6 +2744,7 @@ $(function () {
                 $('#duplicateCollapser').data(STATE, 'empty');
                 $('#duplicates').hide();
             }
+        }
     };
 
     //

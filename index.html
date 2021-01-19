@@ -28,8 +28,8 @@
     <div class="nextArrow fadeOnIdle" title="Try the arrow keys too" id="nextButton"></div>
 
     <div id="controlsDiv" class="navbox clouds fadeOnIdle">
-      <div class="collapser" data-openstate="open">&larr;</div>
-      <div id="albumCollapser" class="vcollapser" symbol-open="&#8858;" symbol-close="&otimes;"
+      <div class="collapser hcollapser" data-openstate="open">&larr;</div>
+      <div id="albumCollapser" class="collapser vcollapser" symbol-open="&#8858;" symbol-close="&otimes;"
 	   data-openstate="open" data-controldiv="albumNumberButtons" title="Show Album Buttons">&#8858;</div>
       <div id="navboxContents">
 	<ul class="nbmenu">
@@ -130,7 +130,7 @@
     </div>
 
     <div id="titleDiv" class="navbox clouds">
-      <div class="collapser" data-openstate="open">&larr;</div>
+      <div class="collapser hcollapser" data-openstate="open">&larr;</div>
       <div id='navboxTitleWrapper'>
 	<h2 id='navboxTitle' class="title">
 	  <noscript>Javascript is required for redditp to work :(</noscript>
@@ -141,7 +141,8 @@
 	<div id="navboxAuthor"></div>
 	<div id="navboxExtra"></div>
       </div>
-      <div id="duplicateCollapser" class="vcollapser" symbol-open="&#8858;" symbol-close="&otimes;"
+      <div id="duplicateCollapser" class="collapser vcollapser" symbol-open="&#8858;" symbol-close="&otimes;"
+	   data-closehtml=""
 	   data-openstate="open" data-controldiv="duplicates" title="Hide/Show Duplicates (u)">&#8858;</div>
       <div id="duplicates" class='navbox'>
 	<ul>

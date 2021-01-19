@@ -168,7 +168,7 @@ a.embed:before { content: "ondemand_video"; }
 #duplicates { position: relative; top: 0; left: 0; right: 0; overflow: auto; }
 #subredditUrl { border: 1px dashed; background-color: black; color: white; }
 
-.title { padding: 2px; font-weight: bold; font-size: 20px; }
+.title { padding: 2px; font-weight: bold; font-size: 20px; min-height: 26px; }
 h3 { padding: 2px; font-weight: bold; font-size: 16px; }
 
 /* infoLink:   infol infop [infoc]  infod  [infol infop [infoc]] */
@@ -282,19 +282,17 @@ label.checkbox { font-weight: bold; }
     font-size: 20px;
     font-family: monospace;
     color: #bbb;
-    padding: 0 7px;
     float: right;
     cursor: pointer;
+    height: 28px;
+    min-width: 28px;
+    text-align: center;
 }
 
-.vcollapser {
-    border: solid 1px #555;
-    font-size: 20px;
-    font-family: monospace;
-    color: #bbb;
-    padding: 0 7px;
-    float: right;
-    cursor: pointer;
+#duplicateCount {
+    font-size: 16px;
+    display: block;
+    margin-top: 7px;
 }
 
 .checkbox { cursor: pointer; }
