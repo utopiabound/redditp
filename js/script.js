@@ -238,6 +238,7 @@ rp.url = {
     subreddit: "",
     base: '',
     get:  '',
+    api:  '',
     path: '',
     vars: ""
 };
@@ -1725,9 +1726,10 @@ $(function () {
 
             } else if (hostname == 'twitter.com') {
                 a = pathnameOf(pic.url).split('/');
-                if (a[2] == "status")
+                if (a[2] == "status") {
+                    pic.url = 'https://twitter.com/'+a.slice(1,4).join("/");
                     pic.type = imageTypes.later;
-                else
+                } else
                     throw "unknown twitter url";
 
             } else if (fqdn == 'clips.twitch.tv') {
@@ -4055,7 +4057,7 @@ $(function () {
 
         rp.session.loginExpire = 0;
         rp.session.redditHdr = {};
-        rp.url.get = rp.redditBaseUrl;
+        rp.url.api = rp.redditBaseUrl;
         $('#loginUsername').html(googleIcon('account_box'));
         $('#loginUsername').attr('title', 'Expired');
         $('label[for=login]').html(googleIcon('account_box'));
@@ -4089,7 +4091,7 @@ $(function () {
         if (rp.session.loadedMultiList == true)
             return;
 
-        var jsonUrl = rp.url.get+'/api/multi/mine';
+        var jsonUrl = rp.url.api+'/api/multi/mine';
         var handleData = function(data) {
             rp.session.loadedMultiList = true;
             var list = $('#multiListDiv ul:first-of-type');
@@ -4135,7 +4137,7 @@ $(function () {
             $('#loginUsername').html(googleIcon('verified_user'));
             $('#loginUsername').attr('title', 'Expires at '+d);
             $('label[for=login]').html(googleIcon('verified_user'));
-            rp.url.get = 'https://oauth.reddit.com';
+            rp.url.api = 'https://oauth.reddit.com';
             loadRedditMultiList();
 
         } else
@@ -4251,7 +4253,7 @@ $(function () {
                 list.append($('<li>').append($('<hr>', { class: "split" })));
                 list.append($('<li>').append(redditLink('/user/'+user+'/submitted', "submitted", "submitted")));
             }
-            var jsonUrl = rp.url.get + '/api/multi/user/' + user;
+            var jsonUrl = rp.url.api + '/api/multi/user/' + user;
             var handleData = function (data) {
                 if (data.length) {
                     var list = $('#subredditPopup ul');
@@ -4325,7 +4327,6 @@ $(function () {
 
         // https://www.reddit.com/search.json?q=url:SHORTID+site:HOSTNAME
         var jsonUrl = rp.url.get + '/search.json?include_over_18=on&q=url:'+shortid+'+site:'+site;
-        var hdrData = rp.session.redditHdr;
         var handleData = function (data) {
             if (isActive(photo))
                 updateExtraLoad();
@@ -4346,7 +4347,6 @@ $(function () {
         log.info("loading alternate submissions: "+site+":"+shortid);
         $.ajax({
             url: jsonUrl,
-            headers: hdrData,
             dataType: 'json',
             success: handleData,
             error: failedAjax,
@@ -4379,7 +4379,6 @@ $(function () {
         }
 
         var jsonUrl = rp.url.get + pathnameOf(comments) + '.json';
-        var hdrData = rp.session.redditHdr;
         var failedData = function (xhr, ajaxOptions, thrownError) {
             photo.extraLoaded = false;
             failedAjax(xhr, ajaxOptions, thrownError);
@@ -4478,7 +4477,6 @@ $(function () {
         log.info("loading comments: "+comments);
         $.ajax({
             url: jsonUrl,
-            headers: hdrData,
             dataType: 'json',
             success: handleData,
             error: failedData,
@@ -4494,8 +4492,9 @@ $(function () {
 
         setupRedditLogin();
 
-        var jsonUrl = rp.url.get + rp.url.subreddit + ".json?";
+        var jsonUrl = rp.url.api + rp.url.subreddit + ".json?";
         var dataType = 'json';
+        var hdrData = rp.session.redditHdr;
 
         if (rp.url.subreddit.startsWith('/r/random') ||
             rp.url.subreddit.startsWith('/r/randnsfw')) {
@@ -4882,7 +4881,7 @@ $(function () {
 
         $.ajax({
             url: jsonUrl,
-            headers: rp.session.redditHdr,
+            headers: hdrData,
             dataType: dataType,
             jsonpCallback: 'redditcallback',
             success: handleData,
@@ -5057,6 +5056,8 @@ $(function () {
             var rc2 = false;
             if (data.length) {
                 data.forEach(function(item) {
+                    if (!item)
+                        return;
                     var pic = { url: item.source_url,
                                 title: unescapeHTML(item.caption.rendered) || item.alt_text || item.title.rendered };
                     if (processPhoto(pic)) {
@@ -6136,6 +6137,7 @@ $(function () {
     rp.redditBaseUrl = "https://www.reddit.com";
     rp.redditLoginUrl =  rp.redditBaseUrl;
     rp.url.get = rp.redditBaseUrl;
+    rp.url.api = rp.redditBaseUrl;
 
     initState();
 
