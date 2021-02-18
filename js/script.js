@@ -1659,7 +1659,7 @@ $(function () {
         if (pic.type == imageTypes.embed)
             return true;
 
-        var shortid, a, o;
+        var shortid, a, o, host;
         var fqdn = hostnameOf(pic.url);
         var orig_hn = hostnameOf(pic.o_url, true);
 
@@ -1890,6 +1890,13 @@ $(function () {
                 // no autostart
                 initPhotoEmbed(pic, "https://www.nbcnews.com/widget/video-embed/"+shortid);
 
+            } else if (hostname == 'cbsnews.com') {
+                a = pathnameOf(pic.url).split('/');
+                if (a[1] == 'video')
+                    initPhotoEmbed(pic, pic.url);
+                else
+                    return false;
+
             } else if (hostname == 'iloopit.net') {
                 // VIDEO:
                 // https://gifs.iloopit.net/resources/UUID/converted.gif
@@ -2033,7 +2040,6 @@ $(function () {
                 initPhotoEmbed(pic, 'https://spankbang.com/embed/'+shortid);
 
             } else if (hostname == 'flickr.com') {
-                shortid = url2shortid(pic.url, 3);
                 if (pathnameOf(pic.url).startsWith('/photos/'))
                     pic.type = imageTypes.later;
 
@@ -2653,6 +2659,8 @@ $(function () {
         if (imageIndex < 0)
             return;
         var numberButton = $('#albumButton' + (imageIndex + 1));
+        if (numberButton.length === undefined)
+            return;
         if (turnOn) {
             numberButton.addClass('active');
             scrollNumberButton(numberButton, 'albumNumberButtons');
@@ -3459,7 +3467,7 @@ $(function () {
             return;
         }
 
-        user = gfyItemUser(data.gfyItem);
+        var user = gfyItemUser(data.gfyItem);
         if (user)
             photo.extra = gfycatApiUserLink(user, type);
 
@@ -3636,7 +3644,7 @@ $(function () {
 
             handleError = function() {
                 jsonUrl = "https://api.redgifs.com/v1/gfycats/" + shortid;
-                hData = function (data) {
+                var hData = function (data) {
                     handleGfycatApiItem(photo, data, showCB, 'redgifs')
                 };
 
@@ -4249,7 +4257,6 @@ $(function () {
         }
         if (user) {
             if (submitted) {
-                var list = $('#subredditPopup ul');
                 list.append($('<li>').append($('<hr>', { class: "split" })));
                 list.append($('<li>').append(redditLink('/user/'+user+'/submitted', "submitted", "submitted")));
             }
