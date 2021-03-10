@@ -1287,8 +1287,8 @@ $(function () {
 
             var extension = isVideoExtension(url);
             if (!extension) {
-                log.info("cannot add video ("+url+") to photo: ", photo.url);
-                return;
+                log.debug("video missing extension ("+url+"), using mp4 photo: ", photo.url);
+                extension = 'mp4';
             }
             addVideoUrl(photo, extension, url);
         });
@@ -1684,6 +1684,21 @@ $(function () {
                     pic.type = imageTypes.later;
 
                 // otherwise simple image
+
+            } else if (hostname == 'gfycat.com') {
+                // set photo url to sane value (incase it's originally a thumb link)
+                shortid = url2shortid(pic.url);
+                // Strip everything trailing '-'
+                if (shortid.indexOf('-') != -1)
+                    shortid = shortid.substr(0, shortid.indexOf('-'));
+                if (shortid == 'about')
+                    return false;
+
+                pic.url = 'https://gfycat.com/'+shortid;
+
+                // These domains should be processed later, unless direct link to video
+                pic.type = imageTypes.later;
+
             } else if (hostname == 'wordpress.com' ||
                        hostname == 'wp.com') {
                 // https://iN.wp.com/WP-SITE/wp-content/uploads/YYYY/MM/INDEX.jpg ==
@@ -1703,23 +1718,18 @@ $(function () {
                 else
                     return false;
 
-            } else if (hostname == 'tumblr.com') {
-                if (isImageExtension(pic.url))
-                    pic.url = pic.url;
-
-                else if (pic.url.indexOf('/post/') > 0)
-                    // Don't process bare tumblr blogs, nor /day/YYYY/MM/DD/ format
-                    // only BLOGNAME.tumblr.com/post/SHORTID/...
+            } else if (hostname == 'sta.sh' ||
+                       hostname == 'fav.me') {
+                shortid = url2shortid(pic.url);
+                if (shortid) {
+                    pic.url = originOf(pic.url)+'/'+shortid;
                     pic.type = imageTypes.later;
-
-                else
-                    return false;
+                }
 
             } else if (hostname == 'apnews.com' ||
                        hostname == 'deviantart.com' ||
-                       hostname == 'pornbot.net' ||
-                       hostname == 'streamable.com' ||
-                       hostname == 'vid.me') {
+                       hostname == 'livestream.com' ||
+                       hostname == 'streamable.com') {
                 if (url2shortid(pic.url))
                     // These domains should always be processed later
                     pic.type = imageTypes.later;
@@ -1820,14 +1830,6 @@ $(function () {
                 shortid = url2shortid(pic.url);
                 initPhotoEmbed(pic, 'https://embed.redtube.com/?bgcolor=000000&autoplay=1&id='+shortid);
 
-            } else if (hostname == 'spankwire.com') {
-                shortid = url2shortid(pic.url, 2, 'video');
-                initPhotoEmbed(pic, 'https://www.spankwire.com/EmbedPlayer.aspx?ArticleId='+shortid);
-
-            } else if (hostname == 'thumbzilla.com') {
-                shortid = url2shortid(pic.url, 2);
-                initPhotoEmbed(pic, 'https://www.pornhub.com/embed/'+shortid+'?autoplay=1');
-
             } else if (hostname == 'tnaflix.com') {
                 shortid = url2shortid(pic.url, -1, 'video');
                 initPhotoEmbed(pic, 'https://player.tnaflix.com/video/'+shortid);
@@ -1840,19 +1842,11 @@ $(function () {
                 shortid = url2shortid(pic.url);
                 initPhotoEmbed(pic, 'https://player.vimeo.com/video/'+shortid+'?autoplay=1');
 
-            } else if (hostname == 'extremetube.com' ||
-                       hostname == 'keezmovies.com' ||
-                       hostname == 'sendvid.com' ||
-                       hostname == 'streamja.com' ||
+            } else if (hostname == 'sendvid.com' ||
                        hostname == 'vporn.com') {
                 // these need full shortid
                 shortid = url2shortid(pic.url);
                 initPhotoEmbed(pic, originOf(pic.url)+'/embed/'+shortid+'?autoplay=1');
-
-            } else if (hostname == 'worldsex.com' ||
-                       hostname == 'peertube.live') {
-                shortid = url2shortid(pic.url);
-                initPhotoEmbed(pic, originOf(pic.url)+'/videos/embed/'+shortid+'?autoplay=1');
 
             } else if (hostname == 'youjizz.com') {
                 shortid = url2shortid(pic.url, 2, '-');
@@ -1936,20 +1930,6 @@ $(function () {
                 else
                     return false;
 
-            } else if (hostname == 'gfycat.com') {
-                // set photo url to sane value (incase it's originally a thumb link)
-                shortid = url2shortid(pic.url);
-                // Strip everything trailing '-'
-                if (shortid.indexOf('-') != -1)
-                    shortid = shortid.substr(0, shortid.indexOf('-'));
-                if (shortid == 'about')
-                    return false;
-
-                pic.url = 'https://gfycat.com/'+shortid;
-
-                // These domains should be processed later, unless direct link to video
-                pic.type = imageTypes.later;
-
             } else if (hostname == 'redgifs.com' ||
                        hostname == 'gifdeliverynetwork.com') {
                 shortid = url2shortid(pic.url).toLowerCase();
@@ -1968,23 +1948,11 @@ $(function () {
                                      'https://clips.clippit.tv/'+shortid+'/360.mp4'],
                                'https://clips.clippit.tv/'+shortid+'/thumbnail.jpg');
 
-            } else if ((hostname == 'ftvgirlsbay.com' ||
-                        hostname == 'thegirlsbay.com' ||
-                        hostname == 'teensgosex.com' ||
-                        hostname == 'girlsolotouch.com')) {
-                a = pathnameOf(pic.url).match('^(/gst)?/videos/[^.]*');
-                if (!a)
-                    return false;
-
-                o = originOf(pic.url)+a[0];
-                initPhotoVideo(pic, o+'.mp4', o+'.jpg');
-
             } else if (hostname == "gounlimited.to") {
                 shortid = url2shortid(pic.url, 1, '-');
                 initPhotoEmbed(pic, originOf(pic.url)+"/embed-"+shortid+".html");
 
-            } else if (hostname == "verystream.com" ||
-                       hostname == "woof.tube") {
+            } else if (hostname == "streamtape.com") {
                 shortid = url2shortid(pic.url, 2);
                 initPhotoEmbed(pic, originOf(pic.url)+"/e/"+shortid+"/")
 
@@ -2017,6 +1985,23 @@ $(function () {
                        fqdn == 'i.reddituploads.com') {
                 // simple image
 
+            } else if (hostname == 'tumblr.com') {
+                if (pic.url.indexOf('/post/') > 0)
+                    // Don't process bare tumblr blogs, nor /day/YYYY/MM/DD/ format
+                    // only BLOGNAME.tumblr.com/post/SHORTID/...
+                    pic.type = imageTypes.later;
+
+                else
+                    return false;
+
+            } else if (hostname == 'worldsex.com') {
+                shortid = url2shortid(pic.url);
+                initPhotoEmbed(pic, originOf(pic.url)+'/videos/embed/'+shortid+'?autoplay=1');
+
+            } else if (hostname == 'd.tube') {
+                a = pathnameOf(pic.url).split('/');
+                initPhotoEmbed(pic, 'https://emb.d.tube/#!/'+a.slice(2,4).join('/'));
+
             } else if (hostname == 'facebook.com') {
                 a = pathnameOf(pic.url).split('/');
                 if (a[1] == 'watch' || a[2] == 'videos')
@@ -2039,8 +2024,18 @@ $(function () {
                 // no autostart
                 initPhotoEmbed(pic, 'https://spankbang.com/embed/'+shortid);
 
+            } else if (hostname == 'pixeldrain.com') {
+                a = pathnameOf(pic.url).split('/');
+                if (a[1] == 'u')
+                    initPhotoVideo(pic, 'https://pixeldrain.com/api/file/'+a[2],
+                                   'https://pixeldrain.com/api/file/'+a[2]+'/thumbnail');
+                else
+                    throw("Unrecognized pixeldrain url");
+
             } else if (hostname == 'flickr.com') {
-                if (pathnameOf(pic.url).startsWith('/photos/'))
+                // flickr.com/photos/USERID/ID[/*]
+                a = pathnameOf(pic.url).split('/');
+                if (a[1] == 'photos' && a.length > 3)
                     pic.type = imageTypes.later;
 
                 else
@@ -2056,7 +2051,7 @@ $(function () {
                     shortid = a[2];
                 else
                     shortid = a[1];
-                initPhotoEmbed(pic, originOf(pic.url)+'/embed/'+shortid+'?t=00:00&quality=720');
+                initPhotoEmbed(pic, originOf(pic.url)+'/embed/'+shortid+'?t=00:00&quality=1080');
 
             } else if (hostname == 'streamvi.com') {
                 shortid = url2shortid(pic.url);
@@ -2064,17 +2059,11 @@ $(function () {
                                'https://cdn.streamvi.com/uploads/'+shortid+'.jpg');
 
             } else if (hostname == 'triller.fail') {
-                a = searchOf(pic.url);
-                if (a.v)
-                    shortid = a.v;
-                else
-                    throw("unknown triller.fail url")
+                shortid = searchValueOf(pic.url, 'v');
+                if (!shortid)
+                    shortid = url2shortid(pic.url);
 
-                initPhotoVideo(pic, 'https://cdn.triller.fail:2053/'+shortid+'.mp4');
-
-            } else if (hostname == 'asciinema.org') {
-                shortid = url2shortid(pic.url);
-                initPhotoEmbed(pic, "https://asciinema.org/a/"+shortid+"/embed?autoplay=1");
+                initPhotoVideo(pic, 'https://v.triller.fail/'+shortid+'.mp4');
 
             } else if (pic.type != imageTypes.thumb) {
                 a = pathnameOf(pic.url).split('/');
@@ -3332,8 +3321,10 @@ $(function () {
         var iFrame = function(pic) {
             var iframe = $('<iframe/>', { id: "gfyembed",
                                           class: "fullscreen",
+                                          allow: "autoplay",
                                           sandbox: "allow-same-origin allow-scripts",
                                           frameborder: 0,
+                                          allowtransparency: true,
                                           webkitallowfullscreen: true,
                                           mozallowfullscreen: true,
                                           allowfullscreen: true });
@@ -3471,7 +3462,9 @@ $(function () {
         if (user)
             photo.extra = gfycatApiUserLink(user, type);
 
-        initPhotoVideo(photo, [ data.gfyItem.mp4Url,  data.gfyItem.webmUrl, data.gfyItem.mobileUrl ],
+        initPhotoVideo(photo, [ (data.gfyItem.mp4) ?data.gfyItem.mp4.url :data.gfyItem.mp4Url,
+                                (data.gfyItem.webm) ?data.gfyItem.webm.url :data.gfyItem.webmUrl,
+                                (data.gfyItem.mobile) ?data.gfyItem.mobile.url :data.gfyItem.mobileUrl ],
                        data.gfyItem.posterUrl);
 
         showCB(photo);
@@ -3497,6 +3490,33 @@ $(function () {
         var fqdn = hostnameOf(url);
         var shortid = url2shortid(url);
 
+        var handleOembed = function(data) {
+            if (data.author_name && data.author_url)
+                photo.extra = infoLink(data.author_url, data.author_name);
+
+            if (data.error) {
+                log.info("cannot display url ["+(data.message || data.error)+"]: "+photo.url);
+                initPhotoFailed(photo);
+
+            } else if (data.type == 'photo') {
+                initPhotoImage(photo, data.url);
+
+            } else if (data.type == 'video') {
+                var f = $.parseHTML(data.html);
+
+                initPhotoEmbed(photo, f[0].src);
+
+            } else if (data.fullsize_url && (data.type == 'rich' && data.type == 'link')) {
+                // non-standard deviantart extention
+                initPhotoImage(photo, data.fullsize_url);
+
+            } else {
+                log.info("cannot display url [unhandled type "+data.type+"]: "+photo.url);
+                initPhotoFailed(photo);
+            }
+            showCB(photo);
+        };
+
         if (hostname == 'apnews.com') {
             jsonUrl = 'https://storage.googleapis.com/afs-prod/contents/urn:publicid:ap.org:'+shortid;
 
@@ -3521,27 +3541,18 @@ $(function () {
                 showCB(photo);
             };
 
-        } else if (hostname == 'deviantart.com') {
+        } else if (hostname == 'livestream.com') {
+            jsonUrl = originOf(photo.url)+'/oembed?url=' + encodeURIComponent(photo.url);
+
+            handleData = handleOembed;
+
+        } else if (hostname == 'deviantart.com' ||
+                   hostname == 'sta.sh' ||
+                   hostname == 'fav.me') {
             jsonUrl = 'https://backend.deviantart.com/oembed?format=jsonp&url=' + encodeURIComponent(photo.url);
             dataType = 'jsonp';
 
-            handleData = function(data) {
-                photo.extra = infoLink(data.author_url, data.author_name);
-
-                if (data.type == 'photo') {
-                    initPhotoImage(photo, data.url);
-
-                } else if (data.type == 'video') {
-                    var f = $.parseHTML(data.html);
-
-                    initPhotoEmbed(photo, f[0].src);
-
-                } else {
-                    log.info("cannot display url [unk type "+data.type+"]: "+photo.url);
-                    initPhotoFailed(photo);
-                }
-                showCB(photo);
-            };
+            handleData = handleOembed;
 
         } else if (hostname == 'flickr.com') {
             dataType = 'jsonp';
@@ -3795,27 +3806,6 @@ $(function () {
             };
 
 
-        } else if (hostname == 'pornbot.net') {
-            // Strip everything trailing '_'
-            if (shortid.indexOf('_') != -1)
-                shortid = shortid.substr(0, shortid.lastIndexOf('_'));
-
-            jsonUrl = "https://pornbot.net/ajax/info.php?v=" + shortid;
-
-            handleData = function(data) {
-                if (data.error !== undefined) {
-                    log.info("failed to load video [error]: "+data.error);
-                    initPhotoFailed(photo);
-                    showCB(photo);
-                    return;
-                }
-
-                // weirdism, 720pb.mp4 always fail while 720p.mp4 work
-                initPhotoVideo(photo, [ (data.mp4Url) ?data.mp4Url.replace(/pb.mp4$/, 'p.mp4') :undefined,
-                                        data.webmUrl ], data.poster);
-                showCB(photo);
-            };
-
         } else if (hostname == 'streamable.com') {
             jsonUrl = "https://api.streamable.com/videos/" + shortid;
 
@@ -3888,19 +3878,6 @@ $(function () {
                                         data.response.blog.title, rp.favicons.tumblr);
                 processTumblrPost(photo, data.response.posts[0]);
                 showCB(photoParent(photo));
-            };
-
-        } else if (hostname == 'vid.me') {
-            jsonUrl = 'https://api.vid.me/videoByUrl/' + shortid;
-            handleData = function (data) {
-                if (data.video.state == 'success') {
-                    initPhotoVideo(photo, data.video.complete_url, data.video.thumbnail_url);
-
-                } else {
-                    log.info("failed to load video [error:"+shortid+"]: "+data.video.state);
-                    initPhotoFailed(photo);
-                }
-                showCB(photo);
             };
 
         } else if (hostname == 'wordpress.com') {
@@ -4010,8 +3987,7 @@ $(function () {
             hostname == 'youporn.com' ||
             hostname == 'xvideos.com' ||
             hostname == 'sendvid.com' ||
-            hostname == 'juicygif.com' ||
-            hostname == 'pornbot.net')
+            hostname == 'juicygif.com')
             url = url.replace(/^http:/, "https:");
 
         return url;
