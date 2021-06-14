@@ -2326,10 +2326,10 @@ $(function () {
             open_in_background("#navboxAlbumOrigLink");
             break;
         case C_KEY:
-            $('#controlsDiv .collapser').click();
+            $('#controlsDiv .hcollapser').click();
             break;
         case T_KEY:
-            $('#titleDiv .collapser').click();
+            $('#titleDiv .hcollapser').click();
             break;
         case D_KEY:
             open_in_background("#navboxDuplicatesLink");
@@ -4168,8 +4168,8 @@ $(function () {
 
         } else if (s[1] == 'user') {
             user = s[2];
-            if (s[3] == 'submitted') {
-                base = s.slice(0,4).join('/');
+            if (s.length == 3 || s[3] == 'submitted') {
+                base = s.slice(0,3).join('/')+'/submitted';
                 arr = [ "hot", "new", "top", "controversial" ];
                 mod = (s.length > 4) ?arr.indexOf(s[4]) :0;
 
