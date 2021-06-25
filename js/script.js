@@ -623,12 +623,15 @@ $(function () {
         return $('<div />').html(blob).text();
     };
 
-    function open_in_background(selector){
-        var link = $(selector)[0];
-        open_in_background_url(link);
+    function open_in_background(selector) {
+        var link = $(selector);
+        if (link.hasClass('hidden')) {
+            return;
+        }
+        open_in_background_url(link[0]);
     }
 
-    function open_in_background_url(link){
+    function open_in_background_url(link) {
         // as per https://developer.mozilla.org/en-US/docs/Web/API/event.initMouseEvent
         // works on latest chrome, safari and opera
         if (link === undefined)
@@ -1167,13 +1170,14 @@ $(function () {
                 // volume can be used as a mute button
                 // 0 - muted
                 // 1 - user controlled volume
+                $('.volume').hide();
                 log.debug("User Agent is 10+ iOS");
             }
             // caues fatfinger presses
             rp.session.showRedditLink = false;
 
             // Hide useless "fullscreen" button on iOS safari
-            $('#fullscreen').parent().remove();
+            $('.fullscreen-ctrl').remove();
 
             // New mobile site doesn't work for auth if not logged in
             rp.redditLoginUrl = 'https://old.reddit.com';
@@ -1188,9 +1192,6 @@ $(function () {
                 }
                 open_in_background($(this));
             });
-        }
-        if (rp.session.volumeIsMute) {
-            $('.volume').hide();
         }
     };
 
@@ -2261,47 +2262,6 @@ $(function () {
         elem.html(img);
     };
 
-    const arrow = {
-        left: 37,
-        up: 38,
-        right: 39,
-        down: 40
-    };
-    const KP_MINUS_KEY = 109; // '-'
-    const KP_PLUS_KEY  = 107; // '+'
-    const MINUS_KEY = 173; // '-' / '_'
-    const EQUALS_KEY = 61; // '=' / '+'
-    const ZERO_KEY  = 48;
-    const ONE_KEY   = 49;
-    const TWO_KEY   = 50;
-    const THREE_KEY = 51;
-    const FOUR_KEY  = 52;
-    const FIVE_KEY  = 53;
-    const SIX_KEY   = 54;
-    const SEVEN_KEY = 55;
-    const EIGHT_KEY = 56;
-    const NINE_KEY  = 57;
-
-    const SPACE = 32;
-    const PAGEUP = 33;
-    const PAGEDOWN = 34;
-    const ENTER = 13;
-
-    const A_KEY = 65;
-    const C_KEY = 67;
-    const D_KEY = 68;
-    const E_KEY = 69;
-    const F_KEY = 70;
-    const G_KEY = 71;
-    const I_KEY = 73;
-    const L_KEY = 76;
-    const M_KEY = 77;
-    const N_KEY = 78;
-    const O_KEY = 79;
-    const R_KEY = 82;
-    const T_KEY = 84;
-    const U_KEY = 85;
-
     // Register keyboard events on the whole document
     $(document).keyup(function (e) {
         if (e.ctrlKey || e.altKey || e.metaKey) {
@@ -2312,106 +2272,101 @@ $(function () {
 
         //log.info(e.keyCode, e.which, e.charCode);
 
-        // 37 - left
-        // 38 - up
-        // 39 - right
-        // 40 - down
-        // More info: http://stackoverflow.com/questions/302122/jquery-event-keypress-which-key-was-pressed
-        // http://stackoverflow.com/questions/1402698/binding-arrow-keys-in-js-jquery
-        var code = e.keyCode || e.which;
         var i = 0;
+        let key = e.key;
 
-        switch (code) {
-        case A_KEY:
+        switch (key.toLowerCase()) {
+        case "a":
             open_in_background("#navboxAlbumOrigLink");
             break;
-        case C_KEY:
+        case "c":
             $('#controlsDiv .hcollapser').click();
             break;
-        case T_KEY:
+        case "t":
             $('#titleDiv .hcollapser').click();
             break;
-        case D_KEY:
+        case "d":
             open_in_background("#navboxDuplicatesLink");
             break;
-        case F_KEY:
+        case "e":
+            $('#navboxExtraLoad').click();
+            break;
+        case "f":
             $('#fullscreen').click();
             break;
-        case G_KEY:
+        case "g":
             open_in_background('#navboxImageSearch');
             break;
-        case I_KEY:
+        case "i":
             open_in_background("#navboxLink");
             break;
-        case L_KEY:
+        case "l":
             open_in_background("#navboxOrigLink");
             break;
-        case M_KEY:
+        case "m":
             $('#mute').click();
             break;
-        case N_KEY:
+        case "n":
             $('#nsfw').click();
             break;
             // O_KEY is with ZERO_KEY below
-        case R_KEY:
+        case "r":
             open_in_background("#navboxDuplicatesMulti");
             break;
-        case E_KEY:
-            $('#navboxExtraLoad').click();
-            break;
-        case SPACE:
-            $("#autoNextSlide").click();
-            break;
-        case ENTER:
-            $('#playbutton a').click();
-            break;
-        case KP_PLUS_KEY:
-        case EQUALS_KEY:
-            volume_adjust(+1);
-            break;
-        case KP_MINUS_KEY:
-        case MINUS_KEY:
-            volume_adjust(-1);
-            break;
-        case PAGEUP:
-        case arrow.up:
-            prevSlide();
-            break;
-        case arrow.left:
-            prevAlbumSlide();
-            break;
-        case PAGEDOWN:
-        case arrow.down:
-            nextSlide();
-            break;
-        case arrow.right:
-            nextAlbumSlide();
-            break;
-        case U_KEY:
+        case "u":
             $("#duplicateCollapser").click();
             break;
-        case NINE_KEY:
+        case " ": // SPACE
+            $("#autoNextSlide").click();
+            break;
+        case "?":
+            $('#help').toggle();
+            break;
+        case "+":
+            volume_adjust(+1);
+            break;
+        case "-":
+            volume_adjust(-1);
+            break;
+        case "enter":
+            $('#playbutton a').click();
+            break;
+        case "pageup":
+        case "arrowup":
+            prevSlide();
+            break;
+        case "arrowleft":
+            prevAlbumSlide();
+            break;
+        case "pagedown":
+        case "arrowdown":
+            nextSlide();
+            break;
+        case "arrowright":
+            nextAlbumSlide();
+            break;
+        case "9":
             ++i;
-        case EIGHT_KEY:
+        case "8":
             ++i;
-        case SEVEN_KEY:
+        case "7":
             ++i;
-        case SIX_KEY:
+        case "6":
             ++i;
-        case FIVE_KEY:
+        case "5":
             ++i;
-        case FOUR_KEY:
+        case "4":
             ++i;
-        case THREE_KEY:
+        case "3":
             ++i;
-        case TWO_KEY:
+        case "2":
             ++i;
-        case ONE_KEY:
+        case "1":
             if ($('#duplicateUl li .infor')[i])
                 open_in_background_url($('#duplicateUl li .infor')[i]);
             break;
-        case O_KEY: // open comment
-        case ZERO_KEY:
+        case "o": // open comment
+        case "0":
             open_in_background_url($('#navboxSubreddit a:last-of-type')[0]);
             break;
         }

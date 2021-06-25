@@ -52,6 +52,17 @@ body {
 
 hr.split { border: 1px inset; }
 
+/* Help Popup */
+#help {
+    position: absolute;
+    top: 0;
+    right: 0;
+}
+
+#help td:first-child {
+    font-weight: bold;
+}
+
 /* PLAY BUTTON */
 #playbutton {
     top: 45%;
