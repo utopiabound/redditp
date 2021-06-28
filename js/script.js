@@ -232,15 +232,19 @@ rp.photos = [];
 rp.cache = {};
 // use dedupAdd() and dedupVal()
 rp.dedup = {};
+
 rp.url = {
-    choice: "", // c.f. setupChoices()
+    // Set in processUrls()
     root:   '', // root of redditp app
     subreddit: "",
     base: '',
     get:  '',
     api:  '',
     path: '',
-    vars: ""
+    vars: "",
+    // Set in setupChoices()
+    choice: "",
+    sub: "" // actual name of singular sub-reddit, iff it's in URL
 };
 
 rp.fn = {};
@@ -2163,9 +2167,14 @@ $(function () {
             }
         }
 
+        var title = picTitleText(rp.photos[index]);
+        if (rp.photos[index].subreddit && rp.photos[index].subreddit != rp.url.sub) {
+            title += "\nr/"+rp.photos[index].subreddit;
+        }
+
         var numberButton = $("<a />").html(index + 1)
             .data("index", index)
-            .attr("title", picTitleText(rp.photos[index]))
+            .attr("title", title)
             .attr("id", "numberButton" + (index + 1));
 
 
@@ -4106,6 +4115,7 @@ $(function () {
         var user;
         var submitted = false;
         rp.url.choice = "";
+        rp.url.sub = (s[1] == 'r' && s[2]) ?s[2] :"";
 
         if (mod >= 0) {
             base = '/';
