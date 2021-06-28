@@ -1159,8 +1159,8 @@ $(function () {
         // OS/Browser Specific
         if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
             var v = (navigator.userAgent).match(/OS (\d+)/);
+
             if (parseInt(v[1], 10) < 10) {
-                log.debug("User Agent is pre-10 iOS");
                 rp.session.needsPlayButton = true;
                 // no volume or mute/unmute support
                 $('.volume-mute').hide();
@@ -1171,10 +1171,15 @@ $(function () {
                 // 0 - muted
                 // 1 - user controlled volume
                 $('.volume').hide();
-                log.debug("User Agent is 10+ iOS");
             }
             // caues fatfinger presses
             rp.session.showRedditLink = false;
+
+            // collapse duplicates by default
+            var dups = $('#duplicateCollapser');
+            if (dups.data(STATE) != "closed") {
+                $('#duplicateCollapser').click();
+            }
 
             // Hide useless "fullscreen" button on iOS safari
             $('.fullscreen-ctrl').remove();
@@ -1192,6 +1197,7 @@ $(function () {
                 }
                 open_in_background($(this));
             });
+
         }
     };
 
@@ -4520,7 +4526,7 @@ $(function () {
                         pic.extra = infoLink(item.outbound_url, 'link');
                     // @@ check media.e != "Image"
                     if (media.e != "Image") {
-                        log.error("Reddit Gallery element not 'Image': "+media);
+                        log.error("Reddit Gallery element not 'Image': "+media.e);
                     }
                     if (processPhoto(pic))
                         addAlbumItem(photo, pic)
