@@ -4531,12 +4531,19 @@ $(function () {
                     var media = idx.media_metadata[item.media_id];
                     if (media.status == "failed")
                         return;
-                    var pic = { title: t, url: media.s.u };
+                    var pic = { title: t };
                     if (item.outbound_url)
                         pic.extra = infoLink(item.outbound_url, 'link');
                     // @@ check media.e != "Image"
-                    if (media.e != "Image") {
+                    if (media.e == "Image") {
+                        pic.url = media.s.u;
+
+                    } else if (media.e == "AnimatedImage") {
+                        pic.url = media.s.gif;
+
+                    } else {
                         log.error("Reddit Gallery element not 'Image': "+media.e);
+                        throw "NYI: Reddit Gallery Element";
                     }
                     if (processPhoto(pic))
                         addAlbumItem(photo, pic)
@@ -5993,7 +6000,7 @@ $(function () {
         setupChoices();
 
         if (((rp.session.loginExpire || rp.session.loginNeeded) &&
-             rp.url.subreddit.substr(0, rp.url.subreddit.length-rp.url.choice.length) == '/') ||
+             rp.url.subreddit.substr(0, rp.url.subreddit.length - rp.url.choice.length) == '/') ||
             rp.url.subreddit.startsWith('/me') ||
             rp.url.subreddit.startsWith('/r/friends'))
             rp.session.loginNeeded = true;
