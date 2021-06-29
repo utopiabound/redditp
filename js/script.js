@@ -2288,7 +2288,7 @@ $(function () {
         //log.info(e.keyCode, e.which, e.charCode);
 
         var i = 0;
-        let key = e.key;
+        var key = e.key;
 
         switch (key.toLowerCase()) {
         case "a":
