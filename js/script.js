@@ -1705,7 +1705,7 @@ $(function () {
                 if (shortid == 'about')
                     return false;
 
-                pic.url = 'https://gfycat.com/'+shortid;
+                pic.url = gfycatPhotoUrl(shortid, 'gfycat');
 
                 // These domains should be processed later, unless direct link to video
                 pic.type = imageTypes.later;
@@ -1943,10 +1943,10 @@ $(function () {
 
             } else if (hostname == 'redgifs.com' ||
                        hostname == 'gifdeliverynetwork.com') {
-                shortid = url2shortid(pic.url).toLowerCase();
+                shortid = url2shortid(pic.url);
                 if (shortid.indexOf('-') != -1)
                     shortid = shortid.substr(0, shortid.indexOf('-'));
-                pic.url = 'https://www.redgifs.com/watch/'+shortid;
+                pic.url = gfycatPhotoUrl(shortid, 'redgifs');
                 pic.type = imageTypes.later;
 
             } else if (hostname == 'clippituser.tv' ||
@@ -3418,6 +3418,19 @@ $(function () {
         return (user === 'anonymous') ?undefined :user;
     }
 
+    var gfyItemTitle = function(item) {
+        return fixupTitle(item.title || item.description || item.gfyName)
+    }
+
+    var gfycatPhotoUrl = function(shortid, type) {
+        if (type == 'gfycat') {
+            return 'https://gfycat.com/'+shortid;
+        } else if (type == 'redgifs') {
+            return 'https://www.redgifs.com/watch/'+shortid;
+        }
+        throw "Unknown Gfycat type: "+type;
+    };
+
     var handleGfycatApiItem = function(photo, data, showCB, type) {
         if (data.gfyItem === undefined) {
             if (data.error !== undefined) {
@@ -3431,6 +3444,11 @@ $(function () {
         var user = gfyItemUser(data.gfyItem);
         if (user)
             photo.extra = gfycatApiUserLink(user, type);
+        if (data.gfyItem.gfyName)
+            photo.url = gfycatPhotoUrl(data.gfyItem.gfyName, type);
+        if (!photo.title)
+            photo.title = gfyItemTitle(data.gfyItem);
+        // @@ gfyItem.tags -> photo.flair?
 
         initPhotoVideo(photo, [ (data.gfyItem.mp4) ?data.gfyItem.mp4.url :data.gfyItem.mp4Url,
                                 (data.gfyItem.webm) ?data.gfyItem.webm.url :data.gfyItem.webmUrl,
@@ -3463,6 +3481,9 @@ $(function () {
         var handleOembed = function(data) {
             if (data.author_name && data.author_url)
                 photo.extra = infoLink(data.author_url, data.author_name);
+
+            if (data.safety)
+                photo.over18 = (data.safety == "adult");
 
             if (data.error) {
                 log.info("cannot display url ["+(data.message || data.error)+"]: "+photo.url);
@@ -4390,6 +4411,7 @@ $(function () {
                     log.info("cannot display comment["+comment.permalink+"] [no body]: "+photo.url);
                 }
 
+                photo = initPhotoAlbum(photo);
                 for (j = 0; j < links.length; ++j) {
                     var img = { author: comment.data.author,
                                 url: links[j].href
@@ -4405,6 +4427,7 @@ $(function () {
                     else
                         log.info("cannot load comment link [no photos]: "+img.url);
                 }
+                checkPhotoAlbum(photo);
             }
 
             if (comment.data.replies)
@@ -5754,17 +5777,15 @@ $(function () {
 
     var getGfycatApiUser = function() {
         // URL: /(gfycat|redgifs)/USER
-        var apiurl, baseurl;
+        var apiurl;
         var a = rp.url.subreddit.split('/');
         var type = a[1];
         var user = a[2];
 
         if (type == "gfycat") {
             apiurl = "https://api.gfycat.com";
-            baseurl = "https://gfycat.com/";
         } else if (type == "redgifs") {
             apiurl = "https://api.redgifs.com";
-            baseurl = "https://www.redgifs.com/watch/";
         } else {
             throw("Bad Gfycat API User: "+type);
         }
@@ -5773,9 +5794,9 @@ $(function () {
             return;
 
         var gfycat2pic = function(post) {
-            var image = { url: baseurl+post.gfyName,
+            var image = { url: gfycatPhotoUrl(post.gfyName, type),
                           over18: (post.nsfw != 0),
-                          title: fixupTitle(post.title || post.description),
+                          title: gfyItemTitle(post),
                           date: post.createDate,
                           type: imageTypes.video,
                           video: { thumb: post.posterUrl,
@@ -5783,6 +5804,7 @@ $(function () {
                                    mp4: post.mp4Url
                                  }
                         };
+            // @@ gfyItem.tags -> photo.flair?
             var user = gfyItemUser(post);
             if (user)
                 image.gfycat = { user: user, type: type };
