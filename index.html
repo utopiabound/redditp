@@ -73,10 +73,8 @@
 	    <label class="checkbox colortoggle over18" for="nsfw" title="Show NSFW content (n)">
 	      <i class="material-icons">child_friendly</i></label>
 	  </li><li>
-	    <input class="checkbox icontoggle" type="checkbox" name="embed" id="embed" value="Auto"
-		   icon-on="personal_video" icon-off="ondemand_video" />
-	    <label class="icontoggle colortoggle embed" for="embed" title="Autoplay embeded content">
-	      <i class="material-icons">ondemand_video</i></label>
+	    <input class="checkbox icontristate material-icons" type="button" name="embed" id="embed" value="personal_video"
+		   icon-always="ondemand_video" icon-sometimes="queue_play_next" icon-never="personal_video" />
 	  </li><li class="volume-mute">
 	    <input class="checkbox icontoggle" type="checkbox" name="mute" id="mute" value="Auto"
 		   icon-on="volume_off" icon-off="volume_up" checked />
@@ -84,9 +82,9 @@
 	      <i class="material-icons">volume_off</i></label>
 	  </li><li>
 	    <input class="checkbox icontoggle" type="checkbox" name="autoNextSlide" id="autoNextSlide" value="Auto"
-		   icon-on="autorenew" icon-off="play_arrow" />
+		   icon-on="play_circle" icon-off="pause_circle" />
 	    <label class="icontoggle colortoggle" for="autoNextSlide" title="toggle auto refresh (space)">
-	      <i class="material-icons">play_arrow</i></label>
+	      <i class="material-icons">pause_circle</i></label>
 	  </li><li class="fullscreen-ctrl">
 	    <input class="checkbox icontoggle" type="checkbox" name="fullscreen" id="fullscreen" value="Auto"
 		   icon-on="fullscreen_exit" icon-off="fullscreen" />

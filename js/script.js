@@ -135,15 +135,21 @@ rp.settings = {
     minScore: 1,
     decivolume: 5,
     // show All Embedded Items
-    embed: false,
-    // show Embedded Item that won't autoplay
-    embedWait: true,
+    // Tri-state:
+    //   -1 (NEVER)     - embedded items are never loaded
+    //   0  (SOMETIMES) - embedded items are autoloaded if they won't autoplay
+    //   1  (ALWAYS)    - embedded items are always loaded
+    embed: 0,
     // show NSFW Items
     nsfw: false,
     // Show user subreddit links in duplicates
     usersub: false,
     mute: true,
 };
+
+rp.ALWAYS = 1;
+rp.SOMETIMES = 0;
+rp.NEVER = -1;
 
 rp.mime2ext = {
     'audio/mpeg': 'mp3',
@@ -912,8 +918,68 @@ $(function () {
         $('label[for="'+$(this).attr('id')+'"] i').text($(this).attr(attrname));
     };
 
+    var getTristate = function(item) {
+        var state;
+        switch (item.val()) {
+        case item.attr("icon-always"):
+            state = rp.ALWAYS;
+            break;
+        case item.attr("icon-sometimes"):
+            state = rp.SOMETIMES;
+            break;
+        case item.attr("icon-never"):
+            state = rp.NEVER;
+            break;
+        default:
+            throw "Unknown state for "+item.attr('id')+": "+item.val();;
+        }
+        return state;
+    };
+
+    var nextTristate = function(state) {
+        var state;
+        switch (state) {
+        case rp.ALWAYS:
+            state = rp.NEVER;
+            break;
+        case rp.SOMETIMES:
+            state = rp.ALWAYS;
+            break;
+        case rp.NEVER:
+            state = rp.SOMETIMES;
+            break;
+        }
+        return state;
+    };
+
+    var setTristate = function(item, state) {
+        var attr;
+        switch (state) {
+        case rp.ALWAYS:
+            attr = "icon-always";
+            break;
+        case rp.SOMETIMES:
+            attr = "icon-sometimes";
+            break;
+        case rp.NEVER:
+            attr = "icon-never";
+            break;
+        }
+        item.val(item.attr(attr));
+    };
+
+    var updateTristate = function() {
+        var name = $(this).attr("name");
+        var state = nextTristate(getTristate($(this)));
+
+        rp.settings[name] = state;
+        setConfig(configNames[name], state);
+        setTristate($(this), state);
+    };
+
     $(document).on('click', 'input.icontoggle', fixIconToggle);
 
+    $(document).on('click', 'input.icontristate', updateTristate);
 
     var setConfig = function (c_name, c_value) {
         var value = JSON.stringify(c_value);
@@ -962,7 +1028,7 @@ $(function () {
         if (type !== undefined &&
             !(type == imageTypes.video ||
               type == imageTypes.later ||
-              (type == imageTypes.embed && rp.settings.embed)))
+              (type == imageTypes.embed && rp.settings.embed < rp.ALWAYS)))
             return;
         log.debug('clear timout');
         window.clearTimeout(rp.session.nextSlideTimeoutId);
@@ -1063,6 +1129,21 @@ $(function () {
             else
                 fixIconToggle.call(ref)
         });
+
+        // Convert binary state to tristate button
+        var tristateConvert = function(item) {
+            var config = getConfig(configNames[item]);
+            if (config === undefined)
+                config = rp.settings[item];
+            else if (config === true)
+                config = rp.ALWAYS;
+            else if (config === false)
+                config = rp.NEVER;
+
+            rp.settings[item] = config;
+            setConfig(configNames[item], config)
+        };
+        tristateConvert("embed");
 
         $('#mute').change(updateVideoMute);
 
@@ -3319,7 +3400,7 @@ $(function () {
         };
 
         var showEmbed = function(pic) {
-            if (rp.settings.embed || (rp.settings.embedWait && !pic.embed.aplay)) {
+            if (rp.settings.embed == rp.ALWAYS || (rp.settings.embed == rp.SOMETIMES && !pic.embed.aplay)) {
                 divNode.append(iFrame(pic));
                 return;
             }

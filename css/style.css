@@ -269,7 +269,7 @@ li.origlink i {
     font-size: 18px;
 }
 
-label.checkbox { font-weight: bold; }
+label.checkbox {font-weight: bold;}
 
 .linkflair { 
     border: 1px solid grey;
@@ -306,7 +306,11 @@ label.checkbox { font-weight: bold; }
     margin-top: 4px;
 }
 
-.checkbox { cursor: pointer; }
+.checkbox {
+    cursor: pointer;
+    background: transparent;
+    color: white;
+}
 
 .prevArrow {
     position: absolute;
@@ -350,7 +354,6 @@ input[type=checkbox]:checked + label.colortoggle {
 
 .icontoggle {
     cursor: pointer;
-    font-size: 24px;
 }
 
 #fullScreenButton {
