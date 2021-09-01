@@ -968,7 +968,7 @@ $(function () {
         item.val(item.attr(attr));
     };
 
-    var updateTristate = function() {
+    var cycleTristate = function() {
         var name = $(this).attr("name");
         var state = nextTristate(getTristate($(this)));
 
@@ -979,7 +979,7 @@ $(function () {
 
     $(document).on('click', 'input.icontoggle', fixIconToggle);
 
-    $(document).on('click', 'input.icontristate', updateTristate);
+    $(document).on('click', 'input.icontristate', cycleTristate);
 
     var setConfig = function (c_name, c_value) {
         var value = JSON.stringify(c_value);
@@ -1106,7 +1106,7 @@ $(function () {
             }, {});
         rp.faviconcache = getConfig(configNames.favicon, {});
 
-        ["nsfw", "embed", "usersub", "mute"].forEach(function (item) {
+        ["nsfw", "usersub", "mute"].forEach(function (item) {
             var config = getConfig(configNames[item]);
             var ref = $('#'+item);
             ref.change(function () {
@@ -1131,17 +1131,18 @@ $(function () {
         });
 
         // Convert binary state to tristate button
-        var tristateConvert = function(item) {
-            var config = getConfig(configNames[item]);
+        var tristateConvert = function(name) {
+            var config = getConfig(configNames[name]);
             if (config === undefined)
-                config = rp.settings[item];
+                config = rp.settings[name];
             else if (config === true)
                 config = rp.ALWAYS;
             else if (config === false)
                 config = rp.NEVER;
 
-            rp.settings[item] = config;
-            setConfig(configNames[item], config)
+            rp.settings[name] = config;
+            setConfig(configNames[name], config)
+            setTristate($('#'+name), config)
         };
         tristateConvert("embed");
 
@@ -2179,7 +2180,8 @@ $(function () {
                     if (href.prop('hostname').startsWith('m.'))
                         href.prop('hostname', href.prop('hostname').replace('m.', 'www.'));
 
-                    if (hostname == 'theporngod.com') {
+                    if (hostname == 'theporngod.com' ||
+                        hostname == 'nonktube.com') {
                         initPhotoEmbed(pic, href.prop('origin')+'/embed/'+shortid, false);
                         return true;
                     }
