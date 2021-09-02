@@ -1468,6 +1468,8 @@ $(function () {
             pic.type == imageTypes.embed) {
             photo.type = pic.type;
             photo.url = pic.url;
+            if (pic.embed)
+                photo.embed = pic.embed;
 
         } else if (pic.type == imageTypes.video) {
             photo.type = pic.type;
@@ -2173,6 +2175,7 @@ $(function () {
                         hostname == 'watchmygf.me' ||
                         hostname == 'gothdporn.com' ||
                         hostname == 'xfantasy.com' ||
+                        hostname == 'xfantazy.com' ||
                         hostname == 'xfantasy.tv')
                         return false;
                     shortid = url2shortid(pic.url, 2, '-');
