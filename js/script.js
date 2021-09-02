@@ -88,8 +88,10 @@
  *      flickr:         HASH
  *              nsid:   TEXT of flickr user NSID
  *      gfycat:         HASH
- *              user:   TEXT username
  *              type:   TEXT (gfycat|redgifs)
+ *              -- Optional --
+ *              user:   TEXT username
+ *              tags:   ARRAY of TEXT Gfycat Tags for photo
  *      -- Depending on image Type --
  *      video:          HASH for video ext to url + thumbnail (see showVideo() / rp.mime2ext)
  *              thumb:  URL of thumbnail
@@ -2729,6 +2731,16 @@ $(function () {
             return;
         $('#duplicateUl').html("");
         var total = 0;
+
+        if (photo.gfycat && photo.gfycat.tags && photo.gfycat.tags.length > 0) {
+            photo.gfycat.tags.forEach(function(tag) {
+                var li = $("<li>", { class: 'list'});
+                li.html(gfycatTagLink(tag, photo.gfycat.type));
+                ++ total;
+                $('#duplicateUl').append(li);
+            });
+        }
+
         if (photo.dupes.length > 0) {
             var multi = [];
             var usermulti = [];
@@ -2877,14 +2889,16 @@ $(function () {
         } else
             $('#navboxScore').addClass("hidden");
         $('#navboxLink').attr('href', image.url).attr('title', picTitleText(image)+" (i)").html(typeIcon(image.type));
-        $('#navboxExtra').html(picExtra(image));
-        if (albumIndex >= 0)
-            $('#navboxExtra').append($('<span>', { class: 'info infol' }).text((albumIndex+1)+"/"+rp.photos[imageIndex].album.length));
 
-        if (photo.subreddit)
+        $('#navboxExtra').html(picExtra(image));
+
+        if (photo.subreddit) {
             $('#navboxSubreddit').html(redditLink(subreddit)).show();
 
-        else if (photo.gfycat)
+            if (photo.gfycat && photo.gfycat.user)
+                $('#navboxExtra').append(gfycatApiUserLink(photo.gfycat.user, photo.gfycat.type));
+
+        } else if (photo.gfycat && photo.gfycat.user)
             $('#navboxSubreddit').html(gfycatApiUserLink(photo.gfycat.user, photo.gfycat.type));
 
         else if (photo.tumblr)
@@ -2892,6 +2906,9 @@ $(function () {
                                                  photo.tumblr.blog, '/tumblr/'+photo.tumblr.blog));
         else
             $('#navboxSubreddit').hide();
+
+        if (albumIndex >= 0)
+            $('#navboxExtra').append($('<span>', { class: 'info infol' }).text((albumIndex+1)+"/"+rp.photos[imageIndex].album.length));
 
         if (authName)
             $('#navboxAuthor').html(redditLink('/user/'+authName+'/submitted',  authName, '/u/'+authName)).show();
@@ -3537,7 +3554,20 @@ $(function () {
     };
 
     var gfycatApiUserLink = function(user, type) {
-        return localLink(gfycatUserUrl(user, type), user, '/'+type+'/'+user);
+        return localLink(gfycatUserUrl(user, type), user, '/'+type+'/u/'+user);
+    };
+
+    var gfycatTagUrl = function(tag, type) {
+        if (type == 'gfycat') {
+            return 'https://gfycat.com/gifs/search/'+tag.toLowerCase().replaceAll(" ", "+");
+        } else if (type == 'redgifs') {
+            return 'https://www.redgifs.com/categories/'+tag.toLowerCase().replaceAll(" ", "-");
+        }
+        throw "Unknown Gfycat type: "+type;
+    };
+
+    var gfycatTagLink = function(tag, type) {
+        return localLink(gfycatTagUrl(tag, type), tag, '/'+type+'/t/'+tag);
     };
 
     var handleGfycatApiItem = function(photo, data, showCB, type) {
@@ -3550,14 +3580,17 @@ $(function () {
             return;
         }
 
+        photo.gfycat = { type: type };
+
         var user = gfyItemUser(data.gfyItem);
         if (user)
-            photo.extra = gfycatApiUserLink(user, type);
+            photo.gfycat.user = user;
         if (data.gfyItem.gfyName)
             photo.url = gfycatPhotoUrl(data.gfyItem.gfyName, type);
         if (!photo.title)
             photo.title = gfyItemTitle(data.gfyItem);
-        // @@ gfyItem.tags -> photo.flair?
+        if (data.gfyItem.tags.length > 0)
+            photo.gfycat.tags = data.gfyItem.tags;
 
         initPhotoVideo(photo, [ (data.gfyItem.mp4) ?data.gfyItem.mp4.url :data.gfyItem.mp4Url,
                                 (data.gfyItem.webm) ?data.gfyItem.webm.url :data.gfyItem.webmUrl,
@@ -5884,12 +5917,18 @@ $(function () {
         });
     };
 
-    var getGfycatApiUser = function() {
-        // URL: /(gfycat|redgifs)/USER
+    var getGfycatApi = function() {
+        // URLs:
+        // TRENDING:    /(gfycat|redgifs)/
+        // USER:        /(gfycat|redgifs)/u/USER
+        // TAG:         /(gfycat|redgifs)/t/TAG
         var apiurl;
+        var user;
+        var tag;
+        var jsonUrl;
+        var errmsg;
         var a = rp.url.subreddit.split('/');
         var type = a[1];
-        var user = a[2];
 
         if (type == "gfycat") {
             apiurl = "https://api.gfycat.com";
@@ -5899,8 +5938,29 @@ $(function () {
             throw("Bad Gfycat API User: "+type);
         }
 
-        if (!setupLoading(2, "user "+user+" has no videos"))
+        switch (a[2]) {
+        case "u":
+            user = a[3];
+            errmsg = "User "+user+" has no videos";
+            jsonUrl = apiurl+'/v1/users/'+user+'/gfycats?count=20';
+            break;
+        case "t":
+            tag = a[3];
+            errmsg = "Tag "+tag+" has no videos";
+            jsonUrl = apiurl+"/v1/gfycats/search?count=20&search_text="+tag.toLowerCase();
+            break;
+        default:
+            jsonUrl = apiurl+'/v1/gfycats/trending?count=20';
+            errmsg = "No trending videos";
+            break;
+        }
+
+        if (!setupLoading(1, errmsg))
             return;
+
+        // Get all Gfycats (currently gfycat.com doesn't seem to list nsfw item here)
+        if (rp.session.after)
+            jsonUrl += "&cursor="+rp.session.after;
 
         var gfycat2pic = function(post) {
             var image = { url: gfycatPhotoUrl(post.gfyName, type),
@@ -5908,38 +5968,31 @@ $(function () {
                           title: gfyItemTitle(post),
                           date: post.createDate,
                           type: imageTypes.video,
+                          gfycat: { type: type },
                           video: { thumb: post.posterUrl,
                                    webm: post.webmUrl,
                                    mp4: post.mp4Url
                                  }
                         };
-            // @@ gfyItem.tags -> photo.flair?
+            if (post.tags)
+                image.gfycat.tags = post.tags;
             var user = gfyItemUser(post);
             if (user)
-                image.gfycat = { user: user, type: type };
+                image.gfycat.user = user;
             return image;
         };
 
-        // Get all Gfycats (currently gfycat.com doesn't seem to list nsfw item here)
-        var jsonUrl = apiurl+'/v1/users/'+user+'/gfycats';
-
-        var handleUserData = function (data) {
+        var handleGfycatData = function (data) {
             if (data.gfycats.length) {
                 data.gfycats.forEach(function (post) {
                     var image = gfycat2pic(post);
                     addImageSlide(image);
                 });
                 if (data.cursor) {
-                    jsonUrl = apiurl+'/v1/users/'+user+'/gfycats?cursor='+data.cursor;
-                    $.ajax({
-                        url: jsonUrl,
-                        dataType: 'json',
-                        success: handleUserData,
-                        error: failedAjaxDone,
-                        timeout: rp.settings.ajaxTimeout,
-                        crossDomain: true
-                    });
-                    return;
+                    rp.session.after = data.cursor;
+                    rp.session.loadAfter = getGfycatApi;
+                } else {
+                    rp.session.loadAfter = null;
                 }
             }
             doneLoading();
@@ -5948,61 +6001,64 @@ $(function () {
         $.ajax({
             url: jsonUrl,
             dataType: 'json',
-            success: handleUserData,
+            success: handleGfycatData,
             error: failedAjaxDone,
             timeout: rp.settings.ajaxTimeout,
             crossDomain: true
         });
 
-        // Get all Albums
-        jsonUrl = apiurl+'/v1/users/'+user+'/albums';
-        var handleData = function (data) {
-            if (data.totalItemCount == 0) {
-                doneLoading();
-                return;
-            }
-
-            data.items.forEach(function (album) {
-                var url = apiurl+'/v1/users/'+user+'/albums/'+album.id;
-                var hd = function (data) {
-                    if (data.pub == 0)
-                        return;
-                    data.publishedGfys.forEach(function (post) {
-                        var photo = gfycat2pic(post);
-                        photo.extra = localLink(gfycatUserUrl(user, type)+'/'+album.linkText,
-                                                album.title, '/'+type+'/'+user);
-                        addImageSlide(photo);
-                    });
+        // Get Albums if loading for User
+        if (user) {
+            addLoading();
+            var jsonAlbumUrl = apiurl+'/v1/users/'+user+'/albums';
+            var handleAlbumData = function (data) {
+                if (data.totalItemCount == 0) {
                     doneLoading();
-                };
-                addLoading();
-                $.ajax({
-                    url: url,
-                    dataType: 'json',
-                    success: hd,
-                    error: failedAjaxDone,
-                    timeout: rp.settings.ajaxTimeout,
-                    crossDomain: true
-                });
-            });
-            doneLoading();
+                    return;
+                }
 
-        };
-        var handleError = function (xhr, ajaxOptions, thrownError) {
-            if (xhr.status == 404 || xhr.status == 403) {
+                data.items.forEach(function (album) {
+                    var url = apiurl+'/v1/users/'+user+'/albums/'+album.id;
+                    var hd = function (data) {
+                        if (data.pub == 0)
+                            return;
+                        data.publishedGfys.forEach(function (post) {
+                            var photo = gfycat2pic(post);
+                            photo.extra = localLink(gfycatUserUrl(user, type)+'/'+album.linkText,
+                                                    album.title, '/'+type+'/'+user);
+                            addImageSlide(photo);
+                        });
+                        doneLoading();
+                    };
+                    addLoading();
+                    $.ajax({
+                        url: url,
+                        dataType: 'json',
+                        success: hd,
+                        error: failedAjaxDone,
+                        timeout: rp.settings.ajaxTimeout,
+                        crossDomain: true
+                    });
+                });
                 doneLoading();
-                return;
-            }
-            failedAjax(xhr, ajaxOptions, thrownError);
-        };
-        $.ajax({
-            url: jsonUrl,
-            dataType: 'json',
-            success: handleData,
-            error: handleError,
-            timeout: rp.settings.ajaxTimeout,
-            crossDomain: true
-        });
+
+            };
+            var handleAlbumError = function (xhr, ajaxOptions, thrownError) {
+                if (xhr.status == 404 || xhr.status == 403) {
+                    doneLoading();
+                    return;
+                }
+                failedAjax(xhr, ajaxOptions, thrownError);
+            };
+            $.ajax({
+                url: jsonAlbumUrl,
+                dataType: 'json',
+                success: handleAlbumData,
+                error: handleAlbumError,
+                timeout: rp.settings.ajaxTimeout,
+                crossDomain: true
+            });
+        }
     };
 
     var processUrls = function(path, initial, data) {
@@ -6042,7 +6098,7 @@ $(function () {
             // Consolidate double slashes to avoid r/all/.compact/ -> r/all//
             rp.url.subreddit = rp.url.subreddit.replace(/\/{2,}/, "/");
             // replace /u/ with /user/
-            rp.url.subreddit = rp.url.subreddit.replace(/\/u\//, "/user/");
+            rp.url.subreddit = rp.url.subreddit.replace(/^\/u\//, "/user/");
 
         } else {
             rp.url.vars = '';
@@ -6213,11 +6269,9 @@ $(function () {
         else if (rp.url.subreddit.startsWith('/blogger/'))
             getBloggerBlog();
 
-        else if (rp.url.subreddit.startsWith('/gfycat/'))
-            getGfycatApiUser('gfycat');
-
-        else if (rp.url.subreddit.startsWith('/redgifs/'))
-            getGfycatApiUser('redgifs');
+        else if (rp.url.subreddit.startsWith('/gfycat/') ||
+                 rp.url.subreddit.startsWith('/redgifs/'))
+            getGfycatApi();
 
         else if (rp.url.subreddit.startsWith('/flickr/'))
             getFlickr();
