@@ -177,6 +177,7 @@ a.embed:before { content: "ondemand_video"; }
 #controlsDiv {position: absolute; bottom: 0; left: 0; }
 #titleDiv { position: absolute; top: 0; left: 0; right: 0; }
 #duplicates { position: relative; top: 0; left: 0; right: 0; overflow: auto; }
+#duplicates ul { display: inline; }
 #subredditUrl { border: 1px dashed; background-color: black; color: white; }
 
 .title { padding: 2px; font-weight: bold; font-size: 20px; min-height: 26px; }

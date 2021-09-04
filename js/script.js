@@ -21,7 +21,6 @@
  * redditp-redditRefreshBy      - int     - time that bearer token expires
  * redditp-shouldAutoNextSlide  - boolean - on timeout, go to next image
  * redditp-showEmbed            - boolean - Show embeded content (iframes, no timeout)
- * redditp-showUserSub          - boolean - Show user subreddits in duplicates
  * redditp-timeToNextSlide      - int     - timeout in seconds
  * redditp-favicons             - hash of strings       - cached result of hostname to favicon url
  * redditp-wordpressv2          - hash of booleans      - cached result of speculative WPv2 lookup
@@ -144,8 +143,6 @@ rp.settings = {
     embed: 0,
     // show NSFW Items
     nsfw: false,
-    // Show user subreddit links in duplicates
-    usersub: false,
     mute: true,
 };
 
@@ -294,7 +291,6 @@ $(function () {
     const configNames = {
         nsfw: "nsfw",
         embed: "showEmbed",
-        usersub: "showUserSub",
         mute: "videoMute",
         shouldAutoNextSlide: "shouldAutoNextSlide",
         timeToNextSlide: "timeToNextSlide",
@@ -633,9 +629,6 @@ $(function () {
 
     function open_in_background(selector) {
         var link = $(selector);
-        if (link.hasClass('hidden')) {
-            return;
-        }
         open_in_background_url(link[0]);
     }
 
@@ -643,6 +636,8 @@ $(function () {
         // as per https://developer.mozilla.org/en-US/docs/Web/API/event.initMouseEvent
         // works on latest chrome, safari and opera
         if (link === undefined)
+            return;
+        if (link.attributes.href.value == "#")
             return;
 
         // Pause Auto-Next
@@ -1108,7 +1103,7 @@ $(function () {
             }, {});
         rp.faviconcache = getConfig(configNames.favicon, {});
 
-        ["nsfw", "usersub", "mute"].forEach(function (item) {
+        ["nsfw", "mute"].forEach(function (item) {
             var config = getConfig(configNames[item]);
             var ref = $('#'+item);
             ref.change(function () {
@@ -1936,10 +1931,6 @@ $(function () {
                 shortid = url2shortid(pic.url);
                 initPhotoEmbed(pic, 'https://www.xtube.com/video-watch/embedded/'+shortid+'?embedsize=big', false);
 
-            } else if (hostname == 'xhamster.com') {
-                shortid = url2shortid(pic.url, -1, '-');
-                initPhotoEmbed(pic, 'https://xhamster.com/embed/'+shortid, false);
-
             } else if (hostname == 'redtube.com') {
                 shortid = url2shortid(pic.url);
                 initPhotoEmbed(pic, 'https://embed.redtube.com/?bgcolor=000000&id='+shortid, false);
@@ -2186,6 +2177,8 @@ $(function () {
                         href.prop('hostname', href.prop('hostname').replace('m.', 'www.'));
 
                     if (hostname == 'theporngod.com' ||
+                        hostname == 'youporn.com' ||
+                        hostname == 'xhamster.com' ||
                         hostname == 'nonktube.com') {
                         initPhotoEmbed(pic, href.prop('origin')+'/embed/'+shortid, false);
                         return true;
@@ -2732,6 +2725,7 @@ $(function () {
         $('#duplicateUl').html("");
         var total = 0;
 
+        // Gfycat "duplicates" aka Tags
         if (photo.gfycat && photo.gfycat.tags && photo.gfycat.tags.length > 0) {
             photo.gfycat.tags.forEach(function(tag) {
                 var li = $("<li>", { class: 'list'});
@@ -2741,9 +2735,9 @@ $(function () {
             });
         }
 
+        // Reddit Duplicates - @@
         if (photo.dupes.length > 0) {
             var multi = [];
-            var usermulti = [];
             if (photo.subreddit)
                 multi.push(photo.subreddit);
             photo.dupes.forEach(function(item) {
@@ -2757,17 +2751,9 @@ $(function () {
                         var subr = '/r/' +item.subreddit;
                         li.attr('subreddit', item.subreddit);
 
-                        if (item.subreddit.startsWith('u_')) {
-                            li.addClass('usersub');
-                            if (rp.settings.usersub)
-                                ++ total;
-                            else
-                                li.addClass('hidden');
-                            usermulti.push(item.subreddit);
-                        } else {
-                            ++ total;
-                            multi.push(item.subreddit);
-                        }
+                        ++ total;
+                        multi.push(item.subreddit);
+
                         li.html(redditLink(subr, item.title));
                     }
                     li.append($("<a>", { href: rp.redditBaseUrl + subr + "/comments/"+item.id,
@@ -2792,21 +2778,29 @@ $(function () {
                 if (li.parent().length == 0)
                     $('#duplicateUl').append(li);
             });
-            // @@ usermulti
             if (multi) {
                 $('#navboxDuplicatesMulti').attr('href', rp.redditBaseUrl+'/r/'+multi.join('+'));
                 $('#navboxDuplicatesMultiP').attr('href', rp.url.base+'/r/'+multi.join('+'));
-                if (total)
-                    $('#duplicateCollapser').data('closehtml', '<span id="duplicateCount">('+total+')</span>');
-                else
-                    $('#duplicateCollapser').data('closehtml', '');
+                $('#duplicatesLink').show();
+            } else {
+                $('#navboxDuplicatesMulti').attr('href', "#");
+                $('#navboxDuplicatesMultiP').attr('href', "#");
+                $('#duplicatesLink').hide();
             }
         } else {
             if (photo.subreddit) {
                 $('#navboxDuplicatesMulti').attr('href', rp.redditBaseUrl+'/r/'+photo.subreddit);
                 $('#navboxDuplicatesMultiP').attr('href', rp.url.base+'/r/'+photo.subreddit);
+            } else {
+                $('#navboxDuplicatesMulti').attr('href', "#");
+                $('#navboxDuplicatesMultiP').attr('href', "#");
             }
+            $('#duplicatesLink').hide();
         }
+        if (total)
+            $('#duplicateCollapser').data('closehtml', '<span id="duplicateCount">('+total+')</span>');
+        else
+            $('#duplicateCollapser').data('closehtml', '');
         if ($('#duplicateCollapser').data(STATE) == "closed") {
             if (total)
                 $('#duplicateCollapser').html('<span id="duplicateCount">('+total+')</span>');
@@ -2814,13 +2808,6 @@ $(function () {
                 $('#duplicateCollapser').html($('#duplicateCollapser').attr('symbol-close'));
         } else {
             $('#duplicateCount').hide();
-            if (total > 0) {
-                $('#duplicateCollapser').data(STATE, 'open');
-                $('#duplicates').show();
-            } else {
-                $('#duplicateCollapser').data(STATE, 'empty');
-                $('#duplicates').hide();
-            }
         }
     };
 
@@ -2930,8 +2917,12 @@ $(function () {
         else
             $('#navboxDate').attr("title", "").text("");
 
-        $('#navboxDuplicatesLink').attr('href',  rp.redditBaseUrl + '/r/' +
-                                        photo.subreddit + '/duplicates/' + photo.id);
+        if (photo.subreddit) {
+            $('#navboxDuplicatesLink').attr('href',  rp.redditBaseUrl + '/r/' +
+                                            photo.subreddit + '/duplicates/' + photo.id).show();
+        } else {
+            $('#navboxDuplicatesLink').attr('href', '#').hide();
+        }
 
         updateDuplicates(photo);
 
@@ -4450,6 +4441,9 @@ $(function () {
             if (data.data.dist == 0)
                 return;
             data.data.children.forEach(function (dupe) {
+                // Ignore user-subs
+                if (dupe.data.subreddit.startsWith('u_'))
+                    return;
                 var len = addPhotoDupe(photo, {subreddit: dupe.data.subreddit,
                                                commentN: dupe.data.num_comments,
                                                title: dupe.data.title,
@@ -4948,6 +4942,8 @@ $(function () {
                 var i;
                 for(i = 0; i < data[1].data.children.length; ++i) {
                     var dupe = data[1].data.children[i];
+                    if (dupe.data.subreddit.startsWith("u_"))
+                        continue;
                     if (dedupAdd(dupe.data.subreddit, dupe.data.id, '/r/'+item.data.subreddit+'/'+item.data.id) == "SELF") {
                         log.info('cannot display url [non-self dup]: '+item.data.url);
                         return;
@@ -6238,6 +6234,7 @@ $(function () {
                     if (photo.dupes.length == 0)
                         return;
                     photo.dupes.forEach(function(dupe) {
+                        // Don't need to check if subreddit is u_ because it was added to a photo already
                         if (dupe.subreddit)
                             dedupAdd(dupe.subreddit, dupe.id, '/r/'+photo.subreddit+'/'+photo.id);
                         else if (dupe.tumblr)
