@@ -2193,9 +2193,11 @@ $(function () {
                      a[1] == 'watch' ||
                      a[1] == 'v')) {
                     // Sites that definitely don't work with above
-                    if (hostname == 'mulemax.com' ||
-                        hostname == 'watchmygf.me' ||
+                    if (hostname == 'gifscroll.com' ||
                         hostname == 'gothdporn.com' ||
+                        hostname == 'madnsfw.com' ||
+                        hostname == 'mulemax.com' ||
+                        hostname == 'watchmygf.me' ||
                         hostname == 'xfantasy.com' ||
                         hostname == 'xfantazy.com' ||
                         hostname == 'xfantasy.tv')
@@ -2205,10 +2207,10 @@ $(function () {
                     if (href.prop('hostname').startsWith('m.'))
                         href.prop('hostname', href.prop('hostname').replace('m.', 'www.'));
 
-                    if (hostname == 'theporngod.com' ||
-                        hostname == 'youporn.com' ||
+                    if (hostname == 'nonktube.com' ||
+                        hostname == 'theporngod.com' ||
                         hostname == 'xhamster.com' ||
-                        hostname == 'nonktube.com') {
+                        hostname == 'youporn.com') {
                         initPhotoEmbed(pic, href.prop('origin')+'/embed/'+shortid, false);
                         return true;
                     }
@@ -2748,14 +2750,23 @@ $(function () {
         }
     };
 
-    var updateDuplicates = function(photo) {
+    var updateDuplicates = function(pic) {
+        var photo = photoParent(pic);
         if (!isActive(photo))
             return;
         $('#duplicateUl').html("");
         var total = 0;
 
         // Gfycat "duplicates" aka Tags
-        if (photo.gfycat && photo.gfycat.tags && photo.gfycat.tags.length > 0) {
+        if (pic.gfycat) {
+            if (pic.gfycat.tags && pic.gfycat.tags.length > 0)
+                pic.gfycat.tags.forEach(function(tag) {
+                    var li = $("<li>", { class: 'list'});
+                    li.html(gfycatTagLink(tag, photo.gfycat.type));
+                    ++ total;
+                    $('#duplicateUl').append(li);
+                });
+        } else if (photo.gfycat && photo.gfycat.tags && photo.gfycat.tags.length > 0) {
             photo.gfycat.tags.forEach(function(tag) {
                 var li = $("<li>", { class: 'list'});
                 li.html(gfycatTagLink(tag, photo.gfycat.type));
@@ -2765,7 +2776,15 @@ $(function () {
         }
 
         // Imgur "duplicates" aka Tags
-        if (photo.imgur && photo.imgur.tags && photo.imgur.tags.length > 0) {
+        if (pic.imgur) {
+            if (pic.imgur.tags && pic.imgur.tags.length > 0)
+                pic.imgur.tags.forEach(function(tag) {
+                    var li = $("<li>", { class: 'list'});
+                    li.html(imgurTagLink(tag));
+                    ++ total;
+                    $('#duplicateUl').append(li);
+                });
+        } else if (photo.imgur && photo.imgur.tags && photo.imgur.tags.length > 0) {
             photo.imgur.tags.forEach(function(tag) {
                 var li = $("<li>", { class: 'list'});
                 li.html(imgurTagLink(tag));
@@ -2775,7 +2794,7 @@ $(function () {
         }
 
         // Reddit Duplicates - @@
-        if (photo.dupes.length > 0) {
+        if (photo.dupes && photo.dupes.length > 0) {
             var multi = [];
             if (photo.subreddit)
                 multi.push(photo.subreddit);
@@ -2959,7 +2978,7 @@ $(function () {
             $('#navboxDuplicatesLink').attr('href', '#').hide();
         }
 
-        updateDuplicates(photo);
+        updateDuplicates(image);
 
         if (oldIndex != imageIndex) {
             toggleNumberButton(oldIndex, false);
@@ -3508,8 +3527,7 @@ $(function () {
                 showThumb(pic);
 
             else if (pic.type == imageTypes.later) {
-                log.error("called showPic() on later type: "+pic.url);
-                fillLaterDiv(photo, showPic);
+                throw("called showPic() on later type: "+pic.url);
 
             } else // Default to image type
                 showImage(pic.url);
@@ -3844,7 +3862,7 @@ $(function () {
                 handleData = function(data) {
                     handleImgurItemMeta(photo, data.data);
 
-                    handleImgurItemAlbum(photo, data.data);
+                    photo = handleImgurItemAlbum(photo, data.data);
                     showCB(photo);
                 }
 
@@ -3856,7 +3874,7 @@ $(function () {
                     var hdata = function (data) {
                         handleImgurItemMeta(photo, data.data);
 
-                        handleImgurItemAlbum(photo, data.data);
+                        photo = handleImgurItemAlbum(photo, data.data);
                         showCB(photo);
 
                         if (isActive(photo)) {
@@ -3889,7 +3907,7 @@ $(function () {
                         return;
                     }
                     if (Array.isArray(data.data)) {
-                        handleImgurItemAlbum(photo, {
+                        photo = handleImgurItemAlbum(photo, {
                             images: data.data,
                             link: "https://imgur.com/gallery/"+shortid,
                         });
@@ -3897,7 +3915,7 @@ $(function () {
                     } else {
                         handleImgurItemMeta(photo, data.data);
 
-                        handleImgurItemAlbum(photo, data.data);
+                        photo = handleImgurItemAlbum(photo, data.data);
                     }
                     showCB(photo);
                 };
@@ -4068,7 +4086,7 @@ $(function () {
     var handleImgurItemAlbum = function(photo, item) {
         if (!item.is_album) {
             processImgurItemType(photo, item);
-            return;
+            return photo;
         }
         photo = initPhotoAlbum(photo, false);
         item.images.forEach(function(img) {
@@ -4088,6 +4106,7 @@ $(function () {
             addAlbumItem(photo, pic);
         });
         checkPhotoAlbum(photo);
+        return photo;
     };
 
     var handleImgurItemMeta = function(photo, item) {
@@ -4492,8 +4511,6 @@ $(function () {
                 return;
         }
 
-        // @@ also load imgur tags
-
         // https://www.reddit.com/search.json?q=url:SHORTID+site:HOSTNAME
         var jsonUrl = rp.url.get + '/search.json?include_over_18=on&q=url:'+shortid+'+site:'+site;
         var handleData = function (data) {
@@ -4513,7 +4530,11 @@ $(function () {
                 if (len > 0)
                     getRedditComments(photo, photo.dupes[len-1]);
             });
-            updateDuplicates(photo);
+            if (isActive(photo)) {
+                if (rp.session.activeAlbumIndex >= 0)
+                    photo = photo.album[rp.session.activeAlbumIndex];
+                updateDuplicates(photo);
+            }
         };
 
         log.info("loading alternate submissions: "+site+":"+shortid);
@@ -5123,7 +5144,7 @@ $(function () {
                         score: item.points,
                     };
                     handleImgurItemMeta(pic, item);
-                    handleImgurItemAlbum(pic, item);
+                    pic = handleImgurItemAlbum(pic, item);
                     addImageSlide(pic)
                 });
                 ++rp.session.after;
