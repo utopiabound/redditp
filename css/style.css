@@ -301,7 +301,7 @@ label.checkbox {font-weight: bold;}
     text-align: center;
 }
 
-#duplicateCount {
+.count {
     font-size: 16px;
     display: block;
     margin-top: 4px;

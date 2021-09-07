@@ -886,30 +886,40 @@ $(function () {
         }
     });
 
+    var setVcollapseHtml = function(collapser) {
+        var state = collapser.data(STATE);
+        if (state == "closed") {
+            var count = collapser.data('count');
+            var sym = collapser.attr('symbol-close');
+            if (count)
+                collapser.html('<span class="count">('+count+')</span>');
+            else if (sym)
+                collapser.html(sym);
+            else
+                collapser.html("&darr;"); // down arrow
+        } else { // state == open
+            var sym = collapser.attr('symbol-open');
+            if (sym)
+                collapser.html(sym);
+            else
+                collapser.html("&uarr;"); // up arrow
+        }
+    };
+
     $('.vcollapser').click(function () {
         var state = $(this).data(STATE);
         var divname = $(this).data('controldiv');
         var div = $('#'+divname);
-        var sym;
         if (state == "open") {
             // close it
-            sym = $(this).data('closehtml') || $(this).attr('symbol-close');
-            if (sym)
-                $(this).html(sym);
-            else
-                $(this).html("&darr;"); // down arrow
             $(div).hide();
             $(this).data(STATE, "closed");
-        } else { // closed or empty
+        } else { // closed
             // open it
-            sym = $(this).attr('symbol-open');
-            if (sym)
-                $(this).html(sym);
-            else
-                $(this).html("&uarr;"); // up arrow
             $(div).show();
             $(this).data(STATE, "open");
         }
+        setVcollapseHtml($(this));
     });
 
     // Called to fixup input.icontoggle
@@ -1620,7 +1630,7 @@ $(function () {
 
     var populateAlbumButtons = function (photo) {
         // clear old
-        $("#albumNumberButtons").detach();
+        $("#albumNumberButtons").remove();
 
         var div = $("<div>", { id: 'albumNumberButtons',
                                class: 'numberButtonList'
@@ -1628,9 +1638,11 @@ $(function () {
         var ul = $("<ul />");
         div.append(ul);
 
+        var total = 0;
         if (photo.type == imageTypes.album) {
             $.each(photo.album, function(index, pic) {
                 ul.append(albumButtonLi(pic, index));
+                ++ total;
             });
 
             if ($('#albumCollapser').data(STATE) == "closed")
@@ -1638,6 +1650,8 @@ $(function () {
         } else {
             $(div).hide();
         }
+        $('#albumCollapser').data("count", total);
+        setVcollapseHtml($('#albumCollapser'));
         $("#navboxContents").append(div);
     };
 
@@ -2822,18 +2836,8 @@ $(function () {
             }
             $('#duplicatesLink').hide();
         }
-        if (total)
-            $('#duplicateCollapser').data('closehtml', '<span id="duplicateCount">('+total+')</span>');
-        else
-            $('#duplicateCollapser').data('closehtml', '');
-        if ($('#duplicateCollapser').data(STATE) == "closed") {
-            if (total)
-                $('#duplicateCollapser').html('<span id="duplicateCount">('+total+')</span>');
-            else
-                $('#duplicateCollapser').html($('#duplicateCollapser').attr('symbol-close'));
-        } else {
-            $('#duplicateCount').hide();
-        }
+        $('#duplicateCollapser').data('count', total);
+        setVcollapseHtml($('#duplicateCollapser'));
     };
 
     //
@@ -2961,10 +2965,8 @@ $(function () {
             toggleNumberButton(oldIndex, false);
             toggleAlbumButton(oldAlbumIndex, false);
             toggleNumberButton(imageIndex, true);
-            populateAlbumButtons(photo);
-
-        } else if (oldAlbumIndex < 0)
-            populateAlbumButtons(photo);
+        }
+        populateAlbumButtons(photo);
 
         if (albumIndex >= 0 &&
             (albumIndex != oldAlbumIndex || oldIndex != imageIndex)) {
@@ -3049,7 +3051,7 @@ $(function () {
         newDiv.fadeIn(rp.settings.animationSpeed);
         newDiv.trigger("rpdisplay");
         oldDiv.fadeOut(rp.settings.animationSpeed, function () {
-            oldDiv.detach();
+            oldDiv.remove();
 
             var vid = $('#gfyvid');
             if (vid) {
@@ -3065,7 +3067,6 @@ $(function () {
                 startAnimation(rp.session.activeIndex, rp.session.activeAlbumIndex);
             }
         });
-        return oldDiv;
     }
 
     //
@@ -6322,8 +6323,8 @@ $(function () {
         rp.session.activeAlbumIndex = -1;
 
         // destroy old Number Buttons
-        $("#allNumberButtons").detach();
-        $("#albumNumberButtons").detach();
+        $("#allNumberButtons").remove();
+        $("#albumNumberButtons").remove();
         $('#allNumberButtonList').append($("<ul/>", { id: 'allNumberButtons' }));
 
         if (data && data.photos) {
