@@ -43,7 +43,7 @@ Features
 * Autonext waits for the end of a video (does not work for gif, but does work for gifv)
 * Parsing for a collection of domains including: (see createDiv() and processPhoto() for complete list)
 * Special User / Album browsing in addition to reddit.com:
-	* Imgur		(User support)  /imgur/*USERID*
+	* Imgur		(User support)  /imgur/[u/*USER*|t/*TAG*]
 	* Tumblr	(Album support) /tumblr/*HOSTNAME*
 	* WordPress	(Album support) /wp/*HOSTNAME* (both self, and wp hosted)
 	* Gfycat	(User/Tag/Trending support) /gfycat/[u/*USER*|t/*TAG*]
@@ -84,7 +84,9 @@ These are available from the popup menu
 * /user/USER/m/MULTIREDDIT
 
 ## Other Services:
-* /imgur/USER			Images from that USER
+* /imgur/			Popular Imgur Items
+* /imgur/u/USER			Images from that USER
+* /imgur/t/TAG			Items with that TAG
 * /gfycat				Trending gfycat items
 * /gfycat/u/USER		Gfycat items from that USER
 * /gfycat/t/TAG		Gfycat items with that TAG

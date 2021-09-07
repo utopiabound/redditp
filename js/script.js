@@ -91,6 +91,10 @@
  *              -- Optional --
  *              user:   TEXT username
  *              tags:   ARRAY of TEXT Gfycat Tags for photo
+ *      imgur:          HASH
+ *              -- Optional --
+ *              user:   TEXT username
+ *              tags:   ARRAY of TEXT
  *      -- Depending on image Type --
  *      video:          HASH for video ext to url + thumbnail (see showVideo() / rp.mime2ext)
  *              thumb:  URL of thumbnail
@@ -1480,6 +1484,17 @@ $(function () {
             log.error("Delete of bad type:"+pic.type+" for photo: "+photo.url);
             return;
         }
+        if (pic.imgur) {
+            if (photo.imgur) {
+                for (x in pic.imgur) {
+                    if (!photo.imgur[x])
+                        photo.imgur[x] = pic.imgur[x];
+                }
+            } else
+                photo.imgur = pic.imgur;
+        }
+        if (pic.subreddit && !photo.subreddit)
+            photo.subreddit = pic.subreddit;
         if (!photo.date && pic.date)
             photo.date = pic.date;
         if (!photo.extra && pic.extra)
@@ -2735,6 +2750,16 @@ $(function () {
             });
         }
 
+        // Imgur "duplicates" aka Tags
+        if (photo.imgur && photo.imgur.tags && photo.imgur.tags.length > 0) {
+            photo.imgur.tags.forEach(function(tag) {
+                var li = $("<li>", { class: 'list'});
+                li.html(imgurTagLink(tag));
+                ++ total;
+                $('#duplicateUl').append(li);
+            });
+        }
+
         // Reddit Duplicates - @@
         if (photo.dupes.length > 0) {
             var multi = [];
@@ -2857,9 +2882,11 @@ $(function () {
             $('#navboxAlbumOrigLink').removeClass('hidden');
             if (url == photo.o_url)
                 $('#navboxOrigLink').addClass('hidden');
-        } else
+        } else {
+            $('#navboxAlbumOrigLink').attr('href', "#");
             $('#navboxAlbumOrigLink').addClass('hidden');
-        $('#navboxOrigDomain').attr('href', '/domain/'+hostnameOf(photo.o_url));
+        }
+        $('#navboxOrigDomain').attr('href', '/domain/'+hostnameOf(image.o_url));
 
         if (rp.session.loginExpire &&
             now > rp.session.loginExpire-30)
@@ -2884,13 +2911,17 @@ $(function () {
 
             if (photo.gfycat && photo.gfycat.user)
                 $('#navboxExtra').append(gfycatApiUserLink(photo.gfycat.user, photo.gfycat.type));
+            else if (photo.imgur && photo.imgur.user)
+                $('#navboxExtra').append(imgurUserLink(photo.imgur.user));
 
         } else if (photo.gfycat && photo.gfycat.user)
-            $('#navboxSubreddit').html(gfycatApiUserLink(photo.gfycat.user, photo.gfycat.type));
+            $('#navboxSubreddit').html(gfycatApiUserLink(photo.gfycat.user, photo.gfycat.type)).show();
 
         else if (photo.tumblr)
             $('#navboxSubreddit').html(localLink('https://'+photo.tumblr.blog+'.tumblr.com',
-                                                 photo.tumblr.blog, '/tumblr/'+photo.tumblr.blog));
+                                                 photo.tumblr.blog, '/tumblr/'+photo.tumblr.blog)).show();
+        else if (photo.imgur && photo.imgur.user)
+            $('#navboxSubreddit').html(imgurUserLink(photo.imgur.user)).show();
         else
             $('#navboxSubreddit').hide();
 
@@ -3807,42 +3838,13 @@ $(function () {
             headerData = { Authorization: "Client-ID "+ rp.api_key.imgur };
             var a = pathnameOf(photo.url).split('/');
 
-            var imgurHandleAlbum = function (list, o_link) {
-                photo = initPhotoAlbum(photo, false);
-                if (list.length > 0) {
-                    list.forEach(function(item) {
-                        if (item.is_ad) {
-                            log.info("not displaying image [is ad]: "+item.link);
-                            return;
-                        }
-                        var pic = {
-                            title: fixupTitle(item.title || item.description),
-                            url: item.link,
-                            o_url: o_link,
-                        };
-                        if (item.account_url)
-                            pic.extra = localLink('https://'+item.account_url+'.imgur.com',
-                                                  item.account_url, '/imgur/'+item.account_url);
-                        if (item.animated)
-                            initPhotoVideo(pic, fixImgurPicUrl(item.mp4));
-                        else
-                            initPhotoImage(pic, fixImgurPicUrl(item.link));
-
-                        addAlbumItem(photo, pic);
-                    });
-                }
-                checkPhotoAlbum(photo);
-
-                showCB(photo);
-            };
-
             if (a[1] == 'a') {
                 jsonUrl = "https://api.imgur.com/3/album/" + a[2];
                 handleData = function(data) {
-                    if (data.data.account_url)
-                        photo.extra = localLink('https://'+data.data.account_url+'.imgur.com',
-                                                data.data.account_url, '/imgur/'+data.data.account_url);
-                    imgurHandleAlbum(data.data.images, data.data.link);
+                    handleImgurItemMeta(photo, data.data);
+
+                    handleImgurItemAlbum(photo, data.data);
+                    showCB(photo);
                 }
 
             } else if (a[1] == 'gallery') {
@@ -3851,10 +3853,11 @@ $(function () {
                 handleError = function () {
                     jsonUrl = "https://api.imgur.com/3/album/" + a[2];
                     var hdata = function (data) {
-                        if (data.data.account_url)
-                            photo.extra = localLink('https://'+data.data.account_url+'.imgur.com',
-                                                    data.data.account_url, '/imgur/'+data.data.account_url);
-                        imgurHandleAlbum(data.data.images, data.data.link);
+                        handleImgurItemMeta(photo, data.data);
+
+                        handleImgurItemAlbum(photo, data.data);
+                        showCB(photo);
+
                         if (isActive(photo)) {
                             var p = photoParent(photo);
                             animateNavigationBox(p.index, p.index, rp.session.activeAlbumIndex);
@@ -3884,36 +3887,27 @@ $(function () {
                         showCB(photo);
                         return;
                     }
-                    var list;
-                    if (data.data.account_url)
-                        photo.extra = localLink('https://'+data.data.account_url+'.imgur.com',
-                                                data.data.account_url, '/imgur/'+data.data.account_url);
-                    if (Array.isArray(data.data))
-                        list = data.data;
-                    else if (data.data.is_album)
-                        list = data.data.images;
-                    else
-                        list = [ data.data ];
-                    imgurHandleAlbum(list, "https://imgur.com/gallery/"+shortid);
+                    if (Array.isArray(data.data)) {
+                        handleImgurItemAlbum(photo, {
+                            images: data.data,
+                            link: "https://imgur.com/gallery/"+shortid,
+                        });
+
+                    } else {
+                        handleImgurItemMeta(photo, data.data);
+
+                        handleImgurItemAlbum(photo, data.data);
+                    }
+                    showCB(photo);
                 };
 
             } else {
                 jsonUrl = "https://api.imgur.com/3/image/" + shortid;
 
                 handleData = function (data) {
-                    if (data.data.account_url)
-                        photo.extra = localLink('https://'+data.data.account_url+'.imgur.com',
-                                                data.data.account_url, '/imgur/'+data.data.account_url);
-                    if (data.data.animated == true) {
-                        var arr = [];
-                        if (data.data.mp4)
-                            arr.push(data.data.mp4)
-                        if (data.data.webm)
-                            arr.push(data.data.webm)
-                        initPhotoVideo(photo, arr);
+                    handleImgurItemMeta(photo, data.data);
 
-                    } else
-                        initPhotoImage(photo, fixImgurPicUrl(data.data.link));
+                    processImgurItemType(photo, data.data);
 
                     showCB(photo);
                 };
@@ -4050,7 +4044,71 @@ $(function () {
         }
     };
 
-    var fixImgurPicUrl = function (url) {
+    var imgurUserLink = function(user) {
+        return localLink('https://'+user+'.imgur.com', user, '/imgur/u/'+user);
+    };
+
+    var imgurTagLink = function(tag) {
+        return localLink('https://imgur.com/t/'+tag, tag, '/imgur/t/'+tag);
+    };
+
+    var processImgurItemType = function(photo, item) {
+        if (item.animated) {
+            var arr = []
+            if (item.mp4)
+                arr.push(fixImgurPicUrl(item.mp4));
+            if (item.webm)
+                arr.push(fixImgurPicUrl(item.webm));
+            initPhotoVideo(photo, arr);
+        } else
+            initPhotoImage(photo, fixImgurPicUrl(item.link));
+    }
+
+    var handleImgurItemAlbum = function(photo, item) {
+        if (!item.is_album) {
+            processImgurItemType(photo, item);
+            return;
+        }
+        photo = initPhotoAlbum(photo, false);
+        item.images.forEach(function(img) {
+            if (img.is_ad) {
+                log.info("not displaying image [is ad]: "+img.link);
+                return;
+            }
+            var pic = {
+                title: fixupTitle(img.title || img.description),
+                url: img.link,
+                o_url: item.link,
+            };
+            handleImgurItemMeta(pic, img);
+
+            processImgurItemType(pic, img);
+
+            addAlbumItem(photo, pic);
+        });
+        checkPhotoAlbum(photo);
+    };
+
+    var handleImgurItemMeta = function(photo, item) {
+        if (!photo.imgur)
+            photo.imgur = {};
+        if (item.account_url)
+            photo.imgur.user = item.account_url;
+        if (item.section && !photo.subreddit)
+            photo.subreddit = item.section;
+        if (item.datetime && !photo.date)
+            photo.date = item.datetime;
+        if (item.tags && item.tags.length > 0) {
+            var i;
+            if (!photo.imgur.tags)
+                photo.imgur.tags = [];
+            for (i in item.tags) {
+                photo.imgur.tags.push(item.tags[i].name);
+            }
+        }
+    };
+
+    var fixImgurPicUrl = function(url) {
         var hostname = hostnameOf(url);
 
         // regexp removes /r/<sub>/ prefix if it exists
@@ -4432,6 +4490,8 @@ $(function () {
             } else
                 return;
         }
+
+        // @@ also load imgur tags
 
         // https://www.reddit.com/search.json?q=url:SHORTID+site:HOSTNAME
         var jsonUrl = rp.url.get + '/search.json?include_over_18=on&q=url:'+shortid+'+site:'+site;
@@ -5013,34 +5073,89 @@ $(function () {
         });
     };
 
-    var getImgurUser = function () {
+    var getImgur = function () {
+        // POPULAR:     /imgur/
+        // USER:        /imgur/u/USER
+        // TAG:         /imgur/t/TAG
         var a = rp.url.subreddit.split('/');
-        var user = a[2]
-        setupLoading(1, "No images for "+user);
+        var user;
+        var tag;
+        var errmsg;
+        var jsonUrl;
+        var handleData;
 
-        var jsonUrl = 'https://api.imgur.com/3/account/' + user + '/albums';
+        if (!rp.session.after) {
+            rp.session.after = 0;
+            rp.session.loadAfter = getImgur;
+        }
 
-        var handleData = function (data) {
-            if (data.status != 200 || !data.success)
-                return doneLoading();
-
-            data.data.forEach(function (item) {
-                // @@ item_count == 1, image is item.cover
-                var pic = {
-                    url: item.link,
-                    title: fixupTitle(item.title || item.description),
-                    over18: item.nsfw,
-                    date: item.datetime,
-                    id: item.id,
-                    extra: localLink('https://'+item.user+'.imgur.com', item.user, '/imgur/'+item.user),
-                };
-                if (item.section)
-                    pic.subreddit = item.section;
-                addImageSlide(pic);
-            });
-            // @@ MORE?
-            doneLoading();
+        var processPostItem = function(item) {
+            var pic = {
+                url: item.url,
+                title: fixupTitle(item.title || item.description),
+                over18: item.is_mature,
+                id: item.id,
+                score: item.point_count,
+            };
+            handleImgurItemMeta(pic, item);
+            addImageSlide(pic);
         };
+
+        switch(a[2]) {
+        case 'u':
+            user = a[3];
+            errmsg = "User "+user+" has no items";
+            jsonUrl = 'https://api.imgur.com/3/account/' + user + '/submissions/'+rp.session.after+'/newest';
+
+            handleData = function (data) {
+                if (data.status != 200 || !data.success)
+                    return doneLoading();
+
+                data.data.forEach(function (item) {
+                    // @@ item_count == 1, image is item.cover
+                    var pic = {
+                        url: item.link,
+                        title: fixupTitle(item.title || item.description),
+                        over18: item.nsfw,
+                        date: item.datetime,
+                        id: item.id,
+                        score: item.points,
+                    };
+                    handleImgurItemMeta(pic, item);
+                    handleImgurItemAlbum(pic, item);
+                    addImageSlide(pic)
+                });
+                ++rp.session.after;
+
+                doneLoading();
+            };
+            break;
+        case 't':
+            tag = a[3];
+            errmsg = "Tag "+tag+" has no items";
+            jsonUrl = 'https://api.imgur.com/post/v1/posts/t/'+tag+"?page="+rp.session.after;
+            handleData = function (data) {
+                data.posts.forEach(processPostItem);
+                ++rp.session.after;
+
+                doneLoading();
+            };
+            break;
+        default:
+            errmsg = "No popular items";
+            jsonUrl = 'https://api.imgur.com/post/v1/posts?filter[section]=eq:hot&page='+rp.session.after;
+            handleData = function (data) {
+                data.forEach(processPostItem);
+                ++rp.session.after;
+
+                doneLoading();
+            };
+            break;
+        }
+
+        if (!setupLoading(1, errmsg))
+            return;
+
         $.ajax({
             url: jsonUrl,
             dataType: 'json',
@@ -6252,7 +6367,7 @@ $(function () {
             startAnimation(data.index, data.album);
 
         } else if (rp.url.subreddit.startsWith('/imgur/'))
-            getImgurUser();
+            getImgur();
 
         else if (rp.url.subreddit.startsWith('/tumblr/'))
             getTumblrBlog();
