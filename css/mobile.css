@@ -7,6 +7,9 @@
 }
 
 .material-icons { font-size: 36px; }
+#controlsDiv a:before {
+    font-size: 36px;
+}
 
 #titleDiv .info { font-size: 12px; }
 .info { font-size: 16px; }
@@ -14,6 +17,11 @@
 .icontristate { -webkit-appearance: none; }
 
 #subredditUrl { font-size: 16px; }
+
+#navboxLink {
+    width: 36px;
+    height: 36px;
+}
 
 .reddit { display: none; }
 
@@ -28,4 +36,7 @@
 }
 
 /* 3 rows of number visible */
+.numberButton {
+    font-size: 16px;
+}
 .numberButtonList { max-height: 81px; }

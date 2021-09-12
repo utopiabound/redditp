@@ -120,13 +120,11 @@ a:hover {
     text-decoration: none;
     color: #eee;
     font-weight: bold;
-    font-size: 12px;
     text-align: center;
     line-height: 18px;
     padding: 3px;
     border: 1px solid transparent;
 }
-.over18 { color: #f99; }
 
 .error { color: red; }
 
@@ -142,29 +140,40 @@ a:hover {
 #controlsDiv a:before {
     font-family: "Material Icons";
     font-weight: normal;
-    font-size: 24px;
     position: absolute;
-    opacity: 0.4;
     top: 0px;
     left: 0px;
 }
 
+.nbmenu a.image:before { content: "image"; }
 a.video:before { content: "movie"; }
+a.embed:before { content: "ondemand_video"; }
 a.album:before { content: "photo_library"; }
 a.later:before { content: "file_download"; }
+.nbmenu a.thumb:before { content: "insert_photo"; }
+a.html:before { content: "message"; }
 a.failed { text-decoration: line-through; }
-a.embed:before { content: "ondemand_video"; }
+.nbmenu a.failed:before { content: "broken_image"; }
+
+.numberButtonList .over18 { color: #f99; }
 
 .xorig {
     border: 1px solid white;
     border-radius: 5px;
 }
 
+#navboxLink {
+    display: inline-block;
+}
 
 .navbox ul li a {
     cursor:pointer;
 }
-.numberButtonList ul li a:hover { background:#888; color:#000; border: 1px solid transparent; }
+.numberButtonList ul li a:hover {
+    background:#888;
+    color:#000;
+    border: 1px solid transparent;
+}
 .numberButtonList ul li a.active:hover {
     color:  #00f;
     cursor: default;
@@ -172,6 +181,9 @@ a.embed:before { content: "ondemand_video"; }
 .numberButtonList ul li a.active {
     color: #00AAAA;
     box-shadow: 2px 2px 3px #ccc;
+}
+.numberButtonList ul li a:before {
+    opacity: 0.4;
 }
 
 #controlsDiv {position: absolute; bottom: 0; left: 0; }
@@ -197,7 +209,7 @@ h3 { padding: 2px; font-weight: bold; font-size: 16px; }
 /* info comment link (between infol and infop */
 .infoc { margin: 3px 5px -5px 0px; }
 
-label.textlabel { font-weight: bold; font-size: 12px; margin: 0px 0px 0px 2px; }
+label.textlabel { font-weight: bold; margin: 0px 0px 0px 2px; }
 input.textlabel {
     height: 16px;
     width: 16px;

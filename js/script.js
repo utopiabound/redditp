@@ -268,19 +268,8 @@ $(function () {
 
     const LOAD_PREV_ALBUM = -2;
 
-    // Value for each image Type is name of Google icon
-    const imageTypesIcon = {
-        i: 'image',
-        v: 'movie',
-        e: 'ondemand_video',
-        a: 'photo_library',
-        l: 'file_download',
-        t: 'insert_photo',
-        h: 'message',
-        X: 'broken_image'
-    };
     // Each must be different, since we compair on value, not on name
-    // these map to the above enum for google icons (see typeIcon())
+    // these map to the below enum for styles.
     const imageTypes = {
         image: 'i',
         video: 'v',
@@ -290,6 +279,17 @@ $(function () {
         thumb: 't',
         html:  'h',
         fail:  'X'
+    };
+
+    const imageTypeStyle = {
+        i: 'image',
+        v: 'video',
+        e: 'embed',
+        a: 'album',
+        l: 'later',
+        t: 'thumb',
+        h: 'html',
+        X: 'failed'
     };
 
     const configNames = {
@@ -603,10 +603,6 @@ $(function () {
         var data = $('<div/>');
         data.append(_infoAnchor(url, text));
         return data.html();
-    };
-
-    var typeIcon = function(type) {
-        return googleIcon(imageTypesIcon[type]);
     };
 
     var googleIcon = function(icon_name) {
@@ -1736,10 +1732,14 @@ $(function () {
         else if (button == undefined)
             button = $('#albumNumberButtons ul').children(":nth-child("+(parent.album.indexOf(pic)+1)+")").children("a");
 
-        button.removeClass('embed album over18 later video failed html');
         if (isActive(parent))
             $("#albumNumberButtons").hide();
 
+        updateButtonClass(button, pic);
+    };
+
+    var updateButtonClass = function(button, pic) {
+        button.removeClass('image video embed album later thumb html failed over18');
         addButtonClass(button, pic);
     };
 
@@ -2055,6 +2055,7 @@ $(function () {
                     return false;
 
             } else if (hostname == 'redgifs.com' ||
+                       hostname == 'hugetits.win' ||
                        hostname == 'gifdeliverynetwork.com') {
                 shortid = url2shortid(pic.url);
                 if (shortid.indexOf('-') != -1)
@@ -2246,24 +2247,7 @@ $(function () {
         if (photo.type == imageTypes.album && isActive(photo))
             $("#albumNumberButtons").show();
 
-        if (pic.type == imageTypes.embed)
-            button.addClass("embed");
-
-        else if (pic.type == imageTypes.album)
-            button.addClass("album");
-
-        else if (pic.type == imageTypes.video)
-            button.addClass("video");
-
-        else if (pic.type == imageTypes.later)
-            button.addClass("later");
-
-        else if (pic.type == imageTypes.html)
-            button.addClass("html");
-
-        else if (pic.type == imageTypes.fail)
-            button.addClass("failed");
-
+        button.addClass(imageTypeStyle[pic.type]);
     };
 
     // Re-entrant okay
@@ -2925,7 +2909,8 @@ $(function () {
             $('#navboxScore span').attr('title', 'Score: '+photo.score).text(humanReadInt(photo.score));
         } else
             $('#navboxScore').addClass("hidden");
-        $('#navboxLink').attr('href', image.url).attr('title', picTitleText(image)+" (i)").html(typeIcon(image.type));
+        $('#navboxLink').attr('href', image.url).attr('title', picTitleText(image)+" (i)");
+        updateButtonClass($('#navboxLink'), image);
 
         $('#navboxExtra').html(picExtra(image));
 
@@ -3828,7 +3813,7 @@ $(function () {
             };
 
             handleError = function() {
-                jsonUrl = "https://api.redgifs.com/v1/gfycats/" + shortid;
+                jsonUrl = "https://api.redgifs.com/v1/gfycats/" + shortid.toLowerCase();
                 var hData = function (data) {
                     handleGfycatApiItem(photo, data, showCB, 'redgifs')
                 };
@@ -3847,7 +3832,7 @@ $(function () {
             };
 
         } else if (hostname == 'redgifs.com') {
-            jsonUrl = "https://api.redgifs.com/v1/gfycats/" + shortid;
+            jsonUrl = "https://api.redgifs.com/v1/gfycats/" + shortid.toLowerCase();
 
             handleData = function (data) {
                 handleGfycatApiItem(photo, data, showCB, 'redgifs')
