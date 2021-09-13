@@ -2142,6 +2142,9 @@ $(function () {
             } else if (hostname == 'spankbang.com') {
                 shortid = url2shortid(pic.url, 1);
 
+                if (shortid == "s")
+                    return false;
+
                 // no autostart
                 initPhotoEmbed(pic, 'https://spankbang.com/embed/'+shortid, false);
 
@@ -4524,8 +4527,14 @@ $(function () {
                 return;
             data.data.children.forEach(function (dupe) {
                 // Ignore user-subs
-                if (dupe.data.subreddit.startsWith('u_'))
+                if (dupe.data.subreddit.startsWith('u_')) {
+                    log.info("Ignoring duplicate [user sub]: "+dupe.data.subreddit);
                     return;
+                }
+                if (dupe.data.score < rp.settings.minScore) {
+                    log.info("Ignoring duplicate [score too low: "+dupe.data.score+"]: "+dupe.data.subreddit);
+                    return;
+                }
                 var len = addPhotoDupe(photo, {subreddit: dupe.data.subreddit,
                                                commentN: dupe.data.num_comments,
                                                title: dupe.data.title,

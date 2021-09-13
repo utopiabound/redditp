@@ -36,7 +36,6 @@
     width: 16px;
 }
 
-/* 4 rows of number visible */
 .numberButtonList li {
     width: 30px;
     height: 30px;
@@ -48,4 +47,7 @@
 .numberButton {
     font-size: 12px;
 }
-.numberButtonList { max-height: 108px; }
+/* 4 rows of number visible */
+.numberButtonList {
+    max-height: 120px;
+}
