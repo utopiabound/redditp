@@ -2619,6 +2619,7 @@ $(function () {
         if (oldCache[next])
             rp.cache[next] = oldCache[next];
 
+        delete oldCache;
 
         if (albumIndex < 0)
             return;
@@ -3059,7 +3060,7 @@ $(function () {
         newDiv.fadeIn(rp.settings.animationSpeed);
         newDiv.trigger("rpdisplay");
         oldDiv.fadeOut(rp.settings.animationSpeed, function () {
-            oldDiv.remove();
+            oldDiv.detach();
 
             var vid = $('#gfyvid');
             if (vid) {
@@ -3481,7 +3482,19 @@ $(function () {
             if (needreset && imageIndex == rp.session.activeIndex)
                 resetNextSlideTimer();
         }
-        rp.fn.showHtml = showHtml;
+
+        var rpdisplayHtml = function(event) {
+            var div = $(this);
+            div.empty();
+            showHtml(div, event.data.photo.html);
+            return true;
+        };
+        var rpdisplayEmbed = function(event) {
+            var div = $(this);
+            div.empty();
+            showEmbed(div, event.data.photo);
+            return true;
+        };
 
         var showPic = function(pic) {
             if (pic.type == imageTypes.album) {
@@ -3499,12 +3512,7 @@ $(function () {
 
             else if (pic.type == imageTypes.html) {
                 // triggered in replaceBackgroundDiv
-                divNode.bind("rpdisplay", { photo: pic }, function (event) {
-                    var div = $(this);
-                    div.empty();
-                    showHtml(div, event.data.photo.html);
-                    return true;
-                });
+                divNode.bind("rpdisplay", { photo: pic }, rpdisplayHtml);
                 if (divNode.parent()[0] == $('#pictureSlider')[0]) {
                     divNode.trigger("rpdisplay");
                 }
@@ -3512,12 +3520,7 @@ $(function () {
 
             } else if (pic.type == imageTypes.embed) {
                 // triggered in replaceBackgroundDiv
-                divNode.bind("rpdisplay", { photo: pic }, function (event) {
-                    var div = $(this);
-                    div.empty();
-                    showEmbed(div, event.data.photo);
-                    return true;
-                });
+                divNode.bind("rpdisplay", { photo: pic }, rpdisplayEmbed);
                 // If divNode already attached, just redisplay
                 if (divNode.parent()[0] == $('#pictureSlider')[0]) {
                     divNode.trigger("rpdisplay");
