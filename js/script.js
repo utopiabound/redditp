@@ -2563,58 +2563,62 @@ $(function () {
                 loadMoreSlides();
             return;
 
-        } else if (rp.cache[next] === undefined) {
-            var oldCache = rp.cache;
-            rp.cache = {};
-            if (oldCache[next])
-                rp.cache[next] = oldCache[next];
-            else
-                rp.cache[next] = {};
+        }
 
-            if (rp.cache[next][0] === undefined)
-                rp.cache[next][0] = createDiv(next);
+        var oldCache = rp.cache;
+        rp.cache = {};
 
-            // Also create next+1
-            var next1 = getNextSlideIndex(next);
-            if (next1 == next)
-                loadMoreSlides();
-            else if (oldCache[next1])
-                rp.cache[next1] = oldCache[next1];
-            else {
-                    rp.cache[next1] = {};
-                    rp.cache[next1][0] = createDiv(next1);
-            }
+        // Save current
+        if (oldCache[rp.session.activeIndex])
+            rp.cache[rp.session.activeIndex] = oldCache[rp.session.activeIndex];
 
-            // save next+2, but don't create it
-            var next2 = getNextSlideIndex(next1);
-            if (next2 == next1 && next2 != next)
-                loadMoreSlides();
-            else if (oldCache[next2])
-                rp.cache[next2] = oldCache[next2];
+        // Save or Create next
+        if (oldCache[next])
+            rp.cache[next] = oldCache[next];
+        else {
+            rp.cache[next] = {};
+            rp.cache[next][0] = createDiv(next);
+        }
 
-            // save previous
-            if (prev >= 0 && oldCache[prev])
+        // Also create next+1
+        var next1 = getNextSlideIndex(next);
+        if (next1 == next)
+            loadMoreSlides();
+        else if (oldCache[next1])
+            rp.cache[next1] = oldCache[next1];
+        else {
+            rp.cache[next1] = {};
+            rp.cache[next1][0] = createDiv(next1);
+        }
+
+        // save next+2, but don't create it
+        var next2 = getNextSlideIndex(next1);
+        if (next2 == next1 && next2 != next)
+            loadMoreSlides();
+        else if (oldCache[next2])
+            rp.cache[next2] = oldCache[next2];
+
+        // Create or save previous
+        if (prev >= 0) {
+            if (oldCache[prev])
                 rp.cache[prev] = oldCache[prev];
-
-            if (oldCache[rp.session.activeIndex])
-                rp.cache[rp.session.activeIndex] = oldCache[rp.session.activeIndex];
-
-            // save prev-1, but don't create it
-            next = getPrevSlideIndex(prev);
-            if (oldCache[next])
-                rp.cache[next] = oldCache[next];
+            else {
+                rp.cache[prev] = {};
+                rp.cache[prev][0] = createDiv(prev);
+            }
         }
-
         // Preload previous image
-        if (rp.cache[prev] === undefined) {
-            rp.cache[prev] = {};
-            rp.cache[prev][0] = createDiv(prev);
-        }
         if (rp.photos[prev].type == imageTypes.album) {
             var ind = rp.photos[prev].album.length-1;
             if (rp.cache[prev][ind] === undefined)
                 rp.cache[prev][ind] = createDiv(prev, ind);
         }
+
+        // save prev-1, but don't create it
+        next = getPrevSlideIndex(prev);
+        if (oldCache[next])
+            rp.cache[next] = oldCache[next];
+
 
         if (albumIndex < 0)
             return;
@@ -3140,7 +3144,6 @@ $(function () {
 
         // Used by showVideo and showImage
         var divNode = $("<div />", { class: "fullscreen"});
-        divNode.on("rpdisplay", function() {});
 
         if (photo === undefined)
             return divNode;
@@ -3448,9 +3451,9 @@ $(function () {
             return iframe;
         };
 
-        var showEmbed = function(pic) {
+        var showEmbed = function(div, pic) {
             if (rp.settings.embed == rp.ALWAYS || (rp.settings.embed == rp.SOMETIMES && !pic.embed.aplay)) {
-                divNode.append(iFrame(pic));
+                div.append(iFrame(pic));
                 return;
             }
             showThumb(pic);
@@ -3460,10 +3463,10 @@ $(function () {
             });
 
             var title = $('<span>', { class: "title" }).html(hostnameOf(pic.url, true));
-            divNode.prepend($(lem).append(title));
+            div.prepend($(lem).append(title));
         }
 
-        var showHtml = function(html, needreset) {
+        var showHtml = function(div, html, needreset) {
             if (needreset === undefined)
                 needreset = true;
             // can't be <div> because of replaceBackgroundDiv()
@@ -3473,11 +3476,12 @@ $(function () {
                                               webkitallowfullscreen: true,
                                               allowfullscreen: true });
             iframe.html(html);
-            divNode.html(iframe);
+            div.html(iframe);
 
             if (needreset && imageIndex == rp.session.activeIndex)
                 resetNextSlideTimer();
         }
+        rp.fn.showHtml = showHtml;
 
         var showPic = function(pic) {
             if (pic.type == imageTypes.album) {
@@ -3493,20 +3497,31 @@ $(function () {
             if (pic.type == imageTypes.video)
                 showVideo(pic.video);
 
-            else if (pic.type == imageTypes.html)
-                showHtml(pic.html)
+            else if (pic.type == imageTypes.html) {
+                // triggered in replaceBackgroundDiv
+                divNode.bind("rpdisplay", { photo: pic }, function (event) {
+                    var div = $(this);
+                    div.empty();
+                    showHtml(div, event.data.photo.html);
+                    return true;
+                });
+                if (divNode.parent()[0] == $('#pictureSlider')[0]) {
+                    divNode.trigger("rpdisplay");
+                }
 
-            else if (pic.type == imageTypes.embed) {
+
+            } else if (pic.type == imageTypes.embed) {
+                // triggered in replaceBackgroundDiv
+                divNode.bind("rpdisplay", { photo: pic }, function (event) {
+                    var div = $(this);
+                    div.empty();
+                    showEmbed(div, event.data.photo);
+                    return true;
+                });
                 // If divNode already attached, just redisplay
                 if (divNode.parent()[0] == $('#pictureSlider')[0]) {
                     divNode.trigger("rpdisplay");
-                    return;
                 }
-                // triggered in replaceBackgroundDiv
-                divNode.on("rpdisplay", function () {
-                    divNode.empty();
-                    showEmbed(pic);
-                });
 
             } else if (pic.type == imageTypes.fail)
                 showThumb(pic);
@@ -3516,6 +3531,7 @@ $(function () {
 
             } else // Default to image type
                 showImage(pic.url);
+            return divNode;
         };
 
         if (photo.type == imageTypes.image ||
@@ -3528,7 +3544,7 @@ $(function () {
             return divNode;
 
         } else if (photo.type == imageTypes.html) {
-            showHtml(photo.html, false);
+            showHtml(divNode, photo.html, false);
             return divNode;
         }
             

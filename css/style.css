@@ -106,7 +106,7 @@ a:hover {
     border-bottom-color: white;
 }
 
-.navbox { width:450px; max-height: 40%; overflow: visible; position:relative; }
+.navbox { width:450px; overflow: visible; position:relative; }
 
 .numberButtonList { overflow: auto; }
 .navbox ul { list-style-type:none; display:block; margin:0px; right:10px; top:10px; text-align: left;}
