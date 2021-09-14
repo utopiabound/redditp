@@ -343,6 +343,13 @@ $(function () {
             return val.toFixed(1)+suffix;
     }
 
+    // Compare subreddit elements
+    var subredditCompare = function(a, b) {
+        var as = a.subreddit || a.tumblr;
+        var bs = b.subreddit || b.tumblr;
+        return as.toLowerCase().localeCompare(bs.toLowerCase());
+    }
+
     var getNextPhotoOk = function(pic) {
         var photo = photoParent(pic);
 
@@ -1346,18 +1353,25 @@ $(function () {
             photo.fb_thumb.push(oldthumb);
     };
 
+    // Return index of inserted duplicate, or -1 if not
     var addPhotoDupe = function(photo, dupe) {
         if (photo.id == dupe.id &&
             photo.subreddit == dupe.subreddit &&
             ((photo.tumblr) ?photo.tumblr.blog :undefined) == dupe.tumblr)
-            return 0;
-        for(var i = 0; i < photo.dupes.length; ++i) {
+            return -1;
+        var i = 0;
+        while (i < photo.dupes.length) {
             if (photo.dupes[i].id == dupe.id &&
                 photo.dupes[i].subreddit == dupe.subreddit &&
                 photo.dupes[i].tumblr == dupe.tumblr)
-                return -i;
+                return -1;
+            if (subredditCompare(photo.dupes[i], dupe) > 0)
+                break;
+            ++i;
         }
-        return photo.dupes.push(dupe);
+
+        photo.dupes.splice(i, 0, dupe);
+        return i;
     };
 
     var addVideoUrl = function(photo, type, url) {
@@ -2211,7 +2225,8 @@ $(function () {
                     if (href.prop('hostname').startsWith('m.'))
                         href.prop('hostname', href.prop('hostname').replace('m.', 'www.'));
 
-                    if (hostname == 'nonktube.com' ||
+                    if (hostname == 'hardnsfw.com' ||
+                        hostname == 'nonktube.com' ||
                         hostname == 'theporngod.com' ||
                         hostname == 'xhamster.com' ||
                         hostname == 'youporn.com') {
@@ -2754,7 +2769,7 @@ $(function () {
             if (pic.gfycat.tags && pic.gfycat.tags.length > 0)
                 pic.gfycat.tags.forEach(function(tag) {
                     var li = $("<li>", { class: 'list'});
-                    li.html(gfycatTagLink(tag, photo.gfycat.type));
+                    li.html(gfycatTagLink(tag, pic.gfycat.type));
                     ++ total;
                     $('#duplicateUl').append(li);
                 });
@@ -2785,7 +2800,7 @@ $(function () {
             });
         }
 
-        // Reddit Duplicates - @@
+        // Reddit Duplicates
         if (photo.dupes && photo.dupes.length > 0) {
             var multi = [];
             if (photo.subreddit)
@@ -4535,13 +4550,13 @@ $(function () {
                     log.info("Ignoring duplicate [score too low: "+dupe.data.score+"]: "+dupe.data.subreddit);
                     return;
                 }
-                var len = addPhotoDupe(photo, {subreddit: dupe.data.subreddit,
+                var index = addPhotoDupe(photo, {subreddit: dupe.data.subreddit,
                                                commentN: dupe.data.num_comments,
                                                title: dupe.data.title,
                                                date: dupe.data.created,
                                                id: dupe.data.id});
-                if (len > 0)
-                    getRedditComments(photo, photo.dupes[len-1]);
+                if (index >= 0)
+                    getRedditComments(photo, photo.dupes[index]);
             });
             if (isActive(photo)) {
                 if (rp.session.activeAlbumIndex >= 0)
@@ -4726,6 +4741,8 @@ $(function () {
 
             if (duplicates === undefined)
                 duplicates = [];
+            else
+                duplicates.sort(subredditCompare);
 
             // parse parent if crosspost
             var idx = idorig;
