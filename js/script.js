@@ -1513,49 +1513,49 @@ $(function () {
             log.error("Delete of bad type:"+pic.type+" for photo: "+photo.url);
             return;
         }
-        if (pic.imgur) {
-            if (photo.imgur) {
-                for (x in pic.imgur) {
-                    if (!photo.imgur[x])
-                        photo.imgur[x] = pic.imgur[x];
-                }
-            } else
-                photo.imgur = pic.imgur;
+
+        // Copy all entries not in photo from pic
+        var keys = Object.keys(pic);
+        for (var i in keys) {
+            var key = keys[i];
+            if (!photo[key])
+                photo[key] = pic[key];
         }
-        if (pic.subreddit && !photo.subreddit)
-            photo.subreddit = pic.subreddit;
-        if (!photo.date && pic.date)
-            photo.date = pic.date;
-        if (!photo.extra && pic.extra)
-            photo.extra = pic.extra;
         log.debug("moved first album to primary item: "+photo.url);
         fixPhotoButton(photo);
         delete photo.album;
     };
 
-    var initPhotoAlbum = function (pic, keepfirst) {
+    var initPhotoAlbum = function(pic, keepfirst) {
         var photo = photoParent(pic);
         if (keepfirst === undefined)
             keepfirst = true;
 
         if (photo.type != imageTypes.album) {
-            var img = {
-                url: photo.url,
-                thumb: photo.thumb,
-                type: photo.type,
-                extra: photo.extra,
-            };
-            delete photo.extra;
+            var img;
+            if (keepfirst) {
+                img = {
+                    url: photo.url,
+                    thumb: photo.thumb,
+                    type: photo.type,
+                };
 
-            if (photo.type == imageTypes.video) {
-                img.video = photo.video;
-                delete photo.video;
+                for (const key of ["extra", "gfycat", "imgur", "flickr", "tumblr"]) {
+                    if (photo[key]) {
+                        img[key] = photo[key];
+                        delete photo[key];
+                    }
+                }
 
-            } else if (pic.type == imageTypes.html) {
-                img.html = photo.html;
-                delete photo.html;
+                if (photo.type == imageTypes.video) {
+                    img.video = photo.video;
+                    delete photo.video;
+
+                } else if (pic.type == imageTypes.html) {
+                    img.html = photo.html;
+                    delete photo.html;
+                }
             }
-
             photo.type = imageTypes.album;
             photo.insertAt = -1;
             photo.album = [];
@@ -2956,23 +2956,37 @@ $(function () {
         if (photo.subreddit) {
             $('#navboxSubreddit').html(redditLink(subreddit)).show();
 
-            if (photo.gfycat && photo.gfycat.user)
-                $('#navboxExtra').append(gfycatApiUserLink(photo.gfycat.user, photo.gfycat.type));
-            else if (photo.imgur && photo.imgur.user)
-                $('#navboxExtra').append(imgurUserLink(photo.imgur.user));
-            else if (photo.tumblr)
-                $('#navboxExtra').append(tumblrLink(photo.tumblr.blog));
-            else if (photo.flickr && authName)
-                $('#navboxExtra').append(flickrUserLink(photo.flickr.nsid));
+            if (image.gfycat && image.gfycat.user)
+                $('#navboxExtra').append(gfycatApiUserLink(image.gfycat.user, image.gfycat.type));
+            else if (image.imgur && image.imgur.user)
+                $('#navboxExtra').append(imgurUserLink(image.imgur.user));
+            else if (image.tumblr)
+                $('#navboxExtra').append(tumblrLink(image.tumblr.blog));
+            else if (image.flickr && authName)
+                $('#navboxExtra').append(flickrUserLink(image.flickr.nsid));
 
-        } else if (photo.gfycat && photo.gfycat.user)
+        } else if (image.gfycat && image.gfycat.user)
+            $('#navboxSubreddit').html(gfycatApiUserLink(image.gfycat.user, image.gfycat.type)).show();
+
+        else if (photo.gfycat && photo.gfycat.user) {
+            log.warning("["+imageIndex+"]["+albumIndex+"] GFYCAT on photo, not image");
             $('#navboxSubreddit').html(gfycatApiUserLink(photo.gfycat.user, photo.gfycat.type)).show();
 
-        else if (photo.tumblr)
+        } else if (image.tumblr)
+            $('#navboxSubreddit').html(tumblrLink(image.tumblr.blog)).show();
+
+        else if (photo.tumblr) {
+            log.warning("["+imageIndex+"]["+albumIndex+"] Tumblr on photo, not image");
             $('#navboxSubreddit').html(tumblrLink(photo.tumblr.blog)).show();
-        else if (photo.imgur && photo.imgur.user)
+
+        } else if (image.imgur && image.imgur.user)
             $('#navboxSubreddit').html(imgurUserLink(photo.imgur.user)).show();
-        else
+
+        else if (photo.imgur && photo.imgur.user) {
+            log.warning("["+imageIndex+"]["+albumIndex+"] Tumblr on photo, not image");
+            $('#navboxSubreddit').html(imgurUserLink(photo.imgur.user)).show();
+
+        } else
             $('#navboxSubreddit').hide();
 
         if (albumIndex >= 0)
@@ -6021,6 +6035,7 @@ $(function () {
             reqFunc = 'flickr.people.getPhotos';
             reqData = { user_id: flickrUserNSID(user),
                         extras: 'url_o,url_h,url_k,url_b,date_upload',
+                        safe_search: 3,
                         page: rp.session.after};
         }
 
