@@ -4751,6 +4751,32 @@ $(function () {
 
         jsonUrl += rp.url.vars + rp.session.after;
 
+        var duplicateInList = function(duplicates, item) {
+            for (var dup of duplicates) {
+                if (dup.id == item.id && dup.subreddit == item.subreddit)
+                    return true;
+            }
+            return false;
+        };
+
+        var duplicateAddCross = function(orig_id, duplicates, search_item) {
+            if (search_item.crosspost_parent_list === undefined)
+                return duplicates;
+            for (var i = 0; i < search_item.crosspost_parent_list.length; ++i) {
+                var item = search_item.crosspost_parent_list[i];
+                if (!item.subreddit.startsWith("u_") && !duplicateInList(duplicates, item)) {
+                    dedupAdd(item.subreddit, item.id, '/r/'+orig_id.subreddit+'/'+orig_id.id);
+                    duplicates.push({subreddit: item.subreddit,
+                                     commentN: item.num_comments,
+                                     title: item.title,
+                                     date: item.created,
+                                     id: item.id});
+                }
+                duplicates = duplicateAddCross(orig_id, duplicates, item);
+            }
+            return duplicates;
+        };
+
         var addImageSlideRedditT3 = function (idorig, duplicates) {
             var val = dedupVal(idorig.subreddit, idorig.id);
             if (val) {
@@ -4765,8 +4791,6 @@ $(function () {
 
             if (duplicates === undefined)
                 duplicates = [];
-            else
-                duplicates.sort(subredditCompare);
 
             // parse parent if crosspost
             var idx = idorig;
@@ -4774,6 +4798,8 @@ $(function () {
                    idx.crosspost_parent_list.length > 0) {
                 idx = idx.crosspost_parent_list[0];
             }
+
+            duplicates = duplicateAddCross(idorig, duplicates, idorig);
 
             var title = fixupTitle(idorig.title)
 
@@ -4786,6 +4812,8 @@ $(function () {
                     title = title.replace(re, "").trim();
                 }
             }
+
+            duplicates.sort(subredditCompare);
 
             var url = fixupUrl(idx.url || idx.url_overridden_by_dest);
 
