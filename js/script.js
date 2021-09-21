@@ -787,28 +787,24 @@ $(function () {
 
     rp.fn.url2shortid = url2shortid;
 
-    var isImageExtension = function (url) {
+    var isGoodExtension = function (url, arr) {
         var extension = extensionOf(url);
         if (extension === '')
             return false;
 
-        if (rp.settings.goodImageExtensions.indexOf(extension) >= 0)
+        if (arr.indexOf(extension) >= 0)
             return extension;
 
         else
             return false;
     };
 
-    var isVideoExtension = function (url) { 
-        var extension = extensionOf(url);
-        if (extension === '')
-            return false;
+    var isImageExtension = function(url) {
+        return isGoodExtension(url, rp.settings.goodImageExtensions);
+    };
 
-        if (rp.settings.goodVideoExtensions.indexOf(extension) >= 0)
-            return extension;
-
-        else
-            return false;
+    var isVideoExtension = function(url) {
+        return isGoodExtension(url, rp.settings.goodVideoExtensions);
     };
 
     //
@@ -1031,8 +1027,6 @@ $(function () {
     };
 
     var getConfig = function (c_name, defaultValue) {
-        if (defaultValue === undefined)
-            defaultValue = {};
         // undefined in case nothing found
         var value;
         var name = "redditp-"+c_name;
@@ -1043,9 +1037,11 @@ $(function () {
         if (value === "undefined" || value == undefined)
             return defaultValue;
         value = JSON.parse(value);
-        for (var k of Object.keys(defaultValue)) {
-            if (!value[k])
-                value[k] = defaultValue[k];
+        if (typeof(defaultValue) == "object") {
+            for (var k of Object.keys(defaultValue)) {
+                if (!value[k])
+                    value[k] = defaultValue[k];
+            }
         }
         log.debug("Getting Config "+c_name+" = "+value);
         return value;
