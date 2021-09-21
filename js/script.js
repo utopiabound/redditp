@@ -902,10 +902,11 @@ $(function () {
     });
 
     var setVcollapseHtml = function(collapser) {
+        var sym;
         var state = collapser.data(STATE);
         if (state == "closed") {
             var count = collapser.data('count');
-            var sym = collapser.attr('symbol-close');
+            sym = collapser.attr('symbol-close');
             if (count)
                 collapser.html('<span class="count">('+count+')</span>');
             else if (sym)
@@ -913,7 +914,7 @@ $(function () {
             else
                 collapser.html("&darr;"); // down arrow
         } else { // state == open
-            var sym = collapser.attr('symbol-open');
+            sym = collapser.attr('symbol-open');
             if (sym)
                 collapser.html(sym);
             else
@@ -957,13 +958,12 @@ $(function () {
             state = rp.NEVER;
             break;
         default:
-            throw "Unknown state for "+item.attr('id')+": "+item.val();;
+            throw "Unknown state for "+item.attr('id')+": "+item.val();
         }
         return state;
     };
 
     var nextTristate = function(state) {
-        var state;
         switch (state) {
         case rp.ALWAYS:
             state = rp.NEVER;
@@ -1132,7 +1132,7 @@ $(function () {
         rp.flickr.u2nsid = getConfig(configNames.nsid, {});
         // Build reverse map
         if (rp.flickr.u2nsid)
-            rp.flickr.nsid2u = Object.keys(rp.flickr.u2nsid).reduce(function(obj,key){
+            rp.flickr.nsid2u = Object.keys(rp.flickr.u2nsid).reduce(function(obj,key) {
                 obj[ rp.flickr.u2nsid[key] ] = key;
                 return obj;
             }, {});
@@ -1171,10 +1171,11 @@ $(function () {
                 config = rp.ALWAYS;
             else if (config === false)
                 config = rp.NEVER;
-
+            if (typeof(config) != "number")
+                config = rp.NEVER;
             rp.settings[name] = config;
-            setConfig(configNames[name], config)
-            setTristate($('#'+name), config)
+            setConfig(configNames[name], config);
+            setTristate($('#'+name), config);
         };
         tristateConvert("embed");
 
@@ -1200,18 +1201,6 @@ $(function () {
             $('#timeToNextSlide').val(rp.settings.timeToNextSlide);
         };
         updateTimeToNextSlide(getConfig(configNames.timeToNextSlide));
-
-        var updateMinScore = function(c_val) {
-            if (!isFinite(c_val))
-                c_val = $('#minScore').val();
-            var val = parseInt(c_val, 10);
-            if (!(val >= 0))
-                return;
-            rp.settings.minScore = val;
-            setConfig(configNames.minScore, rp.settings.minScore);
-            $('#minScore').val(rp.settings.minScore);
-        };
-        updateMinScore(getConfig(configNames.minScore));
 
         volume_set(getConfig(configNames.decivolume));
         $("a.volume").click(volume_adjust);
@@ -1243,7 +1232,6 @@ $(function () {
         });
 
         $('#timeToNextSlide').keyup(updateTimeToNextSlide);
-        $('#minScore').keyup(updateMinScore);
 
         $('#prevButton').click(prevAlbumSlide);
         $('#nextButton').click(nextAlbumSlide);
@@ -1271,8 +1259,11 @@ $(function () {
             $('.needlogin').hide();
 
         // OS/Browser Specific
-        if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
-            var v = (navigator.userAgent).match(/OS (\d+)/);
+        var ua = navigator.userAgent;
+        if (/(iPad|iPhone|iPod|Mobile)/.test(ua)) {
+            var v = ua.match(/OS (\d+)/);
+            if (v.length < 2)
+                v[1] = 9;
 
             if (parseInt(v[1], 10) < 10) {
                 rp.session.needsPlayButton = true;
@@ -1311,7 +1302,8 @@ $(function () {
                 }
                 open_in_background($(this));
             });
-
+            setConfig(configNames.embed, rp.NEVER);
+            setTristate($('#embed'), rp.NEVER);
         }
     };
 
@@ -1841,20 +1833,6 @@ $(function () {
 
                 // otherwise simple image
 
-            } else if (hostname == 'gfycat.com') {
-                // set photo url to sane value (incase it's originally a thumb link)
-                shortid = url2shortid(pic.url);
-                // Strip everything trailing '-'
-                if (shortid.indexOf('-') != -1)
-                    shortid = shortid.substr(0, shortid.indexOf('-'));
-                if (shortid == 'about')
-                    return false;
-
-                pic.url = gfycatPhotoUrl(shortid, 'gfycat');
-
-                // These domains should be processed later, unless direct link to video
-                pic.type = imageTypes.later;
-
             } else if (hostname == 'wordpress.com' ||
                        hostname == 'wp.com') {
                 // https://iN.wp.com/WP-SITE/wp-content/uploads/YYYY/MM/INDEX.jpg ==
@@ -2089,13 +2067,17 @@ $(function () {
                 else
                     return false;
 
-            } else if (hostname == 'redgifs.com' ||
+            } else if (hostname == 'gfycat.com' ||
+                       hostname == 'redgifs.com' ||
                        hostname == 'hugetits.win' ||
                        hostname == 'gifdeliverynetwork.com') {
                 shortid = url2shortid(pic.url);
+                // Strip everything trailing '-'
                 if (shortid.indexOf('-') != -1)
                     shortid = shortid.substr(0, shortid.indexOf('-'));
-                pic.url = gfycatPhotoUrl(shortid, 'redgifs');
+                if (shortid == 'about')
+                    return false;
+                pic.url = gfycatPhotoUrl(shortid, (hostname == 'gfycat.com') ?'gfycat' :'redgifs');
                 pic.type = imageTypes.later;
 
             } else if (hostname == 'clippituser.tv' ||
@@ -2921,7 +2903,7 @@ $(function () {
         updateExtraLoad();
 
         var url = image.o_url || image.url;
-        $('#navboxOrigLink').attr('href', url).removeClass('hidden');
+        $('#navboxOrigLink').attr('href', url).parent().show();
         setFavicon($('#navboxOrigLink'), image, url);
         $('#navboxImageSearch').attr('href', 'https://www.google.com/searchbyimage?encoded_image=&image_content=&filename=&hl=en&image_url='+image.url).removeClass('hidden');
         switch (image.type) {
@@ -2939,7 +2921,7 @@ $(function () {
             setFavicon($('#navboxAlbumOrigLink'), photo);
             $('#navboxAlbumOrigLink').removeClass('hidden');
             if (url == photo.o_url)
-                $('#navboxOrigLink').addClass('hidden');
+                $('#navboxOrigLink').parent().hide();
         } else {
             $('#navboxAlbumOrigLink').attr('href', "#");
             $('#navboxAlbumOrigLink').addClass('hidden');
@@ -4089,8 +4071,8 @@ $(function () {
 
         } else if (rp.wpv2[hostname]) {
             shortid = url2shortid(photo.url);
-            origin = originOf(photo.url);
-            jsonUrl = origin+'/wp-json/wp/v2/posts/?slug='+shortid+'&_jsonp=?';
+            var o = originOf(photo.url);
+            jsonUrl = o+'/wp-json/wp/v2/posts/?slug='+shortid+'&_jsonp=?';
 
             handleData = function(data) {
                 getPostWPv2(
