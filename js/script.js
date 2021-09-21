@@ -219,7 +219,8 @@ rp.faviconcache = {};
 rp.defaults = {
     wpv2: {
         'fapdungeon.com': true,
-        'fapdungeons.com': true
+        'fapdungeons.com': true,
+        'stepporncentral.net': true,
     }
 };
 
@@ -842,19 +843,27 @@ $(function () {
     // rp.dedup Helper functions
     //
 
-    // orig_sub and orig_id are optional for SELF links
-    var dedupAdd = function(sub, id, link) {
+    var dedupArrAdd = function(arr, sub, id, link)  {
         if (!link)
             link = "SELF";
-        if (!rp.dedup[sub])
-            rp.dedup[sub] = {};
-        if (!rp.dedup[sub][id])
-            rp.dedup[sub][id] = link;
-        return rp.dedup[sub][id];
+        if (!arr[sub])
+            arr[sub] = {};
+        if (!arr[sub][id])
+            arr[sub][id] = link;
+        return arr[sub][id];
+    };
+
+    var dedupArrVal = function(arr, sub, id) {
+        return (arr[sub]) ?arr[sub][id] :undefined;
+    };
+
+    // orig_sub and orig_id are optional for SELF links
+    var dedupAdd = function(sub, id, link) {
+        return dedupArrAdd(rp.dedup, sub, id, link);
     };
 
     var dedupVal = function(sub, id) {
-        return (rp.dedup[sub]) ?rp.dedup[sub][id] :undefined;
+        return dedupArrVal(rp.dedup, sub, id);
     };
 
     // **************************************************************
@@ -4571,6 +4580,63 @@ $(function () {
                 return;
         }
 
+        // This allow loading duplicates of found subreddits w/o loops
+        var dupes = { };
+        if (photo.subreddit)
+            dedupArrAdd(dupes, photo.subreddit, photo.id);
+
+        var handleT3Dupe = function(item) {
+            // get cross-posts
+            var v = dedupArrVal(dupes, item.data.subreddit, item.data.id);
+            if (v !== undefined)
+                log.debug(" not loading duplicate: /r/"+item.data.subreddit+" "+item.data.id);
+            else if (item.data.num_crossposts > 0) {
+                var jurl = rp.redditBaseUrl + '/duplicates/' + item.data.id + '.json?show=all';
+                var hdata = function (data) {
+                    var item = data[0].data.children[0];
+                    for(i = 0; i < data[1].data.children.length; ++i) {
+                        var dupe = data[1].data.children[i];
+                        if (dedupArrAdd(dupes, dupe.data.subreddit, dupe.data.id, '/r/'+item.data.subreddit+'/'+item.data.id) == "SELF")
+                            continue;
+                        var v = dedupVal(dupe.data.subreddit, dupe.data.id);
+                        if (v !== undefined) {
+                            log.info(" ignoring duplicate [main dedup]: "+v);
+                            continue;
+                        }
+                        handleT3Dupe(dupe);
+                    }
+                };
+                log.info("loading duplicates: /r/"+item.data.subreddit+" "+item.data.id);
+                $.ajax({
+                    url: jurl,
+                    dataType: 'json',
+                    success: hdata,
+                    error: failedAjax,
+                    timeout: rp.settings.ajaxTimeout,
+                    crossDomain: true,
+                });
+            }
+            // Ignore user-subs
+            if (item.data.subreddit.startsWith('u_')) {
+                dedupArrAdd(dupes, item.data.subreddit, item.data.id);
+                log.info("Ignoring duplicate [user sub]: "+item.data.subreddit);
+                return;
+            }
+            if (item.data.score < rp.settings.minScore) {
+                dedupArrAdd(dupes, item.data.subreddit, item.data.id);
+                log.info("Ignoring duplicate [score too low: "+item.data.score+"]: "+item.data.subreddit);
+                return;
+            }
+            var index = addPhotoDupe(photo, { subreddit: item.data.subreddit,
+                                              commentN: item.data.num_comments,
+                                              title: item.data.title,
+                                              date: item.data.created,
+                                              id: item.data.id});
+            dedupArrAdd(dupes, item.data.subreddit, item.data.id);
+            if (index >= 0)
+                getRedditComments(photo, photo.dupes[index]);
+        };
+
         // https://www.reddit.com/search.json?q=url:SHORTID+site:HOSTNAME
         var jsonUrl = rp.url.get + '/search.json?include_over_18=on&q=url:'+shortid+'+site:'+site;
         var handleData = function (data) {
@@ -4578,24 +4644,7 @@ $(function () {
                 updateExtraLoad();
             if (data.data.dist == 0)
                 return;
-            data.data.children.forEach(function (dupe) {
-                // Ignore user-subs
-                if (dupe.data.subreddit.startsWith('u_')) {
-                    log.info("Ignoring duplicate [user sub]: "+dupe.data.subreddit);
-                    return;
-                }
-                if (dupe.data.score < rp.settings.minScore) {
-                    log.info("Ignoring duplicate [score too low: "+dupe.data.score+"]: "+dupe.data.subreddit);
-                    return;
-                }
-                var index = addPhotoDupe(photo, {subreddit: dupe.data.subreddit,
-                                               commentN: dupe.data.num_comments,
-                                               title: dupe.data.title,
-                                               date: dupe.data.created,
-                                               id: dupe.data.id});
-                if (index >= 0)
-                    getRedditComments(photo, photo.dupes[index]);
-            });
+            data.data.children.forEach(handleT3Dupe);
             if (isActive(photo)) {
                 if (rp.session.activeAlbumIndex >= 0)
                     photo = photo.album[rp.session.activeAlbumIndex];
@@ -5124,7 +5173,7 @@ $(function () {
                         continue;
                     if (dedupAdd(dupe.data.subreddit, dupe.data.id, '/r/'+item.data.subreddit+'/'+item.data.id) == "SELF") {
                         log.info('cannot display url [non-self dup]: '+item.data.url);
-                        return;
+                        continue;
                     }
                     duplicates.push({subreddit: dupe.data.subreddit,
                                      commentN: dupe.data.num_comments,
