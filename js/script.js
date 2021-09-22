@@ -1664,10 +1664,10 @@ $(function () {
 
         var total = 0;
         if (photo.type == imageTypes.album) {
-            $.each(photo.album, function(index, pic) {
+            for (var [index, pic] of photo.album.entries()) {
                 ul.append(albumButtonLi(pic, index));
                 ++ total;
-            });
+            }
 
             if ($('#albumCollapser').data(STATE) == "closed")
                 $(div).hide();
@@ -2512,25 +2512,33 @@ $(function () {
             break;
         case "9":
             ++i;
+            // fall through
         case "8":
             ++i;
+            // fall through
         case "7":
             ++i;
+            // fall through
         case "6":
             ++i;
+            // fall through
         case "5":
             ++i;
+            // fall through
         case "4":
             ++i;
+            // fall through
         case "3":
             ++i;
+            // fall through
         case "2":
             ++i;
+            // fall through
         case "1":
             if ($('#duplicateUl li .infor')[i])
                 open_in_background_url($('#duplicateUl li .infor')[i]);
             break;
-        case "o": // open comment
+        case "o": // open comment - fall through
         case "0":
             open_in_background_url($('#navboxSubreddit a:last-of-type')[0]);
             break;
@@ -3820,7 +3828,7 @@ $(function () {
 
                     photo = initPhotoAlbum(photo, false);
                     // @@TODO: check to see if data.photoset.total > data.photoset.perpage
-                    $.each(data.photoset.photo, function(i, item) {
+                    data.photoset.photo.forEach( function(item) {
                         var pic = { url: flickrPhotoUrl(item),
                                     flickr: { nsid: userid },
                                     o_url: ['https://flickr.com/photos', userid, item.id].join('/'),
@@ -4601,7 +4609,7 @@ $(function () {
                 var jurl = rp.redditBaseUrl + '/duplicates/' + item.data.id + '.json?show=all';
                 var hdata = function (data) {
                     var item = data[0].data.children[0];
-                    for(i = 0; i < data[1].data.children.length; ++i) {
+                    for(var i = 0; i < data[1].data.children.length; ++i) {
                         var dupe = data[1].data.children[i];
                         if (dedupArrAdd(dupes, dupe.data.subreddit, dupe.data.id, '/r/'+item.data.subreddit+'/'+item.data.id) == "SELF")
                             continue;
@@ -5394,7 +5402,7 @@ $(function () {
 
                 initPhotoVideo(pic, [], item.poster);
 
-                $.each(item.children, function(index, source) {
+                item.children.forEach(function(source) {
                     var src = source.getAttribute('src');
                     if (src === null)
                         return;
@@ -5428,7 +5436,7 @@ $(function () {
         photo = initPhotoAlbum(photo);
         // Create virtual document so that external references are not loaded
         var ownerDocument = document.implementation.createHTMLDocument('virtual');
-        $('<div />', ownerDocument).html(html).find('img, video, iframe').each(function(index, item) {
+        $('<div />', ownerDocument).html(html).find('img, video, iframe').each(function(_i, item) {
             // init url for relative urls/srcs
             var pic = { url: item.src || item.currentSrc, title: item.alt || item.title, o_url: o_link || photo.url, };
             if (extra)
@@ -6455,7 +6463,7 @@ $(function () {
         if (rp.url.vars !== '')
             rp.url.vars = '&' + rp.url.vars;
 
-        $('a.hardlink').each(function(index, item) {
+        $('a.hardlink').each(function(_i, item) {
             var href = pathnameOf(item.href);
             item.href = rp.url.base+href;
             item.classList.remove('hardlink');
