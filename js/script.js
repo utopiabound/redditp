@@ -576,12 +576,7 @@ $(function () {
         var data = $('<div/>');
         data.append(_infoAnchor(rp.url.base+local, text, urlalt, classes+" infol local"));
         var link = _infoAnchor(url, '', urlalt, classes+" infor remote");
-        if (favicon === "reddit") {
-            if (rp.session.showRedditLink)
-                link.html($('<img>', { class: "reddit",
-                                       src: rp.url.root+'images/reddit.svg' }));
-        } else if (favicon !== null)
-            setFavicon(link, { url: url, favicon: favicon });
+        setFavicon(link, { url: url, favicon: favicon });
         data.append(link);
         return data.html();
     };
@@ -2371,6 +2366,12 @@ $(function () {
             url = pic.o_url || pic.url;
         // #1 pic.favicon
         var fav = pic.favicon;
+        // #1a "reddit" is special
+        if (fav === "reddit") {
+            elem.html($("<img />", {'class': 'reddit', src: rp.url.root+'images/reddit.svg'}));
+            return;
+        }
+
         // #2 rp.favicon[]
         if (fav === undefined) {
             var sld = hostnameOf(url, true).match(/[^.]*/)[0];
@@ -2418,6 +2419,12 @@ $(function () {
         img.on('load',  { hn: hostname, elem: elem, backup: backup }, fixFavicon);
 
         elem.html(img);
+    };
+
+    var setSubredditLink = function(url, type) {
+        var link = $('#subredditLink');
+        link.prop('href', url).show();
+        setFavicon(link, { url: url, favicon: type });
     };
 
     // Register keyboard events on the whole document
@@ -4646,9 +4653,10 @@ $(function () {
                 return;
             data.data.children.forEach(handleT3Dupe);
             if (isActive(photo)) {
+                var pic = photo;
                 if (rp.session.activeAlbumIndex >= 0)
-                    photo = photo.album[rp.session.activeAlbumIndex];
-                updateDuplicates(photo);
+                    pic = photo.album[rp.session.activeAlbumIndex];
+                updateDuplicates(pic);
             }
         };
 
@@ -4834,6 +4842,8 @@ $(function () {
                                      title: item.title,
                                      date: item.created,
                                      id: item.id});
+                } else {
+                    log.info("ignoring duplicate [user sub]: "+item.subreddit);
                 }
                 duplicates = duplicateAddCross(orig_id, duplicates, item);
             }
@@ -5156,7 +5166,7 @@ $(function () {
                 var end = rp.url.subreddit.replace(/^\/r\/rand(om|nsfw)/i,'');
                 rp.url.subreddit = '/r/' + data.data.children[0].data.subreddit+end;
 
-                $('#subredditLink').prop('href', rp.redditBaseUrl + rp.url.subreddit);
+                setSubredditLink(rp.redditBaseUrl + rp.url.subreddit, "reddit");
                 $('#subredditUrl').val(rp.url.subreddit);
                 // fix choices after determining correct subreddit
                 setupChoices();
@@ -5169,8 +5179,10 @@ $(function () {
                 var i;
                 for(i = 0; i < data[1].data.children.length; ++i) {
                     var dupe = data[1].data.children[i];
-                    if (dupe.data.subreddit.startsWith("u_"))
+                    if (dupe.data.subreddit.startsWith("u_")) {
+                        log.info(" ignoring duplicate [user sub]: "+dupe.data.subreddit);
                         continue;
+                    }
                     if (dedupAdd(dupe.data.subreddit, dupe.data.id, '/r/'+item.data.subreddit+'/'+item.data.id) == "SELF") {
                         log.info('cannot display url [non-self dup]: '+item.data.url);
                         continue;
@@ -5333,7 +5345,7 @@ $(function () {
         });
     };
 
-    var processHaystack = function(photo, html, docheck) {
+    var processHaystack = function(photo, html, docheck, extra, o_link) {
         if (docheck === undefined)
             docheck = false;
 
@@ -5418,7 +5430,9 @@ $(function () {
         var ownerDocument = document.implementation.createHTMLDocument('virtual');
         $('<div />', ownerDocument).html(html).find('img, video, iframe').each(function(index, item) {
             // init url for relative urls/srcs
-            var pic = { url: item.src || item.currentSrc, title: item.alt || item.title, o_url: photo.url, };
+            var pic = { url: item.src || item.currentSrc, title: item.alt || item.title, o_url: o_link || photo.url, };
+            if (extra)
+                pic.extra = extra;
             if (processNeedle(pic, item) && processPhoto(pic) &&
                 !isAlbumDupe(photo, pic.url.replace(/-\d+x\d+\./, "."))) {
                 addAlbumItem(photo, pic);
@@ -5444,16 +5458,18 @@ $(function () {
         if (successcb === undefined)
             successcb = addImageSlide;
         var hn = hostnameOf(photo.url);
-        photo.extra = localLink(originOf(photo.url), hn, "/wp2/"+hn, "", rp.favicons['wordpress']);
+        var extra = localLink(originOf(photo.url), hn, "/wp2/"+hn, "", rp.favicons['wordpress']);
+        var o_link = photo.url;
+        photo.extra = extra;
         photo = initPhotoAlbum(photo, false);
         if (photo.o_url === undefined)
             photo.o_url = photo.url;
         var rc = false;
 
-        if (post.content && processHaystack(photo, post.content.rendered, false))
+        if (post.content && processHaystack(photo, post.content.rendered, false, extra, o_link))
             rc = true;
 
-        if (post.description && processHaystack(photo, post.description.rendered, false))
+        if (post.description && processHaystack(photo, post.description.rendered, false, extra, o_link))
             rc = true;
 
         // Pull down 100, but only videos and images
@@ -5476,7 +5492,7 @@ $(function () {
                 data.forEach(function(item) {
                     if (!item)
                         return;
-                    var pic = { url: item.source_url,
+                    var pic = { url: item.source_url, extra: extra, o_url: o_link,
                                 title: unescapeHTML(item.caption.rendered) || item.alt_text || item.title.rendered };
                     if (processPhoto(pic)) {
                         addAlbumItem(photo, pic);
@@ -5557,7 +5573,7 @@ $(function () {
         var photo = initPhotoAlbum(pic, false);
         for(k in post.attachments) {
             att = post.attachments[k];
-            var img = { title: att.caption || att.title };
+            var img = { title: att.caption || att.title, o_url: pic.url };
             if (processAttachment(att, img) && processPhoto(img)) {
                 addAlbumItem(photo, img);
                 rc = true;
@@ -5597,7 +5613,7 @@ $(function () {
             return;
         }
 
-        $('#subredditLink').prop('href', 'https://'+hostname);
+        setSubredditLink('https://'+hostname);
         $('#subredditUrl').val('/wp2/' + hostname + ((a.length > 3) ? "/"+a[3] :""));
 
         var scheme = (rp.insecure[hostname]) ?'http' :'https';
@@ -5691,7 +5707,7 @@ $(function () {
         if (hostname.indexOf('.') < 0)
             hostname += '.wordpress.com';
 
-        $('#subredditLink').prop('href', 'https://'+hostname);
+        setSubredditLink('https://'+hostname);
 
         // If we know this fails, bail
         if (rp.wpv2[hostname] !== undefined) {
@@ -5926,7 +5942,7 @@ $(function () {
             rp.session.after = 0;
 
         var handleData = function (data) {
-            $('#subredditLink').prop('href', data.response.blog.url);
+            setSubredditLink(data.response.blog.url);
             $('#subredditUrl').val('/tumblr/'+data.response.blog.name);
 
             if (rp.session.after < data.response.total_posts) {
@@ -6004,7 +6020,7 @@ $(function () {
               else
               rp.session.after = 0;
             */
-            $('#subredditLink').prop('href', data.url);
+            setSubredditLink(data.url);
             $('#subredditUrl').val('/blogger/'+data.name);
 
             var handleData = function (data) {
@@ -6236,22 +6252,30 @@ $(function () {
             throw("Bad Gfycat API User: "+type);
         }
 
+        var url;
         switch (a[2]) {
         case "u":
             user = a[3];
             errmsg = "User "+user+" has no videos";
             jsonUrl = apiurl+'/v1/users/'+user+'/gfycats?count=20';
+            url = gfycatUserUrl(user, type);
             break;
         case "t":
             tag = a[3];
             errmsg = "Tag "+tag+" has no videos";
             jsonUrl = apiurl+"/v1/gfycats/search?count=20&search_text="+tag.toLowerCase();
+            url = gfycatTagUrl(tag, type);
             break;
         default:
             jsonUrl = apiurl+'/v1/gfycats/trending?count=20';
             errmsg = "No trending videos";
+            if (type == "gfycat")
+                url = "https://gfycat.com/discover/popular-gifs";
+            else
+                url = "https://www.redgifs.com/popular-gifs";
             break;
         }
+        setSubredditLink(url);
 
         if (!setupLoading(1, errmsg))
             return;
@@ -6477,7 +6501,7 @@ $(function () {
 
         var visitSubreddit = rp.redditBaseUrl + rp.url.subreddit + getVarsQuestionMark;
 
-        $('#subredditLink').prop('href', visitSubreddit);
+        setSubredditLink(visitSubreddit, "reddit");
         $('#subredditUrl').val(subredditName);
 
         document.title = "redditP - " + subredditName;
