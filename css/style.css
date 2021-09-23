@@ -35,6 +35,9 @@ body {
 #pictureSlider div.fullscreen { height:100%; width:100%; position:absolute; }
 
 /* USER LOGIN / MULTI-REDDITS */
+#multiListDiv {
+    left: 0px;
+}
 #loginLi input:checked~#multiListDiv { display: block; }
 #loginLi.use-hover:hover div { display: block; }
 #loginLi div {
