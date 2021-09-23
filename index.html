@@ -24,10 +24,10 @@
     <script type="text/javascript" src="js/script.js"></script>
   </head>
   <body id="page">
-    <div class="prevArrow fadeOnIdle" title="The arrow keys work too" id="prevButton"></div>
-    <div class="nextArrow fadeOnIdle" title="Try the arrow keys too" id="nextButton"></div>
+    <div class="prevArrow topper" title="The arrow keys work too" id="prevButton"></div>
+    <div class="nextArrow topper" title="Try the arrow keys too" id="nextButton"></div>
 
-    <div id="controlsDiv" class="navbox clouds fadeOnIdle">
+    <div id="controlsDiv" class="navbox clouds topper">
       <div class="collapser hcollapser" data-openstate="open">&larr;</div>
       <div id="albumCollapser" class="collapser vcollapser" symbol-open="&#8858;" symbol-close="&otimes;" data-count=""
 	   data-openstate="open" data-controldiv="albumNumberButtons" title="Show Album Buttons">&#8858;</div>
@@ -124,7 +124,7 @@
       </div>
     </div>
 
-    <div id="titleDiv" class="navbox clouds">
+    <div id="titleDiv" class="navbox clouds topper">
       <div class="collapser hcollapser" data-openstate="open">&larr;</div>
       <div id="duplicateCollapser" class="collapser vcollapser" symbol-open="&#8858;" symbol-close="&otimes;"
 	   data-count="" data-openstate="open" data-controldiv="duplicates" title="Hide/Show Duplicates (u)">&#8858;</div>
@@ -149,7 +149,7 @@
       </div>
     </div>
 
-    <div id="recommend" style="display:none; text-align: center; margin: 10px; color: rgb(170, 170, 170);">
+    <div id="recommend" class="topper">
       <p>Maybe try these presentations instead:</p>
       <ul>
 	<li><a class="infop local hardlink" href="/r/earthporn">earthporn</a></li>
@@ -165,7 +165,7 @@
       </ul>
     </div>
 
-    <div id="help" class="clouds" style="display:none">
+    <div id="help" class="clouds topper" style="display:none">
       <div class="title">Shortcuts</div>
       <table>
 	<tr><td><i>&rarr;</i></td><td>Next (in album)</td></tr>

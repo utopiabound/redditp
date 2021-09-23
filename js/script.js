@@ -1212,25 +1212,22 @@ $(function () {
         $('#fullscreen').change(function() {
             var elem = document.getElementById('page');
             if (document.fullscreenElement || // alternative standard method
-                document.mozFullScreenElement || document.webkitFullscreenElement || document.msFullscreenElement) { // current working methods
+                document.webkitFullscreenElement ||
+                document.msFullscreenElement) { // current working methods
                 if (document.exitFullscreen) {
                     document.exitFullscreen();
-                } else if (document.msExitFullscreen) {
-                    document.msExitFullscreen();
-                } else if (document.mozCancelFullScreen) {
-                    document.mozCancelFullScreen();
                 } else if (document.webkitExitFullscreen) {
                     document.webkitExitFullscreen();
+                } else if (document.msExitFullscreen) { // IE11
+                    document.msExitFullscreen();
                 }
             } else {
                 if (elem.requestFullscreen) {
                     elem.requestFullscreen();
-                } else if (elem.msRequestFullscreen) {
-                    elem.msRequestFullscreen();
-                } else if (elem.mozRequestFullScreen) {
-                    elem.mozRequestFullScreen();
                 } else if (elem.webkitRequestFullscreen) {
-                    elem.webkitRequestFullscreen(Element.ALLOW_KEYBOARD_INPUT);
+                    elem.webkitRequestFullscreen();
+                } else if (elem.msRequestFullscreen) { // IE11
+                    elem.msRequestFullscreen();
                 }
             }
         });

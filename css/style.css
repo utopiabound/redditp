@@ -11,13 +11,24 @@ body {
 
 /* PICTURES */
 #pictureSlider {
-    position: absolute;
+    position: static;
     left: 0;
     top: 0;
     width: 100%;
     height: 100%;
-    z-index:-999;
+    z-index: 0;
 }
+
+#recommend {
+    text-align: center;
+    margin: 10px;
+    color: #bbb;
+}
+
+.topper {
+    z-index: 1;
+}
+
 .hidden { display: none; }
 .selected { color: red; }
 
@@ -67,7 +78,7 @@ hr.split { border: 1px inset; }
 #playbutton {
     top: 45%;
     left: 45%;
-    z-index: 0;
+    z-index: 10;
     display: block;
     position: absolute;
     width: 10%;
