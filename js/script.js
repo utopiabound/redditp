@@ -4911,13 +4911,18 @@ $(function () {
                 id: idorig.id,
                 over18: idorig.over_18,
                 subreddit: idorig.subreddit,
-                author: idorig.author,
                 date: idorig.created_utc,
                 dupes: duplicates,
                 score: idorig.score,
                 commentN: idorig.num_comments,
                 comments: rp.redditBaseUrl + idorig.permalink
             };
+            if (idorig.author != "[deleted]")
+                photo.author = idorig.author;
+
+            else if (idx.author != "[deleted]")
+                photo.author = idx.author;
+
             if (idx.id != photo.id)
                 photo.cross_id = idx.id;
 
