@@ -78,6 +78,18 @@
  *      duration:       INT length of video in seconds [set by showVideo()]
  *      times:          INT number of times to play video [set by showVideo()]
  *      index:          INT index in rp.photos, used by album functions [set by addImageSlide()]
+ *      dupes:          ARRAY of HASH
+ *              id:             TEXT Unique ID (subreddit article id, tumblr post id, etc.)
+ *              -- Optional --
+ *              extraLoaded:    BOOL True if comments already loaded (same as above)
+ *              title:          TEXT (same as above)
+ *              date:           INT  (same as above)
+ *              -- Site Dependent: Reddit --
+ *              subreddit:      TEXT subreddit name (same as above)
+ *              commentN:       INT  (same as above)
+ *              -- Site Dependent: Tumblr --
+ *              tumblr:         TEXT Tumblr site
+ *              url:            URL  link to duplicate post
  *
  *      -- Depending on host site --
  *      subreddit:      TEXT of subreddit name
@@ -102,26 +114,17 @@
  *
  *      -- Depending on image Type --
  *      video:          HASH for video ext to url + thumbnail (see showVideo() / rp.mime2ext) [ set by initPhotoVideo() / addVideoUrl()]
- *              TYPE:   ARRAY of URLs (type is ext c.f. rp.ext2mime video/*)
- *              audio:  HASH of TYPE to URL (type is ext c.f. rp.ext2mime audio/*)
+ *              TYPE:           ARRAY of URLs (type is ext c.f. rp.ext2mime video/*)
+ *              audio:          HASH of TYPE to URL (type is ext c.f. rp.ext2mime audio/*)
  *      album:          ARRAY of HASH (hash items are very similar to photo structure, but are not allowed to be albums)
+ *              -- Specific to Album Items --
+ *              parentIndex:    INT  Index of parent in rp.photos
+ *              parent:         POINTER pointer to parent photo (prior to being added to rp.photos)
  *      html:           TEXT html to insert
  *      embed:          HASH
- *              aplay:  BOOL Embeded video will autoplay
+ *              aplay:          BOOL Embeded video will autoplay
  *
- * rp.photos[i].dupes = ARRAY of HASH
- *      id:             TEXT Unique ID (subreddit article id, tumblr post id, etc.)
- *      -- Optional --
- *      extraLoaded:    BOOL True if extra loaded (same as above)
- *      title:          TEXT (same as above)
- *      -- Site Dependent: Reddit --
- *      subreddit:      TEXT subreddit name (same as above)
- *      date:           INT  (same as above)
- *      commentN:       INT  (same as above)
- *      -- Site Dependent: Tumblr --
- *      tumblr:         TEXT Tumblr site
- *      url:            URL  link to duplicate post
- */
+ * rp.photos[i] */
 
 var rp = {};
 // This can be set to TRACE, DEBUG, INFO, WARN. ERROR, SLIENT (nothing printed)
@@ -1386,6 +1389,8 @@ $(function () {
             photo.subreddit == dupe.subreddit &&
             ((photo.tumblr) ?photo.tumblr.blog :undefined) == dupe.tumblr)
             return -1;
+        if (!photo.dupes)
+            photo.dupes = [];
         var i = 0;
         while (i < photo.dupes.length) {
             if (photo.dupes[i].id == dupe.id &&
@@ -1521,6 +1526,8 @@ $(function () {
             log.error("Delete of bad type:"+pic.type+" for photo: "+photo.url);
             return;
         }
+        delete pic.parentIndex;
+        delete pic.parent;
 
         // Copy all entries not in photo from pic
         var keys = Object.keys(pic);
@@ -1619,6 +1626,9 @@ $(function () {
     // returns index of image to display
     var indexPhotoAlbum = function (photo, imageIndex, albumIndex) {
         if (photo.type != imageTypes.album)
+            return -1;
+
+        if (photo.album.length == 0)
             return -1;
 
         if (imageIndex < 0)
@@ -2296,9 +2306,6 @@ $(function () {
         if (photo.index !== undefined)
             return true;
 
-        if (photo.dupes === undefined)
-            photo.dupes = [];
-
         if (!processPhoto(photo)) {
             log.info('cannot display url [no image]: ' + photo.url);
             return false;
@@ -2586,12 +2593,13 @@ $(function () {
         if (rp.session.activeAlbumIndex >= 0)
             getRedditDupe(photo.album[rp.session.activeAlbumIndex]);
 
-        photo.dupes.forEach(function(item) {
-            if (item.subreddit)
-                getRedditComments(photo, item);
-            else
-                getRedditDupe(photo, item);
-        });
+        if (photo.dupes)
+            photo.dupes.forEach(function(item) {
+                if (item.subreddit)
+                    getRedditComments(photo, item);
+                else
+                    getRedditDupe(photo, item);
+            });
     });
 
     // Bind to PopState Event
@@ -2812,6 +2820,7 @@ $(function () {
                     $('#duplicateUl').append(li);
                 });
         } else if (photo.gfycat && photo.gfycat.tags && photo.gfycat.tags.length > 0) {
+            log.info("Duplicates gfycat from parent");
             photo.gfycat.tags.forEach(function(tag) {
                 var li = $("<li>", { class: 'list'});
                 li.html(gfycatTagLink(tag, photo.gfycat.type));
@@ -2830,6 +2839,7 @@ $(function () {
                     $('#duplicateUl').append(li);
                 });
         } else if (photo.imgur && photo.imgur.tags && photo.imgur.tags.length > 0) {
+            log.info("Duplicates imgur from parent");
             photo.imgur.tags.forEach(function(tag) {
                 var li = $("<li>", { class: 'list'});
                 li.html(imgurTagLink(tag));
@@ -5462,6 +5472,7 @@ $(function () {
         var extra = localLink(originOf(photo.url), hn, "/wp2/"+hn, "", rp.favicons['wordpress']);
         var o_link = photo.url;
         photo.extra = extra;
+
         photo = initPhotoAlbum(photo, false);
         if (photo.o_url === undefined)
             photo.o_url = photo.url;
@@ -6665,6 +6676,7 @@ $(function () {
         rp.photos = [];
         rp.cache = {};
         rp.dedup = {};
+        rp.loaded = {};
         rp.session.after = '';
         rp.session.loadAfter = null;
         rp.session.activeIndex = -1;
@@ -6695,7 +6707,7 @@ $(function () {
                         dedupAdd(photo.subreddit, photo.id);
                     else if (photo.tumblr)
                         dedupAdd(photo.tumblr.blog, photo.tumblr.id);
-                    if (photo.dupes.length == 0)
+                    if (!photo.dupes)
                         return;
                     photo.dupes.forEach(function(dupe) {
                         // Don't need to check if subreddit is u_ because it was added to a photo already
