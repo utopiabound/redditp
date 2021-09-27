@@ -3472,23 +3472,10 @@ $(function () {
                 log.debug("["+imageIndex+"] Video loadeddata video: "+photo.duration+" playing "+photo.times);
             });
 
-            // PROGRESS BAR
-            var prog = $('<div />', { class: "progressbar" }
-                                       ).html($('<div />',
-                                                { class: "progress",
-                                                  style: "width: 0%"
-                                                }));
-            divNode.append(prog);
-
-            var updateProgress = function(e) {
-                var vid = e.target;
-                if (!vid.buffered.length)
-                    return;
-                var prog = e.data.find('div.progress');
-                prog.css('width', (vid.buffered.end(0) / vid.duration * 100)+"%");
-            };
-
-            $(video).on("progress loadedmetadata loadeddata timeupdate", prog, updateProgress);
+            // Progress Bar
+            divNode.bind("rpdisplay", { photo: pic }, rpdisplayVideo);
+            if (divNode.parent()[0] == $('#pictureSlider')[0])
+                divNode.trigger("rpdisplay");
 
             // Set Autoplay for iOS devices
             var addPlayButton = function () {
@@ -3584,6 +3571,42 @@ $(function () {
             var div = $(this);
             div.empty();
             showEmbed(div, event.data.photo);
+            return true;
+        };
+        var rpdisplayVideo = function(event) {
+            var div = $(this);
+            var video = $(this).children('#gfyvid');
+
+            var percent = (video[0].buffered.length) ?Math.ceil(video[0].buffered.end(0) / video[0].duration * 100) :0;
+
+            // PROGRESS BAR
+            var prog = $('<div />', { class: "progressbar" })
+                .html($('<div />',
+                        { class: "progress",
+                          style: "width: "+percent+"%"
+                        }));
+            div.append(prog);
+
+            if (percent < 100) {
+                var updateProgress = function(e) {
+                    var vid = e.target;
+                    if (!vid.buffered.length)
+                        return;
+                    var prog = e.data.find('div.progress');
+                    prog.css('width', (vid.buffered.end(0) / vid.duration * 100)+"%");
+                };
+
+                $(video).on("progress loadedmetadata loadeddata timeupdate", prog, updateProgress);
+            }
+
+            // Play-through circle
+            var circ = $('<div />', { id: "circle" });
+            prog.append(circ);
+
+            $(video).on("timeupdate", function(e) {
+                var vid = e.target;
+                circ.css('left', (100 * vid.currentTime/vid.duration)+"%");
+            });
             return true;
         };
 

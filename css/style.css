@@ -107,6 +107,17 @@ div.progress {
     opacity: 0.6;
 }
 
+#circle {
+    width: 6px;
+    height: 6px;
+    -webkit-border-radius: 3px;
+    -moz-border-radius: 3px;
+    border-radius: 3px;
+    background: white;
+    position: absolute;
+    opacity: 0.6;
+}
+
 /* NAVIGATION BOX */
 #navigationBoxes {float: left; }
 #navboxExtra  { float: left; }
