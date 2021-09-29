@@ -226,11 +226,8 @@ rp.faviconcache = {};
 rp.defaults = {
     wpv2: {
         'businessinsider.com': false,
-        'fapdungeon.com': true,
-        'fapdungeons.com': true,
         'npr.org': false,
-        'stepporncentral.net': true,
-        'thesexier.net': true,
+        'thotsbay.com': false,
         'tmz.com': false,
     }
 };
@@ -1345,9 +1342,14 @@ $(function () {
     };
 
     var initPhotoThumb = function(photo, url) {
-        photo.url = url || photo.thumb;
-        photo.type = imageTypes.thumb;
-        fixPhotoButton(photo);
+        if (!url)
+            url = photo.thumb;
+        if (url) {
+            photo.url = url;
+            photo.type = imageTypes.thumb;
+            fixPhotoButton(photo);
+        } else
+            initPhotoFailed(photo);
     };
 
     var initPhotoFailed = function(photo) {
@@ -1448,10 +1450,25 @@ $(function () {
         fixPhotoButton(photo);
     };
 
+    // is the pic active
+    //   photo.album[x] : is parent activeIndex
+    //   rp.photo[x] : is activeIndex
     var isActive = function (pic) {
         var photo = photoParent(pic);
         return (photo.index !== undefined &&
                 photo.index == rp.session.activeIndex);
+    };
+
+    // is the pic the currently selected image
+    //   photo.album[x] : is parent activeIndex && is item activeAlbumIndex
+    //   rp.photo[x] : is activeIndex && activeAlbumIndex == NONE
+    var isActiveCurrent = function (pic) {
+        if (!isActive(pic))
+            return false;
+        var photo = photoParent(pic);
+        if (pic == photo)
+            return (rp.session.activeAlbumIndex == -1);
+        return (rp.session.activeAlbumIndex == photo.album.indexOf(pic));
     };
 
     // re-index Album elements starting from index
@@ -1553,22 +1570,14 @@ $(function () {
                     url: photo.url,
                     thumb: photo.thumb,
                     type: photo.type,
+                    o_url: photo.o_url,
                 };
 
-                for (var key of ["extra", "gfycat", "imgur", "flickr", "tumblr", "iloopit"]) {
+                for (var key of ["embed", "video", "html", "extra", "gfycat", "imgur", "flickr", "tumblr", "iloopit"]) {
                     if (photo[key]) {
                         img[key] = photo[key];
                         delete photo[key];
                     }
-                }
-
-                if (photo.type == imageTypes.video) {
-                    img.video = photo.video;
-                    delete photo.video;
-
-                } else if (pic.type == imageTypes.html) {
-                    img.html = photo.html;
-                    delete photo.html;
                 }
             }
             photo.type = imageTypes.album;
@@ -1617,7 +1626,7 @@ $(function () {
             log.error("laterPhotoFailed called on valid album: "+photo.url);
             return;
         }
-        initPhotoFailed(photo);
+        initPhotoThumb(photo);
     };
 
 
@@ -1755,8 +1764,27 @@ $(function () {
         }
     };
 
+    var updateNavboxTypes = function(image) {
+        $('#navboxLink').attr('href', image.url).attr('title', picTitleText(image)+" (i)");
+        updateButtonClass($('#navboxLink'), image);
+
+        switch (image.type) {
+        case imageTypes.image:
+        case imageTypes.thumb:
+        case imageTypes.fail:
+            $('#navboxImageSearch').attr('href', 'https://www.google.com/searchbyimage?encoded_image=&image_content=&filename=&hl=en&image_url='+image.url).show();
+            break;
+        default:
+            $('#navboxImageSearch').attr('href', '#').hide();
+            break;
+        }
+    };
+
     var fixPhotoButton = function(pic, button) {
         var parent = photoParent(pic);
+
+        if (isActiveCurrent(pic))
+            updateNavboxTypes(pic);
 
         // no buttons exist
         if (parent.index === undefined)
@@ -2275,6 +2303,14 @@ $(function () {
                     initPhotoEmbed(pic, href.prop('origin')+'/embed/'+shortid+'?autoplay=1');
                     log.info("AUTOGENERATE embed ["+pic.o_url+"]: "+pic.url);
                     return true;
+                } else if (rp.wpv2[hostname] === undefined) {
+                    // TRY WPv2
+                    shortid = url2shortid(pic.url);
+                    if (shortid.match(/^[a-z0-9]+(?:-[a-z0-9]+)+$/)) {
+                        log.info("ATTEMPT wpv2: "+pic.url);
+                        pic.type = imageTypes.later;
+                        return true;
+                    }
                 }
                 return false;
 
@@ -2953,16 +2989,9 @@ $(function () {
         var url = image.o_url || image.url;
         $('#navboxOrigLink').attr('href', url).parent().show();
         setFavicon($('#navboxOrigLink'), image, url);
-        $('#navboxImageSearch').attr('href', 'https://www.google.com/searchbyimage?encoded_image=&image_content=&filename=&hl=en&image_url='+image.url).show();
-        switch (image.type) {
-        case imageTypes.image:
-        case imageTypes.thumb:
-        case imageTypes.fail:
-            break;
-        default:
-            $('#navboxImageSearch').attr('href', '#').hide();
-            break;
-        }
+
+        // Setup navboxLink and navboxImageSearch
+        updateNavboxTypes(image);
 
         if (albumIndex >= 0) {
             $('#navboxAlbumOrigLink').attr('href', photo.o_url).attr('title', photo.title+" (a)").show();
@@ -2985,12 +3014,9 @@ $(function () {
             $('#navboxScore span').attr('title', 'Score: '+photo.score).text(humanReadInt(photo.score)).parent().show();
         } else
             $('#navboxScore').hide();
-        $('#navboxLink').attr('href', image.url).attr('title', picTitleText(image)+" (i)");
-        updateButtonClass($('#navboxLink'), image);
 
         $('#navboxExtra').html(picExtra(image));
 
-        // @@ image vs photo gfycat link
         if (photo.subreddit) {
             $('#navboxSubreddit').html(redditLink(subreddit)).show();
 
@@ -4106,24 +4132,35 @@ $(function () {
                 showCB(photoParent(photo));
             };
 
-        } else if (rp.wpv2[hostname]) {
+        } else if (rp.wpv2[hostname] !== false) {
             shortid = url2shortid(photo.url);
             var o = originOf(photo.url);
             jsonUrl = o+'/wp-json/wp/v2/posts/?slug='+shortid+'&_jsonp=?';
 
             handleData = function(data) {
+                if (rp.wpv2[hostname] !== true) {
+                    rp.wpv2[hostname] = true;
+                    setConfig(configNames.wpv2, rp.wpv2);
+                }
                 getPostWPv2(
                     photo,
                     data[0],
                     function(photo) {
-                        initPhotoFailed(photo);
+                        initPhotoThumb(photo);
                         showCB(photo);
                     },
                     function(photo) {
                         showCB(photoParent(photo));
                     }
                 );
-            }
+            };
+            handleError = function(xhr, ajaxOptions, thrownError) {
+                log.info("cannot display url [not wpv2]: "+photo.url);
+                rp.wpv2[hostname] = false;
+                setConfig(configNames.wpv2, rp.wpv2);
+                initPhotoThumb(photo);
+                showCB(photo);
+            };
 
         } else {
             log.error("["+photo.index+"] Unknown site ["+hostname+"]: "+photo.url);
@@ -4915,7 +4952,7 @@ $(function () {
             var flair = "";
             // Add flair (but remove if also in title)
             if (idorig.link_flair_text) {
-                flair = idorig.link_flair_text.trim();
+                flair = idorig.link_flair_text.replace(/:[^:]+:/g, "").trim();
                 if (flair) {
                     var re = new RegExp('[\\[\\{\\(]'+RegExp.quote(flair)+'[\\]\\}\\)]', "ig");
                     title = title.replace(re, "").trim();
@@ -5054,6 +5091,7 @@ $(function () {
             var hn = hostnameOf(photo.url);
             var a, handleData, jsonUrl, failedData;
 
+            // @@ able to remove because of processPhoto wpv2?
             var tryWPv2 = function () {
                 var origin = originOf(photo.url);
                 var slug = url2shortid(photo.url);
@@ -5433,7 +5471,7 @@ $(function () {
 
                 initPhotoVideo(pic, [], item.poster);
 
-                item.children.forEach(function(source) {
+                item.childNodes.forEach(function(source) {
                     var src = source.getAttribute('src');
                     if (src === null)
                         return;
