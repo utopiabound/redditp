@@ -2187,6 +2187,14 @@ $(function () {
                 else
                     return false;
 
+            } else if (hostname == 'reddit.com') {
+                a = pathnameOf(pic.url).split('/');
+                if (a[1] == 'gallery' ||
+                    a[3] == 'comments') {
+                    pic.type = imageTypes.later;
+                } else
+                    return false;
+
             } else if (hostname == 'worldsex.com') {
                 shortid = url2shortid(pic.url);
                 initPhotoEmbed(pic, originOf(pic.url)+'/videos/embed/'+shortid, false);
@@ -3599,7 +3607,7 @@ $(function () {
             showEmbed(div, event.data.photo);
             return true;
         };
-        var rpdisplayVideo = function(event) {
+        var rpdisplayVideo = function() {
             var div = $(this);
             var video = $(this).children('#gfyvid');
 
@@ -3832,6 +3840,7 @@ $(function () {
             showCB(photo);
         };
 
+        var a;
         if (hostname == 'apnews.com') {
             jsonUrl = 'https://storage.googleapis.com/afs-prod/contents/urn:publicid:ap.org:'+shortid;
 
@@ -4003,7 +4012,7 @@ $(function () {
 
         } else if (hostname == 'imgur.com') {
             headerData = { Authorization: "Client-ID "+ rp.api_key.imgur };
-            var a = pathnameOf(photo.url).split('/');
+            a = pathnameOf(photo.url).split('/');
 
             if (a[1] == 'a') {
                 jsonUrl = "https://api.imgur.com/3/album/" + a[2];
@@ -4080,16 +4089,31 @@ $(function () {
                 };
             }
 
-        } else if (hostname == 'twitter.com') {
-            jsonUrl = 'https://publish.twitter.com/oembed?dnt=true&align=center&url='+photo.url;
-            photo.type = imageTypes.html;
-            dataType = 'jsonp';
+        } else if (hostname == 'reddit.com') {
+            a = pathnameOf(photo.url).split('/');
+            if (a[1] == "gallery")
+                shortid = a[2];
+            else if (a[3] == "comments")
+                shortid = a[4];
+            else
+                throw "Unknown reddit.com url type: "+photo.url;
+
+            jsonUrl = rp.url.get + '/comments/' + shortid + '.json';
 
             handleData = function(data) {
-                initPhotoHtml(photo, data.html);
+                if (data[0].data.children.length != 1) {
+                    log.error("Comment Listing had multiple primary children: "+photo.url);
+                }
+                processRedditT3(photo, data[0].data.children[0]);
+                photo = initPhotoAlbum(photo, true);
+
+                data[1].data.children.forEach(function(comment) {
+                    processRedditComment(photo, comment);
+                });
+
+                checkPhotoAlbum(photo);
                 showCB(photo);
             };
-
 
         } else if (hostname == 'streamable.com') {
             jsonUrl = "https://api.streamable.com/videos/" + shortid;
@@ -4119,6 +4143,16 @@ $(function () {
             handleData = function(data) {
                 processTumblrPost(photo, data.response.posts[0]);
                 showCB(photoParent(photo));
+            };
+
+        } else if (hostname == 'twitter.com') {
+            jsonUrl = 'https://publish.twitter.com/oembed?dnt=true&align=center&url='+photo.url;
+            photo.type = imageTypes.html;
+            dataType = 'jsonp';
+
+            handleData = function(data) {
+                initPhotoHtml(photo, data.html);
+                showCB(photo);
             };
 
         } else if (hostname == 'wordpress.com') {
@@ -4154,7 +4188,7 @@ $(function () {
                     }
                 );
             };
-            handleError = function(xhr, ajaxOptions, thrownError) {
+            handleError = function() {
                 log.info("cannot display url [not wpv2]: "+photo.url);
                 rp.wpv2[hostname] = false;
                 setConfig(configNames.wpv2, rp.wpv2);
@@ -4746,6 +4780,71 @@ $(function () {
         });
     };
 
+    var processRedditComment = function(photo, comment) {
+        var j;
+        if (comment.kind == "more") {
+            // @@ API hits CORS issue
+            // var jsonUrl = rp.url.get+'/api/morechildren';
+            // var postData = 'limit_children=False&api_type=json&children='+comment.data.children.join(",")+
+            //     "&link_id="+(comment.data.link_id || comment.data.link)+
+            //     "&id="+(comment.data.name || comment.data.id);
+            // log.info("loading more comments: "+comment.data.id);
+            // $.ajax({
+            //     url: jsonUrl,
+            //     headers: hdrData,
+            //     type: postType,
+            //     data: postData,
+            //     dataType: 'json',
+            //     success: handleMoreComments,
+            //     error: failedData,
+            //     timeout: rp.settings.ajaxTimeout,
+            //     crossDomain: true,
+            // });
+            log.info("MORE COMMENTS: "+photo.url);
+            return;
+        }
+        if (comment.kind != "t1") {
+            log.error("unknown comment type ["+comment.kind+"]: "+photo.url);
+            return;
+        }
+        if (comment.data.author == 'AutoModerator')
+            return;
+
+        if (comment.data.score >= rp.settings.minScore) {
+            var links = [];
+            if (comment.data.body_html) {
+
+                var ownerDocument = document.implementation.createHTMLDocument('virtual');
+
+                links = $('<div />', ownerDocument).html(unescapeHTML(comment.data.body_html)).find('a');
+            } else {
+                log.info("cannot display comment["+comment.permalink+"] [no body]: "+photo.url);
+            }
+
+            photo = initPhotoAlbum(photo);
+            for (j = 0; j < links.length; ++j) {
+                var img = { author: comment.data.author,
+                            url: links[j].href
+                          };
+
+                if (links[j].innerText !== "" &&
+                    links[j].innerText !== img.url)
+                    img.title = fixupTitle(links[j].innerText);
+
+                log.debug("RC-Try:["+photo.comments+"]:"+img.url);
+                if (processPhoto(img))
+                    addAlbumItem(photo, img);
+                else
+                    log.info("cannot load comment link [no photos]: "+img.url);
+            }
+            checkPhotoAlbum(photo);
+        }
+
+        if (comment.data.replies)
+            for (j = 0; j < comment.data.replies.data.children.length; ++j)
+                processRedditComment(photo, comment.data.replies.data.children[j]);
+    };
+
     // Assume: photo has been run through processPhoto() at least once
     var getRedditComments = function (photo, dupe) {
         var comments;
@@ -4787,69 +4886,6 @@ $(function () {
         //     checkPhotoAlbum(photo);
         // };
 
-        var processRedditComment = function(photo, comment) {
-            var j;
-            if (comment.kind == "more") {
-                // @@ API hits CORS issue
-                // var jsonUrl = rp.url.get+'/api/morechildren';
-                // var postData = 'limit_children=False&api_type=json&children='+comment.data.children.join(",")+
-                //     "&link_id="+(comment.data.link_id || comment.data.link)+
-                //     "&id="+(comment.data.name || comment.data.id);
-                // log.info("loading more comments: "+comment.data.id);
-                // $.ajax({
-                //     url: jsonUrl,
-                //     headers: hdrData,
-                //     type: postType,
-                //     data: postData,
-                //     dataType: 'json',
-                //     success: handleMoreComments,
-                //     error: failedData,
-                //     timeout: rp.settings.ajaxTimeout,
-                //     crossDomain: true,
-                // });
-                return;
-            }
-            if (comment.kind != "t1") {
-                log.error("unknown comment type ["+comment.kind+"]: "+photo.url);
-                return;
-            }
-            if (comment.data.author == 'AutoModerator')
-                return;
-
-            if (comment.data.score >= rp.settings.minScore) {
-                var links = [];
-                if (comment.data.body_html) {
-
-                    var ownerDocument = document.implementation.createHTMLDocument('virtual');
-
-                    links = $('<div />', ownerDocument).html(unescapeHTML(comment.data.body_html)).find('a');
-                } else {
-                    log.info("cannot display comment["+comment.permalink+"] [no body]: "+photo.url);
-                }
-
-                photo = initPhotoAlbum(photo);
-                for (j = 0; j < links.length; ++j) {
-                    var img = { author: comment.data.author,
-                                url: links[j].href
-                              };
-
-                    if (links[j].innerText !== "" &&
-                        links[j].innerText !== img.url)
-                        img.title = fixupTitle(links[j].innerText);
-
-                    log.debug("RC-Try:["+photo.comments+"]:"+img.url);
-                    if (processPhoto(img))
-                        addAlbumItem(photo, img);
-                    else
-                        log.info("cannot load comment link [no photos]: "+img.url);
-                }
-                checkPhotoAlbum(photo);
-            }
-
-            if (comment.data.replies)
-                for (j = 0; j < comment.data.replies.data.children.length; ++j)
-                    processRedditComment(photo, comment.data.replies.data.children[j]);
-        };
 
         var handleData = function (data) {
             var comments = data[1].data.children;
@@ -4876,6 +4912,65 @@ $(function () {
             timeout: rp.settings.ajaxTimeout,
             crossDomain: true,
         });
+    };
+
+    // T3 is reddit post
+    var processRedditT3 = function(photo, t3) {
+        // Reddit Gallery Function
+        if (t3.gallery_data) {
+            initPhotoAlbum(photo, false);
+
+            t3.gallery_data.items.forEach(function(item) {
+                var media = t3.media_metadata[item.media_id];
+                if (media.status == "failed" || media.status == "unprocessed")
+                    return false;
+                var pic = { title: fixupTitle(item.caption || t3.title) };
+                if (item.outbound_url)
+                    pic.extra = infoLink(item.outbound_url, 'link');
+
+                if (media.e == "Image") {
+                    pic.url = media.s.u;
+
+                } else if (media.e == "AnimatedImage") {
+                    pic.url = media.s.gif;
+
+                } else {
+                    log.error("Reddit Gallery element not 'Image': "+media.e);
+                    throw "NYI: Reddit Gallery Element";
+                }
+                if (processPhoto(pic))
+                    addAlbumItem(photo, pic)
+            });
+            checkPhotoAlbum(photo);
+        }
+        // Reddit hosted videos
+        else if (t3.domain == 'v.redd.it') {
+            // intentionally load with empty video, load mp4 below
+            initPhotoVideo(photo, []);
+            var media = (t3.media) ?t3.media.reddit_video
+                :(t3.secure_media) ?t3.secure_media.reddit_video
+                :undefined;
+
+            if (media) {
+                var ind = media.fallback_url.indexOf('/DASH_');
+                if (ind > 0) {
+                    addVideoUrl(photo, 'mp4', media.fallback_url);
+                    photo.video.audio = { mp3: media.fallback_url.substr(0,ind)+"/DASH_audio.mp4" };
+
+                } else {
+                    log.error(photo.id+": cannot display video [bad fallback_url]: "+
+                              media.fallback_url);
+                    return false;
+                }
+            } else {
+                log.error(photo.id+": cannot display video [no reddit_video]: "+photo.url);
+                return false;
+            }
+
+        } else
+            return undefined;
+
+        return true;
     };
 
     var getRedditImages = function () {
@@ -4992,63 +5087,11 @@ $(function () {
             else if (idorig.thumbnail != 'default' && idorig.thumbnail != 'nsfw')
                 addPhotoThumb(photo, idorig.thumbnail);
 
-            // Reddit Gallery Function
-            if (idx.gallery_data) {
-                initPhotoAlbum(photo, false);
+            var rc = processRedditT3(photo, idx);
+            if (rc === false)
+                return;
 
-                idx.gallery_data.items.forEach(function(item) {
-                    var t;
-                    if (item.caption)
-                        t = fixupTitle(item.caption);
-                    else
-                        t = title;
-                    var media = idx.media_metadata[item.media_id];
-                    if (media.status == "failed" || media.status == "unprocessed")
-                        return;
-                    var pic = { title: t };
-                    if (item.outbound_url)
-                        pic.extra = infoLink(item.outbound_url, 'link');
-                    // @@ check media.e != "Image"
-                    if (media.e == "Image") {
-                        pic.url = media.s.u;
-
-                    } else if (media.e == "AnimatedImage") {
-                        pic.url = media.s.gif;
-
-                    } else {
-                        log.error("Reddit Gallery element not 'Image': "+media.e);
-                        throw "NYI: Reddit Gallery Element";
-                    }
-                    if (processPhoto(pic))
-                        addAlbumItem(photo, pic)
-                });
-                checkPhotoAlbum(photo);
-            }
-            // Reddit hosted videos
-            else if (idx.domain == 'v.redd.it') {
-                // intentionally load with empty video, load mp4 below
-                initPhotoVideo(photo, []);
-                var media = (idx.media) ?idx.media.reddit_video
-                    :(idx.secure_media) ?idx.secure_media.reddit_video
-                    :undefined;
-
-                if (media) {
-                    var ind = media.fallback_url.indexOf('/DASH_');
-                    if (ind > 0) {
-                        addVideoUrl(photo, 'mp4', media.fallback_url);
-                        photo.video.audio = { mp3: media.fallback_url.substr(0,ind)+"/DASH_audio.mp4" };
-
-                    } else {
-                        log.error(photo.id+": cannot display video [bad fallback_url]: "+
-                                  media.fallback_url);
-                        return;
-                    }
-                } else {
-                    log.error(photo.id+": cannot display video [no reddit_video]: "+photo.url);
-                    return;
-                }
-
-            } else if (idorig.domain == 'reddit.com') {
+            else if (!rc && idorig.domain == 'reddit.com') {
                 // these shouldn't be added via tryPreview nor speculative lookups
                 log.info('will not display url [no image]: ' + photo.o_url);
                 return;
