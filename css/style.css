@@ -215,7 +215,12 @@ a.failed { text-decoration: line-through; }
 #titleDiv { position: absolute; top: 0; left: 0; right: 0; min-height: 60px; }
 #duplicates { position: relative; top: 0; left: 0; right: 0; overflow: auto; }
 #duplicates ul { display: inline; }
-#subredditUrl { border: 1px dashed; background-color: black; color: white; }
+#subredditUrl {
+    border: 1px dashed;
+    background-color: black;
+    color: white;
+    float: left;
+}
 
 .vcollapser {
     position: absolute;
@@ -306,6 +311,10 @@ input.textlabel {
 }
 
 #navboxOrigLink i {
+    font-size: 18px;
+}
+
+#subredditLink i {
     font-size: 18px;
 }
 

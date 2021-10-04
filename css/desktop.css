@@ -7,6 +7,9 @@
     margin-right: 14px;
 }
 
+#subredditLink {
+    padding-left: 4px;
+}
 
 #controlsDiv a:before {
     font-size: 24px;
