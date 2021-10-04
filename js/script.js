@@ -227,6 +227,7 @@ rp.defaults = {
     wpv2: {
         'businessinsider.com': false,
         'npr.org': false,
+        'onlyfans.com': false,
         'thotsbay.com': false,
         'tmz.com': false,
     }
@@ -734,7 +735,7 @@ $(function () {
         if (onlysld === undefined)
             onlysld = false;
         if (onlysld) {
-            var a = hostname.match(/[^.]*\.[^.]*$/);
+            var a = hostname.match(/[^.]+\.([^.]{2,3}\.\w{2}|\w{2,})$/);
             if (a)
                 hostname = a[0];
         }
@@ -774,15 +775,16 @@ $(function () {
             end = undefined;
         return path.substring(dotLocation+1, end);
     };
+    rp.fn.extensionOf = extensionOf;
 
     // Take a URL and strip it down to the "shortid"
-    // url2shortid(url [, index [, seperator]])
+    // url2shortid(url [, index=-1 [, seperator[, after=true]]])
     // Index actually starts at 1 since 0 is always empty
     // "/this/is/a/path/".split('/') == [ "", "this", "is", "a", "path", "" ]
     // seperator (usually '-') seperates chafe from shortid
     // hostname.tld/media/this-is-a-title-SHORTID/widget.extention
     // url2shortid(url, 2, '-') yields SHORTID
-    var url2shortid = function(url, index, sep) {
+    var url2shortid = function(url, index, sep, after) {
         var shortid;
         var path = pathnameOf(url);
 
@@ -793,15 +795,23 @@ $(function () {
         if (index === undefined || index == -1 || index >= a.length)
             index = a.length-1;
 
+        if (after === undefined)
+            after = true;
+
         shortid = a[index];
 
         // Trim off file extenstion
         if (shortid.indexOf('.') != -1)
-            shortid = shortid.substr(0, shortid.lastIndexOf('.'));
+                shortid = shortid.substr(0, shortid.lastIndexOf('.'));
 
-        // Trim down chafe-chafe-chafe<SEP><SHORTID>
-        if (sep !== undefined && shortid.indexOf(sep) != -1)
-            shortid = shortid.substr(shortid.lastIndexOf(sep)+sep.length);
+        if (sep !== undefined && shortid.indexOf(sep) != -1) {
+            if (after)
+                // Trim down chafe-chafe-chafe<SEP><SHORTID>
+                shortid = shortid.substr(shortid.lastIndexOf(sep)+sep.length);
+            else
+                // Trim <SHORTID><SEP>chafe
+                shortid = shortid.substr(0, shortid.lastIndexOf(sep));
+        }
 
         if (!shortid)
             throw("No shortid for url");
@@ -1864,20 +1874,29 @@ $(function () {
 
             } else if (hostname == 'imgur.com') {
                 pic.url = fixImgurPicUrl(pic.url);
+                a = extensionOf(pic.url);
                 if (pic.url.indexOf("/a/") > 0 ||
                     pic.url.indexOf('/gallery/') > 0)
                     pic.type = imageTypes.later;
 
-                else if (isVideoExtension(pic.url))
+                else if (isVideoExtension(pic.url)) {
                     initPhotoVideo(pic);
+                    pic.url = 'https://imgur.com/'+url2shortid(pic.url);
 
-                else if (extensionOf(pic.url) == 'gif') {
+                } else if (!a) {
+                    pic.url = 'https://imgur.com/'+url2shortid(pic.url);
+                    pic.type = imageTypes.later;
+
+                } else if (a == 'gif') {
                     // catch imgur.com/SHORTID.mp4.gif
                     a = pic.url.substr(0, pic.url.lastIndexOf('.'));
                     if (isVideoExtension(a)) {
                         initPhotoVideo(pic, a);
-                    } else
+                        pic.url = 'https://imgur.com/'+url2shortid(pic.url);
+                    } else {
+                        pic.url = 'https://imgur.com/'+url2shortid(pic.url);
                         pic.type = imageTypes.later;
+                    }
                 }
 
                 // otherwise simple image
@@ -2117,15 +2136,19 @@ $(function () {
 
             } else if (hostname == 'gfycat.com' ||
                        hostname == 'redgifs.com' ||
-                       hostname == 'hugetits.win' ||
                        hostname == 'gifdeliverynetwork.com') {
-                shortid = url2shortid(pic.url);
-                // Strip everything trailing '-'
-                if (shortid.indexOf('-') != -1)
-                    shortid = shortid.substr(0, shortid.indexOf('-'));
+                shortid = url2shortid(pic.url, -1, '-', false);
                 if (shortid == 'about')
                     return false;
                 pic.url = gfycatPhotoUrl(shortid, (hostname == 'gfycat.com') ?'gfycat' :'redgifs');
+                pic.type = imageTypes.later;
+
+            } else if (hostname == 'hugetits.win') {
+                shortid = url2shortid(pic.url, -1, '-', false);
+                a = pathnameOf(pic.url).split('/');
+                if (a[1] != "video")
+                    throw "unknown url";
+                pic.url = gfycatPhotoUrl(shortid, 'redgifs');
                 pic.type = imageTypes.later;
 
             } else if (hostname == 'clippituser.tv' ||
@@ -2189,10 +2212,9 @@ $(function () {
 
             } else if (hostname == 'reddit.com') {
                 a = pathnameOf(pic.url).split('/');
-                if (a[1] == 'gallery' ||
-                    a[3] == 'comments') {
+                if (a[1] == 'gallery')
                     pic.type = imageTypes.later;
-                } else
+                else
                     return false;
 
             } else if (hostname == 'worldsex.com') {
@@ -2277,7 +2299,8 @@ $(function () {
                      a[1] == 'watch' ||
                      a[1] == 'v')) {
                     // Sites that definitely don't work with above
-                    if (hostname == 'gifscroll.com' ||
+                    if (hostname == 'bing.com' ||
+                        hostname == 'gifscroll.com' ||
                         hostname == 'gothdporn.com' ||
                         hostname == 'javtiful.com' ||
                         hostname == 'madnsfw.com' ||
@@ -2314,7 +2337,7 @@ $(function () {
                 } else if (rp.wpv2[hostname] === undefined) {
                     // TRY WPv2
                     shortid = url2shortid(pic.url);
-                    if (shortid.match(/^[a-z0-9]+(?:-[a-z0-9]+)+$/)) {
+                    if (shortid.match(/^[a-z0-9]+(?:-[a-z0-9]+)+$/) && !extensionOf(pic.url)) {
                         log.info("ATTEMPT wpv2: "+pic.url);
                         pic.type = imageTypes.later;
                         return true;
@@ -4091,12 +4114,6 @@ $(function () {
 
         } else if (hostname == 'reddit.com') {
             a = pathnameOf(photo.url).split('/');
-            if (a[1] == "gallery")
-                shortid = a[2];
-            else if (a[3] == "comments")
-                shortid = a[4];
-            else
-                throw "Unknown reddit.com url type: "+photo.url;
 
             jsonUrl = rp.url.get + '/comments/' + shortid + '.json';
 
@@ -4104,14 +4121,8 @@ $(function () {
                 if (data[0].data.children.length != 1) {
                     log.error("Comment Listing had multiple primary children: "+photo.url);
                 }
-                processRedditT3(photo, data[0].data.children[0]);
-                photo = initPhotoAlbum(photo, true);
-
-                data[1].data.children.forEach(function(comment) {
-                    processRedditComment(photo, comment);
-                });
-
-                checkPhotoAlbum(photo);
+                if (processRedditT3(photo, data[0].data.children[0]) !== true)
+                    initPhotoThumb(photo)
                 showCB(photo);
             };
 
@@ -4291,6 +4302,8 @@ $(function () {
             photo.subreddit = item.section;
         if (item.datetime && !photo.date)
             photo.date = item.datetime;
+        if (item.nsfw && !photo.over18)
+            photo.over18 = item.nsfw;
         if (item.tags && item.tags.length > 0) {
             var i;
             if (!photo.imgur.tags)
@@ -4334,11 +4347,7 @@ $(function () {
             url = url.replace(/_d(\.[^./])/, "$1");
             // remove thumbnail modifier
             url = url.replace(/(\/\w{7}|\/\w{5})[sbtrlg]\./, "$1.");
-
-        } else if (!isVideoExtension(url))
-            // imgur is really nice and serves the image with whatever extension
-            // you give it. '.jpg' is arbitrary
-            url += ".jpg";
+        }
         return url;
     };
 
@@ -4800,7 +4809,7 @@ $(function () {
             //     timeout: rp.settings.ajaxTimeout,
             //     crossDomain: true,
             // });
-            log.info("MORE COMMENTS: "+photo.url);
+            log.info("MORE COMMENTS: "+comment.data.parent_id+" : "+photo.url);
             return;
         }
         if (comment.kind != "t1") {
@@ -5097,21 +5106,7 @@ $(function () {
                 return;
             }
 
-            var tryPreview = function(photo, idorig, msg) {
-                if (msg === undefined)
-                    msg = 'no image';
-                if (idorig.preview &&
-                    idorig.preview.images.length > 0) {
-                    initPhotoThumb(photo, unescapeHTML(idorig.preview.images[0].source.url));
-                    log.info('using thumbnail ['+msg+']: '+photo.o_url);
-                    if (addImageSlide(photo))
-                        return;
-                }
-                log.info('cannot display '+msg + ': ' + photo.o_url);
-                return;
-            };
-
-            var rc = processPhoto(photo);
+            rc = processPhoto(photo);
 
             if ((photo.type != imageTypes.fail) &&
                 (photo.flair.toLowerCase() == 'request' ||
@@ -5133,6 +5128,20 @@ $(function () {
             var path = pathnameOf(photo.url);
             var hn = hostnameOf(photo.url);
             var a, handleData, jsonUrl, failedData;
+
+            var tryPreview = function(photo, idorig, msg) {
+                if (msg === undefined)
+                    msg = 'no image';
+                if (idorig.preview &&
+                    idorig.preview.images.length > 0) {
+                    initPhotoThumb(photo, unescapeHTML(idorig.preview.images[0].source.url));
+                    log.info('using thumbnail ['+msg+']: '+photo.o_url);
+                    if (addImageSlide(photo))
+                        return;
+                }
+                log.info('cannot display '+msg + ': ' + photo.o_url);
+                return;
+            };
 
             // @@ able to remove because of processPhoto wpv2?
             var tryWPv2 = function () {
