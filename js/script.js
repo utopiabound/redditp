@@ -230,6 +230,8 @@ rp.defaults = {
         'onlyfans.com': false,
         'thotsbay.com': false,
         'tmz.com': false,
+        'washingtonpost.com': false,
+        'newyorker.com': false,
     }
 };
 
