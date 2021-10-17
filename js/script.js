@@ -51,9 +51,7 @@
  */
 /* Data Structures:
  * rp.photos = ARRAY of HASH
- *      type:           ENUM of imageTypes     (will be set by processPhoto())
  *      url:            URL link of "photo"    (addImageSlide() will call fixupUrl())
- *      dupes:          ARRAY of HASH of duplicate images (dependent on site type)
  *      over18:         BOOLEAN is nsfw (or any item in album is nsfw)
  *      title:          HTML Title of image     (creator of object needs to call fixupTitle())
  *      id:             TEXT Unique ID based on site+subreddit or blog
@@ -62,26 +60,25 @@
  *      author:         TEXT reddit username
  *      comments:       URL  link to photo comments
  *      commentN:       INT  Number of comments (if this is set, comments needs to be set too)
- *      extraLoaded:    BOOL Have loaded comment images or duplicate listings
+ *      eL:             BOOL Have loaded comment images or duplicate listings
  *      cross_id:       TEXT ID in duplictes of original link
  *      extra:          HTML Extra information for links concerning photo
- *      thumb:          URL  thumbnail of image (e.g. cached version from reddit) [set by addPhotoThumb()]
+ *      thumb:          URL  thumbnail of image (e.g. cached version from reddit)       [set by addPhotoThumb()]
+ *      fb_thumb:       ARRAY of URLs Fallback thumbnail urls (must be images)          [set by addPhotoThumb()]
  *      flair:          TEXT text flair put next to title
  *      favicon:        URL  link to favicon for photo (c.f. setFavicon())
  *      score:          INT  Score (upvotes - downvotes)
  *      fallback:       ARRAY of URLs Fallback urls (if processed pic.url fails, try pic.fallback)
- *      fb_thumb:       ARRAY of URLs Fallback thumbnail urls (must be images) [set by addPhotoThumb()]
  *
  *      -- Other, NOT creator setable --
- *      o_url:          URL original URL [set by processPhoto()]
- *      insertAt:       INT where to insert pictures in album [set by addAlbumItem()]
- *      duration:       INT length of video in seconds [set by showVideo()]
- *      times:          INT number of times to play video [set by showVideo()]
+ *      type:           ENUM of imageTypes                              [set by processPhoto()]
+ *      o_url:          URL original URL                                [set by processPhoto()]
+ *      insertAt:       INT where to insert pictures in album           [set by addAlbumItem()]
  *      index:          INT index in rp.photos, used by album functions [set by addImageSlide()]
- *      dupes:          ARRAY of HASH
+ *      dupes:          ARRAY of HASH                                   [set by addPhotoDupe()]
  *              id:             TEXT Unique ID (subreddit article id, tumblr post id, etc.)
  *              -- Optional --
- *              extraLoaded:    BOOL True if comments already loaded (same as above)
+ *              eL:             BOOL True if comments already loaded (same as above)
  *              title:          TEXT (same as above)
  *              date:           INT  (same as above)
  *              -- Site Dependent: Reddit --
@@ -112,11 +109,15 @@
  *              -- Optional --
  *              tags:   ARRAY of TEXT
  *
- *      -- Depending on image Type --
- *      video:          HASH for video ext to url + thumbnail (see showVideo() / rp.mime2ext) [ set by initPhotoVideo() / addVideoUrl()]
+ *      -- Depending on image Type [see initPhotoTYPE()] --
+ *      video:          HASH for video ext to url + thumbnail (see showVideo() / rp.mime2ext)   [set by initPhotoVideo() / addVideoUrl()]
  *              TYPE:           ARRAY of URLs (type is ext c.f. rp.ext2mime video/*)
  *              audio:          HASH of TYPE to URL (type is ext c.f. rp.ext2mime audio/*)
- *      album:          ARRAY of HASH (hash items are very similar to photo structure, but are not allowed to be albums)
+ *              -- set by showVideo() --
+ *              duration:       INT length of video in seconds
+ *              times:          INT number of times to play video
+ *      album:          ARRAY of HASH
+ *              (hash items are very similar to photo structure, but are not allowed to be albums)
  *              -- Specific to Album Items --
  *              parentIndex:    INT  Index of parent in rp.photos
  *              parent:         POINTER pointer to parent photo (prior to being added to rp.photos)
@@ -124,7 +125,10 @@
  *      embed:          HASH
  *              aplay:          BOOL Embeded video will autoplay
  *
- * rp.photos[i] */
+ * TODO:
+ * * Cleanup photo.dupes - should be related to local url
+ * * Fix dupes on album items (currently album dupes get assigned to parent dupes list), should behave more like tags
+ */
 
 var rp = {};
 // This can be set to TRACE, DEBUG, INFO, WARN. ERROR, SLIENT (nothing printed)
@@ -407,6 +411,16 @@ $(function () {
         return currentIndex;
     };
 
+    var getCurrentPic = function() {
+        if (rp.session.activeIndex < 0)
+            return undefined;
+        var photo = rp.photos[rp.session.activeIndex];
+        if (rp.session.activeAlbumIndex >= 0)
+            photo = photo.album[rp.session.activeAlbumIndex];
+        return photo;
+    };
+    rp.fn.getCurrentPic = getCurrentPic;
+
     function loadMoreSlides() {
         if (rp.session.loadAfter !== null &&
             (!rp.session.loginNeeded || rp.session.loginExpire))
@@ -528,14 +542,15 @@ $(function () {
         if (index != rp.session.activeIndex)
             return false;
         var photo = rp.photos[index];
-        if (!photo)
+        // @@ album item?
+        if (!photo || !photo.video)
             return false;
-        if (photo.times == 1) {
-            if (photo.duration < rp.settings.timeToNextSlide)
-                photo.times = Math.ceil(rp.settings.timeToNextSlide/photo.duration);
+        if (photo.video.times == 1) {
+            if (photo.video.duration < rp.settings.timeToNextSlide)
+                photo.video.times = Math.ceil(rp.settings.timeToNextSlide/photo.video.duration);
             return false;
         }
-        photo.times -= 1;
+        photo.video.times -= 1;
         return true;
     };
 
@@ -1130,14 +1145,14 @@ $(function () {
         }
         setConfig(configNames.shouldAutoNextSlide, rp.settings.shouldAutoNextSlide);
         // Check if active image is a video before reseting timer
-        if (rp.session.activeIndex == -1 ||
-            rp.photos[rp.session.activeIndex].times === undefined)
+        var pic = getCurrentPic();
+        if (!pic || pic.type != imageTypes.video)
             resetNextSlideTimer();
     };
 
     var updateExtraLoad = function () {
         var photo = rp.photos[rp.session.activeIndex];
-        if (photo.extraLoaded)
+        if (photo.eL)
             $('#navboxExtraLoad').html(googleIcon("check_box")).attr('title', "Extras Already Loaded");
         else if (!photo.comments || !photo.commentN)
             $('#navboxExtraLoad').html(googleIcon("speaker_notes_off")).attr('title', 'No Comments Available');
@@ -3473,10 +3488,10 @@ $(function () {
                 $(ls).on('error', function() {
                     delete pic.video.audio;
                     $(audio).remove();
-                    log.info("Failed to load src for audio: "+photo.url);
+                    log.info("Failed to load src for audio: "+pic.url);
                 });
                 $(audio).on('error', function() {
-                    log.info("Failed to load audio: "+photo.url);
+                    log.info("Failed to load audio: "+pic.url);
                 });
                 video.on('playing', function() { audio[0].currentTime = video[0].currentTime; audio[0].play() });
                 video.on('pause', function() { audio[0].pause() });
@@ -3484,24 +3499,24 @@ $(function () {
             }
 
             $(lastsource).on('error', function() {
-                log.info("["+imageIndex+"] video failed to load last source: "+photo.url);
-                if (photo.fallback && photo.fallback.length) {
-                    photo.url = photo.fallback.shift();
+                log.info("["+imageIndex+"] video failed to load last source: "+pic.url);
+                if (pic.fallback && pic.fallback.length) {
+                    pic.url = pic.fallback.shift();
 
-                    delete photo.type;
-                    delete photo.video;
-                    if (processPhoto(photo)) {
-                        showPic(photo);
+                    delete pic.type;
+                    delete pic.video;
+                    if (processPhoto(pic)) {
+                        showPic(pic);
                         return;
                     }
                 }
-                initPhotoFailed(photo);
+                initPhotoFailed(pic);
                 resetNextSlideTimer();
             });
 
             $(video).on('error', function() {
-                log.info("["+imageIndex+"] video failed to load: "+photo.url);
-                initPhotoFailed(photo);
+                log.info("["+imageIndex+"] video failed to load: "+pic.url);
+                initPhotoFailed(pic);
                 resetNextSlideTimer();
             });
 
@@ -3522,18 +3537,18 @@ $(function () {
                     e.target.videoWidth == 640 &&
                     e.target.videoHeight == 480 &&
                     hostnameOf(e.target.currentSrc, true) == 'gfycat.com') {
-                    log.info("cannot display video [copyright claim]: "+photo.url);
-                    initPhotoFailed(photo);
+                    log.info("cannot display video [copyright claim]: "+pic.url);
+                    initPhotoFailed(pic);
                     resetNextSlideTimer();
-                    showThumb(photo);
+                    showThumb(pic);
                }
-                photo.duration = e.target.duration;
-                if (photo.duration < rp.settings.timeToNextSlide) {
-                    photo.times = Math.ceil(rp.settings.timeToNextSlide/photo.duration);
+                pic.video.duration = e.target.duration;
+                if (pic.video.duration < rp.settings.timeToNextSlide) {
+                    pic.video.times = Math.ceil(rp.settings.timeToNextSlide/photo.video.duration);
                 } else {
-                    photo.times = 1;
+                    pic.video.times = 1;
                 }
-                log.debug("["+imageIndex+"] Video loadeddata video: "+photo.duration+" playing "+photo.times);
+                log.debug("["+imageIndex+"] Video loadeddata video: "+pic.video.duration+" playing "+pic.video.times);
             });
 
             // Progress Bar
@@ -3583,9 +3598,6 @@ $(function () {
                                           webkitallowfullscreen: true,
                                           mozallowfullscreen: true,
                                           allowfullscreen: true });
-            // ensure updateAutoNext doesn't reset timer
-            photo.times = 1;
-
             $(iframe).on("error", function() {
                 log.info("["+imageIndex+"] FAILED TO LOAD: "+pic.url);
                 throw("Failed to load iframe"+pic.url);
@@ -4679,10 +4691,10 @@ $(function () {
             site = photo.tumblr.blog;
             shortid = photo.tumblr.id;
 
-            if (photo.extraLoaded)
+            if (photo.eL)
                 return;
 
-            photo.extraLoaded = true;
+            photo.eL = true;
 
         } else if (photo.flickr) {
             site = 'flickr.com';
@@ -4760,14 +4772,15 @@ $(function () {
                 log.info("Ignoring duplicate [score too low: "+item.data.score+"]: "+item.data.subreddit);
                 return;
             }
-            var index = addPhotoDupe(photo, { subreddit: item.data.subreddit,
-                                              commentN: item.data.num_comments,
-                                              title: item.data.title,
-                                              date: item.data.created,
-                                              id: item.data.id});
+            var pic = photoParent(photo);
+            var index = addPhotoDupe(pic, { subreddit: item.data.subreddit,
+                                            commentN: item.data.num_comments,
+                                            title: item.data.title,
+                                            date: item.data.created,
+                                            id: item.data.id });
             dedupArrAdd(dupes, item.data.subreddit, item.data.id);
             if (index >= 0)
-                getRedditComments(photo, photo.dupes[index]);
+                getRedditComments(pic, pic.dupes[index]);
         };
 
         // https://www.reddit.com/search.json?q=url:SHORTID+site:HOSTNAME
@@ -4781,7 +4794,7 @@ $(function () {
             if (isActive(photo)) {
                 var pic = photo;
                 if (rp.session.activeAlbumIndex >= 0)
-                    pic = photo.album[rp.session.activeAlbumIndex];
+                    pic = photoParent(photo).album[rp.session.activeAlbumIndex];
                 updateDuplicates(pic);
             }
         };
@@ -4866,17 +4879,17 @@ $(function () {
         if (dupe) {
             // This could be:
             // comments = [rp.rp.redditBaseUrl, "comments", id].join('/');
-            if (!dupe.commentN || dupe.extraLoaded)
+            if (!dupe.commentN || dupe.eL)
                 return;
-            dupe.extraLoaded = true;
+            dupe.eL = true;
             comments = [rp.redditBaseUrl, 'r', dupe.subreddit, "comments", dupe.id].join("/");
 
         } else {
             // Only load comments once per photo
-            if (photo.extraLoaded)
+            if (photo.eL)
                 return;
 
-            photo.extraLoaded = true;
+            photo.eL = true;
 
             if (!photo.commentN || !photo.comments)
                 return;
@@ -4885,7 +4898,7 @@ $(function () {
 
         var jsonUrl = rp.url.get + pathnameOf(comments) + '.json';
         var failedData = function (xhr, ajaxOptions, thrownError) {
-            photo.extraLoaded = false;
+            photo.eL = false;
             failedAjax(xhr, ajaxOptions, thrownError);
         }
 
@@ -6668,7 +6681,7 @@ $(function () {
         if (initial === undefined)
             initial = false;
 
-        path = path.replace(/^\/+/, '/').replace(/^\?+/, '');
+        path = path.replace(/ +/g, '/').replace(/^\/+/, '/').replace(/^\?+/, '');
 
         var regex = new RegExp(regexS);
         var results = regex.exec(path);
