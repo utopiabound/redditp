@@ -1514,6 +1514,9 @@ $(function () {
 
             fixPhotoButton(photo.album[i], a);
 
+            if (i == oldindex)
+                continue;
+
             // Update rp.cache when re-indexing if required
             if (rp.cache[photo.index] !== undefined &&
                 rp.cache[photo.index][oldindex] !== undefined) {
@@ -3552,7 +3555,7 @@ $(function () {
             });
 
             // Progress Bar
-            divNode.bind("rpdisplay", { photo: pic }, rpdisplayVideo);
+            divNode.bind("rpdisplay", rpdisplayVideo);
             if (divNode.parent()[0] == $('#pictureSlider')[0])
                 divNode.trigger("rpdisplay");
 
@@ -3582,6 +3585,8 @@ $(function () {
                 $(video).on('canplaythrough', onCanPlay);
 
                 if (rp.session.volumeIsMute && !isVideoMuted())
+                    addPlayButton();
+                else if ($(video)[0].paused)
                     addPlayButton();
 
             }
@@ -3640,13 +3645,14 @@ $(function () {
         var rpdisplayHtml = function(event) {
             var div = $(this);
             div.empty();
-            showHtml(div, event.data.photo.html);
+            var pic = getCurrentPic();
+            showHtml(div, pic.html);
             return true;
         };
         var rpdisplayEmbed = function(event) {
             var div = $(this);
             div.empty();
-            showEmbed(div, event.data.photo);
+            showEmbed(div, getCurrentPic());
             return true;
         };
         var rpdisplayVideo = function() {
@@ -3655,29 +3661,28 @@ $(function () {
 
             var percent = (video[0].buffered.length) ?Math.ceil(video[0].buffered.end(0) / video[0].duration * 100) :0;
 
-            // PROGRESS BAR
-            var prog = $('<div />', { class: "progressbar" })
+            var progressBar = $('<div />', { class: "progressbar" })
                 .html($('<div />',
                         { class: "progress",
                           style: "width: "+percent+"%"
                         }));
-            div.append(prog);
+            div.append(progressBar);
 
             if (percent < 100) {
                 var updateProgress = function(e) {
                     var vid = e.target;
                     if (!vid.buffered.length)
                         return;
-                    var prog = e.data.find('div.progress');
-                    prog.css('width', (vid.buffered.end(0) / vid.duration * 100)+"%");
+                    var progressBar = e.data.find('div.progress');
+                    progressBar.css('width', (vid.buffered.end(0) / vid.duration * 100)+"%");
                 };
 
-                $(video).on("progress loadedmetadata loadeddata timeupdate", prog, updateProgress);
+                $(video).on("progress loadedmetadata loadeddata timeupdate", progressBar, updateProgress);
             }
 
             // Play-through circle
             var circ = $('<div />', { id: "circle" });
-            prog.append(circ);
+            progressBar.append(circ);
 
             $(video).on("timeupdate", function(e) {
                 var vid = e.target;
@@ -3702,13 +3707,13 @@ $(function () {
 
             else if (pic.type == imageTypes.html) {
                 // triggered in replaceBackgroundDiv
-                divNode.bind("rpdisplay", { photo: pic }, rpdisplayHtml);
+                divNode.bind("rpdisplay", rpdisplayHtml);
                 if (divNode.parent()[0] == $('#pictureSlider')[0])
                     divNode.trigger("rpdisplay");
 
             } else if (pic.type == imageTypes.embed) {
                 // triggered in replaceBackgroundDiv
-                divNode.bind("rpdisplay", { photo: pic }, rpdisplayEmbed);
+                divNode.bind("rpdisplay", rpdisplayEmbed);
                 if (divNode.parent()[0] == $('#pictureSlider')[0])
                     divNode.trigger("rpdisplay");
 
