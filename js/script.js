@@ -65,10 +65,9 @@
  *      extra:          HTML Extra information for links concerning photo
  *      thumb:          URL  thumbnail of image (e.g. cached version from reddit)       [set by addPhotoThumb()]
  *      fb_thumb:       ARRAY of URLs Fallback thumbnail urls (must be images)          [set by addPhotoThumb()]
- *      flair:          TEXT text flair put next to title
- *      favicon:        URL  link to favicon for photo (c.f. setFavicon())
+ *      flair:          TEXT text flair put next to title                       [read by picFlair()]
  *      score:          INT  Score (upvotes - downvotes)
- *      fallback:       ARRAY of URLs Fallback urls (if processed pic.url fails, try pic.fallback)
+ *      fallback:       ARRAY of URLs Fallback urls (if processed pic.url fails, try pic.fallback) [read by find_fallback()]
  *
  *      -- Other, NOT creator setable --
  *      type:           ENUM of imageTypes                              [set by processPhoto()]
@@ -257,6 +256,7 @@ rp.redirect = 'http://redditp.utopiabound.net/auth';
 // this list overrides based on second level domain (e.g. mywebsite.wordpress.com -> wordpress)
 rp.favicons = { tumblr:  'https://assets.tumblr.com/images/favicons/favicon.ico',
                 wordpress: 'https://s1.wp.com/i/favicon.ico',
+                wp: 'https://s1.wp.com/i/favicon.ico',
                 dropbox: 'https://cfl.dropboxstatic.com/static/images/favicon.ico',
                 redgifs: 'https://www.redgifs.com/assets/favicon-16x16.png',
                 xhamster: 'https://static-lvlt.xhcdn.com/xh-mobile/images/favicon/favicon.ico',
@@ -611,7 +611,7 @@ $(function () {
         var data = $('<div/>');
         data.append(_infoAnchor(rp.url.base+local, text, urlalt, classes+" infol local"));
         var link = _infoAnchor(url, '', urlalt, classes+" infor remote");
-        setFavicon(link, { url: url, favicon: favicon });
+        setFavicon(link, url, favicon);
         data.append(link);
         return data.html();
     };
@@ -667,7 +667,7 @@ $(function () {
         var data = $('<div/>');
         data.append(_infoAnchor(url, text));
         var link = _infoAnchor(url, '', '', "info infor remote");
-        setFavicon(link, { url: url });
+        setFavicon(link, url);
         data.append(link);
         return data.html();
     };
@@ -1773,13 +1773,6 @@ $(function () {
         delete pic.over18; // only track nsfw on main photo
 
         addPhotoParent(pic, photo);
-        var sld = hostnameOf(pic.url, true).match(/[^.]*/)[0];
-        if (rp.favicons[sld])
-            pic.favicon = rp.favicons[sld];
-
-        else if (photo.favicon !== undefined &&
-                 hostnameOf(photo.url, true) == hostnameOf(pic.url, true))
-            pic.favicon = photo.favicon;
 
         if (photo.insertAt < 0) {
             photo.album.push(pic);
@@ -1878,9 +1871,6 @@ $(function () {
         var hostname = hostnameOf(pic.url, true);
         var orig_hn = hostnameOf(pic.o_url, true);
         var sld = hostname.match(/[^.]*/)[0];
-
-        if (rp.favicons[sld] && pic.type != imageTypes.thumb)
-            pic.favicon = rp.favicons[sld];
 
         try {
             if (pic.type == imageTypes.thumb &&
@@ -2418,7 +2408,7 @@ $(function () {
         return true;
     };
 
-    var setFavicon = function(elem, pic, url) {
+    var setFavicon = function(elem, url, special) {
         var fixFavicon = function(e) {
             if (e.type == "error" ||
                 this.naturalHeight <= 1 ||
@@ -2443,15 +2433,16 @@ $(function () {
         };
 
         if (url === undefined)
-            url = pic.o_url || pic.url;
+            throw "setFavicon() called with empty url";
 
-        // #1 pic.favicon
-        var fav = pic.favicon;
-        // #1a "reddit" is special
+        var fav = special;
+
+        // #1 "reddit" is special
         if (fav === "reddit") {
             elem.html($("<img />", {'class': 'reddit', src: rp.url.root+'images/reddit.svg'}));
             return;
         }
+        fav = rp.favicons[special];
 
         // #2 rp.favicon[]
         if (fav === undefined) {
@@ -2505,7 +2496,7 @@ $(function () {
     var setSubredditLink = function(url, type) {
         var link = $('#subredditLink');
         link.prop('href', url).show();
-        setFavicon(link, { url: url, favicon: type });
+        setFavicon(link, url, type);
     };
 
     // Register keyboard events on the whole document
@@ -2938,7 +2929,12 @@ $(function () {
                 var li = $("<li>", { class: 'list'});
 
                 if (item.subreddit) {
-                    var nli = $('#duplicateUl').find('[subreddit='+item.subreddit+']');
+                    try {
+                        var nli = $('#duplicateUl').find('[subreddit='+item.subreddit+']');
+                    } catch(e) {
+                        log.error("Failed to find duplicateLi subreddit = "+item.subreddit);
+                        return;
+                    }
                     if (nli.length) {
                         li = $(nli);
                     } else {
@@ -3023,14 +3019,14 @@ $(function () {
 
         var url = image.o_url || image.url;
         $('#navboxOrigLink').attr('href', url).parent().show();
-        setFavicon($('#navboxOrigLink'), image, url);
+        setFavicon($('#navboxOrigLink'), url);
 
         // Setup navboxLink and navboxImageSearch
         updateNavboxTypes(image);
 
         if (albumIndex >= 0) {
             $('#navboxAlbumOrigLink').attr('href', photo.o_url).attr('title', photo.title+" (a)").show();
-            setFavicon($('#navboxAlbumOrigLink'), photo);
+            setFavicon($('#navboxAlbumOrigLink'), photo.o_url);
             if (url == photo.o_url)
                 $('#navboxOrigLink').parent().hide();
         } else
@@ -5084,7 +5080,6 @@ $(function () {
             var photo = {
                 url: url,
                 title: title,
-                flair: flair,
                 id: idorig.id,
                 over18: idorig.over_18,
                 subreddit: idorig.subreddit,
@@ -5094,6 +5089,9 @@ $(function () {
                 commentN: idorig.num_comments,
                 comments: rp.redditBaseUrl + idorig.permalink
             };
+            if (flair)
+                photo.flair = flair;
+
             if (idorig.author != "[deleted]")
                 photo.author = idorig.author;
 
@@ -5121,11 +5119,13 @@ $(function () {
 
             rc = processPhoto(photo);
 
+            flair = photo.flair || "";
+
             if ((photo.type != imageTypes.fail) &&
-                (photo.flair.toLowerCase() == 'request' ||
+                (flair.toLowerCase() == 'request' ||
                  photo.title.match(/[[({]request[\])}]/i) ||
                  photo.title.match(/^psbattle:/i) ||
-                 photo.flair.match(/(more|source|video|album).*in.*com/i) ||
+                 flair.match(/(more|source|video|album).*in.*com/i) ||
                  idorig.title.match(/(source|more|video|album).*in.*com/i) ||
                  idorig.title.match(/in.*comment/i) ||
                  idorig.title.match(/[[({\d\s][asvm]ic([\])}]|$)/i)))
@@ -5599,7 +5599,7 @@ $(function () {
         if (successcb === undefined)
             successcb = addImageSlide;
         var hn = hostnameOf(photo.url);
-        var extra = localLink(originOf(photo.url), hn, "/wp2/"+hn, "", rp.favicons['wordpress']);
+        var extra = localLink(originOf(photo.url), hn, "/wp2/"+hn, "", rp.favicons.wordpress);
         var o_link = photo.url;
         photo.extra = extra;
 
@@ -5683,8 +5683,7 @@ $(function () {
         } else {
             var hn = hostnameOf(post.URL);
             pic.extra = localLink(post.URL.substring(0, post.URL.indexOf(':'))+'://'+hn,
-                                  post.author.name, '/wp/'+hn, post.author.nice_name,
-                                  pic.favicon);
+                                  post.author.name, '/wp/'+hn, post.author.nice_name);
         }
 
         if (post.is_reblogged) {
@@ -5724,9 +5723,7 @@ $(function () {
 
         checkPhotoAlbum(photo);
 
-        if (rc) {
-            pic.favicon = rp.favicons.wordpress;
-        } else {
+        if (!rc) {
             log.info("cannot display wp [no content]: "+pic.url);
             laterPhotoFailed(pic);
         }
