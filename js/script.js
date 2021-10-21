@@ -1393,13 +1393,13 @@ $(function () {
         photo.type = imageTypes.embed;
         if (url)
             photo.url = url;
-        addPhotoThumb(thumb);
+        addPhotoThumb(photo, thumb);
         photo.embed = { aplay: autoplay };
         fixPhotoButton(photo);
     };
 
     var initPhotoYoutube = function(photo, shortid, startat) {
-        addPhotoThumb('https://i.ytimg.com/vi/'+shortid+'/hqdefault.jpg');
+        addPhotoThumb(photo, 'https://i.ytimg.com/vi/'+shortid+'/hqdefault.jpg');
         initPhotoEmbed(
             photo,
             youtubeURL(shortid, startat),
@@ -1873,13 +1873,16 @@ $(function () {
         var sld = hostname.match(/[^.]*/)[0];
 
         try {
+            if (!pic.url.startsWith('http'))
+                throw "bad schema in URL";
+
             if (pic.type == imageTypes.thumb &&
                 (orig_hn == 'dropbox.com' ||
-                 orig_hn == 'tumblr.com')) {
+                 orig_hn == 'tumblr.com'))
                 // capture items we want to skip from tryPreview()
                 throw "REJECTED";
 
-            } else if (hostname == 'imgur.com') {
+            if (hostname == 'imgur.com') {
                 pic.url = fixImgurPicUrl(pic.url);
                 a = extensionOf(pic.url);
                 if (pic.url.indexOf("/a/") > 0 ||
@@ -2305,6 +2308,7 @@ $(function () {
                         hostname == 'javtiful.com' ||
                         hostname == 'madnsfw.com' ||
                         hostname == 'mulemax.com' ||
+                        hostname == 'pornloupe.com' || // embed is SAMEORIGIN
                         hostname == 'pornzog.com' ||
                         hostname == 'watchmygf.me' ||
                         hostname == 'xfantasy.com' ||
@@ -2319,10 +2323,10 @@ $(function () {
                     if (hostname == 'nonktube.com' ||
                         hostname == 'theporngod.com' ||
                         hostname == 'xhamster.com' ||
-                        hostname == 'youporn.com') {
+                        hostname == 'youporn.com')
                         initPhotoEmbed(pic, href.prop('origin')+'/embed/'+shortid, false);
 
-                    } else if (shortid.match(/^\d+$/)) {
+                    else if (shortid.match(/^\d+$/)) {
                         initPhotoEmbed(pic, href.prop('origin')+'/embed/'+shortid+'?autoplay=1');
                         log.info("AUTOGENERATE embed ["+pic.o_url+"]: "+pic.url);
 
