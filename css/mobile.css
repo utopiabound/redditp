@@ -36,6 +36,9 @@
     width: 24px;
 }
 
+.nbmenu { margin-left: 10px; }
+#navboxOrigDomain { margin-right: 10px; }
+
 /* 3 rows of number visible */
 .numberButtonList { max-height: 108px; }
 
