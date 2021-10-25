@@ -1,12 +1,168 @@
 /* BASIC RESET */
-* { margin:0; padding:0; border: 0; }
+* {
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
 
 /* HTML ELEMENTS */
 body {
     overflow: hidden;
     background-color: #000;
-    color:#fff;
-    font-family: IBMPlexSans, "Helvetica Neue", "Segoe UI", Helvetica, Verdana, Arial, sans-serif
+    color: #fff;
+    font-family: IBMPlexSans, "Helvetica Neue", "Segoe UI", Helvetica, Verdana, Arial, sans-serif;
+}
+
+a {
+    text-decoration: none;
+    color: #eee;
+    font-weight: bold;
+    border-bottom: 1px dotted rgba(0, 0, 0, 0);
+}
+
+a:hover {
+    opacity: 1;
+    border-bottom-color: white;
+}
+
+h3 {
+    padding: 2px;
+    font-weight: bold;
+    font-size: 16px;
+}
+
+/* Generic Styles */
+
+.title {
+    padding: 2px;
+    font-weight: bold;
+    font-size: 20px;
+    min-height: 26px;
+}
+
+.clouds {
+    opacity: 0.9;
+    background-color: rgba(0, 0, 0, 0.7);
+}
+
+.unset { color: red; }
+.icontoggle { cursor: pointer; }
+.origlink { margin-top: 5px; }
+.origlink i { font-size: 18px; }
+.right { float: right; }
+
+/* Decorate Photo Buttons */
+.nbmenu a.image::before { content: "image"; }
+a.video::before { content: "movie"; }
+a.embed::before { content: "ondemand_video"; }
+a.album::before { content: "photo_library"; }
+a.later::before { content: "file_download"; }
+.nbmenu a.thumb::before { content: "insert_photo"; }
+a.html::before { content: "message"; }
+a.failed { text-decoration: line-through; }
+.nbmenu a.failed::before { content: "broken_image"; }
+
+.numberButtonList .over18 { color: #f99; }
+
+/* List of Info Links */
+.nbmenu {
+    margin: 0 0 0 5px;
+    width: 100%;
+}
+
+.nbmenu li {
+    text-align: left;
+    padding: 2px 2px 5px 3px;
+    max-width: 300px;
+    overflow: hidden;
+}
+
+.nbmenu li.list-start {
+    padding: 2px 0 5px 3px;
+}
+
+.nbmenu li.list-item {
+    padding: 2px 1px 5px 0;
+}
+
+.nbmenu li.list-end {
+    padding: 2px 2px 5px 1px;
+}
+
+
+/* Major Div Styles (navboxes) */
+.navbox {
+    width: 450px;
+    overflow: visible;
+    position: relative;
+}
+
+.navbox ul {
+    list-style-type: none;
+    display: block;
+    margin: 0;
+    right: 10px;
+    top: 10px;
+    text-align: left;
+}
+
+.navbox ul li {
+    display: inline-block;
+    list-style-type: none;
+    vertical-align: middle;
+}
+
+.navbox ul li a { cursor: pointer; }
+
+.navbox ul li.hidden { display: none; }
+
+.navbox p {
+    padding: 20px 20px 20px 20px;
+    font-size: 13px;
+    color: #111;
+}
+
+.navbox p.bottom {
+    position: absolute;
+    bottom: 5px;
+    right: 5px;
+}
+
+/* Album Button Styles */
+.numberButton {
+    float: left;
+    min-width: 3ex;
+    margin-left: 3px;
+    margin-bottom: 3px;
+    text-decoration: none;
+    color: #eee;
+    font-weight: bold;
+    text-align: center;
+    line-height: 18px;
+    padding: 3px;
+    border: 1px solid transparent;
+}
+
+.numberButtonList { overflow: auto; }
+
+.numberButtonList ul li a:hover {
+    background: #888;
+    color: #000;
+    border: 1px solid transparent;
+}
+
+.numberButtonList ul li a.active {
+    color: #0aa;
+    box-shadow: 2px 2px 3px #ccc;
+}
+
+.numberButtonList ul li a.active:hover {
+    color: #00f;
+    cursor: default;
+}
+
+.numberButtonList ul li a::before {
+    opacity: 0.4;
 }
 
 /* PICTURES */
@@ -25,45 +181,18 @@ body {
     color: #bbb;
 }
 
-.topper {
-    z-index: 1;
-}
+.topper { z-index: 1; }
 
 .hidden { display: none; }
 .selected { color: red; }
 
-#pictureSlider div.fullscreen { height:100%; width:100%; position:absolute; }
-
-/* USER LOGIN / MULTI-REDDITS */
-#multiListDiv {
-    left: 0px;
-}
-#loginLi input:checked~#multiListDiv { display: block; }
-#loginLi.use-hover:hover div { display: block; }
-#loginLi div {
-    display: none;
+#pictureSlider div.fullscreen {
+    height: 100%;
+    width: 100%;
     position: absolute;
-    bottom: 100%;
 }
-#loginLi a { display: inline-block; }
-
-#multiListDiv ul li { padding: 5px 2px 5px 2px; }
-#multiListDiv ul li.right { float: right; }
-#multiListDiv hr { margin: 0; }
-
-/* toggled on/off when logged in */
 
 /* Selector popup */
-#choiceLi input:checked~#subredditPopup { display: block; }
-#choiceLi div {
-    display: none;
-    position: absolute;
-    bottom: 100%;
-}
-#choiceLi a { display: inline-block; }
-#choiceLi li { display: block; padding: 2px; }
-#choiceLi li.multi { display: inline-block; padding: 2px; }
-
 hr.split { border: 1px inset; }
 
 /* Help Popup */
@@ -77,28 +206,13 @@ hr.split { border: 1px inset; }
     font-weight: bold;
 }
 
-/* PLAY BUTTON */
-#playbutton {
-    top: 45%;
-    left: 45%;
-    z-index: 10;
-    display: block;
-    position: absolute;
-    width: 10%;
-    height: 10%;
-    text-align: center;
-    vertical-align: middle;
-}
-#playbutton i.material-icons { font-size: 60px; opacity: 0.7; }
-#playbutton a { display: block; clear: both; border: 1px solid transparent; }
-#playbutton a:hover { color: red; border: 1px solid transparent; }
-
 div.progressbar {
     width: 100%;
     height: 5px;
     position: absolute;
     bottom: 0;
 }
+
 div.progress {
     background-color: red;
     position: absolute;
@@ -119,37 +233,8 @@ div.progress {
 }
 
 /* NAVIGATION BOX */
-#navigationBoxes {float: left; }
-#navboxExtra  { float: left; }
-a { text-decoration:none;
-    color:#eee;
-    font-weight: bold;
-    border-bottom: 1px dotted rgba(0,0,0,0);
- }
-a:hover {
-    opacity: 1.0;
-    border-bottom-color: white;
-}
-
-.navbox { width:450px; overflow: visible; position:relative; }
-
-.numberButtonList { overflow: auto; }
-.navbox ul { list-style-type:none; display:block; margin:0px; right:10px; top:10px; text-align: left;}
-.navbox ul li { display: inline-block; list-style-type: none; vertical-align: middle; }
-.navbox ul li.hidden { display: none; }
-.numberButton {
-    float: left;
-    min-width: 3ex;
-    margin-left: 3px;
-    margin-bottom: 3px;
-    text-decoration: none;
-    color: #eee;
-    font-weight: bold;
-    text-align: center;
-    line-height: 18px;
-    padding: 3px;
-    border: 1px solid transparent;
-}
+#navigationBoxes { float: left; }
+#navboxExtra { float: left; }
 
 .error { color: red; }
 
@@ -160,28 +245,6 @@ a:hover {
     flex-direction: row;
 }
 
-/* Decorate Photo Buttons */
-#controlsDiv a { position: relative; }
-#controlsDiv a:before {
-    font-family: "Material Icons";
-    font-weight: normal;
-    position: absolute;
-    top: 0px;
-    left: 0px;
-}
-
-.nbmenu a.image:before { content: "image"; }
-a.video:before { content: "movie"; }
-a.embed:before { content: "ondemand_video"; }
-a.album:before { content: "photo_library"; }
-a.later:before { content: "file_download"; }
-.nbmenu a.thumb:before { content: "insert_photo"; }
-a.html:before { content: "message"; }
-a.failed { text-decoration: line-through; }
-.nbmenu a.failed:before { content: "broken_image"; }
-
-.numberButtonList .over18 { color: #f99; }
-
 .xorig {
     border: 1px solid white;
     border-radius: 5px;
@@ -191,30 +254,30 @@ a.failed { text-decoration: line-through; }
     display: inline-block;
 }
 
-.navbox ul li a {
-    cursor:pointer;
-}
-.numberButtonList ul li a:hover {
-    background:#888;
-    color:#000;
-    border: 1px solid transparent;
-}
-.numberButtonList ul li a.active:hover {
-    color:  #00f;
-    cursor: default;
-}
-.numberButtonList ul li a.active {
-    color: #00AAAA;
-    box-shadow: 2px 2px 3px #ccc;
-}
-.numberButtonList ul li a:before {
-    opacity: 0.4;
+#controlsDiv {
+    position: absolute;
+    bottom: 0;
+    left: 0;
 }
 
-#controlsDiv {position: absolute; bottom: 0; left: 0; }
-#titleDiv { position: absolute; top: 0; left: 0; right: 0; min-height: 60px; }
-#duplicates { position: relative; top: 0; left: 0; right: 0; overflow: auto; }
+#titleDiv {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    min-height: 60px;
+}
+
+#duplicates {
+    position: relative;
+    top: 0;
+    left: 0;
+    right: 0;
+    overflow: auto;
+}
+
 #duplicates ul { display: inline; }
+
 #subredditUrl {
     border: 1px dashed;
     background-color: black;
@@ -225,74 +288,69 @@ a.failed { text-decoration: line-through; }
 #duplicatesCollapser {
     position: absolute;
     top: 30px;
-    right: 0px;
+    right: 0;
 }
 
-.title { padding: 2px; font-weight: bold; font-size: 20px; min-height: 26px; }
-h3 { padding: 2px; font-weight: bold; font-size: 16px; }
-
 /* infoLink:   infol infop [infoc]  infod  [infol infop [infoc]] */
+
 /* redditLink: infol infor [infoc] */
-.info { font-weight: bold; font-size: 12px; float: left}
+.info {
+    font-weight: bold;
+    font-size: 12px;
+    float: left;
+}
+
 /* info link */
 .infol { margin: 3px 1px 2px 5px; }
+
 /* info redditp image */
 .infop { margin-right: 5px; }
+
 /* info for reddit image */
-.infor { margin: 0px 5px 0px 2px; }
+.infor { margin: 0 5px 0 2px; }
+
 /* info date */
 .infod { margin: 3px 5px 2px 5px; }
-/* info comment link (between infol and infop */
-.infoc { margin: 3px 5px -5px 0px; }
 
-label.textlabel { font-weight: bold; margin: 0px 0px 0px 2px; }
+/* info comment link (between infol and infop */
+.infoc { margin: 3px 5px -5px 0; }
+
+label.textlabel {
+    font-weight: bold;
+    margin: 0 0 0 2px;
+}
+
 input.textlabel {
     height: 16px;
     width: 16px;
     text-align: center;
-    margin: 0px 5px 0px 0px;
+    margin: 0 5px 0 0;
 }
 
-.navbox p { padding: 20px 20px 20px 20px; font-size: 13px; color:#111; }
-.navbox p.bottom { position:absolute; bottom:5px; right:5px; }
+#controlsDiv a { position: relative; }
 
-.origlink {
-    margin-top: 5px;
-}
-
-.nbmenu {
-    margin: 0 0 0 5px;
-    width: 100%;
-}
-
-.nbmenu li {
-    text-align: left;
-    padding: 2px 2px 5px 3px;
-    max-width: 300px;
-    overflow: hidden;
-}
-
-.nbmenu li.list-start {
-    padding: 2px 0px 5px 3px;
-}
-.nbmenu li.list-item {
-    padding: 2px 1px 5px 0px;
-}
-.nbmenu li.list-end {
-    padding: 2px 2px 5px 1px;
+#controlsDiv a::before {
+    font-family: "Material Icons"; /* stylelint-disable-line font-family-no-missing-generic-family-keyword */
+    font-weight: normal;
+    position: absolute;
+    top: 0;
+    left: 0;
 }
 
 #navboxScore {
     position: relative;
 }
+
 #navboxScore div.reddit {
     position: absolute;
     background-image: url(images/upvote.svg);
     opacity: 0.4;
     z-index: -1;
     left: 15px;
+
     /* height / width set from .reddit */
 }
+
 #navboxScore span {
     width: 34px;
     text-align: center;
@@ -300,18 +358,17 @@ input.textlabel {
 
 #albumCollapser {
     position: absolute;
-    top: 0px;
+    top: 0;
     right: 30px;
 }
 
-#navboxContents {
-    padding: 0px 28px 2px 0;
-    margin: 0;
-}
+#navboxContents { padding: 0 28px 2px 0; }
+
 #navboxTitleWrapper {
-    padding: 0px 28px 0px 0;
+    padding: 0 28px 0 0;
     margin: 0;
 }
+
 #albumNumberButtons {
     border-top: 2px solid grey;
 }
@@ -324,13 +381,7 @@ input.textlabel {
     font-size: 18px;
 }
 
-li.origlink i {
-    font-size: 18px;
-}
-
-label.checkbox {font-weight: bold;}
-
-.linkflair { 
+.linkflair {
     border: 1px solid grey;
     border-radius: 5px;
     float: left;
@@ -340,11 +391,7 @@ label.checkbox {font-weight: bold;}
     padding: 1px;
 }
 
-.favicon:hover {
-    background-color: rgba(255, 255, 255, 0.7);
-}
-
-.clouds { opacity: 0.9; background-color: rgba(0,0,0,0.7); }
+.favicon:hover { background-color: rgba(255, 255, 255, 0.7); }
 
 /* Computed width: 28px */
 .collapser {
@@ -365,12 +412,6 @@ label.checkbox {font-weight: bold;}
     margin-top: 4px;
 }
 
-.checkbox {
-    cursor: pointer;
-    background: transparent;
-    color: white;
-}
-
 .prevArrow {
     position: absolute;
     top: 50%;
@@ -380,7 +421,6 @@ label.checkbox {font-weight: bold;}
     border-top: 15px solid transparent;
     border-bottom: 15px solid transparent;
     border-right: 30px solid white;
-
     opacity: 0.8;
     cursor: pointer;
 }
@@ -391,7 +431,6 @@ label.checkbox {font-weight: bold;}
     right: 10px;
     width: 0;
     height: 0;
-
     border-top: 15px solid transparent;
     border-bottom: 15px solid transparent;
     border-left: 30px solid white;
@@ -399,27 +438,16 @@ label.checkbox {font-weight: bold;}
     cursor: pointer;
 }
 
-input[type=checkbox] {
-    display: none;
-}
+label.checkbox { font-weight: bold; }
 
-input[type=checkbox]:checked + label.colortoggle {
-    color: red;
-}
-
-.unset {
-    color: red;
-}
-
-.icontoggle {
+.checkbox {
     cursor: pointer;
+    background: transparent;
+    color: white;
 }
 
-#fullScreenButton {
-    width: 20px;
-    padding-left: 10px;
-    cursor:pointer;
-}
+input[type=checkbox] { display: none; }
+input[type=checkbox]:checked + label.colortoggle { color: red; }
 
 .fullscreen {
     width: 100%;
@@ -427,6 +455,75 @@ input[type=checkbox]:checked + label.colortoggle {
     object-fit: contain;
 }
 
-.right {
-    float: right;
+#fullScreenButton {
+    width: 20px;
+    padding-left: 10px;
+    cursor: pointer;
+}
+
+#choiceLi input:checked ~ #subredditPopup { display: block; }
+
+#choiceLi li.multi {
+    display: inline-block;
+    padding: 2px;
+}
+
+#choiceLi div {
+    display: none;
+    position: absolute;
+    bottom: 100%;
+}
+#choiceLi a { display: inline-block; }
+
+#choiceLi li {
+    display: block;
+    padding: 2px;
+}
+
+/* MULTI-REDDITS */
+#multiListDiv { left: 0; }
+
+#multiListDiv ul li { padding: 5px 2px 5px 2px; }
+#multiListDiv ul li.right { float: right; }
+#multiListDiv hr { margin: 0; }
+
+/* User Login */
+#loginLi div {
+    display: none;
+    position: absolute;
+    bottom: 100%;
+}
+
+#loginLi a { display: inline-block; }
+
+#loginLi input:checked ~ #multiListDiv { display: block; }
+#loginLi.use-hover:hover div { display: block; }
+
+/* PLAY BUTTON */
+#playbutton {
+    top: 45%;
+    left: 45%;
+    z-index: 10;
+    display: block;
+    position: absolute;
+    width: 10%;
+    height: 10%;
+    text-align: center;
+    vertical-align: middle;
+}
+
+#playbutton i.material-icons {
+    font-size: 60px;
+    opacity: 0.7;
+}
+
+#playbutton a {
+    display: block;
+    clear: both;
+    border: 1px solid transparent;
+}
+
+#playbutton a:hover {
+    color: red;
+    border: 1px solid transparent;
 }
