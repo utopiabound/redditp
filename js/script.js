@@ -616,8 +616,11 @@ $(function () {
         return data.html();
     };
 
-    var redditLink = function(path, pathalt, pathname) {
-        return _localLink(rp.redditBaseUrl+path, path, pathname, pathalt, "reddit");
+    var redditLink = function(path, pathalt, pathname, selected) {
+        var classes;
+        if (selected === true)
+            classes = "info selected";
+        return _localLink(rp.redditBaseUrl+path, path, pathname, pathalt, "reddit", classes);
     };
 
     var tumblrLink = function(blog) {
@@ -1363,7 +1366,6 @@ $(function () {
     };
 
     var initPhotoImage = function(photo, url) {
-        var oldType = photo.type;
         photo.type = imageTypes.image;
         if (url)
             photo.url = url;
@@ -1870,7 +1872,6 @@ $(function () {
         // hostname only: second-level-domain.tld
         var hostname = hostnameOf(pic.url, true);
         var orig_hn = hostnameOf(pic.o_url, true);
-        var sld = hostname.match(/[^.]*/)[0];
 
         try {
             if (!pic.url.startsWith('http'))
@@ -3621,14 +3622,14 @@ $(function () {
                 resetNextSlideTimer();
         }
 
-        var rpdisplayHtml = function(event) {
+        var rpdisplayHtml = function() {
             var div = $(this);
             div.empty();
             var pic = getCurrentPic();
             showHtml(div, pic.html);
             return true;
         };
-        var rpdisplayEmbed = function(event) {
+        var rpdisplayEmbed = function() {
             var div = $(this);
             div.empty();
             showEmbed(div, getCurrentPic());
@@ -4411,7 +4412,7 @@ $(function () {
             url = originOf(url)+pathnameOf(url);
 
         if (hostname == 'hotnessrater.com') {
-            a = pathnameOf(url).split('/');
+            var a = pathnameOf(url).split('/');
             url = ["https://img1.hotnessrater.com", a[2], a[3]].join("/")+".jpg";
         }
 
@@ -4476,10 +4477,11 @@ $(function () {
         clearConfig(configNames.redditRefreshBy);
     };
 
-    var redditMultiAppend = function(data, list) {
+    var redditMultiAppend = function(data, list, multi) {
         data.forEach(function(item) {
             var path;
             var cl = "multi";
+            var selected = false;
             if (item.data.visibility == "public")
                 path = item.data.path;
             else if (item.data.visibility == "private") {
@@ -4489,8 +4491,10 @@ $(function () {
                 return;
             if (item.data.over_18)
                 cl += " show-nsfw";
+            if (item.data.name == multi)
+                selected = true;
 
-            var link = redditLink(path, item.data.description_md, item.data.display_name);
+            var link = redditLink(path, item.data.description_md, item.data.display_name, selected);
 
             list.append($('<li>', {class: cl}).html(link));
         });
@@ -4568,7 +4572,8 @@ $(function () {
         var base;
         var mod = arr.indexOf(s[1]);
         var user;
-        var submitted = false;
+        var multi;
+        var is_submitted = false;
         rp.url.choice = "";
         rp.url.sub = (s[1] == 'r' && s[2]) ?s[2] :"";
 
@@ -4598,12 +4603,13 @@ $(function () {
                 base = s.slice(0,3).join('/')+'/submitted';
                 arr = [ "hot", "new", "top", "controversial" ];
                 mod = (s.length > 4) ?arr.indexOf(s[4]) :0;
+                is_submitted = true;
 
             } else if (s[3] == 'm') {
-                submitted = true;
                 base = s.slice(0,5).join('/');
                 arr = [ "hot", "new", "top", "rising", "controversial", 'gilded' ];
                 mod = (s.length > 5) ?arr.indexOf(s[5]) :0;
+                multi = s[4];
 
             } else {
                 log.error("Unknown URL format for Choice: "+rp.url.subreddit);
@@ -4614,6 +4620,7 @@ $(function () {
             base = s.slice(0,4).join('/');
             arr = [ "hot", "new", "top", "rising", "controversial", 'gilded' ];
             mod = (s.length > 4) ?arr.indexOf(s[4]) :0;
+            multi = s[3];
 
         } else if (s[1] == 'wp' ||
                    s[1] == 'wp2') {
@@ -4658,16 +4665,15 @@ $(function () {
             list.append(li);
         }
         if (user) {
-            if (submitted) {
-                list.append($('<li>').append($('<hr>', { class: "split" })));
-                list.append($('<li>').append(redditLink('/user/'+user+'/submitted', "submitted", "submitted")));
-            }
+            list.append($('<li>').append($('<hr>', { class: "split" })));
+            list.append($('<li>').append(redditLink('/user/'+user+'/submitted', "submitted", "submitted", is_submitted)));
+
             var jsonUrl = rp.url.api + '/api/multi/user/' + user;
             var handleData = function (data) {
                 if (data.length) {
                     var list = $('#subredditPopup ul');
                     list.append($('<li>').append($('<hr>', { class: "split" })));
-                    redditMultiAppend(data, list);
+                    redditMultiAppend(data, list, multi);
                 }
             };
             $.ajax({
