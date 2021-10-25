@@ -222,7 +222,7 @@ a.failed { text-decoration: line-through; }
     float: left;
 }
 
-.vcollapser {
+#duplicatesCollapser {
     position: absolute;
     top: 30px;
     right: 0px;
@@ -296,6 +296,12 @@ input.textlabel {
 #navboxScore span {
     width: 34px;
     text-align: center;
+}
+
+#albumCollapser {
+    position: absolute;
+    top: 0px;
+    right: 30px;
 }
 
 #navboxContents {

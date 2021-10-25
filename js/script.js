@@ -973,11 +973,14 @@ $(function () {
         var div = $('#'+divname);
         if (state == "open") {
             // close it
-            $(div).hide();
+            $(div).animate({ height: "0px"}, function() { $(div).hide(); $(div).css("height", ""); });
             $(this).data(STATE, "closed");
         } else { // closed
             // open it
+            var h = $(div).height();
+            $(div).css("height", "0px");
             $(div).show();
+            $(div).animate({ height: h+"px"}, function() { $(div).css("height", ""); });
             $(this).data(STATE, "open");
         }
         setVcollapseHtml($(this));
@@ -1144,11 +1147,6 @@ $(function () {
 
     var updateAutoNextSlide = function () {
         rp.settings.shouldAutoNextSlide = $("#autoNextSlide").is(':checked');
-        if (rp.settings.shouldAutoNextSlide) {
-            $('#controlsDiv .collapser').css({color: 'red'});
-        } else {
-            $('#controlsDiv .collapser').css({color: ""});
-        }
         setConfig(configNames.shouldAutoNextSlide, rp.settings.shouldAutoNextSlide);
         // Check if active image is a video before reseting timer
         var pic = getCurrentPic();
@@ -2529,10 +2527,10 @@ $(function () {
             open_in_background("#navboxAlbumOrigLink");
             break;
         case "c":
-            $('#controlsDiv .hcollapser').click();
+            $('#controlsCollapser').click();
             break;
         case "t":
-            $('#titleDiv .hcollapser').click();
+            $('#titleCollapser').click();
             break;
         case "d":
             open_in_background("#navboxDuplicatesLink");
