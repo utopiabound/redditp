@@ -1939,6 +1939,15 @@ $(function () {
                     initPhotoEmbed(pic, 'https://makeagif.com/i/'+shortid);
                 }
 
+            } else if (hostname == 'gfycat.com' ||
+                       hostname == 'redgifs.com' ||
+                       hostname == 'gifdeliverynetwork.com') {
+                shortid = url2shortid(pic.url, -1, '-', false);
+                if (shortid == 'about')
+                    throw "bad url";
+                pic.url = gfycatPhotoUrl(shortid, (hostname == 'gfycat.com') ?'gfycat' :'redgifs');
+                pic.type = imageTypes.later;
+
             } else if (hostname == 'iloopit.net') {
                 // VIDEO:
                 // https://gifs.iloopit.net/resources/UUID/converted.gif
@@ -1961,15 +1970,6 @@ $(function () {
                         throw "unknown iloopit format";
                 }
 
-            } else if (hostname == 'gfycat.com' ||
-                       hostname == 'redgifs.com' ||
-                       hostname == 'gifdeliverynetwork.com') {
-                shortid = url2shortid(pic.url, -1, '-', false);
-                if (shortid == 'about')
-                    throw "bad url";
-                pic.url = gfycatPhotoUrl(shortid, (hostname == 'gfycat.com') ?'gfycat' :'redgifs');
-                pic.type = imageTypes.later;
-
             } else if (hostname == 'clippituser.tv' ||
                        hostname == 'clippit.tv') {
                 if (fqdn == 'clips.clippit.tv')
@@ -1979,6 +1979,13 @@ $(function () {
                 initPhotoVideo(pic, ['https://clips.clippit.tv/'+shortid+'/720.mp4',
                                      'https://clips.clippit.tv/'+shortid+'/360.mp4'],
                                'https://clips.clippit.tv/'+shortid+'/thumbnail.jpg');
+
+            } else if (fqdn == 'commons.wikimedia.org') {
+                if (isImageExtension(pic.url) ||
+                    isVideoExtension(pic.url))
+                    pic.type = imageTypes.later;
+                else
+                    throw "unknown wikimedia url"
 
             } else if (isVideoExtension(pic.url)) { // #### VIDEO ####
                 initPhotoVideo(pic);
@@ -4162,6 +4169,25 @@ $(function () {
 
             handleData = function(data) {
                 initPhotoHtml(photo, data.html);
+                showCB(photo);
+            };
+
+        } else if (hostname == 'wikimedia.org') {
+            // categories: https://commons.wikimedia.org/w/api.php?action=query&list=categorymembers&format=json&cmtitle=SHORTID
+            a = photo.url.split('/');
+            jsonUrl = 'https://api.wikimedia.org/core/v1/commons/file/'+a[a.length-1];
+            headerData = { "Api-User-Agent": 'redditp ('+window.location.hostname+')' };
+
+            handleData = function(data) {
+                if (isImageExtension(data.file_description_url)) {
+                    initPhotoImage(photo, data.original.url);
+                    addPhotoThumb(photo, data.thumbnail.url);
+                } else if (isVideoExtension(data.file_description_url)) {
+                    initPhotoVideo(photo, [data.original.url, data.preferred.url], data.thumbnail.url);
+                } else {
+                    log.error("Non-Photo Extension: "+data.file_description_url);
+                    initPhotoThumb(photo);
+                }
                 showCB(photo);
             };
 
