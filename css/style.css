@@ -243,19 +243,17 @@ div.progress {
 #controlsDiv {
     position: absolute;
     bottom: 0;
-    left: 0;
 }
 
 #titleDiv {
     position: absolute;
-    top: 0;
-    left: 0;
     min-height: 60px;
 }
 
 #duplicates {
     position: relative;
     width: 420px;
+    clear: left;
 }
 
 #duplicates ul { display: inline; }
