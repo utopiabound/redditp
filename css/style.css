@@ -69,21 +69,21 @@ a.failed { text-decoration: line-through; }
 
 .nbmenu li {
     text-align: left;
-    padding: 2px 2px 5px 3px;
+    padding: 2px 2px 0 3px;
     max-width: 300px;
     overflow: hidden;
 }
 
 .nbmenu li.list-start {
-    padding: 2px 0 5px 3px;
+    padding: 0 0 0 3px;
 }
 
 .nbmenu li.list-item {
-    padding: 2px 1px 5px 0;
+    padding: 0;
 }
 
 .nbmenu li.list-end {
-    padding: 2px 2px 5px 1px;
+    padding: 0 0 0 3px;
 }
 
 
@@ -98,7 +98,9 @@ a.failed { text-decoration: line-through; }
     vertical-align: middle;
 }
 
-.navbox ul li a { cursor: pointer; }
+.navbox ul li a {
+    cursor: pointer;
+}
 
 .navbox ul li.hidden { display: none; }
 
@@ -119,7 +121,6 @@ a.failed { text-decoration: line-through; }
     float: left;
     min-width: 3ex;
     margin-left: 3px;
-    margin-bottom: 3px;
     text-decoration: none;
     color: #eee;
     font-weight: bold;
@@ -282,7 +283,7 @@ div.progress {
 }
 
 /* info link */
-.infol { margin: 3px 0 2px 5px; }
+.infol { margin: 3px 0 0 5px; }
 
 /* info redditp image */
 .infop { margin-left: 5px; }
@@ -429,11 +430,14 @@ input[type=checkbox]:checked + label.colortoggle { color: red; }
     cursor: pointer;
 }
 
+#subredditForm .reddit {
+    margin: -5px;
+}
+
 #choiceLi input:checked ~ #subredditPopup { display: block; }
 
 #choiceLi li.multi {
     display: inline-block;
-    padding: 2px;
 }
 
 #choiceLi div {
@@ -445,13 +449,16 @@ input[type=checkbox]:checked + label.colortoggle { color: red; }
 
 #choiceLi li {
     display: block;
-    padding: 2px;
+    padding: 0;
 }
 
 /* MULTI-REDDITS */
-#multiListDiv { left: 0; }
+#multiListDiv {
+    left: 0;
+    padding-bottom: 5px;
+}
 
-#multiListDiv ul li { padding: 5px 2px 5px 2px; }
+#multiListDiv ul li { padding: 0 2px 2px 2px; }
 #multiListDiv ul li.right { float: right; }
 #multiListDiv hr { margin: 0; }
 

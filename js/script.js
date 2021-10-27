@@ -212,6 +212,7 @@ rp.session = {
     volumeIsMute: false,  // Volume 0/1 should be used as mute/unmount - no volume control
     fakeStorage: false,
     showRedditLink: true,
+    redditRefreshToken: '',
     redditHdr: {}
 };
 // In case browser doesn't support localStorage
@@ -289,6 +290,7 @@ rp.url = {
     api:  '',
     path: '',
     vars: "",
+    auth: "/api/v1/authorize",
     // Set in setupChoices()
     choice: "",
     sub: "" // actual name of singular sub-reddit, iff it's in URL
@@ -1327,6 +1329,7 @@ $(function () {
 
             // New mobile site doesn't work for auth if not logged in
             rp.redditLoginUrl = 'https://old.reddit.com';
+            rp.url.auth = '/api/v1/authorize.compact';
 
             // Remove :hover on #loginLi, so it only responds to clicks
             $('#loginLi').removeClass('use-hover');
@@ -3192,7 +3195,6 @@ $(function () {
         log.info("xhr:", xhr);
         log.info("ajaxOptions:", ajaxOptions);
         log.error("error:", thrownError);
-        log.info("this:", $(this));
     };
     var failedAjaxDone = function (xhr, ajaxOptions, thrownError) {
         failedAjax(xhr, ajaxOptions, thrownError);
@@ -4522,6 +4524,11 @@ $(function () {
         });
     };
 
+    var redditExpiresToTime = function(expires_in) {
+        var time = parseInt(expires_in, 10);
+        return time+Math.ceil(Date.now()/1000);
+    };
+
     var setupRedditLogin = function (bearer, by) {
         if (hostnameOf(rp.redirect) != window.location.hostname)
             return;
@@ -4532,11 +4539,12 @@ $(function () {
         if (rp.session.loginExpire &&
             rp.session.loginExpire > (Date.now()/1000)-60)
             return;
-        $('#loginUsername').attr('href', rp.redditLoginUrl + '/api/v1/authorize?' +
+        $('#loginUsername').attr('href', rp.redditLoginUrl + rp.url.auth + '?' +
                                  ['client_id=' + rp.api_key.reddit,
-                                  'response_type=token',
+                                  'response_type=code',
                                   'state='+encodeURIComponent(rp.url.path),
                                   'redirect_uri='+encodeURIComponent(rp.redirect),
+                                  'duration=temporary',
                                   // read - /r/ALL, /me/m/ALL
                                   // history - /user/USER/submitted
                                   'scope=read,history'].join('&'));
@@ -4549,6 +4557,7 @@ $(function () {
             $('#loginUsername').attr('title', 'Expires at '+d);
             $('label[for=login]').html(googleIcon('verified_user'));
             rp.url.api = 'https://oauth.reddit.com';
+            setConfig(configNames.redditRefreshBy, by);
             loadRedditMultiList();
 
         } else
@@ -6769,27 +6778,58 @@ $(function () {
         });
 
         // Auth Response - only ever uses window.location
-        if (rp.url.subreddit == "/auth" ||
-            rp.url.subreddit == "/" && rp.url.path.startsWith('/access_token')) {
-            var matches = /[/#?&]access_token=([^&#=]*)/.exec(window.location.href);
-            var url;
-            if (matches) {
-                var bearer = matches[1];
+        if (rp.url.subreddit == "/auth") {
+            var args = searchOf(window.location.href);
+
+            var url = decodeURIComponent(args.state);
+            if (url.startsWith('/auth'))
+                url = '/';
+
+            if (args.access_token) {
+                // Implicit Flow
+                var bearer = args.access_token;
                 setConfig(configNames.redditBearer, bearer);
 
-                matches = /[#?&]expires_in=([^&#=]*)/.exec(window.location.href);
-                // if failed to process, default to an hour
-                var time = parseInt(decodeURIComponent(matches[1]), 10);
-                var by = time+Math.ceil(Date.now()/1000);
-
-                setConfig(configNames.redditRefreshBy, by);
+                var by = redditExpiresToTime(decodeURIComponent(args.expires_in));
 
                 setupRedditLogin(bearer, by);
 
-                matches = /[#?&]state=([^&#=]*)/.exec(window.location.href);
-                url = decodeURIComponent(matches[1]);
-                if (url.startsWith('/auth'))
-                    url = '/';
+            } else if (args.code) {
+                // Code Flow
+                var jsonUrl = 'https://www.reddit.com/api/v1/access_token';
+                var postData = { grant_type: 'authorization_code',
+                                 code: args.code,
+                                 redirect_uri: rp.redirect };
+                var handleData = function(data) {
+                    var by = redditExpiresToTime(data.expires_in);
+                    setupRedditLogin(data.access_token, by);
+                    // @@ verify scope
+                    rp.session.redditRefreshToken = data.refresh_token;
+                    processUrls(url);
+                    loadRedditMultiList();
+                };
+                var handleError = function(xhr, _ajaxOptiosn, thrownError) {
+                    log.error("Failed to get auth token: "+thrownError);
+                    clearRedditLogin();
+                    processUrls(url);
+                };
+
+                $.ajax({
+                    url: jsonUrl,
+                    method: 'POST',
+                    data: postData,
+                    dataType: 'json',
+                    headers: {
+                        "Authorization": "Basic " + btoa(rp.api_key.reddit + ":")
+                    },
+                    username: rp.api_key.reddit,
+                    password: '',
+                    success: handleData,
+                    error: handleError,
+                    timeout: rp.settings.ajaxTimeout,
+                    crossDomain: true
+                });
+                return;
             } else {
                 log.error("Failed to load auth: "+window.location.href);
                 url = "/";

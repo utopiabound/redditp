@@ -1,5 +1,8 @@
-#multiListDiv i.material-icons { font-size: 18px; }
-#multiListDiv span.icon { font-size: 18px; }
+#multiListDiv .icon {
+    font-size: 24px;
+    display: inline-block;
+    margin-top: -6px;
+}
 
 /* Selector popup */
 #choiceLi {
@@ -13,12 +16,15 @@
 
 #controlsDiv a::before {
     font-size: 24px;
-    margin-top: -2px;
 }
 
 .info { font-size: 12px; }
 
 .nbmenu { font-size: 14px; }
+
+.navbox ul li a {
+    height: 20px;
+}
 
 #navboxLink {
     width: 24px;
@@ -32,7 +38,7 @@
 .reddit {
     height: 24px;
     width: 24px;
-    margin: -5px;
+    margin: -2px;
 }
 
 .favicon {
