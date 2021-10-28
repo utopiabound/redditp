@@ -18,6 +18,7 @@
  * redditp-decivolume           - int     - Volume of videos (value/10)
  * redditp-nsfw                 - boolean - load NSFW content
  * redditp-redditBearer         - string  - auth bearer token from reddit.com
+ * redditp-redditRefresh        - string  - auth refresh token from reddit.com
  * redditp-redditRefreshBy      - int     - time that bearer token expires
  * redditp-shouldAutoNextSlide  - boolean - on timeout, go to next image
  * redditp-showEmbed            - boolean - Show embeded content (iframes, no timeout)
@@ -335,6 +336,7 @@ $(function () {
         timeToNextSlide: "timeToNextSlide",
         minScore: "minScore",
         redditBearer: 'redditBearer',
+        redditRefresh: 'redditRefresh',
         redditRefreshBy: 'redditRefreshBy',
         blogger: 'blogger',
         wpv2: 'wordpressv2',
@@ -943,7 +945,8 @@ $(function () {
             // move to the left just enough so the collapser arrow is visible
             var arrowLeftPoint = $(this).position().left;
             $(this).parent().animate({
-                left: "-" + arrowLeftPoint + "px"
+                left: "-" + arrowLeftPoint + "px",
+                height: ($(this).height() * 2) + "px",
             });
             $(this).data(STATE, "closed");
         } else {
@@ -952,6 +955,8 @@ $(function () {
             $(this).parent().animate({
                 left: "0px"
             });
+            // No jquery way to unset height value in animate
+            $(this).parent().height("");
             $(this).data(STATE, "open");
         }
     });
@@ -3038,12 +3043,12 @@ $(function () {
         updateNavboxTypes(image);
 
         if (albumIndex >= 0) {
-            $('#navboxAlbumOrigLink').attr('href', photo.o_url).attr('title', photo.title+" (a)").show();
+            $('#navboxAlbumOrigLink').attr('href', photo.o_url).attr('title', photo.title+" (a)").parent().show();
             setFavicon($('#navboxAlbumOrigLink'), photo.o_url);
             if (url == photo.o_url)
                 $('#navboxOrigLink').parent().hide();
         } else
-            $('#navboxAlbumOrigLink').attr('href', "#").hide();
+            $('#navboxAlbumOrigLink').attr('href', "#").parent().hide();
         $('#navboxOrigDomain').attr('href', '/domain/'+hostnameOf(image.o_url));
 
         if (rp.session.loginExpire && now > rp.session.loginExpire-30)
@@ -4462,6 +4467,7 @@ $(function () {
     };
 
     var clearRedditLogin = function () {
+        // @@ renew?
         if (!rp.session.loginExpire)
             return;
 
@@ -4532,10 +4538,10 @@ $(function () {
     var setupRedditLogin = function (bearer, by) {
         if (hostnameOf(rp.redirect) != window.location.hostname)
             return;
-        if (bearer === undefined)
+        if (bearer === undefined) {
             bearer = getConfig(configNames.redditBearer, '');
-        if (by === undefined)
             by = getConfig(configNames.redditRefreshBy, 0);
+        }
         if (rp.session.loginExpire &&
             rp.session.loginExpire > (Date.now()/1000)-60)
             return;
@@ -4544,7 +4550,7 @@ $(function () {
                                   'response_type=code',
                                   'state='+encodeURIComponent(rp.url.path),
                                   'redirect_uri='+encodeURIComponent(rp.redirect),
-                                  'duration=temporary',
+                                  'duration=permanent',
                                   // read - /r/ALL, /me/m/ALL
                                   // history - /user/USER/submitted
                                   'scope=read,history'].join('&'));
@@ -4557,6 +4563,7 @@ $(function () {
             $('#loginUsername').attr('title', 'Expires at '+d);
             $('label[for=login]').html(googleIcon('verified_user'));
             rp.url.api = 'https://oauth.reddit.com';
+            setConfig(configNames.redditBearer, bearer);
             setConfig(configNames.redditRefreshBy, by);
             loadRedditMultiList();
 
@@ -6787,12 +6794,9 @@ $(function () {
 
             if (args.access_token) {
                 // Implicit Flow
-                var bearer = args.access_token;
-                setConfig(configNames.redditBearer, bearer);
-
                 var by = redditExpiresToTime(decodeURIComponent(args.expires_in));
 
-                setupRedditLogin(bearer, by);
+                setupRedditLogin(args.access_token, by);
 
             } else if (args.code) {
                 // Code Flow
@@ -6805,6 +6809,7 @@ $(function () {
                     setupRedditLogin(data.access_token, by);
                     // @@ verify scope
                     rp.session.redditRefreshToken = data.refresh_token;
+                    setConfig(configNames.redditRefresh, data.refresh_token);
                     processUrls(url);
                     loadRedditMultiList();
                 };

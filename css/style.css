@@ -26,7 +26,7 @@ a:hover {
 }
 
 h3 {
-    padding: 2px;
+    padding: 0 2px 0 2px;
     font-weight: bold;
     font-size: 16px;
 }
@@ -211,8 +211,6 @@ div.progress {
 #circle {
     width: 6px;
     height: 6px;
-    -webkit-border-radius: 3px;
-    -moz-border-radius: 3px;
     border-radius: 3px;
     background: white;
     position: absolute;
@@ -283,7 +281,7 @@ div.progress {
 }
 
 /* info link */
-.infol { margin: 3px 0 0 5px; }
+.infol { margin-left: 5px; }
 
 /* info redditp image */
 .infop { margin-left: 5px; }
@@ -292,10 +290,10 @@ div.progress {
 .infor { margin-left: 2px; }
 
 /* info date */
-.infod { margin: 3px 5px 2px 10px; }
+.infod { margin: 0 5px 0 10px; }
 
 /* info comment link (between infol and infop */
-.infoc { margin: 3px 0 -5px 5px; }
+.infoc { margin: 0 3px 0 2px; }
 
 label.textlabel {
     font-weight: bold;
@@ -431,7 +429,7 @@ input[type=checkbox]:checked + label.colortoggle { color: red; }
 }
 
 #subredditForm .reddit {
-    margin: -5px;
+    margin: -3px -5px -5px -5px;
 }
 
 #choiceLi input:checked ~ #subredditPopup { display: block; }
