@@ -55,8 +55,8 @@
  *      url:            URL link of "photo"    (addImageSlide() will call fixupUrl())
  *      over18:         BOOLEAN is nsfw (or any item in album is nsfw)
  *      title:          HTML Title of image     (creator of object needs to call fixupTitle())
- *      id:             TEXT Unique ID based on site+subreddit or blog
  *      -- Optional --
+ *      id:             TEXT Unique ID based on site+subreddit or blog
  *      date:           INT  Date in seconds
  *      author:         TEXT reddit username
  *      comments:       URL  link to photo comments
@@ -1324,9 +1324,9 @@ $(function () {
             rp.session.showRedditLink = false;
 
             // collapse duplicates by default
-            var dups = $('#duplicateCollapser');
+            var dups = $('#duplicatesCollapser');
             if (dups.data(STATE) != "closed") {
-                $('#duplicateCollapser').click();
+                $('#duplicatesCollapser').click();
             }
 
             // Hide useless "fullscreen" button on iOS safari
@@ -2569,7 +2569,7 @@ $(function () {
             open_in_background("#navboxDuplicatesMulti");
             break;
         case "u":
-            $("#duplicateCollapser").click();
+            $("#duplicatesCollapser").click();
             break;
         case " ": // SPACE
             $("#autoNextSlide").click();
@@ -3005,8 +3005,8 @@ $(function () {
             }
             $('#duplicatesLink').hide();
         }
-        $('#duplicateCollapser').data('count', total);
-        setVcollapseHtml($('#duplicateCollapser'));
+        $('#duplicatesCollapser').data('count', total);
+        setVcollapseHtml($('#duplicatesCollapser'));
     };
 
     //
@@ -3754,11 +3754,16 @@ $(function () {
             user = item.userData.username;
         // ignore "anonymous" user
         return (user === 'anonymous') ?undefined :user;
-    }
+    };
 
     var gfyItemTitle = function(item) {
-        return fixupTitle(item.title || item.description || item.gfyName)
-    }
+        return fixupTitle(item.title || item.description);
+    };
+
+    var gfyItemUrl = function(item, type) {
+        var shortid = item.gfyName || item.gifName || item.id;
+        return gfycatPhotoUrl(shortid, type);
+    };
 
     var gfycatPhotoUrl = function(shortid, type) {
         if (type == 'gfycat') {
@@ -3811,7 +3816,7 @@ $(function () {
         if (user)
             photo.gfycat.user = user;
         if (data.gfyItem.gfyName)
-            photo.url = gfycatPhotoUrl(data.gfyItem.gfyName, type);
+            photo.url = gfyItemUrl(data.gfyItem, type);
         if (!photo.title)
             photo.title = gfyItemTitle(data.gfyItem);
         if (data.gfyItem.tags.length > 0)
@@ -4009,7 +4014,7 @@ $(function () {
             };
 
             handleError = function() {
-                jsonUrl = "https://api.redgifs.com/v1/gfycats/" + shortid.toLowerCase();
+                jsonUrl = "https://api.redgifs.com/v1/gifs/" + shortid.toLowerCase();
                 var hData = function (data) {
                     handleGfycatApiItem(photo, data, showCB, 'redgifs')
                 };
@@ -4028,7 +4033,7 @@ $(function () {
             };
 
         } else if (hostname == 'redgifs.com') {
-            jsonUrl = "https://api.redgifs.com/v1/gfycats/" + shortid.toLowerCase();
+            jsonUrl = "https://api.redgifs.com/v1/gifs/" + shortid.toLowerCase();
 
             handleData = function (data) {
                 handleGfycatApiItem(photo, data, showCB, 'redgifs')
@@ -4222,6 +4227,7 @@ $(function () {
                     photo,
                     data[0],
                     function(photo) {
+                        log.info("Failed to load wpv2: "+photo.url);
                         initPhotoThumb(photo);
                         showCB(photo);
                     },
@@ -5546,15 +5552,19 @@ $(function () {
             var src;
             if (item.tagName == 'IMG') {
                 // Fixup item.src
-                src = item.getAttribute('src');
-                if (src === null)
-                    return false;
-                src = unescapeHTML(src);
-                if (src.startsWith('//'))
-                    item.src = ((rp.insecure[hostnameOf(src)]) ?"http:" :"https:")+src;
-                else if (src.startsWith('/'))
-                    item.src = originOf(pic.url)+src;
-
+                var attrs = ["src", "data-src"];
+                for (var i in attrs) {
+                    src = item.getAttribute(attrs[i]);
+                    if (src === null)
+                        continue;
+                    src = unescapeHTML(src);
+                    if (src.startsWith('//'))
+                        src = ((rp.insecure[hostnameOf(src)]) ?"http:" :"https:")+src;
+                    else if (src.startsWith('/'))
+                        src = originOf(pic.url)+src;
+                    if (!src.startsWith("http"))
+                        continue;
+                }
                 // Shortcut <A href="video/embed"><img src="url" /></a>
                 if (item.parentElement.tagName == 'A') {
                     pic.url = item.parentElement.href;
@@ -5576,7 +5586,9 @@ $(function () {
                     (item.getAttribute("width") || 100) < 100)
                     return false;
 
-                initPhotoImage(pic, item.src);
+                if (!src)
+                    return false;
+                pic.url = src;
 
                 if (item.alt)
                     pic.title = item.alt;
@@ -6431,11 +6443,15 @@ $(function () {
         var errmsg;
         var a = rp.url.subreddit.split('/');
         var type = a[1];
+        var gifs;
+        var first = false;
 
         if (type == "gfycat") {
             apiurl = "https://api.gfycat.com";
+            gifs = 'gyfcats';
         } else if (type == "redgifs") {
             apiurl = "https://api.redgifs.com";
+            gifs = 'gifs';
         } else {
             throw("Bad Gfycat API User: "+type);
         }
@@ -6445,17 +6461,17 @@ $(function () {
         case "u":
             user = a[3];
             errmsg = "User "+user+" has no videos";
-            jsonUrl = apiurl+'/v1/users/'+user+'/gfycats?count=20';
+            jsonUrl = apiurl+'/v1/users/'+user+'/'+gifs+'?count=20';
             url = gfycatUserUrl(user, type);
             break;
         case "t":
             tag = a[3];
             errmsg = "Tag "+tag+" has no videos";
-            jsonUrl = apiurl+"/v1/gfycats/search?count=20&search_text="+tag.toLowerCase();
+            jsonUrl = apiurl+"/v1/"+gifs+"/search?count=20&search_text="+tag.toLowerCase();
             url = gfycatTagUrl(tag, type);
             break;
         default:
-            jsonUrl = apiurl+'/v1/gfycats/trending?count=20';
+            jsonUrl = apiurl+'/v1/'+gifs+'/trending?count=20';
             errmsg = "No trending videos";
             if (type == "gfycat")
                 url = "https://gfycat.com/discover/popular-gifs";
@@ -6471,9 +6487,11 @@ $(function () {
         // Get all Gfycats (currently gfycat.com doesn't seem to list nsfw item here)
         if (rp.session.after)
             jsonUrl += "&cursor="+rp.session.after;
+        else
+            first = true;
 
         var gfycat2pic = function(post) {
-            var image = { url: gfycatPhotoUrl(post.gfyName, type),
+            var image = { url: gfyItemUrl(post, type),
                           over18: (post.nsfw != 0),
                           title: gfyItemTitle(post),
                           date: post.createDate,
@@ -6495,8 +6513,9 @@ $(function () {
         };
 
         var handleGfycatData = function (data) {
-            if (data.gfycats.length) {
-                data.gfycats.forEach(function (post) {
+            var gifs = data.gfycats || data.gifs;
+            if (gifs.length) {
+                gifs.forEach(function (post) {
                     var image = gfycat2pic(post);
                     addImageSlide(image);
                 });
@@ -6520,27 +6539,42 @@ $(function () {
         });
 
         // Get Albums if loading for User
-        if (user) {
+        if (user && first) {
             addLoading();
-            var jsonAlbumUrl = apiurl+'/v1/users/'+user+'/albums';
+            var jsonAlbumUrl = apiurl+'/v1/users/'+user+'/collections';
             var handleAlbumData = function (data) {
-                if (data.totalItemCount == 0) {
+                if (data.count === 0) {
                     doneLoading();
                     return;
                 }
+                var collections = data.gfyCollections || data.gifCollections;
 
-                data.items.forEach(function (album) {
-                    var url = apiurl+'/v1/users/'+user+'/albums/'+album.id;
-                    var hd = function (data) {
-                        if (data.pub == 0)
+                collections.forEach(function (album) {
+                    var url = apiurl+'/v1/users/'+user+'/collections/'+album.folderId+"/gifs";
+                    // @ process as album?
+                    if (album.folderSubType != "Album") {
+                        log.error("Unknown type ["+album.folderSubType+"]: "+url);
+                        return;
+                    }
+                    var photo = {
+                        url: gfycatUserUrl(user, type)+'/collections/'+album.folderId+"/"+album.linkText,
+                        gfycat: { type: type, user: user },
+                        title: fixupTitle(album.folderName || album.description),
+                        date: album.date,
+                        over18: Boolean(album.nsfw),
+                    };
+                    var hd = function(data) {
+                        initPhotoAlbum(photo, false);
+                        var gifs = data.gfycats || data.gifs;
+                        if (!gifs.length) {
+                            doneLoading();
                             return;
-                        data.publishedGfys.forEach(function (post) {
-                            var photo = gfycat2pic(post);
-                            if (!photo.gfycat.user)
-                                photo.gfycat.user = user;
-
-                            addImageSlide(photo);
+                        }
+                        gifs.forEach(function(data) {
+                            var pic = gfycat2pic(data);
+                            addAlbumItem(photo, pic);
                         });
+                        addImageSlide(photo);
                         doneLoading();
                     };
                     addLoading();
