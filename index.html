@@ -39,11 +39,11 @@
 	  <div id="multiListDiv" class="clouds">
 	    <ul class="canlogin"><li><i>Login to Load</i></li></ul>
 	    <hr class="canlogin">
-	    <ul><li><a href="/" class="info infol local hardlink" title="Front Page"><i class="material-icons">home</i></a></li>
+	    <ul class="iconrow"><li><a href="/" class="info infol local hardlink" title="Front Page"><i class="material-icons">home</i></a></li>
 	      <li><a href="/r/popular" class="info infol local hardlink" title="Popular"><i class="material-icons">whatshot</i></a></li>
 	      <li><a href="/r/all" class="info infol local hardlink" title="All"><i class="material-icons">all_inclusive</i></a></li>
 	      <li><a href="/r/random" class="info infol local hardlink" title="Random"><span class="icon">?</span></a></li>
-	      <li class="show-nsfw hidden"><a href="/r/randnsfw" class="info infol local hardlink" title="Random (NSFW)"><i class="material-icons">wc</i></a></li>
+	      <li class="show-nsfw"><a href="/r/randnsfw" class="info infol local hardlink" title="Random (NSFW)"><i class="material-icons">wc</i></a></li>
 	      <li class="right canlogin"><a id="loginUsername" class="info infol" href="/"><i class="unset material-icons">account_box</i></a>
 	      <li class="right canlogin needlogin"><a href="/r/friends" class="info infol local" title="Friends"><i class="material-icons">people_outline</i></a></li>
 	    </ul>
@@ -93,7 +93,7 @@
       </ul>
       <div id="navboxContents">
 	<ul class="nbmenu">
-	  <li title="auto-refresh interval in seconds">
+	  <li id="refresh" title="auto-refresh interval in seconds">
 	    <label for="timeToNextSlide" class="textlabel">Refresh:</label>
 	    <input type="text" pattern="[0-9]*" class="textlabel" name="timeToNextSlide" id="timeToNextSlide" value="8" size="2"/>
 	  </li><li  class="list-start volume">
@@ -108,7 +108,7 @@
 	  </li><li class="right">
 	    <a id='navboxOrigDomain' href='#' title="Other posts from domain" class='local'><img class="redditp" src="images/favicon.png" /></a>
 	  </li><li class="right origlink">
-	    <a id='navboxAlbumOrigLink' href='#' title='original album link (a)' class="remote redditp hidden"><i class="material-icons">link</i></a>
+	    <a id='navboxAlbumOrigLink' href='#' title='original album link (a)' class="remote redditp"><i class="material-icons">link</i></a>
 	  </li><li class="right origlink">
 	    <a id='navboxOrigLink' href='#' title='original link (l)' class="remote"><i class="redditp material-icons">link</i></a>
 	  </li><li class="right">
@@ -132,7 +132,7 @@
 	<h2 id='navboxTitle' class="title">
 	  <noscript>Javascript is required for redditp to work :(</noscript>
 	</h2>
-	<div id="navboxScore" class="hidden"><div class="reddit"></div><span class="info infol" title="Post Score"></span></div>
+	<div id="navboxScore"><div class="reddit"></div><span class="info infol" title="Post Score"></span></div>
 	<div id="navboxSubreddit"></div>
 	<div><span id="navboxDate" class="info infod" title=""></span></div>
 	<div id="navboxAuthor"></div>

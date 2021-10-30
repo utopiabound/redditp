@@ -1,21 +1,25 @@
+#multiListDiv ul.iconrow a {
+    height: 36px;
+}
+
 #multiListDiv .icon {
     font-size: 36px;
     display: inline-block;
-}
-
-/* Selector popup */
-#choiceLi {
-    margin-left: -36px;
-    margin-right: -6px;
+    margin-top: 6px;
 }
 
 .material-icons { font-size: 36px; }
+
+#choiceLi { margin: 0 -6px 0 -36px; }
 
 #controlsDiv a::before {
     font-size: 36px;
 }
 
-.info { font-size: 16px; }
+.info {
+    font-size: 16px;
+    line-height: 20px;
+}
 #titleDiv .info { font-size: 12px; }
 
 .icontristate { -webkit-appearance: none; }
@@ -23,7 +27,7 @@
 #subredditUrl { font-size: 16px; }
 
 .navbox ul li a {
-    height: 32px;
+    height: 24px;
 }
 
 #navboxLink {
@@ -43,9 +47,6 @@
     width: 24px;
 }
 
-.nbmenu { margin-left: 10px; }
-#navboxOrigDomain { margin-right: 10px; }
-
 /* 3 rows of number visible */
 .numberButtonList { max-height: 108px; }
 
@@ -57,3 +58,9 @@
 .numberButton {
     font-size: 16px;
 }
+
+.nbmenu { margin-left: 10px; }
+
+#navboxContents ul li { line-height: 30px; }
+
+#navboxOrigDomain { margin-right: 10px; }

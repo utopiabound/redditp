@@ -1,23 +1,23 @@
 #multiListDiv .icon {
     font-size: 24px;
     display: inline-block;
-    margin-top: -6px;
+    margin-top: 4px;
 }
 
-/* Selector popup */
-#choiceLi {
-    margin: 0 14px 0 -44px;
-}
-
-#subredditLink {
-    padding-left: 4px;
-}
+#choiceLi {margin: 0 14px 0 -44px;}
+#subredditLink {padding-left: 4px;}
+#refresh { margin-top: -8px;}
 
 #controlsDiv a::before {
     font-size: 24px;
 }
 
-.info { font-size: 12px; }
+#choiceLi a { margin-top: 2px; }
+
+.info {
+    font-size: 12px;
+    line-height: 20px;
+}
 
 .numberButtonList li {
     width: 30px;
@@ -29,31 +29,26 @@
 
 .nbmenu { font-size: 14px; }
 
-#navboxContents ul li { height: 28px; }
+#navboxContents ul li { line-height: 24px; }
 
 .navbox ul li a {
-    height: 20px;
+    height: 18px;
 }
 
 #navboxLink {
     width: 24px;
 }
 
-#navboxVolume {
-    margin-top: 2px;
-}
-
 .redditp {
     height: 24px;
     width: 24px;
-    margin-top: -2px;
     vertical-align: top;
 }
 
 .reddit {
     height: 24px;
     width: 24px;
-    margin: -2px -4px -4px -4px;
+    margin: -4px -4px -4px -4px;
     vertical-align: top;
 }
 

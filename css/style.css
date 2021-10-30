@@ -38,6 +38,7 @@ h3 {
     font-weight: bold;
     font-size: 20px;
     min-height: 26px;
+    line-height: 24px;
 }
 
 .clouds {
@@ -355,7 +356,8 @@ a.remote i.reddit { font-size: 18px; }
     font-size: 10px;
     font-weight: normal;
     margin: 1px;
-    padding: 1px;
+    padding: 2px;
+    line-height: 16px;
 }
 
 .favicon:hover { background-color: rgba(255, 255, 255, 0.7); }
@@ -443,7 +445,7 @@ input[type=checkbox]:checked + label.colortoggle { color: red; }
     position: absolute;
     bottom: 100%;
 }
-#choiceLi a { display: inline-block; }
+#choiceLi a { display: block; }
 
 #choiceLi li {
     display: block;
