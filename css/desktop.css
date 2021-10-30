@@ -4,15 +4,13 @@
     margin-top: 4px;
 }
 
-#choiceLi {margin: 0 14px 0 -44px;}
-#subredditLink {padding-left: 4px;}
-#refresh { margin-top: -8px;}
+#choiceLi { margin: 0 14px 0 -44px; }
+#subredditLink { padding-left: 4px; }
+#refresh { margin-top: -8px; }
 
 #controlsDiv a::before {
     font-size: 24px;
 }
-
-#choiceLi a { margin-top: 2px; }
 
 .info {
     font-size: 12px;
@@ -34,6 +32,8 @@
 .navbox ul li a {
     height: 18px;
 }
+
+#choiceLi a { margin-top: 2px; }
 
 #navboxLink {
     width: 24px;
