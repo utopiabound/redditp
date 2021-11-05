@@ -234,6 +234,7 @@ div.progress {
 .xorig {
     border: 1px solid white;
     border-radius: 5px;
+    margin-left: 2px;
 }
 
 #navboxLink {
@@ -248,11 +249,11 @@ div.progress {
 #titleDiv {
     position: absolute;
     min-height: 60px;
+    overflow: hidden;
 }
 
 #duplicates {
     position: relative;
-    width: 420px;
     clear: left;
 }
 
@@ -283,6 +284,8 @@ div.progress {
 
 /* info link */
 .infol { margin-left: 5px; }
+
+li.xorig a.infol { margin-left: 3px; }
 
 /* info redditp image */
 .infop { margin-left: 5px; }

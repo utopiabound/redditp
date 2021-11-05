@@ -233,10 +233,11 @@ rp.defaults = {
         'businessinsider.com': false,
         'npr.org': false,
         'onlyfans.com': false,
+        'rpclip.com': true,
         'thotsbay.com': false,
         'tmz.com': false,
-        'washingtonpost.com': false,
         'newyorker.com': false,
+        'washingtonpost.com': false,
     },
     favicon: {
         'sta.sh': 'https://www.deviantart.com/favicon.ico',
@@ -1080,6 +1081,7 @@ $(function () {
             rp.storage[c_name] = value;
         }
     };
+    rp.fn.setConfig = setConfig;
 
     var getConfig = function (c_name, defaultValue) {
         // undefined in case nothing found
@@ -1183,6 +1185,11 @@ $(function () {
                 return obj;
             }, {});
         rp.faviconcache = getConfig(configNames.favicon, rp.defaults.favicon);
+
+        rp.session.redditRefreshToken = getConfig(configNames.redditRefresh, "");
+        var bearer = getConfig(configNames.redditBearer, "");
+        var by = getConfig(configNames.redditRefreshBy, 0);
+        setupRedditLogin(bearer, by);
 
         ["nsfw", "mute"].forEach(function (item) {
             var config = getConfig(configNames[item]);
@@ -3052,7 +3059,7 @@ $(function () {
         $('#navboxOrigDomain').attr('href', '/domain/'+hostnameOf(image.o_url));
 
         if (rp.session.loginExpire && now > rp.session.loginExpire-30)
-            clearRedditLogin();
+            expiredRedditLogin();
 
         // TITLE BOX
         $('#navboxTitle').html(picTitle(image));
@@ -3195,7 +3202,7 @@ $(function () {
 
     var failedAjax = function (xhr, ajaxOptions, thrownError) {
         if (xhr.status == 401 && rp.session.loginExpire)
-            clearRedditLogin();
+            expiredRedditLogin();
         log.info("ActiveIndex:["+rp.session.activeIndex+"]["+rp.session.activeAlbumIndex+"]");
         log.info("xhr:", xhr);
         log.info("ajaxOptions:", ajaxOptions);
@@ -4473,7 +4480,6 @@ $(function () {
     };
 
     var clearRedditLogin = function () {
-        // @@ renew?
         if (!rp.session.loginExpire)
             return;
 
@@ -4541,6 +4547,58 @@ $(function () {
         return time+Math.ceil(Date.now()/1000);
     };
 
+    var expiredRedditLogin = function() {
+        if (rp.session.redditRefreshToken)
+            redditCodeFlow({ refresh_token: rp.session.redditRefreshToken });
+        else
+            clearRedditLogin();
+    };
+
+    // data is either:
+    // { code: CODE } or { refresh_token: REFRESH_TOKEN }
+    var redditCodeFlow = function(data, url) {
+        if ('code' in data) {
+            data.grant_type = 'authorization_code';
+            data.redirect_uri = rp.redirect;
+        } else if ('refresh_token' in data) {
+            data.grant_type = 'refresh_token';
+        } else
+            throw "Unknown Code Flow: "+data;
+
+        var jsonUrl = 'https://www.reddit.com/api/v1/access_token';
+        var handleData = function(data) {
+            var by = redditExpiresToTime(data.expires_in);
+            setupRedditLogin(data.access_token, by);
+            // @@ verify scope
+            rp.session.redditRefreshToken = data.refresh_token;
+            setConfig(configNames.redditRefresh, data.refresh_token);
+            if (url)
+                processUrls(url);
+            loadRedditMultiList();
+        };
+        var handleError = function(xhr, _ajaxOptiosn, thrownError) {
+            log.error("Failed to get auth token: "+thrownError);
+            clearRedditLogin();
+            processUrls(url);
+        };
+
+        $.ajax({
+            url: jsonUrl,
+            method: 'POST',
+            data: data,
+            dataType: 'json',
+            headers: {
+                "Authorization": "Basic " + btoa(rp.api_key.reddit + ":")
+            },
+            username: rp.api_key.reddit,
+            password: '',
+            success: handleData,
+            error: handleError,
+            timeout: rp.settings.ajaxTimeout,
+            crossDomain: true
+        });
+    };
+
     var setupRedditLogin = function (bearer, by) {
         if (hostnameOf(rp.redirect) != window.location.hostname)
             return;
@@ -4562,6 +4620,7 @@ $(function () {
                                   'scope=read,history'].join('&'));
         if (by-60 > Date.now()/1000) {
             var d = new Date(by*1000);
+            log.info("Reddit Token Expire: "+d);
             rp.session.loginExpire = by;
             rp.session.redditHdr = { Authorization: 'bearer '+bearer };
             $('.needlogin').show();
@@ -4576,6 +4635,7 @@ $(function () {
         } else
             clearRedditLogin();
     };
+    rp.fn.setupRedditLogin = setupRedditLogin;
 
     var setupChoices = function () {
         // Supported choices:
@@ -6834,47 +6894,19 @@ $(function () {
 
             } else if (args.code) {
                 // Code Flow
-                var jsonUrl = 'https://www.reddit.com/api/v1/access_token';
-                var postData = { grant_type: 'authorization_code',
-                                 code: args.code,
-                                 redirect_uri: rp.redirect };
-                var handleData = function(data) {
-                    var by = redditExpiresToTime(data.expires_in);
-                    setupRedditLogin(data.access_token, by);
-                    // @@ verify scope
-                    rp.session.redditRefreshToken = data.refresh_token;
-                    setConfig(configNames.redditRefresh, data.refresh_token);
-                    processUrls(url);
-                    loadRedditMultiList();
-                };
-                var handleError = function(xhr, _ajaxOptiosn, thrownError) {
-                    log.error("Failed to get auth token: "+thrownError);
-                    clearRedditLogin();
-                    processUrls(url);
-                };
-
-                $.ajax({
-                    url: jsonUrl,
-                    method: 'POST',
-                    data: postData,
-                    dataType: 'json',
-                    headers: {
-                        "Authorization": "Basic " + btoa(rp.api_key.reddit + ":")
-                    },
-                    username: rp.api_key.reddit,
-                    password: '',
-                    success: handleData,
-                    error: handleError,
-                    timeout: rp.settings.ajaxTimeout,
-                    crossDomain: true
-                });
+                redditCodeFlow({code: args.code}, url);
                 return;
+
             } else {
                 log.error("Failed to load auth: "+window.location.href);
                 url = "/";
             }
             processUrls(url);
             loadRedditMultiList();
+            return;
+
+        } else if (initial && rp.session.redditRefreshToken && !rp.session.loginExpire) {
+            redditCodeFlow({ refresh_token: rp.session.redditRefreshToken }, path);
             return;
         }
 
