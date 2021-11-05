@@ -4216,16 +4216,21 @@ $(function () {
         } else if (rp.wpv2[hostname] !== false) {
             shortid = url2shortid(photo.url);
             var o = originOf(photo.url);
-            jsonUrl = o+'/wp-json/wp/v2/posts/?slug='+shortid+'&_jsonp=?';
+            if (/^\d+$/.test(shortid))
+                jsonUrl = o+'/wp-json/wp/v2/posts/'+shortid+'?_jsonp=?';
+            else
+                jsonUrl = o+'/wp-json/wp/v2/posts/?slug='+shortid+'&_jsonp=?';
 
             handleData = function(data) {
                 if (rp.wpv2[hostname] !== true) {
                     rp.wpv2[hostname] = true;
                     setConfig(configNames.wpv2, rp.wpv2);
                 }
+                if (Array.isArray(data))
+                    data = data[0];
                 getPostWPv2(
                     photo,
-                    data[0],
+                    data,
                     function(photo) {
                         log.info("Failed to load wpv2: "+photo.url);
                         initPhotoThumb(photo);
@@ -5728,6 +5733,18 @@ $(function () {
 
         if (post.description && processHaystack(photo, post.description.rendered, false, extra, o_link))
             rc = true;
+
+        if (post.yoast_head_json) {
+            if (post.yoast_head_json.og_image) {
+                post.yoast_head_json.og_image.forEach(function(item) {
+                    var pic = { url: item.url, title: post.yoast_head_json.og_title, o_url: o_link };
+                    if (processPhoto(pic)) {
+                        addAlbumItem(photo, pic);
+                        rc = true;
+                    }
+                });
+            }
+        }
 
         // Pull down 100, but only videos and images
         var jsonUrl = post._links["wp:attachment"][0].href + '&per_page=100';
