@@ -1530,16 +1530,6 @@ $(function () {
             a.attr('id', "albumButton" + (i+1)).data('index', i).text(i+1);
 
             fixPhotoButton(photo.album[i], a);
-
-            if (i == oldindex)
-                continue;
-
-            // Update rp.cache when re-indexing if required
-            if (rp.cache[photo.index] !== undefined &&
-                rp.cache[photo.index][oldindex] !== undefined) {
-                rp.cache[photo.index][i] = rp.cache[photo.index][oldindex];
-                rp.cache[photo.index][oldindex] = undefined;
-            }
         }
     };
 
@@ -3688,9 +3678,12 @@ $(function () {
 
         var showPic = function(pic) {
             if (pic.type == imageTypes.album) {
-                var index = indexPhotoAlbum(photoParent(pic), imageIndex, albumIndex);
-                if (index < 0) {
-                    log.error("["+imageIndex+"]["+albumIndex+"] album is zero-length ("+index+") failing to thumbnail: "+pic.url);
+                var index = 0;
+                // find correct index based on divNode. albumIndex may be incorrect due to previous item expansion
+                while (index < pic.album.length && rp.cache[imageIndex][index] != divNode)
+                    ++index;
+                if (index >= pic.album.length) {
+                    log.error("Failed to fill divNode [divNode no longer in cache]: "+pic.url);
                     showThumb(pic);
                     return;
                 }
