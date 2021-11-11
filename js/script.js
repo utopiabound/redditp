@@ -44,7 +44,6 @@
  * initPhotoYoutube() - wrapper around initPhotoEmbed()
  *
  * per-Site Duplicate handling:
- * addPhotoDupe()
  * getRedditDupe()
  * updateDuplicates()
  * animateNavigationBox()
@@ -261,7 +260,7 @@ rp.favicons = { tumblr:  'https://assets.tumblr.com/images/favicons/favicon.ico'
                 wordpress: 'https://s1.wp.com/i/favicon.ico',
                 wp: 'https://s1.wp.com/i/favicon.ico',
                 dropbox: 'https://cfl.dropboxstatic.com/static/images/favicon.ico',
-                redgifs: 'https://www.redgifs.com/assets/favicon-16x16.png',
+                redgifs: 'https://www.redgifs.com/assets/favicon.ico',
                 xhamster: 'https://static-lvlt.xhcdn.com/xh-mobile/images/favicon/favicon.ico',
                 // i.redd.it/v.redd.it - reddit hosted images
                 redd: 'https://www.redditstatic.com/icon.png'
@@ -2832,14 +2831,7 @@ $(function () {
         preloadNextImage(imageIndex, rp.session.activeAlbumIndex);
 
         // Save current State
-        var state = { photos: rp.photos,
-                      index: rp.session.activeIndex,
-                      album: rp.session.activeAlbumIndex,
-                      after: rp.session.after,
-                      subreddit: rp.url.subreddit,
-                      loadAfter: (rp.session.loadAfter) ?rp.session.loadAfter.name :null,
-                      filler: null};
-        rp.history.replaceState(state, "", rp.url.path); 
+        setCurrentState();
     };
 
     // Mystic VooDoo to scroll the number buttons, so that
@@ -3147,6 +3139,17 @@ $(function () {
         }
     };
 
+    var setCurrentState = function() {
+        var state = { photos: rp.photos,
+                      index: rp.session.activeIndex,
+                      album: rp.session.activeAlbumIndex,
+                      after: rp.session.after,
+                      subreddit: rp.url.subreddit,
+                      loadAfter: (rp.session.loadAfter) ?rp.session.loadAfter.name :null,
+                      filler: null};
+        rp.history.replaceState(state, "", rp.url.path);
+    };
+
     var setupLoading = function(val, msg) {
         if (rp.session.loadingNextImages)
             return false;
@@ -3179,6 +3182,7 @@ $(function () {
         if (message === undefined)
             message = rp.session.loadingMessage;
         if (rp.photos.length > 0) {
+            setCurrentState();
             // already loaded images, don't ruin the existing experience
             return;
         }
