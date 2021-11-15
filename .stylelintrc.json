@@ -1,6 +1,12 @@
 {
     "extends": "stylelint-config-standard",
     "rules": {
-	"indentation": 4
+	"indentation": 4,
+	"selector-id-pattern": [
+	    "^([a-z][a-z0-9]*)([A-Z][a-z0-9]*)*$",
+	    {
+		"message": "Expected id selector to be camelCase"
+	    }
+	]
     }
 }
