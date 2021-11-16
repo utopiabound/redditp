@@ -6899,7 +6899,7 @@ $(function () {
         // This is a good idea so we can give a quick 404 page when appropriate.
         var regexS = "(/(?:(?:imgur/)|(?:gfycat/)|(?:tumblr/)|(?:flickr/)|(?:blogger/)|(?:iloopit/)|(?:redgifs/)|(?:wp2?/)"+
             "|(?:auth)|"+
-            "(?:r/)|(?:u/)|(?:user/)|(?:domain/)|(?:search)|(?:me)|(?:hot)|(?:top)|(?:new)|(?:rising)|(?:controversial))"+
+            "(?:r/)|(?:u/)|(?:user/)|(?:domain/)|(?:search)|(?:me/)|(?:hot)|(?:top)|(?:new)|(?:rising)|(?:controversial))"+
             "[^&#?]*)[?]?(.*)";
 
         if (path === undefined)
@@ -6907,11 +6907,10 @@ $(function () {
         if (initial === undefined)
             initial = false;
 
-        path = path.replace(/ +/g, '/').replace(/^\/+/, '/').replace(/^\?+/, '');
+        path = path.replace(/ +/g, '/').replace(/^\/*/, '/').replace(/^\?+/, '');
 
         var regex = new RegExp(regexS);
         var results = regex.exec(path);
-        var subreddit;
 
         log.debug('url split results: '+results);
         if (data) {
@@ -6920,8 +6919,7 @@ $(function () {
                 rp.url.vars = decodeUrl(results[2]);
 
         } else if (results !== null) {
-            rp.url.subreddit = results[1];
-            subreddit = rp.url.subreddit;
+            rp.url.subreddit = results[1].replace(' $', '/');
             rp.url.vars = decodeUrl(results[2]);
 
             // Remove .compact as it interferes with .json (we got "/r/all/.compact.json" which doesn't work).
@@ -6936,12 +6934,9 @@ $(function () {
             rp.url.subreddit = '/';
         }
 
-        if (!subreddit)
-            subreddit = rp.url.subreddit;
-
         // Set prefix for self links, if in subdirectory
         if (initial)
-            if (window.location.pathname != subreddit) {
+            if (window.location.pathname != rp.url.subreddit) {
                 rp.url.base = window.location.pathname + '?';
                 rp.url.root = window.location.pathname;
                 rp.url.root = rp.url.root.replace(/index.html$/, "");
@@ -7006,7 +7001,7 @@ $(function () {
         else if (data === undefined && path != "")
             rp.history.pushState({}, "", path);
 
-        var subredditName = rp.url.subreddit + getVarsQuestionMark;
+        var subredditName = decodeURIComponent(rp.url.subreddit + getVarsQuestionMark);
 
         var visitSubreddit = rp.redditBaseUrl + rp.url.subreddit + getVarsQuestionMark;
 
