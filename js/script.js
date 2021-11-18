@@ -90,15 +90,13 @@
  *      -- Depending on host site --
  *      subreddit:      TEXT of subreddit name
  *      site:           HASH
- *              t:      imgur|redgifs|gfycat|iloopit
+ *              t:      imgur|redgifs|gfycat|iloopit|flickr
  *              -- Optional --
  *              user:   TEXT username
  *              tags:   ARRAY of TEXT Tags for photo
  *      tumblr:         HASH (e.g. 'https://'+tumblr.blog+'.tumblr.com'+/post/+tumblr.id )
  *              blog:   TEXT blog name
  *              id:     TEXT tumblr post id
- *      flickr:         HASH
- *              nsid:   TEXT of flickr user NSID
  *
  *      -- Depending on image Type [see initPhotoTYPE()] --
  *      video:          HASH for video ext to url + thumbnail (see showVideo() / rp.mime2ext)   [set by initPhotoVideo() / addVideoUrl()]
@@ -280,7 +278,7 @@ rp.dedup = {};
 rp.choices = {
     'blogger': {},
     'gfycat': {},
-    'flickr': { '': [ [ "photos", "albums" ] ] },
+    'flickr': { 'u': [ [ "photos", "albums" ] ] },
     'iloopit': {},
     'imgur': {},
     'reddit': { // top D W M Y A
@@ -719,11 +717,16 @@ $(function () {
             return 'https://'+user+'.imgur.com';
         if (type == 'iloopit')
             return 'https://iloopit.net/'+user;
+        if (type == 'flickr')
+            return 'https://flickr.com/'+user;
         throw "Unknown Site type: "+type;
     };
 
     var siteUserLink = function(site) {
-        return localLink(siteUserUrl(site.user, site.t), site.user, '/'+site.t+'/u/'+site.user);
+        var username = site.user;
+        if (site.type == 'flickr')
+            username = flickrUserPP(username);
+        return localLink(siteUserUrl(site.user, site.t), username, '/'+site.t+'/u/'+site.user);
     };
 
     var siteTagUrl = function(tag, type) {
@@ -739,18 +742,13 @@ $(function () {
     };
 
     var siteTagLink = function(tag, type) {
-        if (type == 'iloopit' && rp.sitecache.iloopit[tag]) {
+        if (type == 'iloopit' && rp.sitecache.iloopit[tag])
             tag = rp.sitecache.iloopit[tag];
-        }
         return localLink(siteTagUrl(tag, type), tag, '/'+type+'/t/'+tag);
     };
 
     var tumblrLink = function(blog) {
         return _localLink('https://'+blog+'.tumblr.com', '/tumblr/'+blog, blog, blog, rp.favicons.tumblr);
-    };
-
-    var flickrUserLink = function(nsid) {
-        return localLink('https://flickr.com/'+nsid, flickrUserPP(nsid), '/flickr/u/'+nsid);
     };
 
     var googleIcon = function(icon_name) {
@@ -1689,7 +1687,7 @@ $(function () {
                     o_url: photo.o_url,
                 };
 
-                for (var key of ["embed", "video", "html", "extra", "site", "flickr", "tumblr"]) {
+                for (var key of ["embed", "video", "html", "extra", "site", "tumblr"]) {
                     if (photo[key]) {
                         img[key] = photo[key];
                         delete photo[key];
@@ -3112,9 +3110,6 @@ $(function () {
             else if (image.tumblr)
                 $('#navboxExtra').append(tumblrLink(image.tumblr.blog));
 
-            else if (image.flickr && authName)
-                $('#navboxExtra').append(flickrUserLink(image.flickr.nsid));
-
         } else if (authName && image.site && image.site.user)
             $('#navboxSubreddit').html(siteUserLink(image.site)).show();
 
@@ -3133,8 +3128,6 @@ $(function () {
         else if (image.site && image.site.user)
             $('#navboxAuthor').html(siteUserLink(image.site)).show();
 
-        else if (image.flickr)
-            $('#navboxAuthor').html(flickrUserLink(image.flickr.nsid)).show();
         else
             $('#navboxAuthor').hide();
 
@@ -3932,7 +3925,7 @@ $(function () {
                     // @@TODO: check to see if data.photoset.total > data.photoset.perpage
                     data.photoset.photo.forEach( function(item) {
                         var pic = { url: flickrPhotoUrl(item),
-                                    flickr: { nsid: userid },
+                                    site: { t: 'flickr', user: userid },
                                     o_url: ['https://flickr.com/photos', userid, item.id].join('/'),
                                     thumb: flickrThumbnail(item) };
                         if (processPhoto(pic))
@@ -3943,7 +3936,7 @@ $(function () {
                 };
 
             } else {
-                photo.flickr = { nsid: userid };
+                photo.site = { t: 'flickr', user: userid };
 
                 jsonUrl = flickrJsonURL('flickr.photos.getSizes', { photo_id: shortid })
 
@@ -4708,10 +4701,9 @@ $(function () {
 
             photo.eL = true;
 
-        } else if (photo.flickr) {
+        } else if (photo.site.t == 'flickr') {
             site = 'flickr.com';
-            shortid = photo.id;
-
+            shortid = url2shortid(photo.o_url, 3);
         }
 
         if (site === undefined) {
@@ -6347,7 +6339,7 @@ $(function () {
                         flickrAddUserMap(user, post.owner);
                     return { title: post.title,
                              id: post.id,
-                             flickr: { nsid: post.owner },
+                             site: { t: 'flickr', user: post.owner },
                              date: post.dateupload,
                              url: flickrPhotoUrl(post),
                              o_url: ['https://www.flickr.com/photos', post.owner, post.id].join("/"),
@@ -6360,7 +6352,7 @@ $(function () {
                 arrProcess = function(post) {
                     return { title: post.title._content,
                              id: post.id,
-                             flickr: { nsid: reqData.user_id },
+                             site: { t: 'flickr', user: reqData.user_id },
                              date: post.date_create,
                              url: ['https://www.flickr.com/photos', reqData.user_id, 'sets', post.id].join("/"),
                              thumb: flickrPhotoUrl(post.primary_photo_extras),
