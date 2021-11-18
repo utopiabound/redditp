@@ -724,9 +724,9 @@ $(function () {
 
     var siteUserLink = function(site) {
         var username = site.user;
-        if (site.type == 'flickr')
+        if (site.t == 'flickr')
             username = flickrUserPP(username);
-        return localLink(siteUserUrl(site.user, site.t), username, '/'+site.t+'/u/'+site.user);
+        return localLink(siteUserUrl(site.user, site.t), username, '/'+site.t+'/u/'+username);
     };
 
     var siteTagUrl = function(tag, type) {
