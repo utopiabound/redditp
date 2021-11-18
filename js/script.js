@@ -47,7 +47,7 @@
  * getRedditDupe()
  * updateDuplicates()
  * animateNavigationBox()
- * processUrls() - RESTORE
+ * processUrl() - RESTORE
  */
 /* Data Structures:
  * rp.photos = ARRAY of HASH
@@ -240,11 +240,11 @@ rp.defaults = {
 rp.history = window.history;
 
 // CHANGE THESE FOR A DIFFERENT Reddit Application
-rp.api_key = {tumblr:  'sVRWGhAGTVlP042sOgkZ0oaznmUOzD8BRiRwAm5ELlzEaz4kwU',
-              blogger: 'AIzaSyDbkU7e2ewiPeBtPwr1cfExV0XxMAQKhTg',
-              flickr:  '24ee6b81f406711f8c7d3a9070fe47a7',
-              reddit:  '7yKYY2Z-tUioLA',
-              imgur:   'ae493e76de2e724'
+rp.api_key = { tumblr:  'sVRWGhAGTVlP042sOgkZ0oaznmUOzD8BRiRwAm5ELlzEaz4kwU',
+               blogger: 'AIzaSyDbkU7e2ewiPeBtPwr1cfExV0XxMAQKhTg',
+               flickr:  '24ee6b81f406711f8c7d3a9070fe47a7',
+               reddit:  '7yKYY2Z-tUioLA',
+               imgur:   'ae493e76de2e724'
              };
 rp.redirect = 'http://redditp.utopiabound.net/auth';
 
@@ -276,19 +276,58 @@ rp.cache = {};
 // use dedupAdd() and dedupVal()
 rp.dedup = {};
 
+// rp.choices[rp.url.site][rp.url.type][0].indexOf(rp.url.choice) > -1
+rp.choices = {
+    'blogger': {},
+    'gfycat': {},
+    'flickr': { '': [ [ "photos", "albums" ] ] },
+    'iloopit': {},
+    'imgur': {},
+    'reddit': { // top D W M Y A
+        '':          [ [ "best", "hot", "new", "top", "top:day", "top:week", "top:month",  "top:year", "top:all",
+                         "rising", "controversial", "gilded" ] ],
+        'r':         [ [ "hot", "new", "top", "top:day", "top:week", "top:month",  "top:year", "top:all",
+                         "rising", "controversial", "gilded" ] ],
+        'domain':    [ [ "hot", "new", "top", "top:day", "top:week", "top:month",  "top:year", "top:all",
+                         "rising", "controversial", 'gilded' ] ],
+        'friends':   [ [ "new", "gilded" ] ],
+        'submitted': [ [ "hot", "new", "top", "top:day", "top:week", "top:month",  "top:year", "top:all", "controversial" ] ],
+        'm':         [ [ "hot", "new", "top", "top:day", "top:week", "top:month",  "top:year", "top:all",
+                         "rising", "controversial", 'gilded' ] ],
+    },
+    'redgifs': { // top W M A
+        '':  [ [ "trending", "top7", "top28", "best", "latest" ],
+               [ "trending", "top:week", "top:month", "top:all", "latest" ] ],
+        't': [ [ "trending", "top7", "top28", "best", "latest" ],
+               [ "trending", "top:week", "top:month", "top:all", "latest" ] ],
+        'u': [ [ "recent", "best" ] ],
+    },
+    'tumblr': {},
+    'wp':  { '': [ [ "DESC", "ASC" ], [ "new", "old" ] ] },
+    'wp2': { '': [ [ "desc", "asc" ], [ "new", "old" ] ] },
+};
+
+rp.reddit = {
+    base: "https://www.reddit.com",     // const
+    oauth: "https://oauth.reddit.com",  // const
+    loginUrl: "https://www.reddit.com/api/v1/authorize", // setable for mobile in processUrl()
+    api: "https://www.reddit.com", // start as base
+};
+
 rp.url = {
-    // Set in processUrls()
-    root:   '', // root of redditp app
-    subreddit: "",
-    base: '',
-    get:  '',
-    api:  '',
+    // Set in processUrl()
+    root: '', // root of redditp app - image base path
+    base: '', // path for redditp links
+
+    // reset based in rpurlReset
+    site: '', // reddit | gfycat | ... ( rp.choices[rp.url.site] !== undefined )
+    type: '', // r | t | u | user | ... (site dependent - c.f. rp.choices)
+    sub: '', // SUBREDDIT | TAG | USERNAME
+    multi: '', // MULTI
+    choice: '', // <NONE> | new | hot | ... (c.f. rp.choices)
+
+    // old
     path: '',
-    vars: "",
-    auth: "/api/v1/authorize",
-    // Set in setupChoices()
-    choice: "",
-    sub: "" // actual name of singular sub-reddit, iff it's in URL
 };
 
 rp.fn = {};
@@ -618,12 +657,12 @@ $(function () {
         var classes;
         if (selected === true)
             classes = "info selected";
-        return _localLink(rp.redditBaseUrl+path, path, pathname, pathalt, "reddit", classes);
+        return _localLink(rp.reddit.base+path, path, pathname, pathalt, "reddit", classes);
     };
 
     // Same as redditLink, but no info class
     var titleRLink = function(path, pathname) {
-        return _localLink(rp.redditBaseUrl+path, path, pathname, undefined, "reddit", "");
+        return _localLink(rp.reddit.base+path, path, pathname, undefined, "reddit", "");
     };
 
     var titleLLink = function(url, path, pathname) {
@@ -711,7 +750,7 @@ $(function () {
     };
 
     var flickrUserLink = function(nsid) {
-        return localLink('https://flickr.com/'+nsid, flickrUserPP(nsid), '/flickr/'+nsid);
+        return localLink('https://flickr.com/'+nsid, flickrUserPP(nsid), '/flickr/u/'+nsid);
     };
 
     var googleIcon = function(icon_name) {
@@ -1324,7 +1363,7 @@ $(function () {
                 event.preventDefault();
                 event.stopImmediatePropagation();
             }
-            processUrls($('#subredditUrl').val());
+            processUrl($('#subredditUrl').val());
             $('#subredditUrl').blur();
         });
         $('#subredditUrl').keyup(function (event) {
@@ -1373,8 +1412,7 @@ $(function () {
             $('.fullscreen-ctrl').remove();
 
             // New mobile site doesn't work for auth if not logged in
-            rp.redditLoginUrl = 'https://old.reddit.com';
-            rp.url.auth = '/api/v1/authorize.compact';
+            rp.reddit.loginUrl = 'https://old.reddit.com/api/v1/authorize.compact';
 
             // Remove :hover on #loginLi, so it only responds to clicks
             $('#loginLi').removeClass('use-hover');
@@ -2688,7 +2726,7 @@ $(function () {
             $('#choice').click();
 
         var path = $(this).prop('pathname')+$(this).prop('search');
-        processUrls(path);
+        processUrl(path);
     });
 
     // Capture clicks on AlbumButtons
@@ -2732,7 +2770,7 @@ $(function () {
         var newurl = window.location.pathname+window.location.search;
 
         if (rp.url.path !== newurl)
-            processUrls(newurl, false, state);
+            processUrl(newurl, false, state);
         return true;
     };
 
@@ -2963,7 +3001,7 @@ $(function () {
 
                         li.html(redditLink(subr, item.title));
                     }
-                    li.append($("<a>", { href: rp.redditBaseUrl + subr + "/comments/"+item.id,
+                    li.append($("<a>", { href: rp.reddit.base + subr + "/comments/"+item.id,
                                          class: 'info infoc',
                                          title: (new Date(item.date*1000)).toString(),
                                        }).text('('+item.commentN+')'));
@@ -2986,7 +3024,7 @@ $(function () {
                     $('#duplicateUl').append(li);
             });
             if (multi) {
-                $('#navboxDuplicatesMulti').attr('href', rp.redditBaseUrl+'/r/'+multi.join('+'));
+                $('#navboxDuplicatesMulti').attr('href', rp.reddit.base+'/r/'+multi.join('+'));
                 $('#navboxDuplicatesMultiP').attr('href', rp.url.base+'/r/'+multi.join('+'));
                 $('#duplicatesLink').show();
             } else {
@@ -2996,7 +3034,7 @@ $(function () {
             }
         } else {
             if (photo.subreddit) {
-                $('#navboxDuplicatesMulti').attr('href', rp.redditBaseUrl+'/r/'+photo.subreddit);
+                $('#navboxDuplicatesMulti').attr('href', rp.reddit.base+'/r/'+photo.subreddit);
                 $('#navboxDuplicatesMultiP').attr('href', rp.url.base+'/r/'+photo.subreddit);
             } else {
                 $('#navboxDuplicatesMulti').attr('href', "#");
@@ -3058,9 +3096,9 @@ $(function () {
         var flair = picFlair(image);
         if (flair)
             $('#navboxTitle').prepend($('<span>', { class: 'linkflair' }).text(flair));
-        if (photo.score !== undefined) {
+        if (photo.score !== undefined)
             $('#navboxScore span').attr('title', 'Score: '+photo.score).text(humanReadInt(photo.score)).parent().show();
-        } else
+        else
             $('#navboxScore').hide();
 
         $('#navboxExtra').html(picExtra(image));
@@ -3068,7 +3106,7 @@ $(function () {
         if (photo.subreddit) {
             $('#navboxSubreddit').html(redditLink(subreddit)).show();
 
-            if (image.site && image.site.user)
+            if (authName && image.site && image.site.user)
                 $('#navboxExtra').append(siteUserLink(image.site));
 
             else if (image.tumblr)
@@ -3077,7 +3115,7 @@ $(function () {
             else if (image.flickr && authName)
                 $('#navboxExtra').append(flickrUserLink(image.flickr.nsid));
 
-        } else if (image.site && image.site.user)
+        } else if (authName && image.site && image.site.user)
             $('#navboxSubreddit').html(siteUserLink(image.site)).show();
 
         else if (image.tumblr)
@@ -3091,6 +3129,9 @@ $(function () {
 
         if (authName)
             $('#navboxAuthor').html(redditLink('/user/'+authName+'/submitted',  authName, '/u/'+authName)).show();
+
+        else if (image.site && image.site.user)
+            $('#navboxAuthor').html(siteUserLink(image.site)).show();
 
         else if (image.flickr)
             $('#navboxAuthor').html(flickrUserLink(image.flickr.nsid)).show();
@@ -3109,7 +3150,7 @@ $(function () {
             $('#navboxDate').attr("title", "").text("");
 
         if (photo.subreddit) {
-            $('#navboxDuplicatesLink').attr('href',  rp.redditBaseUrl + '/r/' +
+            $('#navboxDuplicatesLink').attr('href',  rp.reddit.base + '/r/' +
                                             photo.subreddit + '/duplicates/' + photo.id).show();
         } else {
             $('#navboxDuplicatesLink').attr('href', '#').hide();
@@ -3136,7 +3177,7 @@ $(function () {
                       index: rp.session.activeIndex,
                       album: rp.session.activeAlbumIndex,
                       after: rp.session.after,
-                      subreddit: rp.url.subreddit,
+                      url: rp.url,
                       loadAfter: (rp.session.loadAfter) ?rp.session.loadAfter.name :null,
                       filler: null};
         rp.history.replaceState(state, "", rp.url.path);
@@ -3201,7 +3242,19 @@ $(function () {
             text = "<br> Check tracking protection";
         else
             text = ": "+thrownError+" "+xhr.status;
-        failCleanup("Failed to get "+rp.url.subreddit+text);
+        failCleanup("Failed to get "+rp.url.sub+text);
+    };
+
+    // Set Autoplay for iOS devices
+    var addPlayButton = function (div, vid) {
+        div.prepend(playButton(function() {
+            vid[0].play();
+            $('#playbutton').remove();
+        }));
+        // if video starts playing, nuke play button
+        $(vid).on('play', function () {
+            $('#playbutton').remove();
+        });
     };
 
     function replaceBackgroundDiv(newDiv) {
@@ -3224,7 +3277,11 @@ $(function () {
             if (vid) {
                 vid.prop('autoplay', true);
                 if (vid[0])
-                    vid[0].play();
+                    try {
+                        vid[0].play();
+                    } catch (e) {
+                        addPlayButton(newDiv, vid);
+                    }
             }
             updateVideoMute();
 
@@ -3481,7 +3538,14 @@ $(function () {
                 $(audio).on('error', function() {
                     log.info("Failed to load audio: "+pic.url);
                 });
-                video.on('playing', function() { audio[0].currentTime = video[0].currentTime; audio[0].play() });
+                video.on('playing', function() {
+                    audio[0].currentTime = video[0].currentTime;
+                    try {
+                        audio[0].play()
+                    } catch (e) {
+                        log.info("Failed to play audio: "+e);
+                    }
+                });
                 video.on('pause', function() { audio[0].pause() });
                 divNode.append(audio);
             }
@@ -3537,35 +3601,27 @@ $(function () {
             if (divNode.parent()[0] == $('#pictureSlider')[0])
                 divNode.trigger("rpdisplay");
 
-            // Set Autoplay for iOS devices
-            var addPlayButton = function () {
-                divNode.prepend(playButton(function() {
-                    $(video)[0].play();
-                    $('#playbutton').remove();
-                }));
-                // if video starts playing, nuke play button
-                $(video).on('play', function () {
-                    $('#playbutton').remove();
-                });
-            };
-
             if (rp.session.needsPlayButton) {
                 // Always add play button
                 if ($(video)[0].paused)
-                    addPlayButton();
+                    addPlayButton(divNode, video);
 
             } else {
                 var onCanPlay = function() {
                     $(video).off('canplaythrough', onCanPlay);
                     if ($.contains(document, $(video)[0]))
-                        $(video)[0].play();
+                        try {
+                            $(video)[0].play();
+                        } catch (e) {
+                            addPlayButton(divNode, video);
+                        }
                 };
                 $(video).on('canplaythrough', onCanPlay);
 
                 if (rp.session.volumeIsMute && !isVideoMuted())
-                    addPlayButton();
+                    addPlayButton(divNode, video);
                 else if ($(video)[0].paused)
-                    addPlayButton();
+                    addPlayButton(divNode, video);
 
             }
         };
@@ -3763,7 +3819,7 @@ $(function () {
         };
         var handleRedgifsError = function(xhr) {
             var data = xhr.responseJSON;
-            if (data.errorMessage.code == "Gone") {
+            if (data && data.errorMessage.code == "Gone") {
                 log.info('cannot display url ['+data.errorMessage.description+']: ' + photo.url);
                 initPhotoFailed(photo);
                 showCB(photo);
@@ -4058,7 +4114,7 @@ $(function () {
         } else if (hostname == 'reddit.com') {
             a = pathnameOf(photo.url).split('/');
 
-            jsonUrl = rp.url.get + '/comments/' + shortid + '.json';
+            jsonUrl = rp.reddit.base + '/comments/' + shortid + '.json';
 
             handleData = function(data) {
                 if (data[0].data.children.length != 1) {
@@ -4396,7 +4452,7 @@ $(function () {
 
         rp.session.loginExpire = 0;
         rp.session.redditHdr = {};
-        rp.url.api = rp.redditBaseUrl;
+        rp.reddit.api = rp.reddit.base;
         $('#loginUsername').html(googleIcon('account_box'));
         $('#loginUsername').attr('title', 'Expired');
         $('label[for=login]').html(googleIcon('account_box'));
@@ -4433,11 +4489,12 @@ $(function () {
         if (rp.session.loadedMultiList == true)
             return;
 
-        var jsonUrl = rp.url.api+'/api/multi/mine';
+        var jsonUrl = rp.reddit.api+'/api/multi/mine';
         var handleData = function(data) {
             rp.session.loadedMultiList = true;
             var list = $('#multiListDiv ul:first-of-type');
             list.empty();
+            // @@ cache?
 
             redditMultiAppend(data, list);
         };
@@ -4484,13 +4541,13 @@ $(function () {
             rp.session.redditRefreshToken = data.refresh_token;
             setConfig(configNames.redditRefresh, data.refresh_token);
             if (url)
-                processUrls(url);
+                processUrl(url);
             loadRedditMultiList();
         };
         var handleError = function(xhr, _ajaxOptiosn, thrownError) {
             log.error("Failed to get auth token: "+thrownError);
             clearRedditLogin();
-            processUrls(url);
+            processUrl(url);
         };
 
         $.ajax({
@@ -4520,7 +4577,7 @@ $(function () {
         if (rp.session.loginExpire &&
             rp.session.loginExpire > (Date.now()/1000)-60)
             return;
-        $('#loginUsername').attr('href', rp.redditLoginUrl + rp.url.auth + '?' +
+        $('#loginUsername').attr('href', rp.reddit.loginUrl + '?' +
                                  ['client_id=' + rp.api_key.reddit,
                                   'response_type=code',
                                   'state='+encodeURIComponent(rp.url.path),
@@ -4538,7 +4595,7 @@ $(function () {
             $('#loginUsername').html(googleIcon('verified_user'));
             $('#loginUsername').attr('title', 'Expires at '+d);
             $('label[for=login]').html(googleIcon('verified_user'));
-            rp.url.api = 'https://oauth.reddit.com';
+            rp.reddit.api = rp.reddit.oauth;
             setConfig(configNames.redditBearer, bearer);
             setConfig(configNames.redditRefreshBy, by);
             loadRedditMultiList();
@@ -4549,140 +4606,54 @@ $(function () {
     rp.fn.setupRedditLogin = setupRedditLogin;
 
     var setupChoices = function () {
-        // Supported choices:
-        // /[*best*, hot, new, top, rising, controversial, gilded]
-        // /r/SUBREDDIT/[*hot*, new, top, rising, controversial, gilded]
-        // /r/freinds [*new*, gilded]
-        // /me/m/MULTI/[*hot*, new, top, rising, controversial, gilded]
-        // /user/USERNAME/m/MULTI/[*hot*, new, top, rising, controversial, gilded]
-        // /user/USERNAME/submitted?sort=[*new*, top, controversial, gilded]
-        // /flickr/USERNAME/[*photos*, albums]
-        // /redgifs/... - c.f. getRedgifs()
-        var arr = [ "best", "hot", "new", "top", "rising", "controversial", "gilded" ];
-        var names;
-        var s = rp.url.subreddit.split('/');
         var prefix = '/';
-        var base;
-        var mod = arr.indexOf(s[1]);
-        var user;
-        var multi;
-        var is_submitted = false;
-        rp.url.choice = "";
-        rp.url.sub = (s[1] == 'r' && s[2]) ?s[2] :"";
-
-        if (mod >= 0) {
-            base = '/';
-            prefix = '';
-
-        } else if (rp.url.subreddit == '/') {
-            base = '/';
-            prefix = '';
-            mod = 0;
-
-        } else if (s[2] == 'friends' && s[1] == 'r') {
-            base = s.slice(0,3).join('/');
-            arr = [ "new", 'gilded' ];
-            mod = (s.length > 3) ?arr.indexOf(s[3]) :0;
-
-        } else if (s[1] == 'r' ||
-                   s[1] == 'domain') {
-            base = s.slice(0,3).join('/');
-            arr = [ "hot", "new", "top", "rising", "controversial", 'gilded' ];
-            mod = (s.length > 3) ?arr.indexOf(s[3]) :0;
-
-        } else if (s[1] == 'user') {
-            user = s[2];
-            if (s.length == 3 || s[3] == 'submitted') {
-                base = s.slice(0,3).join('/')+'/submitted';
-                arr = [ "hot", "new", "top", "controversial" ];
-                mod = (s.length > 4) ?arr.indexOf(s[4]) :0;
-                is_submitted = true;
-
-            } else if (s[3] == 'm') {
-                base = s.slice(0,5).join('/');
-                arr = [ "hot", "new", "top", "rising", "controversial", 'gilded' ];
-                mod = (s.length > 5) ?arr.indexOf(s[5]) :0;
-                multi = s[4];
-
-            } else {
-                log.error("Unknown URL format for Choice: "+rp.url.subreddit);
-                return;
-            }
-
-        } else if (s[1] == 'me') {
-            base = s.slice(0,4).join('/');
-            arr = [ "hot", "new", "top", "rising", "controversial", 'gilded' ];
-            mod = (s.length > 4) ?arr.indexOf(s[4]) :0;
-            multi = s[3];
-
-        } else if (s[1] == 'wp' ||
-                   s[1] == 'wp2') {
-            arr = [ "new", "old" ];
-            base = s.slice(0,3).join('/');
-            mod = (s.length > 3) ?arr.indexOf(s[3]) :0;
-
-        } else if (s[1] == 'flickr') {
-            arr = [ "photos", "albums" ];
-            base = s.slice(0,3).join('/');
-            mod = (s.length > 3) ?arr.indexOf(s[3]) :0;
-
-        } else if (s[1] == 'redgifs') {
-            if (s[2] == 'u') {
-                arr = [ "recent", "best" ];
-                base = s.slice(0,4).join('/');
-                mod = (s.length > 4) ?arr.indexOf(s[4]) :0;
-            } else {
-                arr = [ "trending", "top7", "top28", "best", "latest" ];
-                names = [ "trending", "top - weekly", "top - monthly", "top - all time", "latest" ];
-                if (s[2] == 't') {
-                    base = s.slice(0,4).join('/');
-                    mod = (s.length > 4) ?arr.indexOf(s[4]) :0;
-                } else {
-                    base = s.slice(0,2).join('/');
-                    mod = (s.length > 2) ?arr.indexOf(s[2]) :0;
-                }
-                // @@ add link to /redgifs/
-            }
-
-        } else {
+        var a = rp.choices[rp.url.site][rp.url.type];
+        var arr = a[0];
+        if (!arr)
             return;
+        var names = a[a.length-1];
+        var base = rpurlbase();
+        var is_submitted = (rp.url.site == 'reddit' && rp.url.type == 'submitted');
+        var multi;
+        var user;
+        if (rp.url.site == 'reddit') {
+            multi = (rp.url.type == 'm') ? rp.url.multi :'';
+            user = (rp.url.type == 'm' || rp.url.type == 'submitted') ?rp.url.sub :'';
         }
 
-        if (mod < 0)
-            mod = 0;
-        else if (mod > 0)
-            rp.url.choice = arr[mod];
-
-        if (!names)
-            names = arr;
+        var choice = rp.url.choice.split(':')[0];
 
         var list = $('#subredditPopup ul');
         list.empty();
-        for(var i = 0; i < arr.length; ++i) {
-            var a = _infoAnchor(rp.url.base+base+((i) ?prefix+arr[i] :""),
-                                names[i], arr[i], "info infol local");
-            if (mod == i)
+        var i = 0;
+        while (i < arr.length) {
+            var name = names[i].split(':');
+            // @@ iff !name[1]
+            a = _infoAnchor(rp.url.base+base+((i) ?prefix+arr[i] :""),
+                                name[0], arr[i], "info infol local");
+            if (name[0] == choice)
                 a.addClass('selected');
-
             var li = $('<li>').append(a);
-            if (arr[i] == 'top') {
-                var tsel = searchValueOf(rp.url.get+rp.url.path, 't');
-                var times = ['day', 'week', 'month', 'year', 'all'];
-                for (var t in times) {
-                    a = _infoAnchor(rp.url.base+base+prefix+"top?sort=top&t="+times[t],
-                                    times[t][0].toUpperCase(), times[t], "info infol local");
-                    if (tsel == times[t])
+
+            if (i < arr.length-1 && names[i+1].split(':')[0] == name[0]) {
+                for (var next = name; i < arr.length && next[0] == name[0]; next = names[++i].split(':')) {
+                    if (next.length == 1)
+                        continue;
+                    a = _infoAnchor(rp.url.base+base+prefix+arr[i],
+                                    next[1][0].toUpperCase(), arr[i], "info infol local");
+                    if (rp.url.choice == arr[i])
                         a.addClass('selected');
                     li.append(a);
                 }
-            }
+            } else
+                ++i;
             list.append(li);
         }
         if (user) {
             list.append($('<li>').append($('<hr>', { class: "split" })));
             list.append($('<li>').append(redditLink('/user/'+user+'/submitted', "submitted", "submitted", is_submitted)));
 
-            var jsonUrl = rp.url.api + '/api/multi/user/' + user;
+            var jsonUrl = rp.reddit.api + '/api/multi/user/' + user;
             var handleData = function (data) {
                 if (data.length) {
                     var list = $('#subredditPopup ul');
@@ -4777,7 +4748,7 @@ $(function () {
             if (v !== undefined)
                 log.debug(" not loading duplicate: /r/"+item.data.subreddit+" "+item.data.id);
             else if (item.data.num_crossposts > 0) {
-                var jurl = rp.redditBaseUrl + '/duplicates/' + item.data.id + '.json?show=all';
+                var jurl = rp.reddit.base + '/duplicates/' + item.data.id + '.json?show=all';
                 var hdata = function (data) {
                     var item = data[0].data.children[0];
                     for(var i = 0; i < data[1].data.children.length; ++i) {
@@ -4825,7 +4796,7 @@ $(function () {
         };
 
         // https://www.reddit.com/search.json?q=url:SHORTID+site:HOSTNAME
-        var jsonUrl = rp.url.get + '/search.json?include_over_18=on&q=url:'+shortid+'+site:'+site;
+        var jsonUrl = rp.reddit.base + '/search.json?include_over_18=on&q=url:'+shortid+'+site:'+site;
         var handleData = function (data) {
             if (isActive(photo))
                 updateExtraLoad();
@@ -4855,7 +4826,7 @@ $(function () {
         var j;
         if (comment.kind == "more") {
             // @@ API hits CORS issue
-            // var jsonUrl = rp.url.get+'/api/morechildren';
+            // var jsonUrl = rp.reddit.base+'/api/morechildren';
             // var postData = 'limit_children=False&api_type=json&children='+comment.data.children.join(",")+
             //     "&link_id="+(comment.data.link_id || comment.data.link)+
             //     "&id="+(comment.data.name || comment.data.id);
@@ -4919,11 +4890,11 @@ $(function () {
         var comments;
         if (dupe) {
             // This could be:
-            // comments = [rp.rp.redditBaseUrl, "comments", id].join('/');
+            // comments = [rp.rp.reddit.base, "comments", id].join('/');
             if (!dupe.commentN || dupe.eL)
                 return;
             dupe.eL = true;
-            comments = [rp.redditBaseUrl, 'r', dupe.subreddit, "comments", dupe.id].join("/");
+            comments = [rp.reddit.base, 'r', dupe.subreddit, "comments", dupe.id].join("/");
 
         } else {
             // Only load comments once per photo
@@ -4937,7 +4908,7 @@ $(function () {
             comments = photo.comments;
         }
 
-        var jsonUrl = rp.url.get + pathnameOf(comments) + '.json';
+        var jsonUrl = rp.reddit.base + pathnameOf(comments) + '.json';
         var failedData = function (xhr, ajaxOptions, thrownError) {
             photo.eL = false;
             failedAjax(xhr, ajaxOptions, thrownError);
@@ -5049,17 +5020,18 @@ $(function () {
 
         setupRedditLogin();
 
-        var jsonUrl = rp.url.api + rp.url.subreddit + ".json?";
+        var order = rp.url.choice.split(':');
+        var jsonUrl = rp.reddit.api + rpurlbase() + ((order[0]) ? "/"+order[0] :"") + ".json?";
         var dataType = 'json';
         var hdrData = rp.session.redditHdr;
 
-        if (rp.url.subreddit.startsWith('/r/random') ||
-            rp.url.subreddit.startsWith('/r/randnsfw')) {
-            jsonUrl = rp.redditBaseUrl + rp.url.subreddit + ".json?jsonp=redditcallback";
+        if (rp.url.sub == 'random' || rp.url.sub == 'randnsfw') {
+            jsonUrl = rp.reddit.base + rpurlbase() + ".json?jsonp=redditcallback";
             dataType = 'jsonp';
-        }
+        } else if (order.length > 1)
+            jsonUrl += 'sort='+order[0]+'&t='+order[1];
 
-        jsonUrl += rp.url.vars + rp.session.after;
+        jsonUrl += rp.session.after;
 
         var duplicateInList = function(duplicates, item) {
             for (var dup of duplicates) {
@@ -5093,7 +5065,6 @@ $(function () {
                 log.info('cannot display url [simul-dup:'+val+']: '+idorig.url);
                 return;
             }
-
             if (idorig.score < rp.settings.minScore) {
                 log.info('cannot display url [score too low: '+idorig.score+']: '+idorig.url);
                 return;
@@ -5112,7 +5083,6 @@ $(function () {
             duplicates = duplicateAddCross(idorig, duplicates, idorig);
 
             var title = fixupTitle(idorig.title)
-
             var flair = "";
             // Add flair (but remove if also in title)
             if (idorig.link_flair_text) {
@@ -5125,10 +5095,8 @@ $(function () {
 
             duplicates.sort(subredditCompare);
 
-            var url = idx.url || idx.url_overridden_by_dest;
-
             var photo = {
-                url: url,
+                url: idx.url || idx.url_overridden_by_dest,
                 title: title,
                 id: idorig.id,
                 over18: idorig.over_18,
@@ -5137,7 +5105,7 @@ $(function () {
                 dupes: duplicates,
                 score: idorig.score,
                 commentN: idorig.num_comments,
-                comments: rp.redditBaseUrl + idorig.permalink
+                comments: rp.reddit.base + idorig.permalink
             };
             if (flair)
                 photo.flair = flair;
@@ -5352,15 +5320,14 @@ $(function () {
             }
 
             // Watch out for "fake" subreddits
-            if (rp.url.subreddit.startsWith('/r/random') ||
-                rp.url.subreddit.startsWith('/r/randnsfw')) {
-                rp.url.origsubreddit = rp.url.subreddit;
+            if (rp.url.type == 'reddit' && (rp.url.sub == 'random' || rp.url.sub == 'randnsfw')) {
+                rp.url.origsub = rp.url.sub;
                 // add rest of URL to subreddit e.g. /r/random/top
-                var end = rp.url.subreddit.replace(/^\/r\/rand(om|nsfw)/i,'');
-                rp.url.subreddit = '/r/' + data.data.children[0].data.subreddit+end;
+                rp.url.sub = data.data.children[0].data.subreddit;
+                var base = rpurlbase();
 
-                setSubredditLink(rp.redditBaseUrl + rp.url.subreddit, "reddit");
-                $('#subredditUrl').val(rp.url.subreddit);
+                setSubredditLink(rp.reddit.base + base, "reddit");
+                $('#subredditUrl').val(base);
                 // fix choices after determining correct subreddit
                 setupChoices();
             }
@@ -5414,7 +5381,7 @@ $(function () {
                 }
 
                 func = handleDuplicatesData;
-                url = rp.redditBaseUrl + '/duplicates/' + item.data.id + '.json?show=all';
+                url = rp.reddit.base + '/duplicates/' + item.data.id + '.json?show=all';
 
                 // Don't use oauth'd API for this, if oauth has expired, lots of failures happen,
                 // and oauth adds nothing here.
@@ -5449,7 +5416,6 @@ $(function () {
         // POPULAR:     /imgur/
         // USER:        /imgur/u/USER
         // TAG:         /imgur/t/TAG
-        var a = rp.url.subreddit.split('/');
         var user;
         var tag;
         var errmsg;
@@ -5473,9 +5439,9 @@ $(function () {
             addImageSlide(pic);
         };
 
-        switch(a[2]) {
+        switch(rp.url.type) {
         case 'u':
-            user = a[3];
+            user = rp.url.sub;
             errmsg = "User "+user+" has no items";
             jsonUrl = 'https://api.imgur.com/3/account/' + user + '/submissions/'+rp.session.after+'/newest';
 
@@ -5503,7 +5469,7 @@ $(function () {
             };
             break;
         case 't':
-            tag = a[3];
+            tag = rp.url.sub;
             errmsg = "Tag "+tag+" has no items";
             jsonUrl = 'https://api.imgur.com/post/v1/posts/t/'+tag+"?page="+rp.session.after;
             handleData = function (data) {
@@ -5803,31 +5769,27 @@ $(function () {
 
 
     var getWordPressBlogV2 = function () {
+        // Path Schema:
+        // /wp2/HOSTNAME[/(asc|desc)]
+        // desc: newest to oldest
+        // asc: oldest to newest
         if (rp.session.loadingNextImages)
             return;
         rp.session.loadingNextImages = true;
 
-        var a = rp.url.subreddit.split('/');
-
-        var hostname = a[2];
-
-        // desc: newest to oldest
-        // asc: oldest to newest
-        var urlorder = (a.length > 3 && a[3] == 'old') ?'asc' :'desc';
+        var hostname = rp.url.sub;
 
         if (rp.wpv2[hostname] === false) {
+            log.error("not WPv2 site: "+hostname);
             rp.session.loadingNextImages = false;
             return;
         }
 
         setSubredditLink('https://'+hostname);
-        $('#subredditUrl').val('/wp2/' + hostname + ((a.length > 3) ? "/"+a[3] :""));
 
         var scheme = (rp.insecure[hostname]) ?'http' :'https';
 
-        var jsonUrl = scheme+'://'+hostname+'/wp-json/wp/v2/posts/?orderby=date&order='+urlorder;
-        if (rp.url.vars)
-            jsonUrl += '&'+rp.url.vars;
+        var jsonUrl = scheme+'://'+hostname+'/wp-json/wp/v2/posts/?orderby=date&order='+rp.url.choice;
 
         if (rp.session.after !== "")
             jsonUrl = jsonUrl+'&offset='+rp.session.after;
@@ -5897,19 +5859,15 @@ $(function () {
 
     // https://developer.wordpress.com/docs/api/1.1/get/sites/%24site/posts/
     var getWordPressBlog = function () {
+        // Path Schema:
+        // /wp/HOSTNAME[/(DESC|ASC)]
+        // DESC: newest to oldest
+        // ASC: oldest to newest
         if (rp.session.loadingNextImages)
             return;
         rp.session.loadingNextImages = true;
 
-        var a = rp.url.subreddit.split('/');
-
-        var hostname = a[2];
-
-        // DESC: newest to oldest
-        // ASC: oldest to newest
-        var urlorder = (a.length > 3 && a[3] == 'old') ?'ASC' :'DESC';
-
-        $('#subredditUrl').val('/wp/'+hostname+((a.length > 3) ? "/"+a[3] :""));
+        var hostname = rp.url.sub;
 
         if (hostname.indexOf('.') < 0)
             hostname += '.wordpress.com';
@@ -5927,9 +5885,7 @@ $(function () {
             return;
         }
 
-        var jsonUrl = 'https://public-api.wordpress.com/rest/v1.1/sites/'+hostname+'/posts?order_by=date&order='+urlorder;
-        if (rp.url.vars)
-            jsonUrl += '&'+rp.url.vars;
+        var jsonUrl = 'https://public-api.wordpress.com/rest/v1.1/sites/'+hostname+'/posts?order_by=date&order='+rp.url.choice;
 
         if (rp.session.after !== "")
             jsonUrl = jsonUrl+'&offset='+rp.session.after;
@@ -6002,7 +5958,6 @@ $(function () {
                 off = (name != post.reblogged_root_name);
                 val = dedupVal(name, post.reblogged_root_id);
                 if (val) {
-                    log.info("cannot display url [cross-duplicate:"+val+"]: "+photo.url);
                     dupe = true;
                 } else {
                     photo.dupes.push({tumblr: name,
@@ -6021,7 +5976,6 @@ $(function () {
                 off = (name != post.reblogged_from_name);
                 val = dedupVal(name, post.reblogged_from_id);
                 if (val) {
-                    log.info("cannot display url [cross-duplicate:"+val+"]: "+photo.url);
                     dupe = true;
                 } else {
                     photo.dupes.push({tumblr: name,
@@ -6039,7 +5993,8 @@ $(function () {
         }
 
         if (dupe) {
-            // Duplicate
+            log.info("cannot display url [cross-duplicate:"+val+"]: "+photo.url);
+
         } else if (post.type == "photo" || post.type == "link") {
             if (post.photos)
                 post.photos.forEach(function(item) {
@@ -6133,13 +6088,13 @@ $(function () {
     };
 
     var getTumblrBlog = function () {
+        // Path Schema:
+        // /tumblr/HOSTNAME
         if (rp.session.loadingNextImages)
             return;
         rp.session.loadingNextImages = true;
 
-        var a = rp.url.subreddit.split('/');
-
-        var hostname = a[2];
+        var hostname = rp.url.sub;
         if (hostname.indexOf('.') < 0)
             hostname += '.tumblr.com';
 
@@ -6196,16 +6151,16 @@ $(function () {
     };
 
     var getBloggerBlog = function () {
+        // Path Schema:
+        // /blogger/HOSTNAME
         if (rp.session.loadingNextImages)
             return;
         rp.session.loadingNextImages = true;
 
-        var a = rp.url.subreddit.split('/');
-
-        var hostname = a[2];
+        var hostname = rp.url.sub;
 
         if (rp.blogger[hostname] === 0) {
-            log.error("cannot log blogger [Already Failed]: "+hostname);
+            log.error("cannot load blogger [Already Failed]: "+hostname);
             return;
         }
 
@@ -6335,7 +6290,6 @@ $(function () {
         });
     };
 
-    // URL: /flickr/USER[/albums]
     // Need user login for safe-search to be off
     // Sizes:
     // o - original
@@ -6344,18 +6298,19 @@ $(function () {
     // b - 1024 on longest - optional until May 2010
     // z - 640 on longest (gaurenteed to exist)
     var getFlickr = function() {
+        // Path Schema:
+        // /flickr/u/USER[/albums]
         if (rp.session.loadingNextImages)
             return;
         rp.session.loadingNextImages = true;
 
-        var a = rp.url.subreddit.split('/');
-        var user = a[2];
+        var user = rp.url.sub;
 
         if (rp.session.after == undefined)
             rp.session.after = 1;
 
         var reqFunc, reqData;
-        if (a[3] == 'sets' || a[3] == 'albums') {
+        if (rp.url.choice == 'albums') {
             reqFunc = 'flickr.photosets.getList';
             reqData = { user_id: flickrUserNSID(user),
                         primary_photo_extras: 'url_o,url_h,url_k,url_b',
@@ -6457,35 +6412,27 @@ $(function () {
         // TRENDING:    /redgifs/[ORDER]
         // USER:        /redgifs/u/USER[/(recent|best)]
         // TAG:         /redgifs/t/(TAG|SEARCH)[/ORDER]
-        var a = rp.url.subreddit.split('/');
-        var errmsg;
+        var errmsg = "No videos";
         var jsonUrl;
-        var tag;
         var url;
         var user;
-        var order;
         var first = false;
+        var order = rp.url.choice || rp.choices.redgifs[rp.url.type][0][0];
 
-        switch (a[2]) {
+        switch (rp.url.type) {
         case "u":
-            user = a[3];
-            order = a[4] || "recent";
+            user = rp.url.sub;
             errmsg = "User "+user+" has no videos";
-            jsonUrl = 'https://api.redgifs.com/v2/users/'+user+'/search?order='+order+'&count='+rp.settings.count;
+            jsonUrl = 'https://api.redgifs.com/v2/users/'+user+'/search?order='+order;
             url = siteUserUrl(user, 'redgifs')+'?order='+order;
             break;
         case "t":
-            tag = a[3];
-            errmsg = "Tag "+tag+" has no videos";
-            // trending (default), top7 (Top - weekly), top28 (Top - monthtly), best (Top - All Time), latest (Newest)
-            order = a[4] || "trending";
-            jsonUrl = 'https://api.redgifs.com/v2/gifs/search?order='+order+'&count='+rp.settings.count+'&search_text='+tag;
-            url = siteTagUrl(tag, 'redgifs')+'&order='+order;
+            errmsg = "Tag "+rp.url.sub+" has no videos";
+            jsonUrl = 'https://api.redgifs.com/v2/gifs/search?order='+order+'&search_text='+rp.url.sub;
+            url = siteTagUrl(rp.url.sub, 'redgifs')+'&order='+order;
             break;
         default:
-            order = a[2] || "trending";
-            jsonUrl = 'https://api.redgifs.com/v2/gifs/search?order='+order+'&count='+rp.settings.count;
-            errmsg = "No videos";
+            jsonUrl = 'https://api.redgifs.com/v2/gifs/search?order='+order;
             url = "https://www.redgifs.com/browse?order="+order;
             break;
         }
@@ -6495,7 +6442,7 @@ $(function () {
             return;
 
         if (rp.session.after)
-            jsonUrl += "&cursor="+rp.session.after;
+            jsonUrl += rp.session.after;
         else
             first = true;
 
@@ -6518,11 +6465,13 @@ $(function () {
                     addImageSlide(image);
                 });
                 if (data.cursor) {
-                    rp.session.after = data.cursor;
+                    rp.session.after = '&cursor='+data.cursor;
                     rp.session.loadAfter = getRedgifs;
-                } else {
+                } else if (data.page && data.page < data.pages) {
+                    rp.session.after = '&page='+data.page+1;
+                    rp.session.loadAfter = getRedgifs;
+                } else
                     rp.session.loadAfter = null;
-                }
             }
             doneLoading();
         };
@@ -6620,25 +6569,22 @@ $(function () {
         // USER:        /gfycat/u/USER
         // TAG:         /gfycat/t/TAG
         var user;
-        var tag;
         var jsonUrl;
         var errmsg;
-        var a = rp.url.subreddit.split('/');
         var first = false;
-
         var url;
-        switch (a[2]) {
+
+        switch (rp.url.type) {
         case "u":
-            user = a[3];
+            user = rp.url.sub;
             errmsg = "User "+user+" has no videos";
             jsonUrl = 'https://api.gfycat.com/v1/users/'+user+'/gfycats?count='+rp.settings.count;
             url = siteUserUrl(user, 'gfycat');
             break;
         case "t":
-            tag = a[3];
-            errmsg = "Tag "+tag+" has no videos";
-            jsonUrl = "https://api.gfycat.com/v1/gfycats/search?count="+rp.settings.count+"&search_text="+tag.toLowerCase();
-            url = siteTagUrl(tag, 'gfycat');
+            errmsg = "Tag "+rp.url.sub+" has no videos";
+            jsonUrl = "https://api.gfycat.com/v1/gfycats/search?count="+rp.settings.count+"&search_text="+rp.url.sub.toLowerCase();
+            url = siteTagUrl(rp.url.sub, 'gfycat');
             break;
         default:
             jsonUrl = 'https://api.gfycat.com/v1/gfycats/trending?tagName=_gfycat_all_trending&count='+rp.settings.count;
@@ -6830,19 +6776,18 @@ $(function () {
         // /iloopit/t/TAG       TRENDING TAG    /videos/tag/TAG/PAGE/
         // /iloopit/u/USER      User Videos     /videos/user/USER/PAGE/
         var jsonUrl;
-        var a = rp.url.subreddit.split('/');
         var errmsg;
 
-        switch(a[2]) {
+        switch(rp.url.type) {
         case "u":
-            jsonUrl = "https://api.iloopit.net/videos/user/"+a[3];
-            setSubredditLink("https://iloopit.net/porngifs/user/"+a[3]);
-            errmsg = "No more user "+a[3];
+            jsonUrl = "https://api.iloopit.net/videos/user/"+rp.url.sub;
+            setSubredditLink("https://iloopit.net/porngifs/user/"+rp.url.sub);
+            errmsg = "No more user "+rp.url.sub;
             break;
         case "t":
-            jsonUrl = "https://api.iloopit.net/videos/tag/"+a[3];
-            setSubredditLink("https://iloopit.net/porngifs/"+a[3]+"/trending/");
-            errmsg = "No more "+a[3]+" tagged";
+            jsonUrl = "https://api.iloopit.net/videos/tag/"+rp.url.sub;
+            setSubredditLink("https://iloopit.net/porngifs/"+rp.url.sub+"/trending/");
+            errmsg = "No more "+rp.url.sub+" tagged";
             break;
         default:
             jsonUrl = "https://api.iloopit.net/likelog/user/americ";
@@ -6892,56 +6837,156 @@ $(function () {
         });
     };
 
-    var processUrls = function(path, initial, data) {
-        // Separate to before the question mark and after
-        // Detect predefined reddit url paths. If you modify this be sure to fix
-        // .htaccess
-        // This is a good idea so we can give a quick 404 page when appropriate.
-        var regexS = "(/(?:(?:imgur/)|(?:gfycat/)|(?:tumblr/)|(?:flickr/)|(?:blogger/)|(?:iloopit/)|(?:redgifs/)|(?:wp2?/)"+
-            "|(?:auth)|"+
-            "(?:r/)|(?:u/)|(?:user/)|(?:domain/)|(?:search)|(?:me/)|(?:hot)|(?:top)|(?:new)|(?:rising)|(?:controversial))"+
-            "[^&#?]*)[?]?(.*)";
+    var rpurlReset = function() {
+        rp.url.site = 'reddit';
+        rp.url.sub = '';
+        rp.url.type = '';
+        rp.url.multi = '';
+        rp.url.choice = '';
+    };
 
+    var rpurlbase = function() {
+        var arr;
+        if (rp.url.site == 'reddit') {
+            switch (rp.url.type) {
+            case 'friends':
+                arr = [ '/r/friends' ];
+                break;
+            case 'm':
+                if (rp.url.sub == '') {
+                    arr = [ '/me/m', rp.url.multi ];
+                    break;
+                }
+                // fall through
+            case 'submitted':
+                arr = [ '/user', rp.url.sub, rp.url.type, rp.url.multi ];
+                break;
+            default:
+                arr = [ '', rp.url.type, rp.url.sub ];
+                break;
+            }
+        } else
+            arr = ['', rp.url.site, rp.url.type, rp.url.sub];
+        return arr.join("/").replace(/\/+/g, '/').replace(/(.)\/$/, '$1');
+    };
+
+    var rpurlpath = function() {
+        return [rpurlbase(), rp.url.choice].join("/").replace(/\/+/g, '/').replace(/(.)\/$/, '$1');
+    }
+    rp.fn.urlpath = rpurlpath;
+
+    var processUrl = function(path, initial, data) {
         if (path === undefined)
             path = $('#subredditUrl').val();
         if (initial === undefined)
             initial = false;
 
+        var pathIsLocation = true;
+
         path = path.replace(/ +/g, '/').replace(/^\/*/, '/').replace(/^\?+/, '');
 
-        var regex = new RegExp(regexS);
-        var results = regex.exec(path);
+        var okay = false;
+        var arr = path.split('?').reverse();
 
-        log.debug('url split results: '+results);
-        if (data) {
-            rp.url.subreddit = data.subreddit;
-            if (results)
-                rp.url.vars = decodeUrl(results[2]);
+        for (var i in arr) {
+            var a = arr[i].split(/[/ ]/);
+            if (a.length == 1)
+                continue;
+            a.shift(); // drop empty
 
-        } else if (results !== null) {
-            rp.url.subreddit = results[1].replace(' $', '/');
-            rp.url.vars = decodeUrl(results[2]);
+            rpurlReset();
 
-            // Remove .compact as it interferes with .json (we got "/r/all/.compact.json" which doesn't work).
-            rp.url.subreddit = rp.url.subreddit.replace(/.compact/, "");
-            // Consolidate double slashes to avoid r/all/.compact/ -> r/all//
-            rp.url.subreddit = rp.url.subreddit.replace(/\/{2,}/, "/");
-            // replace /u/ with /user/
-            rp.url.subreddit = rp.url.subreddit.replace(/^\/u\//, "/user/");
+            if (a[0] == 'auth') {
+                var args = searchOf(window.location.href);
+                var url = decodeURIComponent(args.state);
+                if (url.startsWith('/auth'))
+                    url = '/';
 
-        } else {
-            rp.url.vars = '';
-            rp.url.subreddit = '/';
+                if (args.access_token) {
+                    // Implicit Flow
+                    var by = redditExpiresToTime(decodeURIComponent(args.expires_in));
+
+                    setupRedditLogin(args.access_token, by);
+
+                } else if (args.code) {
+                    // Code Flow
+                    redditCodeFlow({code: args.code}, url);
+                    return;
+
+                } else {
+                    log.error("Failed to load auth: "+window.location.href);
+                    url = "/";
+                }
+                processUrl(url, true);
+                loadRedditMultiList();
+                return;
+
+            } else if (['r', 'me', 'u', 'user', 'domain'].indexOf(a[0]) >= 0) {
+                var t = a.shift();
+                if (t == 'r' || t == 'domain') {
+                    rp.url.type = t;
+                    rp.url.sub = a.shift();
+                    if (rp.url.sub == 'friends') {
+                        rp.url.type = 'friends';
+                    }
+                } else if (t == 'u' || t == 'user') {
+                    // /(user|u)/USERNAME/(m/MULTI|submitted)
+                    rp.url.sub = a.shift();
+                    rp.url.type = a.shift() || "submitted";
+                    if (rp.url.type == 'm')
+                        rp.url.multi = a.shift();
+                } else if (t == 'me') {
+                    rp.url.type = a.shift();
+                    rp.url.multi = a.shift();
+                    rp.session.loginNeeded = true;
+                } else {
+                    log.info("Bad PATH: "+arr[i]);
+                    continue;
+                }
+            } else if (['blogger', 'flickr', 'gfycat', 'imgur', 'redgifs', 'iloopit'].indexOf(a[0]) >= 0) {
+                rp.url.site = a.shift();
+                if (a[0] == 'u') {
+                    rp.url.type = a.shift();
+                    rp.url.sub = a.shift();
+                } else if (a[0] == 't') {
+                    rp.url.type = a.shift();
+                    if (a.length > 1 && rp.choices[rp.url.site][rp.url.type][0].indexOf(a[a.length-1]) >= 0)
+                        rp.url.choice = a.pop();
+                    rp.url.sub = decodeURIComponent(a.join(" "));
+                    a = [];
+                }
+            } else if (['wp', 'wp2', 'tumblr'].indexOf(a[0]) >= 0) {
+                rp.url.site = a.shift();
+                rp.url.sub = a.shift();
+            } else if (a[0] == "")
+                a.shift();
+
+            if (a.length > 0) {
+                var c = a.shift();
+                if (c && rp.choices[rp.url.site][rp.url.type][0].indexOf(c) < 0) {
+                    log.error("Bad choice ["+rp.url.site+"]["+rp.url.type+"]: "+c);
+                    continue;
+                }
+                rp.url.choice = c;
+            }
+            okay = true;
+            pathIsLocation = (i == arr.length-1);
+            break;
+        }
+
+        if (!okay) {
+            pathIsLocation = false;
+            rpurlReset();
         }
 
         // Set prefix for self links, if in subdirectory
         if (initial)
-            if (window.location.pathname != rp.url.subreddit) {
+            if (pathIsLocation) {
+                rp.url.root = '/';
+            } else {
                 rp.url.base = window.location.pathname + '?';
                 rp.url.root = window.location.pathname;
                 rp.url.root = rp.url.root.replace(/index.html$/, "");
-            } else {
-                rp.url.root = '/';
             }
 
         if (!path.startsWith(pathnameOf(rp.url.base)))
@@ -6950,13 +6995,10 @@ $(function () {
         log.info("LOADING: "+path);
         rp.url.path = path;
 
-        var getVarsQuestionMark = "";
-
-        if (rp.url.vars.length > 0)
-            getVarsQuestionMark = "?" + rp.url.vars;
-
-        if (rp.url.vars !== '')
-            rp.url.vars = '&' + rp.url.vars;
+        if (initial && rp.session.redditRefreshToken && !rp.session.loginExpire) {
+            redditCodeFlow({ refresh_token: rp.session.redditRefreshToken }, path);
+            return;
+        }
 
         $('a.hardlink').each(function(_i, item) {
             var href = pathnameOf(item.href);
@@ -6964,59 +7006,27 @@ $(function () {
             item.classList.remove('hardlink');
         });
 
-        // Auth Response - only ever uses window.location
-        if (rp.url.subreddit == "/auth") {
-            var args = searchOf(window.location.href);
-
-            var url = decodeURIComponent(args.state);
-            if (url.startsWith('/auth'))
-                url = '/';
-
-            if (args.access_token) {
-                // Implicit Flow
-                var by = redditExpiresToTime(decodeURIComponent(args.expires_in));
-
-                setupRedditLogin(args.access_token, by);
-
-            } else if (args.code) {
-                // Code Flow
-                redditCodeFlow({code: args.code}, url);
-                return;
-
-            } else {
-                log.error("Failed to load auth: "+window.location.href);
-                url = "/";
-            }
-            processUrls(url);
-            loadRedditMultiList();
-            return;
-
-        } else if (initial && rp.session.redditRefreshToken && !rp.session.loginExpire) {
-            redditCodeFlow({ refresh_token: rp.session.redditRefreshToken }, path);
-            return;
-        }
-
         if (initial)
             rp.history.replaceState({}, "", path);
         else if (data === undefined && path != "")
             rp.history.pushState({}, "", path);
 
-        var subredditName = decodeURIComponent(rp.url.subreddit + getVarsQuestionMark);
+        var subredditName = rpurlpath();
 
-        var visitSubreddit = rp.redditBaseUrl + rp.url.subreddit + getVarsQuestionMark;
+        var visitSubreddit = rp.reddit.base + rpurlpath();
 
         setSubredditLink(visitSubreddit, "reddit");
-        $('#subredditUrl').val(subredditName);
 
         document.title = "redditP - " + subredditName;
+        $('#subredditUrl').val(subredditName);
 
         $('#choiceLi').hide();
         setupChoices();
 
-        if (((rp.session.loginExpire || rp.session.loginNeeded) &&
-             rp.url.subreddit.substr(0, rp.url.subreddit.length - rp.url.choice.length) == '/') ||
-            rp.url.subreddit.startsWith('/me') ||
-            rp.url.subreddit.startsWith('/r/friends'))
+        if ((rp.session.loginExpire || rp.session.loginNeeded) &&
+             rp.url.site == 'reddit' &&
+             (rp.url.type == 'friends' ||
+              rp.url.type == 'm' && rp.url.sub == ''))
             rp.session.loginNeeded = true;
         else
             rp.session.loginNeeded = false;
@@ -7083,41 +7093,23 @@ $(function () {
             rp.session.isAnimating = false;
             startAnimation(data.index, data.album);
 
-        } else if (rp.url.subreddit.startsWith('/imgur/'))
-            getImgur();
-
-        else if (rp.url.subreddit.startsWith('/tumblr/'))
-            getTumblrBlog();
-
-        else if (rp.url.subreddit.startsWith('/wp/'))
-            getWordPressBlog();
-
-        else if (rp.url.subreddit.startsWith('/wp2/'))
-            getWordPressBlogV2();
-
-        else if (rp.url.subreddit.startsWith('/blogger/'))
-            getBloggerBlog();
-
-        else if (rp.url.subreddit.startsWith('/gfycat/'))
-            getGfycat();
-
-        else if (rp.url.subreddit.startsWith('/redgifs/'))
-            getRedgifs();
-
-        else if (rp.url.subreddit.startsWith('/flickr/'))
-            getFlickr();
-
-        else if (rp.url.subreddit.startsWith('/iloopit/'))
-            getiLoopit();
-
-        else
-            getRedditImages();
+        } else {
+            switch (rp.url.site) {
+            case 'imgur': getImgur(); break;
+            case 'tumblr': getTumblrBlog(); break;
+            case 'wp': getWordPressBlog(); break;
+            case 'wp2': getWordPressBlogV2(); break;
+            case 'blogger': getBloggerBlog(); break;
+            case 'gfycat': getGfycat(); break;
+            case 'redgifs': getRedgifs(); break;
+            case 'flickr': getFlickr(); break;
+            case 'iloopit': getiLoopit(); break;
+            case 'reddit': getRedditImages(); break;
+            default:
+                throw("Bad site: "+rp.url.site);
+            }
+        }
     };
-
-    rp.redditBaseUrl = "https://www.reddit.com";
-    rp.redditLoginUrl =  rp.redditBaseUrl;
-    rp.url.get = rp.redditBaseUrl;
-    rp.url.api = rp.redditBaseUrl;
 
     initState();
 
@@ -7128,7 +7120,7 @@ $(function () {
         // file://PATHAME?SUBREDDIT
         path = window.location.href.substr(window.location.pathname.length+7);
 
-    processUrls(path, true);
+    processUrl(path, true);
 });
 
 /*

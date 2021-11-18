@@ -326,7 +326,7 @@ input.textlabel {
 
 #navboxScore div.reddit {
     position: absolute;
-    background-image: "url(images/upvote.svg)";
+    background-image: url("images/upvote.svg");
     opacity: 40%;
     z-index: -1;
     left: 15px;
