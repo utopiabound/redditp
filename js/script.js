@@ -186,19 +186,20 @@ rp.session = {
     // Id of timer
     nextSlideTimeoutId: null,
 
-    // Reddit filter "After"
+    // Per site data for "next traunch" of data
     after: "",
+    // Function called to load more data
+    loadAfter: null,
 
     // Login dependent values
     loginExpire: undefined, // Used to determin if login has expired
     loadedMultiList: false,
     loginNeeded: false, // true if current subreddit needs a login to work correctly
 
-    // Status variables
+    // Loading status - set via setupLoading() / doneLoading()
     loadingNextImages: false,
-    loadAfter: null,
-    loading: 0,
     loadingMessage: "",
+    loading: 0,
 
     needsPlayButton: false,
     volumeIsMute: false,  // Volume 0/1 should be used as mute/unmount - no volume control
@@ -392,6 +393,13 @@ $(function () {
         else
             return "1m";
     }
+
+    // Takes a date in any form Date() can recognize and returns seconds
+    var processDate = function(date, tz) {
+        var d = new Date(date+((tz) ?tz :""));
+        return d.valueOf()/1000;
+    };
+    rp.fn.date = processDate;
 
     // Limit output to 3 significant digits
     function humanReadInt(val) {
@@ -738,6 +746,8 @@ $(function () {
             return 'https://imgur.com/t/'+tag;
         if (type == 'iloopit')
             return 'https://iloopit.net/porngifs/'+tag+'/trending/';
+        if (type == 'flickr')
+            return 'https://www.flickr.com/photos/tags/'+tag.toLowerCase().replaceAll(" ", "");
         throw "Unknown Site type: "+type;
     };
 
@@ -2388,6 +2398,7 @@ $(function () {
                     (a[1] == 'video' ||
                      a[1] == 'videos' ||
                      a[1] == 'watch' ||
+                     a[1] == 'view' ||
                      a[1] == 'v')) {
                     // Sites that definitely don't work with above
                     if (hostname == 'bing.com' ||
@@ -2420,7 +2431,7 @@ $(function () {
 
                     } else {
                         shortid = url2shortid(pic.url, 2);
-                        initPhotoEmbed(pic, href.prop('origin')+'/embed/'+shortid+'?autoplay=1');
+                        initPhotoEmbed(pic, href.prop('origin')+'/embed/'+shortid+'?autoplay=1&muted=true&originalSize=true&startWithHD=true');
                         log.info("AUTOGENERATE embed ["+pic.o_url+"]: "+pic.url);
                     }
                     return true;
@@ -3905,7 +3916,7 @@ $(function () {
             if (shortid == 'albums' || shortid == 'sets') {
                 var ReqData = { photoset_id: url2shortid(photo.url, 4),
                                 user_id: flickrUserNSID(userid),
-                                extras: 'media,url_o,url_h,url_k,url_b'};
+                                extras: 'media,url_o,url_h,url_k,url_b,tags'};
                 jsonUrl = flickrJsonURL('flickr.photosets.getPhotos', ReqData)
                 handleData = function(data) {
                     if (data.stat !== 'ok') {
@@ -3920,14 +3931,12 @@ $(function () {
                             errFunc(data);
                         return;
                     }
-
+                    flickrAddUserMap(data.photoset.ownername, data.photoset.owner);
                     photo = initPhotoAlbum(photo, false);
                     // @@TODO: check to see if data.photoset.total > data.photoset.perpage
                     data.photoset.photo.forEach( function(item) {
-                        var pic = { url: flickrPhotoUrl(item),
-                                    site: { t: 'flickr', user: userid },
-                                    o_url: ['https://flickr.com/photos', userid, item.id].join('/'),
-                                    thumb: flickrThumbnail(item) };
+                        var pic = processFlickrPost(item);
+                        pic.site.user = data.photoset.owner;
                         if (processPhoto(pic))
                             addAlbumItem(photo, pic);
                     });
@@ -4601,9 +4610,9 @@ $(function () {
     var setupChoices = function () {
         var prefix = '/';
         var a = rp.choices[rp.url.site][rp.url.type];
-        var arr = a[0];
-        if (!arr)
+        if (!a || a.length == 0)
             return;
+        var arr = a[0];
         var names = a[a.length-1];
         var base = rpurlbase();
         var is_submitted = (rp.url.site == 'reddit' && rp.url.type == 'submitted');
@@ -4701,7 +4710,7 @@ $(function () {
 
             photo.eL = true;
 
-        } else if (photo.site.t == 'flickr') {
+        } else if (photo.site && photo.site.t == 'flickr') {
             site = 'flickr.com';
             shortid = url2shortid(photo.o_url, 3);
         }
@@ -5301,9 +5310,8 @@ $(function () {
                 rp.session.after = "&after=" + data.data.after;
                 rp.session.loadAfter = getRedditImages;
 
-            } else {
+            } else
                 rp.session.loadAfter = null;
-            }
 
             if (data.data.children.length === 0) {
                 log.info("No more data");
@@ -5799,18 +5807,17 @@ $(function () {
                 log.error("Something bad happened: "+data);
                 failedAjaxDone();
                 return;
-            } else if (data.length == 0) {
+            } else if (data.length == 0)
                 rp.session.loadAfter = null;
-            }
-            rp.session.loadAfter = getWordPressBlogV2;
+            else
+                rp.session.loadAfter = getWordPressBlogV2;
             rp.session.after = rp.session.after + data.length;
             data.forEach(function(post) {
-                var d = new Date(post.date_gmt+"Z");
                 var photo = { title: fixupTitle(post.title.rendered),
                               id: post.id,
                               url: post.link,
                               over18: false,
-                              date: d.valueOf()/1000
+                              date: processDate(post.date_gmt, "Z"),
                             };
                 getPostWPv2(photo, post, function() { log.info("cannot display WPv2 [no photos]: "+photo.url) });
             });
@@ -5889,17 +5896,15 @@ $(function () {
                 rp.session.after = rp.session.after + data.posts.length;
                 rp.session.loadAfter = getWordPressBlog;
 
-            } else { // Found all posts
+            } else // Found all posts
                 rp.session.loadAfter = null;
-            }
 
             data.posts.forEach(function(post) {
-                var d = new Date(post.date);
                 var photo = { title: post.title,
                               id: post.ID,
                               url: post.URL,
                               over18: false,
-                              date: d.valueOf()/1000,
+                              date: processDate(post.date),
                             };
                 if (post.post_thumbnail)
                     addPhotoThumb(photo, post.post_thumbnail.URL);
@@ -6104,9 +6109,8 @@ $(function () {
                 rp.session.after = rp.session.after + data.response.posts.length;
                 rp.session.loadAfter = getTumblrBlog;
 
-            } else { // Found all posts
+            } else // Found all posts
                 rp.session.loadAfter = null;
-            }
 
             data.response.posts.forEach(function (post) {
                 var image = { title: fixupTitle(post.summary || unescapeHTML(post.caption) || data.response.blog.title),
@@ -6186,11 +6190,10 @@ $(function () {
                     rp.session.loadAfter = null;
                 }
                 data.items.forEach(function (post) {
-                    var d = new Date(post.updated);
                     var image = { title: fixupTitle(post.title),
                                   id: post.id,
                                   over18: false,
-                                  date: d.valueOf()/1000,
+                                  date: processDate(post.updated),
                                   url: post.url
                                 };
                     if (processBloggerPost(image, post))
@@ -6246,7 +6249,7 @@ $(function () {
         return userid;
     };
     var flickrAddUserMap = function(userid, nsid) {
-        if (rp.flickr.u2nsid[userid] == nsid)
+        if (!userid || !nsid || rp.flickr.u2nsid[userid] == nsid || userid == "undefined")
             return;
         rp.flickr.u2nsid[userid] = nsid;
         rp.flickr.nsid2u[nsid] = userid;
@@ -6282,6 +6285,19 @@ $(function () {
         });
     };
 
+    var processFlickrPost = function(post, url) {
+        if (post.ownername)
+            flickrAddUserMap(post.ownername, post.owner);
+        var pic = { title: (post.title._content) ?post.title._content :post.title,
+                    id: post.id,
+                    site: { t: 'flickr', user: post.owner },
+                    date: processDate(post.datetaken || post.dateupload || post.date_create),
+                    url: url || flickrPhotoUrl(post),
+                    o_url: url || ['https://www.flickr.com/photos', post.owner, post.id].join("/"),
+                    over18: false };
+        addPhotoSiteTags(pic, (post.tags) ?post.tags.split(" ") :[]);
+        return pic;
+    };
     // Need user login for safe-search to be off
     // Sizes:
     // o - original
@@ -6292,29 +6308,33 @@ $(function () {
     var getFlickr = function() {
         // Path Schema:
         // /flickr/u/USER[/albums]
-        if (rp.session.loadingNextImages)
-            return;
-        rp.session.loadingNextImages = true;
-
-        var user = rp.url.sub;
-
         if (rp.session.after == undefined)
             rp.session.after = 1;
 
-        var reqFunc, reqData;
-        if (rp.url.choice == 'albums') {
-            reqFunc = 'flickr.photosets.getList';
-            reqData = { user_id: flickrUserNSID(user),
-                        primary_photo_extras: 'url_o,url_h,url_k,url_b',
-                        per_page: 20,
-                        page: rp.session.after};
-        } else {
-            reqFunc = 'flickr.people.getPhotos';
-            reqData = { user_id: flickrUserNSID(user),
-                        extras: 'url_o,url_h,url_k,url_b,date_upload',
+        var reqFunc = 'flickr.photos.getRecent';
+        var reqData = { primary_photo_extras: 'url_o,url_h,url_k,url_b,date_uploaded',
+                        extras: 'url_o,url_h,url_k,url_b,date_taken,date_uploaded,owner_name,tags',
+                        per_page: rp.settings.count,
                         safe_search: 3,
-                        page: rp.session.after};
+                        page: rp.session.after };
+
+        switch (rp.url.type) {
+        case 'u':
+            reqData.user_id = flickrUserNSID(rp.url.sub);
+            if (rp.url.choice == 'albums')
+                reqFunc = 'flickr.photosets.getList';
+            else
+                reqFunc = 'flickr.people.getPhotos';
+            break;
+        case 't':
+            reqFunc = 'flickr.photos.search';
+            reqData.tags = rp.url.sub;
+            break;
         }
+        //setSubredditLink(url);
+
+        if (!setupLoading(1, "No photos loaded"))
+            return;
 
         var jsonUrl = flickrJsonURL(reqFunc, reqData);
 
@@ -6334,29 +6354,16 @@ $(function () {
             if (data.photos) {
                 info = data.photos;
                 arrData = data.photos.photo;
-                arrProcess = function(post) {
-                    if (post.owner != user)
-                        flickrAddUserMap(user, post.owner);
-                    return { title: post.title,
-                             id: post.id,
-                             site: { t: 'flickr', user: post.owner },
-                             date: post.dateupload,
-                             url: flickrPhotoUrl(post),
-                             o_url: ['https://www.flickr.com/photos', post.owner, post.id].join("/"),
-                             over18: false };
-                };
+                arrProcess = processFlickrPost;
 
             } else if (data.photosets) {
                 info = data.photosets;
                 arrData = data.photosets.photoset;
                 arrProcess = function(post) {
-                    return { title: post.title._content,
-                             id: post.id,
-                             site: { t: 'flickr', user: reqData.user_id },
-                             date: post.date_create,
-                             url: ['https://www.flickr.com/photos', reqData.user_id, 'sets', post.id].join("/"),
-                             thumb: flickrPhotoUrl(post.primary_photo_extras),
-                             over18: false };
+                    flickrAddUserMap(post.username, post.owner);
+                    var pic = processFlickrPost(post, ['https://www.flickr.com/photos', post.owner, 'sets', post.id].join("/"));
+                    addPhotoThumb(pic, flickrPhotoUrl(post.primary_photo_extras));
+                    return pic;
                 };
             }
             if (info.pages == 0) {
@@ -6373,7 +6380,7 @@ $(function () {
                 var photo = arrProcess(post);
                 addImageSlide(photo);
             });
-            rp.session.loadingNextImages = false;
+            doneLoading();
         };
 
         $.ajax({
@@ -6703,7 +6710,7 @@ $(function () {
         var pic = {
             title: item.title,
             url: "https://iloopit.net/porngifs/all/?type=looplayer&loopid="+item.old_id,
-            date: (Date.parse(item.date)/1000).toFixed(),
+            date: processDate(item.date),
             over18: true,
             id: item._id,
             score: item.likes - item.dislikes,
@@ -6917,7 +6924,7 @@ $(function () {
                 var t = a.shift();
                 if (t == 'r' || t == 'domain') {
                     rp.url.type = t;
-                    rp.url.sub = a.shift();
+                    rp.url.sub = decodeURIComponent(a.shift());
                     if (rp.url.sub == 'friends') {
                         rp.url.type = 'friends';
                     }
@@ -6937,13 +6944,11 @@ $(function () {
                 }
             } else if (['blogger', 'flickr', 'gfycat', 'imgur', 'redgifs', 'iloopit'].indexOf(a[0]) >= 0) {
                 rp.url.site = a.shift();
-                if (a[0] == 'u') {
-                    rp.url.type = a.shift();
-                    rp.url.sub = a.shift();
-                } else if (a[0] == 't') {
-                    rp.url.type = a.shift();
-                    if (a.length > 1 && rp.choices[rp.url.site][rp.url.type][0].indexOf(a[a.length-1]) >= 0)
-                        rp.url.choice = a.pop();
+                rp.url.type = a.shift() || "";
+                // peak at last item to see if it's a "choice"
+                if (a.length > 1 && rp.choices[rp.url.site][rp.url.type][0].indexOf(a[a.length-1]) >= 0)
+                    rp.url.choice = a.pop();
+                if (a.length > 0) {
                     rp.url.sub = decodeURIComponent(a.join(" "));
                     a = [];
                 }
