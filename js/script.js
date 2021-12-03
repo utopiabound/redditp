@@ -671,10 +671,6 @@ $(function () {
         return _localLink(rp.reddit.base+path, path, pathname, undefined, "reddit", "");
     };
 
-    var titleLLink = function(url, path, pathname) {
-        return _localLink(url, path, pathname, undefined, undefined, "");
-    };
-
     var localLink = function(url, text, local, urlalt, favicon) {
         return _localLink(url, local, text, urlalt, favicon);
     };
@@ -704,6 +700,32 @@ $(function () {
         setFavicon(link, url);
         data.append(link);
         return data.html();
+    };
+
+    var socialUserLink = function(user, type) {
+        try {
+            return siteUserLink(user, type);
+        } catch (e) {
+            if (type == "facebook")
+                return titleFLink('https://facebook.com/'+user, 'FB:'+user);
+            if (type == "fansly")
+                return titleFLink('https://fans.ly/'+user, 'FANSLY:'+user);
+            if (type == "instagram")
+                return titleFLink('https://instagram.com/'+user, 'IG:'+user);
+            if (type == "onlyfans")
+                return titleFLink('https://onlyfans.com/'+user, 'OF:'+user);
+            if (type == "reddit")
+                return titleRLink('/user/'+user+'/submitted', 'u/'+user);
+            if (type == "snapchat")
+                return titleFLink('https://snapchat.com/add/'+user, 'SNAP:'+user);
+            if (type == "tiktok")
+                return titleFLink('https://tiktok.com/@'+user, 'TK:'+user);
+            if (type == 'tumblr')
+                return tumblrLink(user, type);
+            if (type == "twitter")
+                return titleFLink('https://twitter.com/'+user, 'TW:'+user);
+            throw "Unknown Social Type: "+type;
+        }
     };
 
     var sitePhotoUrl = function(shortid, type) {
@@ -4296,7 +4318,7 @@ $(function () {
                 return;
             }
             var pic = {
-                title: fixupTitle(img.title || img.description),
+                title: fixupTitle(img.title || img.description, photo.subreddit),
                 url: img.link,
                 o_url: item.link,
             };
@@ -4311,10 +4333,10 @@ $(function () {
     };
 
     var handleImgurItemMeta = function(photo, item) {
-        if (!photo.imgur)
-            photo.imgur = {};
+        if (!photo.site)
+            photo.site = { t: "imgur" };
         if (item.account_url)
-            photo.imgur.user = item.account_url;
+            photo.site.user = item.account_url;
         if (item.section && !photo.subreddit)
             photo.subreddit = item.section;
         if (item.datetime && !photo.date)
@@ -4323,10 +4345,10 @@ $(function () {
             photo.over18 = item.nsfw;
         if (item.tags && item.tags.length > 0) {
             var i;
-            if (!photo.imgur.tags)
-                photo.imgur.tags = [];
+            if (!photo.site.tags)
+                photo.site.tags = [];
             for (i in item.tags) {
-                photo.imgur.tags.push(item.tags[i].name);
+                photo.site.tags.push(item.tags[i].name);
             }
         }
     };
@@ -4408,10 +4430,13 @@ $(function () {
 
     var urlregexp = new RegExp('https?://[\\w\\._-]{1,256}\\.[a-z]{2,6}(/[\\w/\\.-]*)?', 'gi');
 
-    var fixupTitle = function(origtitle) {
+    var fixupTitle = function(origtitle, subreddit) {
         var title = unescapeHTML(origtitle);
         if (!title)
             return title;
+
+        if (!subreddit)
+            subreddit = "";
 
         // Do URLs first, so we don't pickup those added later
         var t1 = title.replace(urlregexp, function(match) {
@@ -4422,24 +4447,57 @@ $(function () {
             var hn = domains[1]+'.'+domains[0];
 
             if (hn == 'tumblr.com')
-                return titleLLink(match, '/tumblr/'+fqdn, domains[2]);
+                return socialUserLink(domains[2], "tumblr");
             if (hn == 'instagram.com')
-                return titleFLink(match, '@'+path.replace(/^[/]/, '').replace(/\/.*/,''));
+                return socialUserLink(path.replace(/^[/]/, '').replace(/\/.*/,''), "instagram");
             else
                 return titleFLink(match, fqdn+path);
         });
 
-        // @InstagramName
-        t1 = t1.replace(/(?=^|\W)@([\w.]+)/g, function(match, p1) {
-            return titleFLink('https://instagram.com/'+p1, '@'+p1); });
+        // SITE : NAME
+        t1 = t1.replace(/(\w+)\s*[:@]\s*([\w.]+)/g, function(match, p1, p2) {
+            p1 = p1.toLowerCase();
+            try {
+                if (p1 == "fb")
+                    p1 = "facebook";
+                else if (p1 == "tk")
+                    p1 = "tiktok";
+                else if (p1.match(/(onlyfans?|of)/i))
+                    p1 = "onlyfans";
+                else if (p1.match(/snap/))
+                    p1 = "snapchat";
+                else if (p1.match(/(insta|ig)/))
+                    p1 = "instagram";
+                return socialUserLink(p2, p1);
+            } catch (e) {
+                return match;
+            }
+        });
 
+        // @NAME
+        t1 = t1.replace(/(?=^|\W)@([\w.]+)/g, function(match, p1) {
+            var social = "instagram";
+            if (subreddit.match(/tiktok/i))
+                social = "tiktok";
+            if (subreddit.match(/onlyfan/i))
+                social = "onlyfans";
+            if (subreddit.match(/fansly/i))
+                social = "fansly";
+            if (subreddit.match(/twit/i))
+                social = "facebook";
+            if (subreddit.match(/snap/i))
+                social = "snapchat";
+            return socialUserLink(p1, social);
+        });
         // r/subreddit
         t1 = t1.replace(/(?=^|\W|\b)\/?(r\/[\w-]+)\s*/gi, function(match, p1) {
-            return titleRLink('/'+p1, p1); });
+            return titleRLink('/'+p1, p1);
+        });
 
         // u/redditUser
         t1 = t1.replace(/(?=^|\W|\b)\/?u\/([\w-]+)\s*/gi, function(match, p1) {
-            return titleRLink('/user/'+p1+'/submitted', 'u/'+p1); });
+            return socialUserLink(p1, "reddit");
+        });
 
         return t1;
     };
@@ -4872,7 +4930,7 @@ $(function () {
 
                 if (links[j].innerText !== "" &&
                     links[j].innerText !== img.url)
-                    img.title = fixupTitle(links[j].innerText);
+                    img.title = fixupTitle(links[j].innerText, photo.subreddit);
 
                 log.debug("RC-Try:["+photo.comments+"]:"+img.url);
                 if (processPhoto(img))
@@ -4965,7 +5023,7 @@ $(function () {
                 var media = t3.media_metadata[item.media_id];
                 if (media.status == "failed" || media.status == "unprocessed")
                     return false;
-                var pic = { title: fixupTitle(item.caption || t3.title) };
+                var pic = { title: fixupTitle(item.caption || t3.title, photo.subreddit) };
                 if (item.outbound_url)
                     pic.extra = infoLink(item.outbound_url, 'link');
 
@@ -5047,7 +5105,9 @@ $(function () {
                 return duplicates;
             for (var i = 0; i < search_item.crosspost_parent_list.length; ++i) {
                 var item = search_item.crosspost_parent_list[i];
-                if (!item.subreddit.startsWith("u_") && !duplicateInList(duplicates, item)) {
+                if (item.score < rp.settings.minScore) {
+                    log.info("skipping [score too low]: /r/"+item.subreddit+"/"+item.id);
+                } else if (!item.subreddit.startsWith("u_") && !duplicateInList(duplicates, item)) {
                     dedupAdd(item.subreddit, item.id, '/r/'+orig_id.subreddit+'/'+orig_id.id);
                     duplicates.push({subreddit: item.subreddit,
                                      commentN: item.num_comments,
@@ -5083,7 +5143,7 @@ $(function () {
 
             duplicates = duplicateAddCross(idorig, duplicates, idorig);
 
-            var title = fixupTitle(idorig.title)
+            var title = fixupTitle(idorig.title, idorig.subreddit)
             var flair = "";
             // Add flair (but remove if also in title)
             if (idorig.link_flair_text) {
@@ -5998,7 +6058,7 @@ $(function () {
                     var pic =  { url: item.original_size.url,
                                  type: imageTypes.image,
                                  tumblr: opic.tumblr,
-                                 title: fixupTitle(item.caption || post.title || post.caption_abstract) }
+                                 title: fixupTitle(item.caption || post.title || post.caption_abstract, opic.subreddit) }
                     if (processPhoto(pic)) {
                         addAlbumItem(photo, pic);
                         rc = true;
@@ -6007,7 +6067,7 @@ $(function () {
             // "photo" type
             if (post.link_url) {
                 pic = { url: post.link_url,
-                        title: fixupTitle(post.title || post.caption || post.summary) };
+                        title: fixupTitle(post.title || post.caption || post.summary, opic.subreddit) };
                 if (processPhoto(pic)) {
                     addAlbumItem(photo, pic);
                     rc = true;
@@ -6017,7 +6077,7 @@ $(function () {
             if (post.url) {
                 pic = { url: post.url,
                         tumblr: opic.tumblr,
-                        title: fixupTitle(post.title || post.summary || post.description) };
+                        title: fixupTitle(post.title || post.summary || post.description, opic.subreddit) };
                 if (processPhoto(pic)) {
                     addAlbumItem(photo, pic);
                     rc = true;
@@ -6029,7 +6089,7 @@ $(function () {
             pic =  { url: opic.url,
                      thumb: post.thumbnail_url,
                      tumblr: opic.tumblr,
-                     title: fixupTitle(post.summary || post.caption || opic.title) }
+                     title: fixupTitle(post.summary || post.caption || opic.title, opic.subreddit) }
             rc = true;
             if (post.video_type == "youtube") {
                 if (post.video === undefined) {
