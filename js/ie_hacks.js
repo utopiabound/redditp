@@ -2,7 +2,7 @@
  * Hacks to fix older IE versions, generally prior to IE 9
  */
 
-if (Array.indexOf === undefined) {
+if (Array.prototype.indexOf === undefined) {
     Array.prototype.indexOf = function (obj) {
         for (var i = 0; i < this.length; i++) {
             if (this[i] == obj) {
@@ -10,6 +10,18 @@ if (Array.indexOf === undefined) {
             }
         }
         return -1;
+    };
+}
+
+if (Array.prototype.includes === undefined) {
+    Array.prototype.includes = function (obj) {
+        return (this.indexOf(obj) >= 0);
+    };
+}
+
+if (String.prototype.includes === undefined) {
+    String.prototype.includes = function (obj) {
+        return (this.indexOf(obj) >= 0);
     };
 }
 
