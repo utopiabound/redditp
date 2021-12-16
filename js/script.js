@@ -1568,6 +1568,8 @@ $(function () {
     };
 
     var addVideoUrl = function(photo, type, url) {
+        if (!photo.url)
+            photo.url = url;
         if (!photo.video[type])
             photo.video[type] = [ url ];
         else
@@ -5608,16 +5610,17 @@ $(function () {
                     var src = source.getAttribute('src');
                     if (src === null)
                         return;
-                    src = unescapeHTML(src);
+                    // unescape and remove chaff
+                    src = unescapeHTML(src).replace(/\?_=\d+$/, '');
                     if (src.startsWith('//'))
-                        source.src = ((rp.insecure[hostnameOf(src)]) ?"http:" :"https:")+src;
+                        src = ((rp.insecure[hostnameOf(src)]) ?"http:" :"https:")+src;
                     else if (src.startsWith('/'))
-                        source.src = originOf(pic.url)+src;
+                        src = originOf(pic.url)+src;
 
                     if (rp.mime2ext[source.type])
-                        addVideoUrl(pic, rp.mime2ext[source.type], source.src);
+                        addVideoUrl(pic, rp.mime2ext[source.type], src);
                     else
-                        log.info("Unknown type: "+source.type+" at: "+source.src);
+                        log.info("Unknown type: "+source.type+" at: "+src);
                 });
 
             } else if (item.tagName == 'IFRAME') {
