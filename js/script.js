@@ -2464,9 +2464,9 @@ $(function () {
 
                 } else if (rp.wp[hostname] === undefined) {
                     shortid = url2shortid(pic.url);
-                    if (path.match(/^(?:\/index.php)?\/(?:\d+\/)*([a-z0-9]+(?:-[a-z0-9]+)*)\/?$/))
+                    if (path.match(/^(?:\/index.php)?\/(?:\d+\/)*(\w+(?:-\w+)*)\/?$/))
                         rp.wp[hostname] = 1;
-                    if (path.match(/^(?:[a-z0-9]+\/){0,1}[a-z0-9]+(?:-[a-z0-9]+)+\/$/) && !extensionOf(pic.url))
+                    if (path.match(/^\/(?:\w+\/)?\w+(?:-\w+)+\/$/) && !extensionOf(pic.url))
                         rp.wp[hostname] = 2;
                     if (rp.wp[hostname]) {
                         log.info("ATTEMPT wordpress v"+rp.wp[hostname]+": "+pic.url);
