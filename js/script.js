@@ -1315,6 +1315,10 @@ $(function () {
             else
                 fixIconToggle.call(ref)
         });
+        $('#nsfw').change(function() {
+            if ($(this).is(':checked') && rp.session.activeIndex < 0)
+                nextAlbumSlide();
+        });
 
         // Convert binary state to tristate button
         var tristateConvert = function(name) {
