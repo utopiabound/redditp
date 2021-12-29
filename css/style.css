@@ -17,7 +17,7 @@ a {
     text-decoration: none;
     color: #eee;
     font-weight: bold;
-    border-bottom: 1px dotted rgb(0 0 0 / 0%);
+    border-bottom: 1px dotted rgba(0, 0, 0, 0);
 }
 
 a:hover {
@@ -48,7 +48,7 @@ h3 {
 
 .clouds {
     opacity: 0.9;
-    background-color: rgb(0 0 0 / 70%);
+    background-color: rgba(0, 0, 0, 0.7);
 }
 
 .unset { color: red; }
@@ -374,7 +374,7 @@ a.remote i.reddit { font-size: 18px; }
     line-height: 16px;
 }
 
-.favicon:hover { background-color: rgb(255 255 255 / 70%); }
+.favicon:hover { background-color: rgba(255, 255, 255, 0.7); }
 
 /* Computed width: 28px */
 .collapser {

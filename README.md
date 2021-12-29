@@ -55,6 +55,7 @@ Features
 * Support for /r/random, /r/randnsfw, /r/popular virtual subreddits
 * Albums/Video/More in comments will be detected in title and automatically found
 * For subreddits that have "requests", responses will be shown as albums, also 'PsBattles:' is similarly special cased
+* Works on iOS 9+ and modern browsers
 
 Possible future features, depending on feedback:
 * Zoom/Pan for comics
