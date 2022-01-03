@@ -252,6 +252,7 @@ rp.favicons = { tumblr:  'https://assets.tumblr.com/images/favicons/favicon.ico'
                 dropbox: 'https://cfl.dropboxstatic.com/static/images/favicon.ico',
                 redgifs: 'https://www.redgifs.com/assets/favicon.ico',
                 xhamster: 'https://static-lvlt.xhcdn.com/xh-mobile/images/favicon/favicon.ico',
+                tiktok: 'https://lf16-tiktok-common.ibytedtos.com/obj/tiktok-web-common-sg/mtact/static/pwa/icon_128x128.png',
                 // i.redd.it/v.redd.it - reddit hosted images
                 redd: 'https://www.redditstatic.com/icon.png'
               };
@@ -4535,19 +4536,20 @@ $(function () {
         // @NAME
         t1 = t1.replace(/(?=^|\W)(?:[[{(]\s*)?@([\w.]+)(?:\s*[)\]}])?/g, function(match, p1) {
             var social = (pic.over18) ?"instagram" :"twitter";
+            var flair = pic.flair || "";
             if (hn == "twitter.com" || subreddit.match(/twit/i))
                 social = "twitter";
-            else if (hn == "tiktok.com" || subreddit.match(/tiktok/i))
+            else if (hn == "tiktok.com" || subreddit.match(/tiktok/i) || flair.match(/tiktok/i))
                 social = "tiktok";
             else if (subreddit.match(/onlyfan/i))
                 social = "onlyfans";
             else if (subreddit.match(/fansly/i))
                 social = "fansly";
-            else if (subreddit.match(/snap/i))
+            else if (subreddit.match(/snap/i) || flair.match(/snap/i))
                 social = "snapchat";
             else if (subreddit.match(/face/i))
                 social = "facebook";
-            else if (subreddit.match(/insta/i))
+            else if (subreddit.match(/insta/i) || flair.match(/insta/i))
                 social = "instagram";
             return socialUserLink(p1, social);
         });
@@ -5215,6 +5217,7 @@ $(function () {
 
             var photo = {
                 url: idx.url || idx.url_overridden_by_dest,
+                title: idorig.title,
                 id: idorig.id,
                 over18: idorig.over_18,
                 subreddit: idorig.subreddit,
@@ -5224,7 +5227,6 @@ $(function () {
                 commentN: idorig.num_comments,
                 comments: rp.reddit.base + idorig.permalink
             };
-            fixupPhotoTitle(photo, idorig.title);
             var title = photo.title;
             var flair = "";
             // Add flair (but remove if also in title)
@@ -5238,6 +5240,7 @@ $(function () {
 
             if (flair)
                 photo.flair = flair;
+            fixupPhotoTitle(photo);
 
             if (idorig.author != "[deleted]")
                 photo.author = idorig.author;

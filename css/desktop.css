@@ -39,6 +39,10 @@
     width: 24px;
 }
 
+#navboxVolume {
+    height: 24px;
+}
+
 .redditp {
     height: 24px;
     width: 24px;
@@ -48,11 +52,16 @@
 .reddit {
     height: 24px;
     width: 24px;
-    margin: -4px;
+    margin: -2px -4px -4px -4px;
+    vertical-align: top;
+}
+
+.nbmenu .favicon {
     vertical-align: top;
 }
 
 .favicon {
     height: 16px;
     width: 16px;
+    vertical-align: baseline;
 }
