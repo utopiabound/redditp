@@ -21,7 +21,7 @@
  * redditp-redditRefresh        - string  - auth refresh token from reddit.com
  * redditp-redditRefreshBy      - int     - time that bearer token expires
  * redditp-shouldAutoNextSlide  - boolean - on timeout, go to next image
- * redditp-showEmbed            - boolean - Show embeded content (iframes, no timeout)
+ * redditp-showEmbed            - int     - Show embeded content (see rp.NEVER,SOMETIMES,ALWAYS)
  * redditp-timeToNextSlide      - int     - timeout in seconds
  * redditp-favicons             - hash of strings       - cached result of hostname to favicon url
  * redditp-wordpress            - hash to int           - cached result of speculative wordpress lookup
@@ -641,7 +641,7 @@ $(function () {
     // text - text of local Url (default: local URL)
     // urlalt - alt text of foreign and local URLs
     // favicon - url of favicon
-    // classes - additional class of links (default: "info")
+    // classes - additional class of links (default: "info infol")
     var _localLink = function(url, local, text, urlalt, favicon, classes) {
         if (text === undefined)
             text = local;
@@ -649,10 +649,10 @@ $(function () {
             urlalt = "";
         // favicon set in setFavicon
         if (classes === undefined)
-            classes = "info";
+            classes = "info infol";
 
         var data = $('<div/>');
-        data.append(_infoAnchor(rp.url.base+local, text, urlalt, classes+" infol local"));
+        data.append(_infoAnchor(rp.url.base+local, text, urlalt, classes+" local"));
         var link = _infoAnchor(url, '', urlalt, classes+" infor remote");
         setFavicon(link, url, favicon);
         data.append(link);
@@ -662,13 +662,17 @@ $(function () {
     var redditLink = function(path, pathalt, pathname, selected) {
         var classes;
         if (selected === true)
-            classes = "info selected";
+            classes = "info infol selected";
         return _localLink(rp.reddit.base+path, path, pathname, pathalt, "reddit", classes);
     };
 
     // Same as redditLink, but no info class
     var titleRLink = function(path, pathname) {
-        return _localLink(rp.reddit.base+path, path, pathname, undefined, "reddit", "");
+        var div = $('<div/>');
+        var span = $('<span>', { class: "social infor" });
+        span.append(_localLink(rp.reddit.base+path, path, pathname, undefined, "reddit", ""));
+        div.append(span);
+        return div.html();
     };
 
     var localLink = function(url, text, local, urlalt, favicon) {
@@ -687,7 +691,7 @@ $(function () {
 
     var titleFaviconLink = function(url, text, site) {
         var data = $('<div/>');
-        var span = $('<span>', { class: "remote infoc" }).html("@"+site);
+        var span = $('<span>', { class: "remote infor" }).html("@"+site);
         setFavicon(span, url);
         var a = $('<a>', { href: url, class: "remote infor social" }).html(text).append(span);
         data.append(a);
@@ -1146,19 +1150,24 @@ $(function () {
     };
 
     var setTristate = function(item, state) {
-        var attr;
+        var attr, title;
+        var verb = item.data('verb');
         switch (state) {
         case rp.ALWAYS:
             attr = "icon-always";
+            title = "Always "+verb;
             break;
         case rp.SOMETIMES:
             attr = "icon-sometimes";
+            title = "Sometimes "+verb;
             break;
         case rp.NEVER:
             attr = "icon-never";
+            title = "Never "+verb;
             break;
         }
         item.val(item.attr(attr));
+        item.prop("title", title);
     };
 
     var cycleTristate = function() {
@@ -2484,9 +2493,9 @@ $(function () {
 
                 } else if (rp.wp[hostname] === undefined) {
                     shortid = url2shortid(pic.url);
-                    if (path.match(/^(?:\/index.php)?\/(?:\d+\/){3}([\p{N}\p{L}]+(?:-[\p{N}\p{L}]+)*)\/$/))
+                    if (path.match(/^(?:\/index.php)?\/(?:\d+\/){3}([\w\p{N}\p{L}]+(?:-[\w\p{N}\p{L}]+)*)\/$/))
                         rp.wp[hostname] = 1;
-                    if (path.match(/^\/(?:\w+\/)?[\p{N}\p{L}]+(?:-[\p{N}\p{L}]+)+\/$/) && !extensionOf(pic.url))
+                    if (path.match(/^\/(?:\w+\/)?[\w\p{N}\p{L}]+(?:-[\w\p{N}\p{L}]+)+\/$/) && !extensionOf(pic.url))
                         rp.wp[hostname] = 2;
                     if (rp.wp[hostname]) {
                         log.info("ATTEMPT wordpress v"+rp.wp[hostname]+": "+pic.url);
@@ -3886,9 +3895,12 @@ $(function () {
         };
         var handleWPError = function(xhr) {
             // @@ check xhr.responseJSON?
-            log.info("no wp: "+xhr.response);
-            rp.wp[hostname] = 0;
-            setConfig(configNames.wp, rp.wp);
+            // timeout: xhr.status == 0 && xhr.statusText == "timeout"
+            if (xhr.status != 0) {
+                log.info("no wp ["+xhr.status+"]: "+xhr.response);
+                rp.wp[hostname] = 0;
+                setConfig(configNames.wp, rp.wp);
+            }
             handleErrorOrig(xhr);
         };
         var handleWPv1Data = function(data) {
@@ -4510,7 +4522,7 @@ $(function () {
         });
 
         // SITE : NAME
-        t1 = t1.replace(/(?:[[{(]\s*)?\b([A-Za-z]+)\s*(?:[:@]|\]\[)\s*([\w.]+)(?:\s*[)\]}])?/g, function(match, p1, p2) {
+        t1 = t1.replace(/(?:[[{(]\s*)?\b([A-Za-z]+)\s*(?:[:@]|\]\[|\)\s*\()\s*([\w.]+)(?:\s*[)\]}])?/g, function(match, p1, p2) {
             p1 = p1.toLowerCase();
             try {
                 if (p1 == "fb")
@@ -4559,7 +4571,7 @@ $(function () {
         });
 
         // u/redditUser
-        t1 = t1.replace(/(?=^|\W|\b)\/?u\/([\w-]+)\s*/gi, function(match, p1) {
+        t1 = t1.replace(/(?=^|\W|\b)(?:[[{(]\s*)?\/?u\/([\w-]+)\s*(?:\s*[)\]}])?/gi, function(match, p1) {
             return socialUserLink(p1, "reddit");
         });
 

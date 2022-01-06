@@ -43,6 +43,8 @@ h3 {
 .title .social {
     border-radius: 5px;
     border: 1px solid white;
+    padding-left: 2px;
+    margin-right: 3px;
 }
 
 .clouds {
