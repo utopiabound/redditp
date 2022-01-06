@@ -329,14 +329,15 @@ input.textlabel {
     position: relative;
 }
 
-#navboxScore div.reddit {
+div.score {
     position: absolute;
     background-image: url("images/upvote.svg");
     opacity: 0.4;
     z-index: -1;
-    left: 15px;
-
-    /* height / width set from .reddit */
+    height: 24px;
+    width: 24px;
+    bottom: -20px;
+    left: 10px;
 }
 
 #navboxScore span {
@@ -359,8 +360,6 @@ input.textlabel {
 #navboxTitleWrapper { padding: 0 28px 0 0; }
 
 #albumNumberButtons { border-top: 2px solid grey; }
-
-a.remote i.reddit { font-size: 18px; }
 
 .linkflair {
     border: 1px solid grey;
@@ -441,10 +440,6 @@ input[type="checkbox"]:checked + label.colortoggle { color: red; }
     width: 20px;
     padding-left: 10px;
     cursor: pointer;
-}
-
-#subredditForm .reddit {
-    margin: -3px -5px -5px;
 }
 
 #choiceLi input:checked ~ #subredditPopup { display: block; }

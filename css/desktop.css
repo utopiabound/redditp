@@ -49,19 +49,18 @@
     vertical-align: top;
 }
 
-.reddit {
-    height: 24px;
-    width: 24px;
-    margin: -2px -4px -4px -4px;
-    vertical-align: top;
-}
-
-.nbmenu .favicon {
-    vertical-align: top;
-}
-
 .favicon {
     height: 16px;
     width: 16px;
     vertical-align: baseline;
+}
+
+.title .favicon {
+    height: 24px;
+    width: 24px;
+    vertical-align: text-bottom;
+}
+
+.nbmenu .favicon {
+    vertical-align: top;
 }

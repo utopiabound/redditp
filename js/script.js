@@ -687,7 +687,7 @@ $(function () {
 
     var titleFaviconLink = function(url, text, site) {
         var data = $('<div/>');
-        var span = $('<span>', { class: "remote infor" }).html("@"+site);
+        var span = $('<span>', { class: "remote infoc" }).html("@"+site);
         setFavicon(span, url);
         var a = $('<a>', { href: url, class: "remote infor social" }).html(text).append(span);
         data.append(a);
@@ -2591,7 +2591,7 @@ $(function () {
 
         // #1 "reddit" is special
         if (fav === "reddit") {
-            elem.html($("<img />", {'class': 'reddit', src: rp.url.root+'images/reddit.svg'}));
+            elem.html($("<img />", {'class': 'favicon reddit', src: rp.url.root+'images/reddit.svg'}));
             return;
         }
         fav = rp.favicons[special];
