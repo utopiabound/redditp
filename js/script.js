@@ -118,6 +118,8 @@
  * * Cleanup photo.dupes - should be related to local url
  * * Fix dupes on album items (currently album dupes get assigned to parent dupes list), should behave more like tags
  * * use https://oembed.com/providers.json or a processed version for oembed reference?
+ * * highlight "selected" multireddit under loginLi
+ * * cache per-user multireddit lists
  */
 
 var rp = {};
@@ -2157,6 +2159,7 @@ $(function () {
                 }
 
             } else if (isImageExtension(pic.url) || // #### IMAGE ####
+                       fqdn == 'blogger.googleusercontent.com' ||
                        fqdn == 'i.reddituploads.com') {
                 // simple image
 
@@ -2168,6 +2171,21 @@ $(function () {
                 if (url2shortid(pic.url))
                     // These domains should always be processed later
                     pic.type = imageTypes.later;
+
+            } else if (hostname == 'blogspot.com') {
+                if (pathnameOf(pic.url).endsWith('.html'))
+                    pic.type = imageTypes.later;
+                else
+                    throw "bad blogspot url";
+
+            } else if (hostname == 'blogger.com') {
+                a = pathnameOf(pic.url);
+                if (a.startsWith('/video.g'))
+                    initPhotoEmbed(pic, pic.url, false);
+                else if (a.includes('/blog/post/'))
+                    pic.type = imageTypes.later;
+                else
+                    throw "unknown blogger url";
 
             } else if (hostname == 'cbsnews.com') {
                 a = pathnameOf(pic.url).split('/');
@@ -4012,6 +4030,52 @@ $(function () {
                 showCB(photo);
             };
 
+        } else if (hostname == 'blogspot.com' ||
+                   hostname == 'blogger.com') {
+            var blogid, postid;
+            if (hostname == 'blogger.com') {
+                a = pathnameOf(photo.url).split('/');
+                postid = a.pop();
+                blogid = a.pop();
+                // @@ sanity check postid & blogid are long ints
+            } else {
+                blogid = rp.blogger[fqdn];
+            }
+
+            var handleBloggerPost = function(data) {
+                if (!processBloggerPost(photo, data))
+                    initPhotoThumb(photo);
+                showCB(photo);
+            };
+
+            if (blogid === undefined) {
+                jsonUrl = bloggerBlogLookupUrl(fqdn);
+                handleData = function(data) {
+                    var wrappedHandle = function(data) {
+                        handleBloggerPost(data);
+                        if (isActive(photo)) {
+                            var p = photoParent(photo);
+                            animateNavigationBox(p.index, p.index, rp.session.activeAlbumIndex);
+                        }
+                    };
+                    recallBlogger(data, function() {
+                        $.ajax({
+                            url: bloggerPostLookupUrl(fqdn, pathnameOf(photo.url)),
+                            success: wrappedHandle,
+                            error: handleError,
+                            crossDomain: true,
+                            timeout: rp.settings.ajaxTimeout
+                        });
+                    }, handleErrorOrig);
+                };
+            } else {
+                if (postid === undefined)
+                    jsonUrl = bloggerPostLookupUrl(fqdn, pathnameOf(photo.url));
+                else
+                    jsonUrl = 'https://www.googleapis.com/blogger/v3/blogs/'+blogid+'/posts/'+postid+'?key='+rp.api_key.blogger;
+                handleData = handleBloggerPost;
+            }
+
         } else if (hostname == 'livestream.com') {
             jsonUrl = originOf(photo.url)+'/oembed?url=' + encodeURIComponent(photo.url);
 
@@ -4580,10 +4644,10 @@ $(function () {
         });
 
         // @NAME
-        t1 = t1.replace(/(?=^|\W)(?:[[{(]\s*)?@([\w.]+)(?:\s*[)\]}])?/g, function(match, p1) {
+        t1 = t1.replace(/(?=^|\w)(?:[[{(]\s*)?@([\w.]+)(?:\s*[)\]}])?/g, function(match, p1) {
             var social = (pic.over18) ?"instagram" :"twitter";
-            var flair = pic.flair || "";
-            if (hn == "twitter.com" || subreddit.match(/twit/i))
+            var flair = picFlair(pic);
+            if (hn == "twitter.com" || subreddit.match(/twit/i) || flair.match(/twit/i))
                 social = "twitter";
             else if (hn == "tiktok.com" || subreddit.match(/tiktok/i) || flair.match(/tiktok/i))
                 social = "tiktok";
@@ -5139,7 +5203,7 @@ $(function () {
                 var media = t3.media_metadata[item.media_id];
                 if (media.status == "failed" || media.status == "unprocessed")
                     return false;
-                var pic = fixupPhotoTitle({}, item.caption || t3.title, photo.subreddit);
+                var pic = fixupPhotoTitle({}, item.caption, photo.subreddit);
                 if (item.outbound_url)
                     pic.extra = infoLink(item.outbound_url, 'link');
 
@@ -5327,102 +5391,8 @@ $(function () {
                  idorig.title.match(/[[({\d\s][asvm]ic([\])}]|$)/i)))
                 getRedditComments(photo);
 
-            if (rc) {
+            if (rc)
                 addImageSlide(photo);
-                return;
-            }
-
-            // SPECULATIVE LOOKUPS
-
-            var path = pathnameOf(photo.url);
-            var hn = hostnameOf(photo.url);
-            var handleData, jsonUrl, failedData;
-
-            var tryPreview = function(photo, idorig, msg) {
-                if (msg === undefined)
-                    msg = 'no image';
-                if (idorig.preview && idorig.preview.images.length > 0) {
-                    initPhotoThumb(photo, unescapeHTML(idorig.preview.images[0].source.url));
-                    log.info('using thumbnail ['+msg+']: '+photo.o_url);
-                    if (addImageSlide(photo))
-                        return;
-                }
-                log.info('cannot display '+msg + ': ' + photo.o_url);
-                return;
-            };
-
-            if (( rp.blogger[hn] === undefined || rp.blogger[hn] > 0) &&
-                (path.match(/^\/(?:\d+\/)*([a-z0-9]+(?:-[a-z0-9]+)*.html)$/))) {
-                // Blogger:
-                // 1. lookup blogger blogID by url
-                // 2. lookup post by URL (need blogID)
-
-                jsonUrl = 'https://www.googleapis.com/blogger/v3/blogs/byurl?url='+originOf(photo.url)+'&key='+rp.api_key.blogger;
-                handleData = function (data) {
-                    if (data.error) {
-                        log.error("cannot log blogger ["+data.error.message+"]: "+photo.url);
-                        return;
-                    }
-                    var id = data.id;
-
-                    if (!rp.blogger[hn]) {
-                        rp.blogger[hn] = id;
-                        setConfig(configNames.blogger, rp.blogger);                        
-                    }
-
-                    jsonUrl = data.posts.selfLink+'/bypath?path='+path+'&key='+rp.api_key.blogger;
-
-                    handleData = function(data) {
-                        if (data.error) {
-                            log.error("cannot log blogger ["+data.error.message+"]: "+photo.url);
-                            return;
-                        }
-                        if (processBloggerPost(photo, data))
-                            addImageSlide(photo);
-                    };
-
-                    $.ajax({
-                        url: jsonUrl,
-                        dataType: 'json',
-                        success: handleData,
-                        error: failedData,
-                        timeout: rp.settings.ajaxTimeout,
-                        crossDomain: true
-                    });
-                };
-                failedData = function (xhr) {
-                    var err = JSON.parse(xhr.responseText);
-                    if (xhr.status == 404) {
-                        rp.blogger[hn] = 0;
-                        setConfig(configNames.blogger, rp.blogger);
-                    } else {
-                        log.error("cannot load blogger ["+xhr.status+" "+err.error.message+"]: "+photo.url);
-                    }
-                    tryPreview(photo, idorig, "Blogger: "+err.error.message);
-                };
-
-            } else {
-                tryPreview(photo, idorig);
-                return;
-            }
-
-            if (rp.blogger[hn]) {
-                var id = rp.blogger[hn];
-                handleData({ id: id,
-                             posts: {
-                                 selfLink: 'https://www.googleapis.com/blogger/v3/blogs/'+id+'/posts'
-                             } });
-
-            } else {
-                $.ajax({
-                    url: jsonUrl,
-                    dataType: 'json',
-                    success: handleData,
-                    error: failedData,
-                    timeout: rp.settings.ajaxTimeout,
-                    crossDomain: true,
-                });
-            }
         }; // END addImageSlideRedditT3
 
         var handleData = function (data) {
@@ -5639,22 +5609,23 @@ $(function () {
                 // Fixup item.src
                 var attrs = ["src", "data-src"];
                 for (var i in attrs) {
-                    src = item.getAttribute(attrs[i]);
-                    if (src === null)
+                    var val = item.getAttribute(attrs[i]);
+                    if (val === null)
                         continue;
-                    src = unescapeHTML(src);
-                    if (src.startsWith('//'))
-                        src = ((rp.insecure[hostnameOf(src)]) ?"http:" :"https:")+src;
-                    else if (src.startsWith('/'))
-                        src = originOf(pic.url)+src;
-                    if (!src.startsWith("http"))
+                    val = unescapeHTML(val);
+                    if (val.startsWith('//'))
+                        val = ((rp.insecure[hostnameOf(val)]) ?"http:" :"https:")+val;
+                    else if (val.startsWith('/'))
+                        val = originOf(pic.url)+val;
+                    if (!val.startsWith("http"))
                         continue;
+                    src = val;
                 }
                 // Shortcut <A href="video/embed"><img src="url" /></a>
                 if (item.parentElement.tagName == 'A') {
                     pic.url = item.parentElement.href;
                     if (processPhoto(pic) && pic.type != imageTypes.later) {
-                        addPhotoThumb(pic, item.src);
+                        addPhotoThumb(pic, src);
                         return true;
                     }
                 }
@@ -5706,6 +5677,14 @@ $(function () {
                     return false;
                 pic.url = unescapeHTML(src);
 
+            } else if (item.tagName == 'A') {
+                // let processPhoto() do initPhotoEmbed() if it's processable
+                src = item.getAttribute('href');
+                if (src === null)
+                    return false;
+                pic.url = unescapeHTML(src);
+                return (processPhoto(pic) && pic.type != imageTypes.later);
+
             } else {
                 return false;
             }
@@ -5717,13 +5696,15 @@ $(function () {
         photo = initPhotoAlbum(photo);
         // Create virtual document so that external references are not loaded
         var ownerDocument = document.implementation.createHTMLDocument('virtual');
-        $('<div />', ownerDocument).html(html).find('img, video, iframe').each(function(_i, item) {
+        $('<div />', ownerDocument).html(html).find('img, video, iframe, a').each(function(_i, item) {
             // init url for relative urls/srcs
             var pic = { url: item.src || item.currentSrc, title: item.alt || item.title, o_url: o_link || photo.url, };
             if (extra)
                 pic.extra = extra;
-            if (processNeedle(pic, item) && processPhoto(pic) &&
-                !isAlbumDupe(photo, pic.url.replace(/-\d+x\d+\./, "."))) {
+            if (processNeedle(pic, item) &&
+                processPhoto(pic) &&
+                !isAlbumDupe(photo, pic.url.replace(/-\d+x\d+\./, ".")))
+            {
                 addAlbumItem(photo, pic);
                 rc = true;
             }
@@ -6279,55 +6260,30 @@ $(function () {
     };
 
     var processBloggerPost = function(photo, post) {
+        if (photo.url != post.url) {
+            if (!photo.o_url)
+                photo.o_url = photo.url;
+            photo.url = post.url;
+        }
         photo.extra = localLink(post.author.url, post.author.displayName,
-                                '/blogger/'+hostnameOf(photo.url));
+                                '/blogger/'+hostnameOf(post.url));
         initPhotoAlbum(photo, false);
         return processHaystack(photo, post.content, true);
     };
 
-    var getBloggerBlog = function () {
-        // Path Schema:
-        // /blogger/HOSTNAME
-        if (rp.session.loadingNextImages)
-            return;
-        rp.session.loadingNextImages = true;
+    var getBloggerPosts = function(hostname) {
+        var jsonUrl = "https://www.googleapis.com/blogger/v3/blogs/"+rp.blogger[hostname]+"/posts?key="+rp.api_key.blogger;
+        if (rp.session.after)
+            jsonUrl = jsonUrl+'&pageToken='+rp.session.after;
 
-        var hostname = rp.url.sub;
+        var handleData = function (data) {
+            if (data.nextPageToken) {
+                rp.session.after = data.nextPageToken;
+                rp.session.loadAfter = getBloggerBlog;
+            } else
+                rp.session.loadAfter = null;
 
-        if (rp.blogger[hostname] === 0) {
-            log.error("cannot load blogger [Already Failed]: "+hostname);
-            return;
-        }
-
-        var jsonUrl = 'https://www.googleapis.com/blogger/v3/blogs/byurl?url=https://'+hostname+'&key='+rp.api_key.blogger;
-
-        var handleData = function(data) {
-            if (data.error) {
-                log.error("cannot log blogger ["+data.error.message+"]: "+hostname);
-                rp.blogger[hostname] = 0;
-                setConfig(configNames.blogger, rp.blogger);
-                return;
-            }
-
-            var jsonUrl = data.posts.selfLink+'?key='+rp.api_key.blogger;
-            rp.blogger[hostname] = data.id;
-            setConfig(configNames.blogger, rp.blogger);
-            /*
-              if (rp.session.after !== "")
-              jsonUrl = jsonUrl+'&offset='+rp.session.after;
-              else
-              rp.session.after = 0;
-            */
-            setSubredditLink(data.url);
-            $('#subredditUrl').val('/blogger/'+data.name);
-
-            var handleData = function (data) {
-                if (data.nextPageToken) {
-                    rp.session.after = data.nextPageToken;
-                    //rp.session.loadAfter = getBloggerBlog;
-                } else { // Found all posts
-                    rp.session.loadAfter = null;
-                }
+            if (data.items)
                 data.items.forEach(function (post) {
                     var image = { title: post.title,
                                   id: post.id,
@@ -6340,21 +6296,83 @@ $(function () {
                         addImageSlide(image);
                 });
 
-                rp.session.loadingNextImages = false;
-            };
-            $.ajax({
-                url: jsonUrl,
-                success: handleData,
-                error: failedAjaxDone,
-                crossDomain: true,
-                timeout: rp.settings.ajaxTimeout
-            });
+            doneLoading("No Blogger Items");
+        };
+        $.ajax({
+            url: jsonUrl,
+            success: handleData,
+            error: failedAjaxDone,
+            crossDomain: true,
+            timeout: rp.settings.ajaxTimeout
+        });
+    };
+
+    // Called with
+    var bloggerBlogLookupUrl = function(hostname) {
+        return 'https://www.googleapis.com/blogger/v3/blogs/byurl?url=https://'+hostname+'&key='+rp.api_key.blogger;
+    };
+    var bloggerPostLookupUrl = function(hostname, path) {
+        return 'https://www.googleapis.com/blogger/v3/blogs/'+rp.blogger[hostname]+'/posts/bypath?path='+encodeURI(path)+
+            '&key='+rp.api_key.blogger;
+    };
+    var recallBlogger = function(data, handleData, doneError) {
+        var hostname = hostnameOf(data.url);
+        if (data.error) {
+            log.error("cannot log blogger ["+data.error.message+"]: "+hostname);
+            rp.blogger[hostname] = 0;
+            setConfig(configNames.blogger, rp.blogger);
+            if (doneError)
+                doneError();
+            return;
+        }
+        rp.blogger[hostname] = data.id;
+        setConfig(configNames.blogger, rp.blogger);
+
+        handleData();
+    };
+
+    var getBloggerBlog = function () {
+        // Path Schema:
+        // /blogger/HOSTNAME
+        var hostname = rp.url.sub;
+
+        if (rp.blogger[hostname] === 0) {
+            // @@ error to UI
+            log.error("cannot load blogger [Already Failed]: "+hostname);
+            return;
+        }
+
+        if (!setupLoading(1, "No photos loaded"))
+            return;
+
+        if (rp.blogger[hostname] !== undefined) {
+            setSubredditLink("http://"+hostname);
+            getBloggerPosts(hostname);
+            return;
+        } // else lookup blogger ID
+
+        var jsonUrl = 'https://www.googleapis.com/blogger/v3/blogs/byurl?url=https://'+hostname+'&key='+rp.api_key.blogger;
+
+        var handleData = function(data) {
+            recallBlogger(data, function() { getBloggerPosts(hostname) }, doneLoading);
+        };
+
+        var failedData = function(xhr) {
+            var err = JSON.parse(xhr.responseText);
+            if (xhr.status == 404) {
+                rp.blogger[hostname] = 0;
+                setConfig(configNames.blogger, rp.blogger);
+            } else {
+                log.error("cannot load blogger ["+xhr.status+" "+err.error.message+"]: "+hostname);
+            }
+
+            doneLoading("cannot load blogger");
         };
 
         $.ajax({
             url: jsonUrl,
             success: handleData,
-            error: failedAjaxDone,
+            error: failedData,
             crossDomain: true,
             timeout: rp.settings.ajaxTimeout
         });
@@ -7084,7 +7102,7 @@ $(function () {
                     log.info("Bad PATH: "+arr[i]);
                     continue;
                 }
-            } else if (['blogger', 'flickr', 'gfycat', 'imgur', 'redgifs', 'iloopit'].includes(a[0])) {
+            } else if (['flickr', 'gfycat', 'imgur', 'redgifs', 'iloopit'].includes(a[0])) {
                 rp.url.site = a.shift();
                 rp.url.type = a.shift() || "";
                 // peak at last item to see if it's a "choice"
@@ -7094,7 +7112,7 @@ $(function () {
                     rp.url.sub = decodeURIComponent(a.join(" "));
                     a = [];
                 }
-            } else if (['wp', 'wp2', 'tumblr'].includes(a[0])) {
+            } else if (['blogger', 'wp', 'wp2', 'tumblr'].includes(a[0])) {
                 rp.url.site = a.shift();
                 rp.url.sub = a.shift();
             } else if (a[0] == "")
