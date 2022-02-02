@@ -3868,6 +3868,10 @@ $(function () {
             } else // Default to image type
                 showImage(pic.url);
 
+            if (isActive(pic)) {
+                var p = photoParent(pic);
+                animateNavigationBox(p.index, p.index, rp.session.activeAlbumIndex);
+            }
             return divNode;
         };
 
@@ -4051,17 +4055,10 @@ $(function () {
             if (blogid === undefined) {
                 jsonUrl = bloggerBlogLookupUrl(fqdn);
                 handleData = function(data) {
-                    var wrappedHandle = function(data) {
-                        handleBloggerPost(data);
-                        if (isActive(photo)) {
-                            var p = photoParent(photo);
-                            animateNavigationBox(p.index, p.index, rp.session.activeAlbumIndex);
-                        }
-                    };
                     recallBlogger(data, function() {
                         $.ajax({
                             url: bloggerPostLookupUrl(fqdn, pathnameOf(photo.url)),
-                            success: wrappedHandle,
+                            success: handleBloggerPost,
                             error: handleError,
                             crossDomain: true,
                             timeout: rp.settings.ajaxTimeout
@@ -4241,11 +4238,6 @@ $(function () {
 
                         photo = handleImgurItemAlbum(photo, data.data);
                         showCB(photo);
-
-                        if (isActive(photo)) {
-                            var p = photoParent(photo);
-                            animateNavigationBox(p.index, p.index, rp.session.activeAlbumIndex);
-                        }
                     };
                     var herr = function() {
                         initPhotoImage(photo, "https://i.imgur.com/"+shortid+".jpg");
@@ -4435,33 +4427,18 @@ $(function () {
             showCB(photo);
         }
 
-        if (jsonUrl !== undefined) {
-            var wrapHandleData = function(data) {
-                handleData(data);
-                // Refresh navbox
-                if (isActive(photo)) {
-                    var p = photoParent(photo);
-                    animateNavigationBox(p.index, p.index, rp.session.activeAlbumIndex);
-                }
-            };
-
+        if (jsonUrl !== undefined)
             $.ajax({
                 url: jsonUrl,
                 type: postType,
                 data: postData,
                 headers: headerData,
                 dataType: dataType,
-                success: wrapHandleData,
+                success: handleData,
                 error: handleError,
                 timeout: rp.settings.ajaxTimeout,
                 crossDomain: true
             });
-
-        } else if (isActive(photo)) {
-            // refresh navbox
-            var p = photoParent(photo);
-            animateNavigationBox(p.index, p.index, rp.session.activeAlbumIndex);
-        }
     };
 
     var processImgurItemType = function(photo, item) {
