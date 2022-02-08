@@ -694,7 +694,7 @@ $(function () {
 
     var titleFaviconLink = function(url, text, site) {
         var data = $('<div/>');
-        var span = $('<span>', { class: "remote infor" }).html("@"+site);
+        var span = $('<span>', { class: "remote infor" }).html(" at "+site);
         setFavicon(span, url);
         var a = $('<a>', { href: url, class: "remote infor social" }).html(text).append(span);
         data.append(a);
@@ -734,6 +734,8 @@ $(function () {
                 return titleRLink('/user/'+user+'/submitted', 'u/'+user);
             if (type == "snapchat")
                 return titleFaviconLink('https://snapchat.com/add/'+user, user, "Snap");
+            if (type == "telegram")
+                return titleFaviconLink('https://t.me/'+user, user, "Telegram");
             if (type == "tiktok")
                 return titleFaviconLink('https://tiktok.com/@'+user, user, "TikTok");
             if (type == 'tumblr')
@@ -4597,14 +4599,14 @@ $(function () {
         });
 
         // SITE : NAME
-        t1 = t1.replace(/(?:[[{(]\s*)?\b([A-Za-z]+)\s*(?:[:@]|\]\[|\)\s*\()\s*([\w.]+)(?:\s*[)\]}])?/g, function(match, p1, p2) {
-            p1 = p1.toLowerCase();
+        t1 = t1.replace(/(?:[[{(]\s*)?\b([A-Za-z.]+)\s*(?:[:@]|\]\[|\)\s*\()\s*([\w.]+)(?:\s*[)\]}])?/g, function(match, p1, p2) {
+            p1 = p1.toLowerCase().replaceAll(".", "");
             try {
                 if (p1 == "fb")
                     p1 = "facebook";
                 else if (p1 == "tk")
                     p1 = "tiktok";
-                else if (p1.match(/^(onlyfans?|of)$/i))
+                else if (p1.match(/^(onlyfans?|of)$/))
                     p1 = "onlyfans";
                 else if (p1.match(/^(snp|snap?|sc)$/))
                     p1 = "snapchat";
@@ -4620,8 +4622,11 @@ $(function () {
             }
         });
 
+        if (t1 != title)
+            log.debug("TITLE 1: `"+title+"'\n      -> `"+t1);
+
         // @NAME
-        t1 = t1.replace(/(?=^|\w)(?:[[{(]\s*)?@([\w.]+)(?:\s*[)\]}])?/g, function(match, p1) {
+        t1 = t1.replace(/(?:[[{(]\s*)?@([\w.]+)(?:\s*[)\]}])?/g, function(match, p1) {
             var social = (pic.over18) ?"instagram" :"twitter";
             var flair = picFlair(pic);
             if (hn == "twitter.com" || subreddit.match(/twit/i) || flair.match(/twit/i))
@@ -4651,7 +4656,7 @@ $(function () {
         });
 
         if (t1 != title)
-            log.debug("TITLE: `"+title+"' -> `"+t1);
+            log.debug("TITLE F: `"+title+"'\n      -> `"+t1);
 
         pic.title = t1;
         return pic;
