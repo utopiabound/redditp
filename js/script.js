@@ -143,6 +143,8 @@ rp.settings = {
     alwaysSecure: true,
     minScore: 1,
     decivolume: 5,
+    // Multi-reddit cache per-user lifetime (1H)
+    multiExpire: 3600,
     // default number of Photos to load
     count: 25,
     // show All Embedded Items
@@ -196,8 +198,8 @@ rp.session = {
 
     // Login dependent values
     loginExpire: undefined, // Used to determin if login has expired
-    loadedMultiList: false,
     loginNeeded: false, // true if current subreddit needs a login to work correctly
+    loginUser: '',
 
     // Loading status - set via setupLoading() / doneLoading()
     loadingNextImages: false,
@@ -268,7 +270,11 @@ rp.photos = [];
 rp.loaded = {};
 
 // per-site local cache
-rp.sitecache = {};
+rp.sitecache = {
+    reddit: {
+        multi: {} // username: { date: DATE, data: [] }
+    }
+};
 
 // maybe checkout http://engineeredweb.com/blog/09/12/preloading-images-jquery-and-javascript/
 // for implementing the old precache
@@ -395,6 +401,11 @@ $(function () {
             return Math.floor(secs/60)+'m';
         else
             return "1m";
+    }
+
+    /// Return current time in seconds
+    function currentTime() {
+        return Date.now()/1000;
     }
 
     // Takes a date in any form Date() can recognize and returns seconds
@@ -1434,8 +1445,6 @@ $(function () {
         // Remove elements that require ability to login
         if (hostnameOf(rp.redirect) != window.location.hostname)
             $('.canlogin').remove();
-        else // @@
-            $('.needlogin').hide();
 
         // OS/Browser Specific
         var ua = navigator.userAgent;
@@ -2314,6 +2323,12 @@ $(function () {
                     pic.fallback = [ 'https://pixeldrain.com/api/file/'+shortid+'/image' ];
                 }
 
+            } else if (hostname == 'pornhits.com') {
+                a = pathnameOf(pic.url).split('/');
+                if (a[1] != 'video')
+                    throw "Unknown url";
+                initPhotoEmbed(pic, originOf(pic.url)+"/embed.php?autoplay=1&id="+a[2]);
+
             } else if (hostname == 'pornhub.com') {
                 // JSON Info about video
                 // 'https://www.pornhub.com/webmasters/video_by_id?id='+shortid
@@ -2697,6 +2712,23 @@ $(function () {
         link.prop('href', url).show();
         setFavicon(link, url, type);
     };
+
+    // Check if data is present and current
+    var checkRedditMultiCache = function(user) {
+        return (user &&
+                rp.sitecache.reddit.multi[user] &&
+                rp.sitecache.reddit.multi[rp.session.loginUser].date+rp.settings.multiExpire > currentTime());
+    }
+
+    var updateRedditMultiCache = function(user, data) {
+        if (!user)
+            return;
+        var now = currentTime();
+        if (rp.sitecache.reddit.multi[user] &&
+            rp.sitecache.reddit.multi[user].date+rp.settings.multiExpire > now)
+            return;
+        rp.sitecache.reddit.multi[user] = { date: now, data: data };
+    }
 
     // Register keyboard events on the whole document
     $(document).keyup(function (e) {
@@ -3170,7 +3202,7 @@ $(function () {
         if (albumIndex >= 0)
             image = photo.album[albumIndex];
         var subreddit = '/r/' + photo.subreddit;
-        var now = Date.now()/1000;
+        var now = currentTime();
 
         var authName = image.author || photo.author;
 
@@ -4667,6 +4699,7 @@ $(function () {
     };
 
     var clearRedditLogin = function () {
+        $('.needlogin').hide();
         if (!rp.session.loginExpire)
             return;
 
@@ -4676,8 +4709,7 @@ $(function () {
         $('#loginUsername').html(googleIcon('account_box'));
         $('#loginUsername').attr('title', 'Expired');
         $('label[for=login]').html(googleIcon('menu'));
-        $('.needlogin').hide();
-        log.info("Clearing bearer is obsolete EOL:"+rp.session.loginExpire+" < now:"+Date.now()/1000);
+        log.info("Clearing bearer is obsolete EOL:"+rp.session.loginExpire+" < now:"+currentTime());
         clearConfig(configNames.redditBearer);
         clearConfig(configNames.redditRefreshBy);
     };
@@ -4706,33 +4738,33 @@ $(function () {
     };
 
     var loadRedditMultiList = function () {
-        if (rp.session.loadedMultiList == true)
-            return;
-
         var jsonUrl = rp.reddit.api+'/api/multi/mine';
         var handleData = function(data) {
-            rp.session.loadedMultiList = true;
             var list = $('#multiListDiv ul:first-of-type');
             list.empty();
-            // @@ cache?
+            if (data.length)
+                rp.session.loginUser = data[0].data.owner
+            updateRedditMultiCache(rp.session.loginUser, data);
 
             redditMultiAppend(data, list);
         };
-
-        $.ajax({
-            url: jsonUrl,
-            headers: rp.session.redditHdr,
-            dataType: 'json',
-            success: handleData,
-            error: failedAjax,
-            timeout: rp.settings.ajaxTimeout,
-            crossDomain: true
-        });
+        if (checkRedditMultiCache(rp.session.loginUser))
+            handleData(rp.sitecache.reddit.multi[rp.session.loginUser])
+        else
+            $.ajax({
+                url: jsonUrl,
+                headers: rp.session.redditHdr,
+                dataType: 'json',
+                success: handleData,
+                error: failedAjax,
+                timeout: rp.settings.ajaxTimeout,
+                crossDomain: true
+            });
     };
 
     var redditExpiresToTime = function(expires_in) {
         var time = parseInt(expires_in, 10);
-        return time+Math.ceil(Date.now()/1000);
+        return time+Math.ceil(currentTime());
     };
 
     var expiredRedditLogin = function() {
@@ -4795,7 +4827,7 @@ $(function () {
             by = getConfig(configNames.redditRefreshBy, 0);
         }
         if (rp.session.loginExpire &&
-            rp.session.loginExpire > (Date.now()/1000)-60)
+            rp.session.loginExpire > (currentTime())-60)
             return;
         $('#loginUsername').attr('href', rp.reddit.loginUrl + '?' +
                                  ['client_id=' + rp.api_key.reddit,
@@ -4806,7 +4838,7 @@ $(function () {
                                   // read - /r/ALL, /me/m/ALL
                                   // history - /user/USER/submitted
                                   'scope=read,history'].join('&'));
-        if (by-60 > Date.now()/1000) {
+        if (by-60 > currentTime()) {
             var d = new Date(by*1000);
             log.info("Reddit Token Expire: "+d);
             rp.session.loginExpire = by;
@@ -4838,7 +4870,8 @@ $(function () {
         var user;
         if (rp.url.site == 'reddit') {
             multi = (rp.url.type == 'm') ? rp.url.multi :'';
-            user = (rp.url.type == 'm' || rp.url.type == 'submitted') ?rp.url.sub :'';
+            user = (rp.url.type == 'm' || rp.url.type == 'submitted')
+                ? (rp.url.sub) ?rp.url.sub :rp.session.loginUser :'';
         }
 
         var choice = rp.url.choice.split(':')[0];
@@ -4875,21 +4908,27 @@ $(function () {
 
             var jsonUrl = rp.reddit.api + '/api/multi/user/' + user;
             var handleData = function (data) {
+                updateRedditMultiCache(user, data);
                 if (data.length) {
                     var list = $('#subredditPopup ul');
                     list.append($('<li>').append($('<hr>', { class: "split" })));
                     redditMultiAppend(data, list, multi);
                 }
             };
-            $.ajax({
-                url: jsonUrl,
-                headers: rp.session.redditHdr,
-                dataType: 'json',
-                success: handleData,
-                error: failedAjax,
-                timeout: rp.settings.ajaxTimeout,
-                crossDomain: true,
-            });
+
+            if (checkRedditMultiCache(user))
+                handleData(rp.sitecache.reddit.multi[user].data)
+
+            else
+                $.ajax({
+                    url: jsonUrl,
+                    headers: rp.session.redditHdr,
+                    dataType: 'json',
+                    success: handleData,
+                    error: failedAjax,
+                    timeout: rp.settings.ajaxTimeout,
+                    crossDomain: true,
+                });
         }
 
         $('#choiceTitle').text(base);
@@ -4949,7 +4988,7 @@ $(function () {
                 return;
         }
 
-        var now = Date.now()/1000;
+        var now = currentTime();
         if (!rp.loaded[site])
             rp.loaded[site] = {};
         if (rp.loaded[site][shortid] > (now-rp.settings.dupeCacheTimeout))

@@ -64,6 +64,7 @@ a.video::before { content: "movie"; }
 a.embed::before { content: "ondemand_video"; }
 a.album::before { content: "photo_library"; }
 a.later::before { content: "file_download"; }
+a.thumb::before { content: "preview"; }
 .nbmenu a.thumb::before { content: "insert_photo"; }
 a.html::before { content: "message"; }
 a.failed { text-decoration: line-through; }
