@@ -400,7 +400,7 @@ $(function () {
         if (secs > 60)
             return Math.floor(secs/60)+'m';
         else
-            return "1m";
+            return Math.floor(secs)+'s';
     }
 
     /// Return current time in seconds
@@ -4631,7 +4631,7 @@ $(function () {
         });
 
         // SITE : NAME
-        t1 = t1.replace(/(?:[[{(]\s*)?\b([A-Za-z.]+)\s*(?:[:@]|\]\[|\)\s*\()\s*([\w.]+)(?:\s*[)\]}])?/g, function(match, p1, p2) {
+        t1 = t1.replace(/(?:[[{(]\s*)?\b([A-Za-z.]+)\s*(?:[:@]|\]\[|\)\s*\()\s*([\w.-]+\w)(?:\s*[)\]}])?/g, function(match, p1, p2) {
             p1 = p1.toLowerCase().replaceAll(".", "");
             try {
                 if (p1 == "fb")
@@ -4728,8 +4728,28 @@ $(function () {
                 return;
             if (item.data.over_18)
                 cl += " show-nsfw";
-            if (item.data.name == multi)
+            if (item.data.name == multi) {
                 selected = true;
+                // fixup links
+                var div = $('<div />').html(unescapeHTML(item.data.description_html));
+                div.find("a").each(function(_i, item) {
+                    if (originOf(item.href) == window.location.origin) {
+                        $(item).addClass("local");
+                        var a = pathnameOf(item.href).split("/");
+                        if ((a[1] == "user" || a[1] == "u") && a[3] == "m" && rp.sitecache.reddit.multi[a[2]]) {
+                            for (i = 0; i < rp.sitecache.reddit.multi[a[2]].data.length; ++i) {
+                                if (a[4] == rp.sitecache.reddit.multi[a[2]].data[i].data.name) {
+                                    if (rp.sitecache.reddit.multi[a[2]].data[i].data.visibility == "private")
+                                        item.href = "/me/m/"+a[4];
+                                    break;
+                                }
+                            }
+                        }
+                        // @@ check if multi is private
+                    }
+                });
+                $('#subRedditInfo').html(div.html());
+            }
 
             var link = redditLink(path, item.data.description_md, item.data.display_name, selected);
 
@@ -4749,7 +4769,7 @@ $(function () {
             redditMultiAppend(data, list);
         };
         if (checkRedditMultiCache(rp.session.loginUser))
-            handleData(rp.sitecache.reddit.multi[rp.session.loginUser])
+            handleData(rp.sitecache.reddit.multi[rp.session.loginUser].data)
         else
             $.ajax({
                 url: jsonUrl,
@@ -4871,7 +4891,7 @@ $(function () {
         if (rp.url.site == 'reddit') {
             multi = (rp.url.type == 'm') ? rp.url.multi :'';
             user = (rp.url.type == 'm' || rp.url.type == 'submitted')
-                ? (rp.url.sub) ?rp.url.sub :rp.session.loginUser :'';
+                ? (rp.url.sub) ?rp.url.sub :rp.session.loginUser :rp.session.loginUser;
         }
 
         var choice = rp.url.choice.split(':')[0];
@@ -5309,7 +5329,10 @@ $(function () {
                 if (item.score < rp.settings.minScore) {
                     log.info("skipping [score too low]: /r/"+item.subreddit+"/"+item.id);
                 } else if (!item.subreddit.startsWith("u_") && !duplicateInList(duplicates, item)) {
-                    dedupAdd(item.subreddit, item.id, '/r/'+orig_id.subreddit+'/'+orig_id.id);
+                    var link = '/r/'+orig_id.subreddit+'/'+orig_id.id;
+                    var cross_link = dedupAdd(item.subreddit, item.id, link);
+                    if (cross_link != link)
+                        throw "cross-dup: "+cross_link;
                     duplicates.push({subreddit: item.subreddit,
                                      commentN: item.num_comments,
                                      title: item.title,
@@ -5342,7 +5365,12 @@ $(function () {
                 idx = idx.crosspost_parent_list[0];
             }
 
-            duplicates = duplicateAddCross(idorig, duplicates, idorig);
+            try {
+                duplicates = duplicateAddCross(idorig, duplicates, idorig);
+            } catch (e) {
+                log.info("cannot display url ["+e+"]: "+idorig.url);
+                return;
+            }
 
             duplicates.sort(subredditCompare);
 
@@ -5457,9 +5485,15 @@ $(function () {
                         log.debug(" ignoring duplicate [user sub]: "+dupe.data.subreddit);
                         continue;
                     }
-                    if (dedupAdd(dupe.data.subreddit, dupe.data.id, '/r/'+item.data.subreddit+'/'+item.data.id) == "SELF") {
+                    var link = '/r/'+item.data.subreddit+'/'+item.data.id;
+                    var cross_link = dedupAdd(dupe.data.subreddit, dupe.data.id, link);
+                    if (cross_link != link) {
+                        log.info('cannot display url [cross-dup: '+cross_link+']: '+item.data.url);
+                        return;
+                    }
+                    if (cross_link == "SELF") {
                         log.info('cannot display url [non-self dup]: '+item.data.url);
-                        continue;
+                        return;
                     }
                     duplicates.push({subreddit: dupe.data.subreddit,
                                      commentN: dupe.data.num_comments,
@@ -5777,6 +5811,15 @@ $(function () {
                     }
                 });
             }
+        }
+
+        if (!post._links) {
+            checkPhotoAlbum(photo);
+            if (rc)
+                successcb(photo);
+            else if (errorcb)
+                errorcb(photo);
+            return;
         }
 
         // Pull down 100, but only videos and images
