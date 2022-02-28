@@ -646,7 +646,10 @@ $(function () {
             urlalt = "";
         if (classes === undefined)
             classes = "info infol";
-        return $('<a>', {href: url, class: classes, title: urlalt}).html(text);
+        var a = $('<a>', {href: url, class: classes}).html(text);
+        if (urlalt)
+            a[0].title = urlalt;
+        return a;
     }
 
     // url - foreign URL
@@ -681,10 +684,10 @@ $(function () {
     };
 
     // Same as redditLink, but no info class
-    var titleRLink = function(path, pathname) {
+    var titleRLink = function(path, pathname, alt) {
         var div = $('<div/>');
         var span = $('<span>', { class: "social infor" });
-        span.append(_localLink(rp.reddit.base+path, path, pathname, undefined, "reddit", ""));
+        span.append(_localLink(rp.reddit.base+path, path, pathname, alt, "reddit", ""));
         div.append(span);
         return div.html();
     };
@@ -703,11 +706,13 @@ $(function () {
         return data.html();
     };
 
-    var titleFaviconLink = function(url, text, site) {
+    var titleFaviconLink = function(url, text, site, alt) {
         var data = $('<div/>');
         var span = $('<span>', { class: "remote infor" }).html(" at "+site);
         setFavicon(span, url);
         var a = $('<a>', { href: url, class: "remote infor social" }).html(text).append(span);
+        if (alt)
+            a[0].title = alt;
         data.append(a);
         return data.html();
     };
@@ -729,30 +734,30 @@ $(function () {
         return data.html();
     };
 
-    var socialUserLink = function(user, type) {
+    var socialUserLink = function(user, type, alt) {
         try {
-            return siteUserLink(user, type);
+            return siteUserLink({user: user, t: type}, alt);
         } catch (e) {
             if (type == "facebook")
-                return titleFaviconLink('https://facebook.com/'+user, user, "FB");
+                return titleFaviconLink('https://facebook.com/'+user, user, "FB", alt);
             if (type == "fansly")
-                return titleFaviconLink('https://fans.ly/'+user, user, "Fansly");
+                return titleFaviconLink('https://fans.ly/'+user, user, "Fansly", alt);
             if (type == "instagram")
-                return titleFaviconLink('https://instagram.com/'+user, user, "IG");
+                return titleFaviconLink('https://instagram.com/'+user, user, "IG", alt);
             if (type == "onlyfans")
-                return titleFaviconLink('https://onlyfans.com/'+user, user, "OnlyFans");
+                return titleFaviconLink('https://onlyfans.com/'+user, user, "OnlyFans", alt);
             if (type == "reddit")
-                return titleRLink('/user/'+user+'/submitted', 'u/'+user);
+                return titleRLink('/user/'+user+'/submitted', 'u/'+user, alt);
             if (type == "snapchat")
-                return titleFaviconLink('https://snapchat.com/add/'+user, user, "Snap");
+                return titleFaviconLink('https://snapchat.com/add/'+user, user, "Snap", alt);
             if (type == "telegram")
-                return titleFaviconLink('https://t.me/'+user, user, "Telegram");
+                return titleFaviconLink('https://t.me/'+user, user, "Telegram", alt);
             if (type == "tiktok")
-                return titleFaviconLink('https://tiktok.com/@'+user, user, "TikTok");
+                return titleFaviconLink('https://tiktok.com/@'+user, user, "TikTok", alt);
             if (type == 'tumblr')
-                return tumblrLink(user, type);
+                return tumblrLink(user, type, alt);
             if (type == "twitter")
-                return titleFaviconLink('https://twitter.com/'+user, user, "Twitter");
+                return titleFaviconLink('https://twitter.com/'+user, user, "Twitter", alt);
             throw "Unknown Social Type: "+type;
         }
     };
@@ -781,11 +786,12 @@ $(function () {
         throw "Unknown Site type: "+type;
     };
 
-    var siteUserLink = function(site) {
+    // site == rp.photo[x].site
+    var siteUserLink = function(site, alt) {
         var username = site.user;
         if (site.t == 'flickr')
             username = flickrUserPP(username);
-        return localLink(siteUserUrl(site.user, site.t), username, '/'+site.t+'/u/'+username);
+        return localLink(siteUserUrl(site.user, site.t), username, '/'+site.t+'/u/'+username, alt);
     };
 
     var siteTagUrl = function(tag, type) {
@@ -808,8 +814,8 @@ $(function () {
         return localLink(siteTagUrl(tag, type), tag, '/'+type+'/t/'+tag);
     };
 
-    var tumblrLink = function(blog) {
-        return _localLink('https://'+blog+'.tumblr.com', '/tumblr/'+blog, blog, blog, rp.favicons.tumblr);
+    var tumblrLink = function(blog, alt) {
+        return _localLink('https://'+blog+'.tumblr.com', '/tumblr/'+blog, blog, (alt || blog), rp.favicons.tumblr);
     };
 
     var googleIcon = function(icon_name) {
@@ -4640,7 +4646,7 @@ $(function () {
                     p1 = "tiktok";
                 else if (p1.match(/^(onlyfans?|of)$/))
                     p1 = "onlyfans";
-                else if (p1.match(/^(snp|snap?|sc)$/))
+                else if (p1.match(/^(sna?pcha?t|snp|snap?|sc)$/))
                     p1 = "snapchat";
                 else if (p1.match(/^(insta|ig)/))
                     p1 = "instagram";
@@ -4648,7 +4654,7 @@ $(function () {
                     p1 = "twitter";
                 else if (p1 == "kik")
                     return p1+" : "+p2; // ensure it doesn't get picked up below
-                return socialUserLink(p2, p1);
+                return socialUserLink(p2, p1, match);
             } catch (e) {
                 return match;
             }
@@ -4675,16 +4681,16 @@ $(function () {
                 social = "facebook";
             else if (subreddit.match(/insta/i) || flair.match(/insta/i))
                 social = "instagram";
-            return socialUserLink(p1, social);
+            return socialUserLink(p1, social, match);
         });
         // r/subreddit
         t1 = t1.replace(/(?=^|\W|\b)\/?(r\/[\w-]+)\s*/gi, function(match, p1) {
-            return titleRLink('/'+p1, p1);
+            return titleRLink('/'+p1, p1, match);
         });
 
         // u/redditUser
         t1 = t1.replace(/(?=^|\W|\b)(?:[[{(]\s*)?\/?u\/([\w-]+)\s*(?:\s*[)\]}])?/gi, function(match, p1) {
-            return socialUserLink(p1, "reddit");
+            return socialUserLink(p1, "reddit", match);
         });
 
         if (t1 != title)
