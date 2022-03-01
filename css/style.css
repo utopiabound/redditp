@@ -200,6 +200,24 @@ hr.split { border: 1px inset; }
     font-weight: bold;
 }
 
+/* Info Popup */
+#info {
+    position: absolute;
+    top: 0;
+    right: 0;
+}
+
+#info table {
+    width: 100%;
+}
+
+#info th {
+    text-align: left;
+}
+#info td {
+    text-align: right;
+}
+
 div.progressbar {
     width: 100%;
     height: 5px;

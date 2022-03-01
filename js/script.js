@@ -2793,6 +2793,9 @@ $(function () {
         case "u":
             $("#duplicatesCollapser").click();
             break;
+        case "v":
+            infoShow();
+            break;
         case " ": // SPACE
             $("#autoNextSlide").click();
             break;
@@ -2856,6 +2859,47 @@ $(function () {
             break;
         }
     });
+
+    var infoShow = function() {
+        if ($('#info').is(':visible'))
+            return $('#info').hide();
+        var pic = getCurrentPic();
+        if (!pic)
+            return;
+        var t = $('#imageInfoTable');
+        t.find('tr').hide();
+
+        var i, size = '', length = '', audio;
+        switch (pic.type) {
+        case imageTypes.image:
+            t.find('tr.forImage').show();
+            i = $('#pictureSlider').find('img')[0];
+            size = i.naturalWidth + "x" + i.naturalHeight;
+            break;
+        case imageTypes.video:
+            t.find('tr.forVideo').show();
+            i = $('#gfyvid')[0];
+            size = i.videoWidth + "x" + i.videoHeight;
+            length = sec2dms(pic.video.duration);
+            if (i.webkitAudioDecodedByteCount != undefined)
+                audio = i.webkitAudioDecodedByteCount > 0;
+            else if (i.mozHasAudio != undefined)
+                audio = i.mozHasAudio;
+            else if (i.audioTracks != undefined)
+                audio = i.audioTracks.length > 0;
+            break;
+        }
+        t.find('tr.forAll').show();
+
+        $('#imageInfoType').text(imageTypeStyle[pic.type]);
+        $('#imageInfoSize').text(size);
+        $('#imageInfoLength').text(length);
+        if (audio != undefined)
+            $('#imageInfoAudio').html((audio) ?googleIcon("check") :googleIcon("close"));
+        else
+            $('#imageInfoAudio').text("?");
+        $('#info').show();
+    };
 
     // Capture all clicks on infop links (links that direct locally
     $(document).on('click', 'a.local', function (event) {
@@ -3221,6 +3265,7 @@ $(function () {
 
         // Setup navboxLink and navboxImageSearch
         updateNavboxTypes(image);
+        $('#info').hide();
 
         if (albumIndex >= 0) {
             $('#navboxAlbumOrigLink').attr('href', photo.o_url).attr('title', photo.title+" (a)").parent().show();
@@ -4928,6 +4973,7 @@ $(function () {
                 ++i;
             list.append(li);
         }
+        $('#subRedditInfo').html("&nbsp;");
         if (user) {
             list.append($('<li>').append($('<hr>', { class: "split" })));
             list.append($('<li>').append(redditLink('/user/'+user+'/submitted', "submitted", "submitted", is_submitted)));
