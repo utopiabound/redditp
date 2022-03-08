@@ -4682,7 +4682,7 @@ $(function () {
         });
 
         // SITE : NAME
-        t1 = t1.replace(/(?:[[{(]\s*)?\b([A-Za-z.]+)\s*(?:[:@]|\]\[|\)\s*\()\s*([\w.-]+\w)(?:\s*[)\]}])?/g, function(match, p1, p2) {
+        t1 = t1.replace(/(?:[[{(]\s*)?\b([A-Za-z.]+)\s*(?:(?:&\w+;)?[-:@]|\]\[|\)\s*\()\s*([\w.-]+\w)(?:\s*[)\]}])?/g, function(match, p1, p2) {
             p1 = p1.toLowerCase().replaceAll(".", "");
             try {
                 if (p1 == "fb")
@@ -4709,7 +4709,7 @@ $(function () {
             log.debug("TITLE 1: `"+title+"'\n      -> `"+t1);
 
         // @NAME
-        t1 = t1.replace(/(?:[[{(]\s*)?@([\w.]+)(?:\s*[)\]}])?/g, function(match, p1) {
+        t1 = t1.replace(/(?:[[{(]\s*|\s+|^)@([\w.]+)(?:\s*[)\]}])?/g, function(match, p1) {
             var social = (pic.over18) ?"instagram" :"twitter";
             var flair = picFlair(pic);
             if (hn == "twitter.com" || subreddit.match(/twit/i) || flair.match(/twit/i))
@@ -4728,6 +4728,7 @@ $(function () {
                 social = "instagram";
             return socialUserLink(p1, social, match);
         });
+
         // r/subreddit
         t1 = t1.replace(/(?=^|\W|\b)\/?(r\/[\w-]+)\s*/gi, function(match, p1) {
             return titleRLink('/'+p1, p1, match);
