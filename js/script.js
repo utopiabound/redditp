@@ -2020,9 +2020,6 @@ $(function () {
             pic.type == imageTypes.image)
             return true;
 
-        if (pic.type === undefined)
-            pic.type = imageTypes.image;
-
         var shortid, a, o, host;
         var fqdn = hostnameOf(pic.url);
         // hostname only: second-level-domain.tld
@@ -2064,9 +2061,9 @@ $(function () {
                         pic.url = 'https://imgur.com/'+url2shortid(pic.url);
                         pic.type = imageTypes.later;
                     }
-                }
 
-                // otherwise simple image
+                } else
+                        initPhotoImage(pic)
 
             } else if (hostname == 'gifs.com') {
                 shortid = url2shortid(pic.url, -1, '-');
@@ -2154,7 +2151,7 @@ $(function () {
                 initPhotoVideo(pic);
 
             } else if (fqdn == 'preview.redd.it') {
-                pic.url = 'https://i.redd.it'+pathnameOf(pic.url);
+                initPhotoImage(pic, 'https://i.redd.it'+pathnameOf(pic.url));
 
             } else if (hostname == 'vidble.com') {
                 shortid = url2shortid(pic.url);
@@ -2172,13 +2169,13 @@ $(function () {
 
                 else {
                     shortid = shortid.replace(/_.+/, '');
-                    pic.url = 'https://www.vidble.com/'+shortid+'.jpg';
+                    initPhotoImage(pic, 'https://www.vidble.com/'+shortid+'.jpg');
                 }
 
             } else if (isImageExtension(pic.url) || // #### IMAGE ####
                        fqdn == 'blogger.googleusercontent.com' ||
                        fqdn == 'i.reddituploads.com') {
-                // simple image
+                initPhotoImage(pic);
 
             } else if (hostname == 'apnews.com' ||
                        hostname == 'livestream.com' ||
@@ -2249,9 +2246,9 @@ $(function () {
 
             } else if (hostname == 'gyazo.com') {
                 shortid = url2shortid(pic.url);
-                pic.url = 'https://i.gyazo.com/'+shortid+'.png';
                 pic.fallback = [ 'https://i.gyazo.com/'+shortid+'.jpg',
                                  'https://i.gyazo.com/'+shortid+'.mp4' ];
+                initPhotoImage(pic, 'https://i.gyazo.com/'+shortid+'.png');
 
             } else if (hostname == 'hugetits.win') {
                 shortid = url2shortid(pic.url, -1, '-', false);
@@ -2278,8 +2275,8 @@ $(function () {
                                a[4],
                                [ a[3], a[4], a[5] ].join("-")
                               ].join("/");
-                    pic.url = shortid + ".jpg";
                     pic.fallback = [ shortid + ".png" ];
+                    initPhotoImage(pic, shortid + ".jpg");
 
                 } else
                     throw "non-picture";
@@ -2568,6 +2565,8 @@ $(function () {
             log.info("cannot display url ["+e+"]: "+pic.url);
             return false;
         }
+        if (pic.type === undefined)
+            throw "Failed to set pic type: "+pic.url;
         return true;
     };
 
