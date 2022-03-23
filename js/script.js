@@ -756,6 +756,8 @@ $(function () {
                 return titleFaviconLink('https://tiktok.com/@'+user, user, "TikTok", alt);
             if (type == 'tumblr')
                 return tumblrLink(user, type, alt);
+            if (type == "twitch")
+                return titleFaviconLink('https://twitch.tv/'+user, user, "Twitch", alt);
             if (type == "twitter")
                 return titleFaviconLink('https://twitter.com/'+user, user, "Twitter", alt);
             throw "Unknown Social Type: "+type;
@@ -4711,13 +4713,11 @@ $(function () {
         t1 = t1.replace(/(?:[[{(]\s*|\s+|^)@([\w.]+)(?:\s*[)\]}])?/g, function(match, p1) {
             var social = (pic.over18) ?"instagram" :"twitter";
             var flair = picFlair(pic);
-            if (hn == "twitter.com" || subreddit.match(/twit/i) || flair.match(/twit/i))
-                social = "twitter";
-            else if (hn == "tiktok.com" || subreddit.match(/tiktok/i) || flair.match(/tiktok/i))
+            if (hn == "tiktok.com" || subreddit.match(/tiktok/i) || flair.match(/tiktok/i))
                 social = "tiktok";
-            else if (subreddit.match(/onlyfan/i))
+            else if (subreddit.match(/onlyfan/i) || flair.match(/onlyfan/i))
                 social = "onlyfans";
-            else if (subreddit.match(/fansly/i))
+            else if (subreddit.match(/fansly/i) || flair.match(/fansly/i))
                 social = "fansly";
             else if (subreddit.match(/snap/i) || flair.match(/snap/i))
                 social = "snapchat";
@@ -4725,6 +4725,10 @@ $(function () {
                 social = "facebook";
             else if (subreddit.match(/insta/i) || flair.match(/insta/i))
                 social = "instagram";
+            else if (subreddit.match(/twitch/i) || flair.match(/twitch/i))
+                social = "twitch";
+            else if (hn == "twitter.com" || subreddit.match(/twit/i) || flair.match(/twit/i))
+                social = "twitter";
             return socialUserLink(p1, social, match);
         });
 
