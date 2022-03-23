@@ -6831,10 +6831,11 @@ $(function () {
     }
 
     var processGfycatItem = function(photo, item) {
-        if (!photo.title)
-            photo.title = gfyItemTitle(item);
         photo.site =  { t: 'gfycat' };
-        fixupPhotoTitle(photo);
+        if (!photo.title) {
+            photo.title = gfyItemTitle(item);
+            fixupPhotoTitle(photo);
+        }
         addPhotoSiteTags(photo, item.tags);
         addPhotoSiteUser(photo, item.username);
         initPhotoVideo(photo, [ item.webmUrl, item.mp4Url ], item.posterUrl);
