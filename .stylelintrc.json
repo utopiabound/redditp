@@ -9,6 +9,12 @@
 	    {
 		"message": "Expected id selector to be camelCase"
 	    }
+	],
+	"selector-class-pattern": [
+	    "^([a-z][a-z0-9]*([A-Z][a-z0-9]*)*|[a-z][a-z0-9]*(-[a-z0-9]+)*)$",
+	    {
+		"message": "Expected class selector to be camelCase or kebab-case"
+	    }
 	]
     }
 }

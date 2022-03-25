@@ -189,17 +189,6 @@ a.failed { text-decoration: line-through; }
 /* Selector popup */
 hr.split { border: 1px inset; }
 
-/* Help Popup */
-#help {
-    position: absolute;
-    top: 0;
-    right: 0;
-}
-
-#help td:first-child {
-    font-weight: bold;
-}
-
 /* Info Popup */
 #info {
     position: absolute;
@@ -214,8 +203,20 @@ hr.split { border: 1px inset; }
 #info th {
     text-align: left;
 }
+
 #info td {
     text-align: right;
+}
+
+/* Help Popup */
+#help {
+    position: absolute;
+    top: 0;
+    right: 0;
+}
+
+#help td:first-child {
+    font-weight: bold;
 }
 
 div.progressbar {

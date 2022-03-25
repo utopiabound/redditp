@@ -4792,7 +4792,7 @@ $(function () {
                         $(item).addClass("local");
                         var a = pathnameOf(item.href).split("/");
                         if ((a[1] == "user" || a[1] == "u") && a[3] == "m" && rp.sitecache.reddit.multi[a[2]]) {
-                            for (i = 0; i < rp.sitecache.reddit.multi[a[2]].data.length; ++i) {
+                            for (var i = 0; i < rp.sitecache.reddit.multi[a[2]].data.length; ++i) {
                                 if (a[4] == rp.sitecache.reddit.multi[a[2]].data[i].data.name) {
                                     if (rp.sitecache.reddit.multi[a[2]].data[i].data.visibility == "private")
                                         item.href = "/me/m/"+a[4];
