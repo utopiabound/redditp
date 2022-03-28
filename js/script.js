@@ -358,6 +358,7 @@ $(function () {
         fail:  'X'
     };
 
+    // This maps from above imageTypes to CSS style names.
     const imageTypeStyle = {
         i: 'image',
         v: 'video',
@@ -927,6 +928,7 @@ $(function () {
         });
         return a;
     };
+    rp.fn.searchOf = searchOf;
 
     var searchValueOf = function(url, key) {
         return searchOf(url)[key];
@@ -976,8 +978,8 @@ $(function () {
                 // Trim down chafe-chafe-chafe<SEP><SHORTID>
                 shortid = shortid.substr(shortid.lastIndexOf(sep)+sep.length);
             else
-                // Trim <SHORTID><SEP>chafe
-                shortid = shortid.substr(0, shortid.lastIndexOf(sep));
+                // Trim <SHORTID><SEP>chafe-chafe<sep>chafe
+                shortid = shortid.substr(0, shortid.indexOf(sep));
         }
 
         if (!shortid)
@@ -2220,6 +2222,14 @@ $(function () {
                     pic.type = imageTypes.later;
                 else
                     throw "bad deviantart oembed";
+
+            } else if (hostname == 'dailymotion.com') {
+                shortid = url2shortid(pic.url, -1, "_", false);
+                o = originOf(pic.url)+'/embed/video/'+shortid+'?autoplay=1';
+                a = searchValueOf(pic.url, "start");
+                if (a)
+                    o += "&start="+a;
+                initPhotoEmbed(pic, o);
 
             } else if (hostname == 'facebook.com') {
                 a = pathnameOf(pic.url).split('/');
