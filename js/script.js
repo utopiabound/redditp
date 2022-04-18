@@ -2108,7 +2108,7 @@ $(function () {
                 o = 'redgifs';
                 if (hostname == 'gfycat.com')
                     o = 'gfycat';
-                else if (hostname == 'redgifs.com' && ! a[1] in ['ifr', 'watch'])
+                else if (hostname == 'redgifs.com' && !(a[1] in ['ifr', 'watch']))
                     throw "bad path";
                 else
                     o = 'redgifs';
@@ -2807,7 +2807,7 @@ $(function () {
             $("#duplicatesCollapser").click();
             break;
         case "v":
-            infoShow();
+            showInfo();
             break;
         case " ": // SPACE
             $("#autoNextSlide").click();
@@ -2873,7 +2873,19 @@ $(function () {
         }
     });
 
-    var infoShow = function() {
+    var hasAudio = function(obj, trueValue) {
+        if (trueValue == undefined)
+            trueValue = 1;
+        if (obj.webkitAudioDecodedByteCount != undefined)
+            return (obj.webkitAudioDecodedByteCount > 0) ?trueValue :0;
+        if (obj.mozHasAudio != undefined)
+            return (obj.mozHasAudio) ?trueValue :0;
+        if (obj.audioTracks != undefined)
+            return (obj.audioTracks.length > 0) ?trueValue :0;
+        return undefined;
+    };
+
+    var showInfo = function() {
         if ($('#info').is(':visible'))
             return $('#info').hide();
         var pic = getCurrentPic();
@@ -2894,12 +2906,10 @@ $(function () {
             i = $('#gfyvid')[0];
             size = i.videoWidth + "x" + i.videoHeight;
             length = sec2dms(pic.video.duration);
-            if (i.webkitAudioDecodedByteCount != undefined)
-                audio = i.webkitAudioDecodedByteCount > 0;
-            else if (i.mozHasAudio != undefined)
-                audio = i.mozHasAudio;
-            else if (i.audioTracks != undefined)
-                audio = i.audioTracks.length > 0;
+            if ($('#gfyaudio').length > 0)
+                audio = hasAudio($('#gfyaudio')[0], 2);
+            else
+                audio = hasAudio(i);
             break;
         }
         var subs = {};
@@ -2918,10 +2928,20 @@ $(function () {
         $('#imageInfoType').text(imageTypeStyle[pic.type]);
         $('#imageInfoSize').text(size);
         $('#imageInfoLength').text(length);
-        if (audio != undefined)
-            $('#imageInfoAudio').html((audio) ?googleIcon("check") :googleIcon("close"));
-        else
+        switch (audio) {
+        case 0:
+            $('#imageInfoAudio').html(googleIcon("close"));
+            break;
+        case 1:
+            $('#imageInfoAudio').html(googleIcon("check"));
+            break;
+        case 2:
+            $('#imageInfoAudio').html(googleIcon("add"));
+            break;
+        default:
             $('#imageInfoAudio').text("?");
+            break;
+        }
         $('#info').show();
     };
 
@@ -2973,6 +2993,8 @@ $(function () {
                     getRedditDupe(photo, item);
             });
     });
+
+    $(document).on('click', '#navboxShowInfo', showInfo);
 
     // Bind to PopState Event
     //rp.history.Adapter.bind(window, 'popstate', function(e) {
