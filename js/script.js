@@ -235,6 +235,7 @@ rp.defaults = {
     },
     favicon: {
         'sta.sh': 'https://www.deviantart.com/favicon.ico',
+        'snapchat.com': 'https://static.snapchat.com/favicon.ico',
     }
 };
 
@@ -2107,7 +2108,7 @@ $(function () {
                 o = 'redgifs';
                 if (hostname == 'gfycat.com')
                     o = 'gfycat';
-                else if (hostname == 'redgifs.com' && a[1] != 'watch')
+                else if (hostname == 'redgifs.com' && ! a[1] in ['ifr', 'watch'])
                     throw "bad path";
                 else
                     o = 'redgifs';
@@ -2703,6 +2704,7 @@ $(function () {
         // #4b try sld-only hostname of url
         // #FINAL fallback to just link icon
         var backup = [fixupUrl(origin+'/favicon.png'),
+                      fixupUrl(origin+'/images/favicon.png'),
                       fixupUrl(origin+'/favicon-16x16.png'),
                       fixupUrl(origin+'/assets/img/favicon.ico')
                      ];
@@ -4692,25 +4694,50 @@ $(function () {
                 return titleFLink(match, fqdn+path);
         });
 
-        // SITE : NAME
-        t1 = t1.replace(/(?:[[{(]\s*)?\b([A-Za-z.]+)\s*(?:(?:&\w+;)?[-:@]|\]\[|\)\s*\()\s*([\w.-]+\w)(?:\s*[)\]}])?/g, function(match, p1, p2) {
-            p1 = p1.toLowerCase().replaceAll(".", "");
+        // SITE : NAME  and @NAME
+        t1 = t1.replace(/(?:[[{(]\s*|\b|^)([A-Za-z.]*)\s*((?:&\w+;)?[-:@][-:@\s]*|\]\[|\)\s*\()\s*([\w.-]+\w)(?:\s*[)\]}])?/g, function(match, site, connector, name) {
+            site = site.toLowerCase().replaceAll(".", "");
             try {
-                if (p1 == "fb")
-                    p1 = "facebook";
-                else if (p1 == "tk")
-                    p1 = "tiktok";
-                else if (p1.match(/^(onlyfans?|of)$/))
-                    p1 = "onlyfans";
-                else if (p1.match(/^(sna?pcha?t|snp|snap?|sc)$/))
-                    p1 = "snapchat";
-                else if (p1.match(/^(insta|ig)/))
-                    p1 = "instagram";
-                else if (p1 == "tw")
-                    p1 = "twitter";
-                else if (p1 == "kik")
-                    return p1+" : "+p2; // ensure it doesn't get picked up below
-                return socialUserLink(p2, p1, match);
+                if (site) {
+                    if (site == "fb")
+                        site = "facebook";
+                    else if (site == "tk")
+                        site = "tiktok";
+                    else if (site.match(/^(onlyfans?|of)$/))
+                        site = "onlyfans";
+                    else if (site.match(/^(sna?pcha?t|snp|snap?|sc)$/))
+                        site = "snapchat";
+                    else if (site.match(/^(insta|ig)/) || site == "g")
+                        site = "instagram";
+                    else if (site == "tw")
+                        site = "twitter";
+                    else if (site == "kik")
+                        return site+" : "+name; // ensure it doesn't get picked up below
+                    return socialUserLink(name, site, match);
+                } else if (!connector.match(/@/)) {
+                    log.debug("Bad connector "+connector+" for title: "+t1);
+                    throw "Bad Connector"
+                } else {
+                    var social = (pic.over18) ?"instagram" :"twitter";
+                    var flair = picFlair(pic);
+                    if (hn == "tiktok.com" || subreddit.match(/tiktok/i) || flair.match(/tiktok/i))
+                        social = "tiktok";
+                    else if (subreddit.match(/onlyfan/i) || flair.match(/onlyfan/i))
+                        social = "onlyfans";
+                    else if (subreddit.match(/fansly/i) || flair.match(/fansly/i))
+                        social = "fansly";
+                    else if (subreddit.match(/snap/i) || flair.match(/snap/i))
+                        social = "snapchat";
+                    else if (subreddit.match(/face/i))
+                        social = "facebook";
+                    else if (subreddit.match(/insta/i) || flair.match(/insta/i))
+                        social = "instagram";
+                    else if (subreddit.match(/twitch/i) || flair.match(/twitch/i))
+                        social = "twitch";
+                    else if (hn == "twitter.com" || subreddit.match(/twit/i) || flair.match(/twit/i))
+                        social = "twitter";
+                    return socialUserLink(name, social, match);
+                }
             } catch (e) {
                 return match;
             }
@@ -4718,29 +4745,6 @@ $(function () {
 
         if (t1 != title)
             log.debug("TITLE 1: `"+title+"'\n      -> `"+t1);
-
-        // @NAME
-        t1 = t1.replace(/(?:[[{(]\s*|\s+|^)@([\w.]+)(?:\s*[)\]}])?/g, function(match, p1) {
-            var social = (pic.over18) ?"instagram" :"twitter";
-            var flair = picFlair(pic);
-            if (hn == "tiktok.com" || subreddit.match(/tiktok/i) || flair.match(/tiktok/i))
-                social = "tiktok";
-            else if (subreddit.match(/onlyfan/i) || flair.match(/onlyfan/i))
-                social = "onlyfans";
-            else if (subreddit.match(/fansly/i) || flair.match(/fansly/i))
-                social = "fansly";
-            else if (subreddit.match(/snap/i) || flair.match(/snap/i))
-                social = "snapchat";
-            else if (subreddit.match(/face/i))
-                social = "facebook";
-            else if (subreddit.match(/insta/i) || flair.match(/insta/i))
-                social = "instagram";
-            else if (subreddit.match(/twitch/i) || flair.match(/twitch/i))
-                social = "twitch";
-            else if (hn == "twitter.com" || subreddit.match(/twit/i) || flair.match(/twit/i))
-                social = "twitter";
-            return socialUserLink(p1, social, match);
-        });
 
         // r/subreddit
         t1 = t1.replace(/(?=^|\W|\b)\/?(r\/[\w-]+)\s*/gi, function(match, p1) {

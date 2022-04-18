@@ -45,6 +45,7 @@ h3 {
     border: 1px solid white;
     padding-left: 2px;
     margin-right: 3px;
+    white-space: nowrap;
 }
 
 .clouds {
