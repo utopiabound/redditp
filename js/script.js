@@ -2902,6 +2902,17 @@ $(function () {
                 audio = i.audioTracks.length > 0;
             break;
         }
+        var subs = {};
+        rp.photos.forEach(function(photo) {
+            if (photo.subreddit)
+                subs[photo.subreddit] = 1;
+        });
+        i = Object.keys(subs).join("+");
+        if (i) {
+            $('#imageInfoSubMulti').attr('href', rp.reddit.base+'/r/'+i);
+            $('#imageInfoSubMultiP').attr('href', rp.url.base+'/r/'+i);
+            $('tr.forSubs').show();
+        }
         t.find('tr.forAll').show();
 
         $('#imageInfoType').text(imageTypeStyle[pic.type]);
