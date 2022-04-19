@@ -2077,10 +2077,11 @@ $(function () {
                                       'https://j.gifs.com/'+shortid+'.mp4' ],
                                'https://j.gifs.com/'+shortid+'.jpg');
 
-            } else if (hostname == 'giphy.com') {
+            } else if (hostname == 'giphy.com' && fqdn != 'ephmedia.giphy.com') {
                 // giphy.com/gifs/NAME-OF-VIDEO-SHORTID
                 // media.giphy.com/media/SHORTID/giphy.TYPE
                 // i.giphy.com/SHORTID.TYPE
+                // ephmedia.giphy.com/UUID.gif - ephemeral image url
                 shortid = url2shortid(pic.url, 2, '-');
                 pic.url = 'https://giphy.com/gifs/'+shortid;
                 initPhotoVideo(pic, 'https://i.giphy.com/media/'+shortid+'/giphy.mp4');
@@ -2528,6 +2529,8 @@ $(function () {
                     if (hostname == 'bing.com' ||
                         hostname == 'gifscroll.com' ||
                         hostname == 'gothdporn.com' ||
+                        hostname == 'hog.mobi' ||
+                        hostname == 'hog.tv' ||
                         hostname == 'javtiful.com' ||
                         hostname == 'madnsfw.com' ||
                         hostname == 'mulemax.com' ||
@@ -4728,7 +4731,7 @@ $(function () {
         });
 
         // SITE : NAME  and @NAME
-        t1 = t1.replace(/(?:[[{(]\s*|\b|^)([A-Za-z.]*)\s*((?:&\w+;)?[-:@][-:@\s]*|\]\[|\)\s*\()\s*([\w.-]+\w)(?:\s*[)\]}])?/g, function(match, site, connector, name) {
+        t1 = t1.replace(/(?:[[{(]\s*|\b|^)?([A-Za-z.]*|\p{Emoji})\s*((?:&\w+;)?[-:@][-:@\s]*|\]\[|\)\s*\()[\[\s]*([\w.-]+\w)(?:\s*[)\]}])?/ug, function(match, site, connector, name) {
             site = site.toLowerCase().replaceAll(".", "");
             try {
                 if (site) {
@@ -4738,7 +4741,7 @@ $(function () {
                         site = "tiktok";
                     else if (site.match(/^(onlyfans?|of)$/))
                         site = "onlyfans";
-                    else if (site.match(/^(sna?pcha?t|snp|snap?|sc)$/))
+                    else if (site.match(/^(sna?pcha?t|snp|snap?|sc)$/) || site == "\u{1f47b}") // Ghost
                         site = "snapchat";
                     else if (site.match(/^(insta|ig)/) || site == "g")
                         site = "instagram";
