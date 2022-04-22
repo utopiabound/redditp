@@ -34,3 +34,10 @@ if (String.prototype.localeCompare === undefined) {
         return ((this == str) ? 0 : ((this > str) ? 1 : -1));
     };
 }
+
+if (String.prototype.replaceAll === undefined) {
+    String.prototype.replaceAll = function(str, replacement) {
+        var re = RegExp(str, 'g')
+        return str.replace(re, replacement);
+    };
+}

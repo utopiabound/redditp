@@ -209,6 +209,7 @@ rp.session = {
     needsPlayButton: false,
     volumeIsMute: false,  // Volume 0/1 should be used as mute/unmount - no volume control
     fakeStorage: false,
+    regexUnicode: true,
     showRedditLink: true,
     redditRefreshToken: '',
     redditHdr: {}
@@ -1466,6 +1467,7 @@ $(function () {
 
             if (parseInt(v[1], 10) < 10) {
                 rp.session.needsPlayButton = true;
+                rp.session.regexUnicode = false;
                 // no volume or mute/unmute support
                 $('.volume-mute').hide();
                 $('.volume').hide();
@@ -4731,7 +4733,12 @@ $(function () {
         });
 
         // SITE : NAME  and @NAME
-        t1 = t1.replace(/(?:[[{(]\s*|\b|^)?([A-Za-z.]*|\p{Emoji})\s*((?:&\w+;)?[-:@][-:@\s]*|\]\[|\)\s*\()[\[\s]*([\w.-]+\w)(?:\s*[)\]}])?/ug, function(match, site, connector, name) {
+        var re;
+        if (rp.session.regexUnicode)
+            re = /(?:[[{(]\s*|\b|^)?([A-Za-z.]*|\p{Emoji})\s*((?:&\w+;)?[-:@][-:@\s]*|\]\[|\)\s*\()[\[\s]*([\w.-]+\w)(?:\s*[)\]}])?/ug;
+        else
+            re = /(?:[[{(]\s*|\b|^)?([A-Za-z.]*)\s*((?:&\w+;)?[-:@][-:@\s]*|\]\[|\)\s*\()[\[\s]*([\w.-]+\w)(?:\s*[)\]}])?/g;
+        t1 = t1.replace(re, function(match, site, connector, name) {
             site = site.toLowerCase().replaceAll(".", "");
             try {
                 if (site) {
