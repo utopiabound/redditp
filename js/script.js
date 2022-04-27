@@ -112,7 +112,7 @@
  *              parent:         POINTER pointer to parent photo (prior to being added to rp.photos)
  *      html:           TEXT html to insert
  *      embed:          HASH
- *              aplay:          BOOL Embeded video will autoplay
+ *              aplay:          BOOL Embeded video will autoplay (with sound)
  *
  * TODO:
  * * Cleanup photo.dupes - should be related to local url
@@ -2101,6 +2101,15 @@ $(function () {
                     initPhotoEmbed(pic, 'https://makeagif.com/i/'+shortid);
                 }
 
+            } else if (hostname == 'redgifs.com') {
+                // redgifs enabled CORS - 2022-04-25
+                a = pathnameOf(pic.url).split('/');
+                if (['ifr', 'watch'].includes(a[1]))
+                    // this DOES autoplay, but it's muted
+                    initPhotoEmbed(pic, 'https://redgifs.com/ifr/'+a[2], false);
+                else
+                    throw "bad path";
+
             } else if (hostname == 'gfycat.com' ||
                        hostname == 'redgifs.com' ||
                        hostname == 'gifdeliverynetwork.com') {
@@ -2111,7 +2120,7 @@ $(function () {
                 o = 'redgifs';
                 if (hostname == 'gfycat.com')
                     o = 'gfycat';
-                else if (hostname == 'redgifs.com' && !(a[1] in ['ifr', 'watch']))
+                else if (hostname == 'redgifs.com' && !(['ifr', 'watch'].includes(a[1])))
                     throw "bad path";
                 else
                     o = 'redgifs';
@@ -2239,10 +2248,8 @@ $(function () {
                 a = pathnameOf(pic.url).split('/');
                 if (a[1] == 'watch' ||
                     a[2] == 'videos')
-                    // @@ mute doesn't change with toggle
-                    initPhotoEmbed(pic, 'https://www.facebook.com/plugins/video.php?autoplay=1&mute='+
-                                   ((isVideoMuted()) ?"1" :"0")
-                                   +'&show_text=0&href='+encodeURIComponent(pic.url))
+                    // @@ mute doesn't change with toggle &mute=
+                    initPhotoEmbed(pic, 'https://www.facebook.com/plugins/video.php?show_text=0&href='+encodeURIComponent(pic.url), false);
                 else
                     throw "non-media url";
 
@@ -2741,7 +2748,7 @@ $(function () {
     var checkRedditMultiCache = function(user) {
         return (user &&
                 rp.sitecache.reddit.multi[user] &&
-                rp.sitecache.reddit.multi[rp.session.loginUser].date+rp.settings.multiExpire > currentTime());
+                rp.sitecache.reddit.multi[user].date+rp.settings.multiExpire > currentTime());
     }
 
     var updateRedditMultiCache = function(user, data) {
@@ -5400,6 +5407,21 @@ $(function () {
                 return false;
             }
 
+        } else if (t3.media && t3.media.oembed && t3.media.type == "redgifs.com") {
+            photo.site = { t: "redgifs", user: t3.media.oembed.author_name };
+            if (t3.media.oembed.type != "video") {
+                log.info("cannot convert oembed [non-video"+t3.media.oembed.type+"]: "+photo.url);
+                return undefined;
+            }
+            if (photo.o_url === undefined)
+                photo.o_url = photo.url;
+            if (!t3.media.oembed.thumbnail_url) {
+                log.info("cannot convert oembed [video: no thumbnail]: "+photo.url);
+                return undefined;
+            }
+            var shortid = url2shortid(t3.media.oembed.thumbnail_url, -1, '-', false);
+            initPhotoVideo(photo, originOf(t3.media.oembed.thumbnail_url)+"/"+shortid+".mp4", t3.media.oembed.thumbnail_url);
+
         } else
             return undefined;
 
@@ -5509,6 +5531,8 @@ $(function () {
                     photo.title = title.replace(re, "").trim();
                 }
             }
+            if (idorig.author_flair_text)
+                photo.extra = $('<div/>').html($('<span>', { class: 'linkflair' }).text(idorig.author_flair_text)).html();
 
             if (flair)
                 photo.flair = flair;
@@ -5575,11 +5599,11 @@ $(function () {
             }
 
             // Watch out for "fake" subreddits
-            if (rp.url.type == 'reddit' && (rp.url.sub == 'random' || rp.url.sub == 'randnsfw')) {
-                rp.url.origsub = rp.url.sub;
+            if (rp.url.site == 'reddit' && rp.url.type == 'r' && (rp.url.sub == 'random' || rp.url.sub == 'randnsfw')) {
                 // add rest of URL to subreddit e.g. /r/random/top
                 rp.url.sub = data.data.children[0].data.subreddit;
                 var base = rpurlbase();
+                log.info("ACTUAL: "+base);
 
                 setSubredditLink(rp.reddit.base + base, "reddit");
                 $('#subredditUrl').val(base);
