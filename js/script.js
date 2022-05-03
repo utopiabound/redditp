@@ -4949,8 +4949,6 @@ $(function () {
             headers: {
                 "Authorization": "Basic " + btoa(rp.api_key.reddit + ":")
             },
-            username: rp.api_key.reddit,
-            password: '',
             success: handleData,
             error: handleError,
             timeout: rp.settings.ajaxTimeout,
