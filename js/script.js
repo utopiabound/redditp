@@ -796,7 +796,11 @@ $(function () {
         var username = site.user;
         if (site.t == 'flickr')
             username = flickrUserPP(username);
-        return localLink(siteUserUrl(site.user, site.t), username, '/'+site.t+'/u/'+username, alt);
+        let userlink = siteUserUrl(site.user, site.t);
+        if (site.t == 'redgifs')
+            // CORS
+            return titleFaviconLink(userlink, username, site.t, alt);
+        return localLink(userlink, username, '/'+site.t+'/u/'+username, alt);
     };
 
     var siteTagUrl = function(tag, type) {
@@ -2243,6 +2247,14 @@ $(function () {
                 if (a)
                     o += "&start="+a;
                 initPhotoEmbed(pic, o);
+
+            } else if (hostname == 'eporner.com') {
+                a = pathnameOf(pic.url).replaceAll('//', '/').split('/');
+                if (a.length < 5)
+                    shortid = url2shortid(pic.url, 1, '-');
+                else
+                    shortid = a[2];
+                initPhotoEmbed(pic, 'https://www.eporner.com/embed/'+shortid, false);
 
             } else if (hostname == 'facebook.com') {
                 a = pathnameOf(pic.url).split('/');
@@ -4757,7 +4769,7 @@ $(function () {
                         site = "onlyfans";
                     else if (site.match(/^(sna?pcha?t|snp|snap?|sc)$/) || site == "\u{1f47b}") // Ghost
                         site = "snapchat";
-                    else if (site.match(/^(insta|ig)/) || site == "g")
+                    else if (site.match(/^(insta.*|i?g)$/) && match.toLowerCase() != "g-string")
                         site = "instagram";
                     else if (site == "tw")
                         site = "twitter";
@@ -4780,7 +4792,7 @@ $(function () {
                         social = "snapchat";
                     else if (subreddit.match(/face/i))
                         social = "facebook";
-                    else if (subreddit.match(/insta/i) || flair.match(/insta/i))
+                    else if (subreddit.match(/(insta|gram)/i) || flair.match(/insta/i))
                         social = "instagram";
                     else if (subreddit.match(/twitch/i) || flair.match(/twitch/i))
                         social = "twitch";
