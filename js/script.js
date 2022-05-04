@@ -796,7 +796,7 @@ $(function () {
         var username = site.user;
         if (site.t == 'flickr')
             username = flickrUserPP(username);
-        let userlink = siteUserUrl(site.user, site.t);
+        var userlink = siteUserUrl(site.user, site.t);
         if (site.t == 'redgifs')
             // CORS
             return titleFaviconLink(userlink, username, site.t, alt);
@@ -4754,9 +4754,9 @@ $(function () {
         // SITE : NAME  and @NAME
         var re;
         if (rp.session.regexUnicode)
-            re = /(?:[[{(]\s*|\b|^)?([A-Za-z.]*|\p{Emoji})\s*((?:&\w+;)?[-:@][-:@\s]*|\]\[|\)\s*\()[\[\s]*([\w.-]+\w)(?:\s*[)\]}])?/ug;
+            re = /(?:[[{(]\s*|\b|^)?([A-Za-z.]*|\p{Emoji})\s*((?:&\w+;)?[-:@][-:@\s]*|\]\[|\)\s*\()[[\s]*([\w.-]+\w)(?:\s*[)\]}])?/gu;
         else
-            re = /(?:[[{(]\s*|\b|^)?([A-Za-z.]*)\s*((?:&\w+;)?[-:@][-:@\s]*|\]\[|\)\s*\()[\[\s]*([\w.-]+\w)(?:\s*[)\]}])?/g;
+            re = /(?:[[{(]\s*|\b|^)?([A-Za-z.]*)\s*((?:&\w+;)?[-:@][-:@\s]*|\]\[|\)\s*\()[[\s]*([\w.-]+\w)(?:\s*[)\]}])?/g;
         t1 = t1.replace(re, function(match, site, connector, name) {
             site = site.toLowerCase().replaceAll(".", "");
             try {

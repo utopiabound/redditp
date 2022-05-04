@@ -9,7 +9,7 @@ module.exports = {
     },
     "extends": "eslint:recommended",
     "parserOptions": {
-        "ecmaVersion": 2016
+        "ecmaVersion": "latest"
     },
     "plugins": ["jquery"],
     "rules": {
@@ -314,7 +314,7 @@ module.exports = {
 	"jquery/no-serialize": 2,
 	"jquery/no-show": "off",
 	"jquery/no-size": "error",
-	"jquery/no-sizzle": "warn",
+	"jquery/no-sizzle": "off",
 	"jquery/no-slide": 2,
 	"jquery/no-submit": 2,
 	"jquery/no-text": "off",

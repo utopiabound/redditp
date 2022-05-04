@@ -22,6 +22,10 @@
     line-height: 20px;
 }
 
+#navboxExtra {
+    margin-top: -2px;
+}
+
 .numberButtonList li {
     width: 30px;
     height: 30px;
