@@ -143,8 +143,10 @@ rp.settings = {
     alwaysSecure: true,
     minScore: 1,
     decivolume: 5,
-    // Multi-reddit cache per-user lifetime (1H)
+    // cache Multi-reddit per-user lifetime (1H)
     multiExpire: 3600,
+    // cache per-subreddit lifetime (4H)
+    subExpire: 14400,
     // default number of Photos to load
     count: 25,
     // show All Embedded Items
@@ -274,7 +276,8 @@ rp.loaded = {};
 // per-site local cache
 rp.sitecache = {
     reddit: {
-        multi: {} // username: { date: DATE, data: [] }
+        multi: {}, // username: { date: DATE, data: [] }
+        sub: {} // subreddit.toLowerCase(): { date: DATE, data: {T5} }
     }
 };
 
@@ -2567,7 +2570,8 @@ $(function () {
                     if (href.prop('hostname').startsWith('m.'))
                         href.prop('hostname', href.prop('hostname').replace('m.', 'www.'));
 
-                    if (hostname == 'nonktube.com' ||
+                    if (hostname == 'bigfuck.tv' ||
+                        hostname == 'nonktube.com' ||
                         hostname == 'theporngod.com' ||
                         hostname == 'xhamster.com' ||
                         hostname == 'youporn.com')
@@ -2761,7 +2765,15 @@ $(function () {
         return (user &&
                 rp.sitecache.reddit.multi[user] &&
                 rp.sitecache.reddit.multi[user].date+rp.settings.multiExpire > currentTime());
-    }
+    };
+
+    // Check if data is present and current
+    var checkRedditSubCache = function(name) {
+        var sub = name.toLowerCase();
+        return (sub &&
+                rp.sitecache.reddit.sub[sub] &&
+                rp.sitecache.reddit.sub[sub].date+rp.settings.multiExpire > currentTime());
+    };
 
     var updateRedditMultiCache = function(user, data) {
         if (!user)
@@ -2771,7 +2783,18 @@ $(function () {
             rp.sitecache.reddit.multi[user].date+rp.settings.multiExpire > now)
             return;
         rp.sitecache.reddit.multi[user] = { date: now, data: data };
-    }
+    };
+
+    var updateRedditSubCache = function(name, data) {
+        if (!name)
+            return;
+        var sub = name.toLowerCase();
+        var now = currentTime();
+        if (rp.sitecache.reddit.sub[sub] &&
+            rp.sitecache.reddit.sub[sub].date+rp.settings.subExpire > now)
+            return;
+        rp.sitecache.reddit.sub[sub] = { date: now, data: data };
+    };
 
     // Register keyboard events on the whole document
     $(document).keyup(function (e) {
@@ -4845,6 +4868,27 @@ $(function () {
         clearConfig(configNames.redditRefreshBy);
     };
 
+    var setRedditInfoHtml = function(blob) {
+        var div = $('<div />').html(unescapeHTML(blob));
+        // fixup links
+        div.find("a").each(function(_i, item) {
+            if (originOf(item.href) == window.location.origin) {
+                $(item).addClass("local");
+                var a = pathnameOf(item.href).split("/");
+                if ((a[1] == "user" || a[1] == "u") && a[3] == "m" && rp.sitecache.reddit.multi[a[2]]) {
+                    for (var i = 0; i < rp.sitecache.reddit.multi[a[2]].data.length; ++i) {
+                        if (a[4] == rp.sitecache.reddit.multi[a[2]].data[i].data.name) {
+                            if (rp.sitecache.reddit.multi[a[2]].data[i].data.visibility == "private")
+                                item.href = "/me/m/"+a[4];
+                            break;
+                        }
+                    }
+                }
+            }
+        });
+        $('#subRedditInfo').html(div.html());
+    };
+
     var redditMultiAppend = function(data, list, multi) {
         data.forEach(function(item) {
             var path;
@@ -4861,25 +4905,7 @@ $(function () {
                 cl += " show-nsfw";
             if (item.data.name == multi) {
                 selected = true;
-                // fixup links
-                var div = $('<div />').html(unescapeHTML(item.data.description_html));
-                div.find("a").each(function(_i, item) {
-                    if (originOf(item.href) == window.location.origin) {
-                        $(item).addClass("local");
-                        var a = pathnameOf(item.href).split("/");
-                        if ((a[1] == "user" || a[1] == "u") && a[3] == "m" && rp.sitecache.reddit.multi[a[2]]) {
-                            for (var i = 0; i < rp.sitecache.reddit.multi[a[2]].data.length; ++i) {
-                                if (a[4] == rp.sitecache.reddit.multi[a[2]].data[i].data.name) {
-                                    if (rp.sitecache.reddit.multi[a[2]].data[i].data.visibility == "private")
-                                        item.href = "/me/m/"+a[4];
-                                    break;
-                                }
-                            }
-                        }
-                        // @@ check if multi is private
-                    }
-                });
-                $('#subRedditInfo').html(div.html());
+                setRedditInfoHtml(item.data.description_html);
             }
 
             var link = redditLink(path, item.data.description_md, item.data.display_name, selected);
@@ -5075,6 +5101,31 @@ $(function () {
                     headers: rp.session.redditHdr,
                     dataType: 'json',
                     success: handleData,
+                    error: failedAjax,
+                    timeout: rp.settings.ajaxTimeout,
+                    crossDomain: true,
+                });
+        }
+        if (rp.url.site == "reddit" && rp.url.type == "r" && !rp.url.sub.includes('+')) {
+            var jsonUrl2 = rp.reddit.api + rpurlbase() + '/about.json';
+            // handle t5 data
+            var handleT5 = function(sub, t5) {
+                setRedditInfoHtml((t5.public_description) ?t5.public_description_html :t5.description_html);
+            };
+            var handleData2 = function (data) {
+                var sub = data.data.display_name;
+                updateRedditSubCache(sub, data.data);
+                handleT5(sub, data.data);
+            };
+            if (checkRedditSubCache(rp.url.sub))
+                handleT5(rp.url.sub, rp.sitecache.reddit.sub[rp.url.sub.toLowerCase()].data)
+
+            else
+                $.ajax({
+                    url: jsonUrl2,
+                    headers: rp.session.redditHdr,
+                    dataType: 'json',
+                    success: handleData2,
                     error: failedAjax,
                     timeout: rp.settings.ajaxTimeout,
                     crossDomain: true,
@@ -5542,7 +5593,7 @@ $(function () {
                 }
             }
             if (idorig.author_flair_text)
-                photo.extra = $('<div/>').html($('<span>', { class: 'linkflair' }).text(idorig.author_flair_text)).html();
+                photo.extra = $('<div/>').html($('<span>', { class: 'linkflair' }).text(unescapeHTML(idorig.author_flair_text))).html();
 
             if (flair)
                 photo.flair = flair;
