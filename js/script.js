@@ -2034,7 +2034,7 @@ $(function () {
             pic.type == imageTypes.image)
             return true;
 
-        var shortid, a, o, host;
+        var shortid, a, i, o, host;
         var fqdn = hostnameOf(pic.url);
         // hostname only: second-level-domain.tld
         var hostname = hostnameOf(pic.url, true);
@@ -2201,6 +2201,8 @@ $(function () {
                        fqdn == 'i.reddituploads.com') {
                 initPhotoImage(pic);
 
+                // ###################### //
+
             } else if (hostname == 'apnews.com' ||
                        hostname == 'livestream.com' ||
                        hostname == 'streamable.com' ||
@@ -2209,6 +2211,20 @@ $(function () {
                 if (url2shortid(pic.url))
                     // These domains should always be processed later
                     pic.type = imageTypes.later;
+
+            } else if (hostname == 'asianpornmovies.com') {
+                a = pathnameOf(pic.url).split('/');
+                if (a[1] != "embed" && a[1] != "video")
+                    throw "unknown url"
+                shortid = url2shortid(pic.url, -1, '-');
+                initPhotoEmbed(pic, originOf(pic.url)+"/embed/"+shortid, false);
+
+            } else if (hostname == 'biguz.net') {
+                a = searchOf(pic.url);
+                if (a.id)
+                    initPhotoEmbed(pic, originOf(pic.url)+"/embed.php?id="+a.id, false);
+                else
+                    throw "unknown url";
 
             } else if (hostname == 'blogspot.com') {
                 if (pathnameOf(pic.url).endsWith('.html'))
@@ -2364,6 +2380,22 @@ $(function () {
                     pic.fallback = [ 'https://pixeldrain.com/api/file/'+shortid+'/image' ];
                 }
 
+            } else if (hostname == 'playvids.com' ||
+                       hostname == 'daftsex.com' ||
+                       hostname == 'sendvid.com' ||
+                       hostname == 'pornflip.com') {
+                a = pathnameOf(pic.url).split('/');
+                i = 1;
+                while (a[i].length == 2 || // language
+                       a[i] == "v" ||
+                       a[i] == "video")
+                    ++i;
+                if (i < a.length)
+                    shortid = a[i];
+                else
+                    throw "bad url"
+                initPhotoEmbed(pic, originOf(pic.url)+"/embed/"+shortid, false);
+
             } else if (hostname == 'pornhits.com') {
                 a = pathnameOf(pic.url).split('/');
                 if (a[1] != 'video')
@@ -2392,15 +2424,6 @@ $(function () {
             } else if (hostname == 'redtube.com') {
                 shortid = url2shortid(pic.url);
                 initPhotoEmbed(pic, 'https://embed.redtube.com/?bgcolor=000000&id='+shortid, false);
-
-            } else if (hostname == 'sendvid.com' ||
-                       hostname == 'pornflip.com') {
-                a = pathnameOf(pic.url).split('/');
-                if (a[1] == "v")
-                    shortid = a[2];
-                else
-                    shortid = a[1];
-                initPhotoEmbed(pic, originOf(pic.url)+'/embed/'+shortid, false);
 
             } else if (hostname == 'spankbang.com') {
                 shortid = url2shortid(pic.url, 1);
@@ -2495,6 +2518,10 @@ $(function () {
                 } else
                     throw "unknown twitter url";
 
+            } else if (hostname == 'vidoza.net') {
+                shortid = url2shortid(pic.url, -1, '-');
+                initPhotoEmbed(pic, originOf(pic.url)+"/embed-"+shortid+".html", false);
+
             } else if (hostname == 'vimeo.com') {
                 shortid = url2shortid(pic.url);
                 initPhotoEmbed(pic, 'https://player.vimeo.com/video/'+shortid+'?autoplay=1');
@@ -2551,8 +2578,11 @@ $(function () {
                      a[1] == 'v')) {
                     // Sites that definitely don't work with above
                     if (hostname == 'bing.com' ||
+                        hostname == 'analhorny.com' ||
+                        hostname == 'camwhores.tube' ||
                         hostname == 'gifscroll.com' ||
                         hostname == 'gothdporn.com' ||
+                        hostname == 'hdpornz.biz' ||
                         hostname == 'hog.mobi' ||
                         hostname == 'hog.tv' ||
                         hostname == 'javtiful.com' ||
@@ -4770,8 +4800,12 @@ $(function () {
                 return socialUserLink(domains[2], "tumblr");
             if (hn == 'instagram.com')
                 return socialUserLink(path.replace(/^[/]/, '').replace(/\/.*/,''), "instagram");
-            else
-                return titleFLink(match, fqdn+path);
+            if (hn == 'reddit.com') {
+                if (path.startsWith("/r/"))
+                    return path; // will be picked up below
+                // else fall through
+            }
+            return titleFLink(match, fqdn+path);
         });
 
         // SITE : NAME  and @NAME
@@ -4832,8 +4866,11 @@ $(function () {
             log.debug("TITLE 1: `"+title+"'\n      -> `"+t1);
 
         // r/subreddit
-        t1 = t1.replace(/(?=^|\W|\b)\/?(r\/[\w-]+)\s*/gi, function(match, p1) {
-            return titleRLink('/'+p1, p1, match);
+        t1 = t1.replace(/(?=^|\W|\b)\/?(r\/[\w-]+)((?:\/[\w-]+)*)\/?\s*/gi, function(match, p1, p2) {
+            var t = titleRLink('/'+p1, p1, match);
+            if (p2)
+                t += titleFLink("https://reddit.com"+match, url2shortid(p2));
+            return t;
         });
 
         // u/redditUser
