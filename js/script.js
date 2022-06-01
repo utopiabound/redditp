@@ -1027,9 +1027,11 @@ $(function () {
             return photo.title;
         return "";
     };
+
     var picTitleText = function(pic) {
         return unescapeHTML(picTitle(pic));
     };
+
     var picFlair = function(pic) {
         if (pic.flair !== undefined)
             return pic.flair;
@@ -1038,6 +1040,7 @@ $(function () {
             return photo.flair;
         return "";
     };
+
     var picExtra = function(pic) {
         if (pic.extra !== undefined)
             return pic.extra;
@@ -2171,6 +2174,11 @@ $(function () {
                 else
                     throw "unknown wikimedia url"
 
+            } else if (hostname == "streamtape.com") {
+                // url may end in video extension
+                shortid = url2shortid(pic.url, 2);
+                initPhotoEmbed(pic, originOf(pic.url)+"/e/"+shortid+"/", false)
+
             } else if (isVideoExtension(pic.url)) { // #### VIDEO ####
                 initPhotoVideo(pic);
 
@@ -2431,10 +2439,6 @@ $(function () {
                     throw "search url";
                 initPhotoEmbed(pic, 'https://spankbang.com/embed/'+shortid, false);
 
-            } else if (hostname == "streamtape.com") {
-                shortid = url2shortid(pic.url, 2);
-                initPhotoEmbed(pic, originOf(pic.url)+"/e/"+shortid+"/", false)
-
             } else if (hostname == 'streamvi.com') {
                 shortid = url2shortid(pic.url);
                 initPhotoVideo(pic, 'https://cdnvistreamviz.r.worldssl.net/uploads/'+shortid+'.mp4',
@@ -2518,8 +2522,9 @@ $(function () {
                 } else
                     throw "unknown twitter url";
 
-            } else if (hostname == 'vidoza.net') {
-                shortid = url2shortid(pic.url, -1, '-');
+            } else if (hostname == 'vidoza.net' ||
+                       hostname == 'yodbox.com') {
+                shortid = url2shortid(pic.url, 1, '-');
                 initPhotoEmbed(pic, originOf(pic.url)+"/embed-"+shortid+".html", false);
 
             } else if (hostname == 'vimeo.com') {
@@ -3406,7 +3411,7 @@ $(function () {
         $('#navboxTitle').html(picTitle(image));
         var flair = picFlair(image);
         if (flair)
-            $('#navboxTitle').prepend($('<span>', { class: 'linkflair' }).text(flair));
+            $('#navboxTitle').prepend($('<span>', { class: 'linkflair' }).html(flair));
         if (photo.score !== undefined)
             $('#navboxScore span').attr('title', 'Score: '+photo.score).text(humanReadInt(photo.score)).parent().show();
         else
@@ -4741,6 +4746,22 @@ $(function () {
         return url;
     };
 
+    // input: array of flair_richtext objects
+    // output: html to wrap in <span class="linkflair">RETURNED FLAIR</span>
+    var fixupRedditFlair = function(richtexts) {
+        var rc = "";
+        richtexts.forEach(function(elem) {
+            if (elem.e == "text") {
+                rc += elem.t;
+            } else if (elem.e == "emoji") {
+                rc += $('<div/>').html($("<img>", { 'class': "emoji", src: elem.u, alt: elem.a, title: elem.a })).html();
+            } else {
+                log.error("Bad RichText Flair type ["+elem.e+"]: "+elem);
+            }
+        });
+        return rc;
+    };
+
     var fixupUrl = function (url) {
         // fix reddit bad quoting
         url = url.replace(/&amp;/gi, '&');
@@ -4826,7 +4847,7 @@ $(function () {
                         site = "onlyfans";
                     else if (site.match(/^(sna?pcha?t|snp|snap?|sc)$/) || site == "\u{1f47b}") // Ghost
                         site = "snapchat";
-                    else if (site.match(/^(insta.*|i?g)$/) && match.toLowerCase() != "g-string")
+                    else if (site.match(/^(insta.*|i?g)$/) && !["string", "cups"].includes(name.toLowerCase()))
                         site = "instagram";
                     else if (site == "tw")
                         site = "twitter";
@@ -5620,7 +5641,7 @@ $(function () {
                 comments: rp.reddit.base + idorig.permalink
             };
             var title = photo.title;
-            var flair = "";
+
             // Add flair (but remove if also in title)
             if (idorig.link_flair_text) {
                 flair = idorig.link_flair_text.replace(/:[^:]+:/g, "").trim();
@@ -5628,12 +5649,11 @@ $(function () {
                     var re = new RegExp('[\\[\\{\\(]'+RegExp.quote(flair)+'[\\]\\}\\)]', "ig");
                     photo.title = title.replace(re, "").trim();
                 }
+                photo.flair = fixupRedditFlair(idorig.link_flair_richtext);
             }
-            if (idorig.author_flair_text)
-                photo.extra = $('<div/>').html($('<span>', { class: 'linkflair' }).text(unescapeHTML(idorig.author_flair_text))).html();
+            if (idorig.author_flair_richtext)
+                photo.extra = $('<div/>').html($('<span>', { class: 'linkflair' }).html(fixupRedditFlair(idorig.author_flair_richtext))).html();
 
-            if (flair)
-                photo.flair = flair;
             fixupPhotoTitle(photo);
 
             if (idorig.author != "[deleted]")
@@ -5657,13 +5677,13 @@ $(function () {
 
             else if (!rc && idorig.domain == 'reddit.com') {
                 // these shouldn't be added via tryPreview nor speculative lookups
-                log.info('will not display url [no image]: ' + photo.o_url);
+                log.info('will not display url [no image]: ' + (photo.o_url || photo.url));
                 return;
             }
 
             rc = processPhoto(photo);
 
-            flair = photo.flair || "";
+            var flair = photo.flair || "";
 
             if ((photo.type != imageTypes.fail) &&
                 (flair.toLowerCase() == 'request' ||

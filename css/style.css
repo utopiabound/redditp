@@ -384,6 +384,13 @@ div.score {
 
 #albumNumberButtons { border-top: 2px solid grey; }
 
+.linkflair .emoji {
+    height: 16px;
+    width: 16px;
+    vertical-align: top;
+    margin-top: -1px;
+}
+
 .linkflair {
     border: 1px solid grey;
     border-radius: 5px;
