@@ -2391,6 +2391,7 @@ $(function () {
             } else if (hostname == 'playvids.com' ||
                        hostname == 'daftsex.com' ||
                        hostname == 'sendvid.com' ||
+                       hostname == 'streamja.com' ||
                        hostname == 'pornflip.com') {
                 a = pathnameOf(pic.url).split('/');
                 i = 1;
@@ -2438,6 +2439,10 @@ $(function () {
                 if (shortid == "s")
                     throw "search url";
                 initPhotoEmbed(pic, 'https://spankbang.com/embed/'+shortid, false);
+
+            } else if (hostname == 'streamff.com') {
+                shortid = url2shortid(pic.url);
+                initPhotoVideo(pic, 'https://streamff.com/uploads/'+shortid+'.mp4?autoplay=true&loop=true');
 
             } else if (hostname == 'streamvi.com') {
                 shortid = url2shortid(pic.url);
@@ -2585,6 +2590,7 @@ $(function () {
                     if (hostname == 'bing.com' ||
                         hostname == 'analhorny.com' ||
                         hostname == 'camwhores.tube' ||
+                        hostname == 'fodder.gg' ||
                         hostname == 'gifscroll.com' ||
                         hostname == 'gothdporn.com' ||
                         hostname == 'hdpornz.biz' ||
@@ -2622,6 +2628,10 @@ $(function () {
                         log.info("AUTOGENERATE embed ["+pic.o_url+"]: "+pic.url);
                     }
                     return true;
+
+                } else if (a[1] == 'embed') {
+                    log.info("AUTO embed: "+pic.url);
+                    initPhotoEmbed(pic);
 
                 } else if (rp.wp[hostname] === undefined) {
                     shortid = url2shortid(pic.url);
@@ -5651,7 +5661,7 @@ $(function () {
                 }
                 photo.flair = fixupRedditFlair(idorig.link_flair_richtext);
             }
-            if (idorig.author_flair_richtext)
+            if (idorig.author_flair_richtext && idorig.author_flair_richtext.length)
                 photo.extra = $('<div/>').html($('<span>', { class: 'linkflair' }).html(fixupRedditFlair(idorig.author_flair_richtext))).html();
 
             fixupPhotoTitle(photo);
