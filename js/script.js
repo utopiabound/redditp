@@ -1518,6 +1518,24 @@ $(function () {
             // Some embedded sites don't display correctly, so disable by default
             setConfig(configNames.embed, rp.NEVER);
             setTristate($('#embed'), rp.NEVER);
+
+        } else if (/(Android)/.test(ua)) {
+            // collapse duplicates by default
+            var dups = $('#duplicatesCollapser');
+            if (dups.data(STATE) != "closed") {
+                $('#duplicatesCollapser').click();
+            }
+
+            // Remove :hover on #loginLi, so it only responds to clicks
+            $('#loginLi').removeClass('use-hover');
+
+            $(document).on('click', 'a.remote', function (event) {
+                if (event) {
+                    event.preventDefault();
+                    event.stopImmediatePropagation();
+                }
+                open_in_background($(this));
+            });
         }
     };
 
