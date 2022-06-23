@@ -766,6 +766,8 @@ $(function () {
                 return titleFaviconLink('https://twitch.tv/'+user, user, "Twitch", alt);
             if (type == "twitter")
                 return titleFaviconLink('https://twitter.com/'+user, user, "Twitter", alt);
+            if (type == "vsco")
+                return titleFaviconLink('https://vsco.co/'+user, user, "VSCO", alt);
             throw "Unknown Social Type: "+type;
         }
     };
@@ -4891,6 +4893,8 @@ $(function () {
                         social = "twitch";
                     else if (hn == "twitter.com" || subreddit.match(/twit/i) || flair.match(/twit/i))
                         social = "twitter";
+                    else if (subreddit.match(/vsco/i) || flair.match(/vsco/i))
+                        social = "vsco";
                     return socialUserLink(name, social, match);
                 }
             } catch (e) {
