@@ -2587,24 +2587,25 @@ $(function () {
                      a[1] == 'view' ||
                      a[1] == 'v')) {
                     // Sites that definitely don't work with above
-                    if (hostname == 'bing.com' ||
-                        hostname == 'analhorny.com' ||
-                        hostname == 'camwhores.tube' ||
-                        hostname == 'fodder.gg' ||
-                        hostname == 'gifscroll.com' ||
-                        hostname == 'gothdporn.com' ||
-                        hostname == 'hdpornz.biz' ||
-                        hostname == 'hog.mobi' ||
-                        hostname == 'hog.tv' ||
-                        hostname == 'javtiful.com' ||
-                        hostname == 'madnsfw.com' ||
-                        hostname == 'mulemax.com' ||
-                        hostname == 'pornloupe.com' || // embed is SAMEORIGIN
-                        hostname == 'pornzog.com' ||
-                        hostname == 'watchmygf.me' ||
-                        hostname == 'xfantasy.com' ||
-                        hostname == 'xfantazy.com' ||
-                        hostname == 'xfantasy.tv')
+                    if (['bing.com',
+                         'analhorny.com',
+                         'camwhores.tube',
+                         'cc.com',
+                         'fodder.gg',
+                         'gifscroll.com',
+                         'gothdporn.com',
+                         'hdpornz.biz',
+                         'hog.mobi',
+                         'hog.tv',
+                         'javtiful.com',
+                         'madnsfw.com',
+                         'mulemax.com',
+                         'pornloupe.com', // embed is SAMEORIGIN
+                         'pornzog.com',
+                         'watchmygf.me',
+                         'xfantasy.com',
+                         'xfantazy.com',
+                         'xfantasy.tv'].includes(hostname))
                         throw "no embed";
                     shortid = url2shortid(pic.url, 2, '-');
                     var href = $('<a>').attr('href', pic.url);
@@ -4810,7 +4811,11 @@ $(function () {
         return url;
     };
 
-    var urlregexp = new RegExp('https?://[\\w\\._-]{1,256}\\.[a-z]{2,6}(/[\\w/\\.-]*)?', 'gi');
+    // This is RFC3986 compliantish
+    // TLDs are currently 2 to 6 alphabetic characters
+    // "path" match is complient
+    // Missing, query (?stuff), and fragment (#stuff)
+    var urlregexp = new RegExp('https?://[\\w\\._-]{1,256}\\.[a-z]{2,6}(/([\\w\\-\\.~]|%[0-9a-f]{2}|[!$&\'()*+,;=@])+)*', 'gi');
 
     var fixupPhotoTitle = function(pic, origtitle, parent_sub) {
         var title = unescapeHTML(origtitle) || pic.title;
@@ -7385,7 +7390,9 @@ $(function () {
 
             rpurlReset();
 
-            if (a[0] == 'auth') {
+            var t = a.shift().toLowerCase();
+
+            if (t == 'auth') {
                 var args = searchOf(window.location.href);
                 var url = decodeURIComponent(args.state);
                 if (url.startsWith('/auth'))
@@ -7410,8 +7417,7 @@ $(function () {
                 loadRedditMultiList();
                 return;
 
-            } else if (['r', 'me', 'u', 'user', 'domain'].includes(a[0])) {
-                var t = a.shift();
+            } else if (['r', 'me', 'u', 'user', 'domain'].includes(t)) {
                 if (t == 'r' || t == 'domain') {
                     rp.url.type = t;
                     rp.url.sub = decodeURIComponent(a.shift());
@@ -7432,8 +7438,8 @@ $(function () {
                     log.info("Bad PATH: "+arr[i]);
                     continue;
                 }
-            } else if (['flickr', 'gfycat', 'imgur', 'redgifs', 'iloopit'].includes(a[0])) {
-                rp.url.site = a.shift();
+            } else if (['flickr', 'gfycat', 'imgur', 'redgifs', 'iloopit'].includes(t)) {
+                rp.url.site = t;
                 rp.url.type = a.shift() || "";
                 // peak at last item to see if it's a "choice"
                 if (a.length > 1 && rp.choices[rp.url.site][rp.url.type][0].includes(a[a.length-1]))
@@ -7442,11 +7448,10 @@ $(function () {
                     rp.url.sub = decodeURIComponent(a.join(" "));
                     a = [];
                 }
-            } else if (['blogger', 'wp', 'wp2', 'tumblr'].includes(a[0])) {
-                rp.url.site = a.shift();
+            } else if (['blogger', 'wp', 'wp2', 'tumblr'].includes(t)) {
+                rp.url.site = t;
                 rp.url.sub = a.shift();
-            } else if (a[0] == "")
-                a.shift();
+            }
 
             if (a.length > 0) {
                 var c = a.shift();

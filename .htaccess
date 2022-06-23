@@ -12,8 +12,8 @@ RewriteCond %{REQUEST_URI} ^.*/(css/.*)$
 RewriteCond %{DOCUMENT_ROOT}/%1 -f
 RewriteRule ^.*$ %1 [L]
 
-RewriteRule ^r/(.*) /index.html
-RewriteRule ^u/(.*) /index.html
+RewriteRule ^[Rr]/(.*) /index.html
+RewriteRule ^[Uu]/(.*) /index.html
 RewriteRule ^user/(.*) /index.html
 RewriteRule ^domain/(.*) /index.html
 RewriteRule ^search(.*) /index.html

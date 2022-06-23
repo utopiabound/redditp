@@ -195,6 +195,7 @@ hr.split { border: 1px inset; }
     position: absolute;
     top: 0;
     right: 0;
+    max-width: 50%;
 }
 
 #info table {
