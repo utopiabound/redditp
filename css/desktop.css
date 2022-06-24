@@ -17,6 +17,10 @@
     line-height: 20px;
 }
 
+.title .social {
+    padding-top: 1px;
+}
+
 #navboxExtra .social {
     font-size: 12px;
     line-height: 20px;
@@ -67,7 +71,6 @@
 .title .favicon {
     height: 24px;
     width: 24px;
-    vertical-align: text-bottom;
 }
 
 .nbmenu .favicon {

@@ -48,6 +48,11 @@ h3 {
     white-space: nowrap;
 }
 
+.title .favicon {
+    vertical-align: middle;
+    margin-right: -2px;
+}
+
 .clouds {
     opacity: 0.9;
     background-color: rgba(0, 0, 0, 0.7);

@@ -39,6 +39,12 @@
     width: 24px;
 }
 
+.title .favicon {
+    height: 28px;
+    width: 28px;
+    margin-bottom: 2px;
+}
+
 /* 3 rows of number visible */
 .numberButtonList { max-height: 108px; }
 

@@ -1471,6 +1471,7 @@ $(function () {
             $('.canlogin').remove();
 
         // OS/Browser Specific
+        var dups;
         var ua = navigator.userAgent;
         if (/(iPad|iPhone|iPod|Mobile)/.test(ua)) {
             var v = ua.match(/OS (\d+)/);
@@ -1494,7 +1495,7 @@ $(function () {
             rp.session.showRedditLink = false;
 
             // collapse duplicates by default
-            var dups = $('#duplicatesCollapser');
+            dups = $('#duplicatesCollapser');
             if (dups.data(STATE) != "closed") {
                 $('#duplicatesCollapser').click();
             }
@@ -1521,7 +1522,7 @@ $(function () {
 
         } else if (/(Android)/.test(ua)) {
             // collapse duplicates by default
-            var dups = $('#duplicatesCollapser');
+            dups = $('#duplicatesCollapser');
             if (dups.data(STATE) != "closed") {
                 $('#duplicatesCollapser').click();
             }
@@ -4867,9 +4868,9 @@ $(function () {
         // SITE : NAME  and @NAME
         var re;
         if (rp.session.regexUnicode)
-            re = /(?:[[{(]\s*|\b|^)?([A-Za-z.]*|\p{Emoji})\s*((?:&\w+;)?[-:@][-:@\s]*|\]\[|\)\s*\()[[\s]*([\w.-]+\w)(?:\s*[)\]}])?/gu;
+            re = /(?:[[{(]\s*|\b|^)?([A-Za-z.$]*|\p{Emoji})\s*((?:&\w+;)?[-:@][-:@\s]*|\]\[|\)\s*\()[[\s]*([\w.-]+\w)(?:\s*[)\]}])?/gu;
         else
-            re = /(?:[[{(]\s*|\b|^)?([A-Za-z.]*)\s*((?:&\w+;)?[-:@][-:@\s]*|\]\[|\)\s*\()[[\s]*([\w.-]+\w)(?:\s*[)\]}])?/g;
+            re = /(?:[[{(]\s*|\b|^)?([A-Za-z.$]*)\s*((?:&\w+;)?[-:@][-:@\s]*|\]\[|\)\s*\()[[\s]*([\w.-]+\w)(?:\s*[)\]}])?/g;
         t1 = t1.replace(re, function(match, site, connector, name) {
             site = site.toLowerCase().replaceAll(".", "");
             try {
@@ -4880,7 +4881,7 @@ $(function () {
                         site = "tiktok";
                     else if (site.match(/^(onlyfans?|of)$/))
                         site = "onlyfans";
-                    else if (site.match(/^(sna?pcha?t|snp|snap?|sc)$/) || site == "\u{1f47b}") // Ghost
+                    else if (site.match(/^[s$](na?pcha?t|np|nap?|c)$/) || site == "\u{1f47b}") // Ghost
                         site = "snapchat";
                     else if (site.match(/^(insta.*|i?g)$/) && !["string", "cups"].includes(name.toLowerCase()))
                         site = "instagram";
