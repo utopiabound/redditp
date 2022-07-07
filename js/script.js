@@ -4794,21 +4794,24 @@ $(function () {
         return url;
     };
 
-    // input: array of flair_richtext objects
     // output: html to wrap in <span class="linkflair">RETURNED FLAIR</span>
-    var fixupRedditFlair = function(richtexts) {
-        var rc = "";
-        richtexts.forEach(function(elem) {
-            if (elem.e == "text") {
-                rc += elem.t;
-            } else if (elem.e == "emoji") {
-                rc += $('<div/>').html($("<img>", { 'class': "emoji", src: elem.u, alt: elem.a, title: elem.a })).html();
-            } else {
-                log.error("Bad RichText Flair type ["+elem.e+"]: "+elem);
-            }
-        });
-        return rc;
-    };
+    var redditFlair = function(type, text, richtexts) {
+        if (type == "text")
+            return text;
+        else { // "richtext"
+            var rc = "";
+            richtexts.forEach(function(elem) {
+                if (elem.e == "text") {
+                    rc += elem.t;
+                } else if (elem.e == "emoji") {
+                    rc += $('<div/>').html($("<img>", { 'class': "emoji", src: elem.u, alt: elem.a, title: elem.a })).html();
+                } else {
+                    log.error("Bad RichText Flair type ["+elem.e+"]: "+elem);
+                }
+            });
+            return rc;
+        }
+    }
 
     var fixupUrl = function (url) {
         // fix reddit bad quoting
@@ -4899,7 +4902,7 @@ $(function () {
                         site = "onlyfans";
                     else if (site.match(/^[s$](na?pcha?t|np|nap?|c)$/) || site == "\u{1f47b}") // Ghost
                         site = "snapchat";
-                    else if (site.match(/^(insta.*|i?g)$/) && !["string", "cups"].includes(name.toLowerCase()))
+                    else if (site.match(/^(insta.*|i?g)$/) && !["rated", "string", "cups", "spot"].includes(name.toLowerCase()))
                         site = "instagram";
                     else if (site == "tw")
                         site = "twitter";
@@ -5701,16 +5704,19 @@ $(function () {
             var title = photo.title;
 
             // Add flair (but remove if also in title)
-            if (idorig.link_flair_text) {
+            var flair = redditFlair(idorig.link_flair_type, idorig.link_flair_text, idorig.link_flair_richtext);
+            if (flair) {
+                photo.flair = flair;
+                // trim out flair from picture title
                 flair = idorig.link_flair_text.replace(/:[^:]+:/g, "").trim();
                 if (flair) {
                     var re = new RegExp('[\\[\\{\\(]'+RegExp.quote(flair)+'[\\]\\}\\)]', "ig");
                     photo.title = title.replace(re, "").trim();
                 }
-                photo.flair = fixupRedditFlair(idorig.link_flair_richtext);
             }
-            if (idorig.author_flair_richtext && idorig.author_flair_richtext.length)
-                photo.extra = $('<div/>').html($('<span>', { class: 'linkflair' }).html(fixupRedditFlair(idorig.author_flair_richtext))).html();
+            flair = redditFlair(idorig.author_flair_type, idorig.author_flair_text, idorig.author_flair_richtext);
+            if (flair)
+                photo.extra = $('<div/>').html($('<span>', { class: 'linkflair' }).html(flair)).html();
 
             fixupPhotoTitle(photo);
 
@@ -5741,7 +5747,7 @@ $(function () {
 
             rc = processPhoto(photo);
 
-            var flair = photo.flair || "";
+            flair = picFlair(photo);
 
             if ((photo.type != imageTypes.fail) &&
                 (flair.toLowerCase() == 'request' ||
