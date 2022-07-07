@@ -35,7 +35,7 @@ if (Date.now === undefined) {
 
 // IE prior to 11, iOS prior to 10, Android (all)
 if (String.prototype.localeCompare === undefined) {
-    String.prototype.localeCompare = function(str, locale, options) {
+    String.prototype.localeCompare = function(str) {
         return ((this == str) ? 0 : ((this > str) ? 1 : -1));
     };
 }
