@@ -305,9 +305,14 @@ div.progress {
     z-index: 100;
 }
 
+#duplicateUl .info .material-icons {
+    font-size: 16px;
+    vertical-align: text-bottom;
+}
+
 /* infoLink:   infol infop [infoc]  infod  [infol infop [infoc]] */
 
-/* redditLink: infol infor [infoc] */
+/* redditLink: infol infor [infoa] [infoc] */
 
 /* font-size set in mobile/desktop */
 .info {

@@ -65,7 +65,7 @@
  *      extra:          HTML Extra information for links concerning photo
  *      thumb:          URL  thumbnail of image (e.g. cached version from reddit)       [set by addPhotoThumb()]
  *      fb_thumb:       ARRAY of URLs Fallback thumbnail urls (must be images)          [set by addPhotoThumb()]
- *      flair:          TEXT text flair put next to title                       [read by picFlair()]
+ *      flair:          HTML flair put next to title                                    [read by picFlair()]
  *      score:          INT  Score (upvotes - downvotes)
  *      fallback:       ARRAY of URLs Fallback urls (if processed pic.url fails, try pic.fallback) [read by find_fallback()]
  *
@@ -83,6 +83,7 @@
  *              -- Site Dependent: Reddit --
  *              subreddit:      TEXT subreddit name (same as above)
  *              commentN:       INT  (same as above)
+ *              a:              TEXT reddit author
  *              -- Site Dependent: Tumblr --
  *              tumblr:         TEXT Tumblr site
  *              url:            URL  link to duplicate post
@@ -119,7 +120,8 @@
  * * Fix dupes on album items (currently album dupes get assigned to parent dupes list), should behave more like tags
  * * use https://oembed.com/providers.json or a processed version for oembed reference?
  * * highlight "selected" multireddit under loginLi
- * * cache per-user multireddit lists
+ * * on rotation/fullscreen event, check icon toggle
+ * * Use /api/v1/me/prefs for defaults?
  */
 
 var rp = {};
@@ -712,6 +714,10 @@ $(function () {
         return data.html();
     };
 
+    var localUserIcon = function(user, type) {
+        return _infoAnchor(rp.url.base+localUserUrl(user, type), googleIcon("attribution"), user, "info infoa local");
+    };
+
     var titleFaviconLink = function(url, text, site, alt) {
         var data = $('<div/>');
         var span = $('<span>', { class: "remote infor" }).html(" at "+site);
@@ -753,7 +759,7 @@ $(function () {
             if (type == "onlyfans")
                 return titleFaviconLink('https://onlyfans.com/'+user, user, "OnlyFans", alt);
             if (type == "reddit")
-                return titleRLink('/user/'+user+'/submitted', 'u/'+user, alt);
+                return titleRLink(localUserUrl(user, type), 'u/'+user, alt);
             if (type == "snapchat")
                 return titleFaviconLink('https://snapchat.com/add/'+user, user, "Snap", alt);
             if (type == "telegram")
@@ -796,6 +802,13 @@ $(function () {
         throw "Unknown Site type: "+type;
     };
 
+    var localUserUrl = function(user, type) {
+        if (type == "reddit")
+            return "/user/"+user+"/submitted";
+        else
+            return "/"+type+"/u/"+user;
+    };
+
     // site == rp.photo[x].site
     var siteUserLink = function(site, alt) {
         var username = site.user;
@@ -805,7 +818,7 @@ $(function () {
         if (site.t == 'redgifs')
             // CORS
             return titleFaviconLink(userlink, username, site.t, alt);
-        return localLink(userlink, username, '/'+site.t+'/u/'+username, alt);
+        return localLink(userlink, username, localUserUrl(username, site.t), alt);
     };
 
     var siteTagUrl = function(tag, type) {
@@ -3348,6 +3361,9 @@ $(function () {
 
                         li.html(redditLink(subr, item.title));
                     }
+                    if (item.a && item.a != photo.author) {
+                        li.append(localUserIcon(item.a, "reddit"));
+                    }
                     li.append($("<a>", { href: rp.reddit.base + subr + "/comments/"+item.id,
                                          class: 'info infoc',
                                          title: (new Date(item.date*1000)).toString(),
@@ -3473,7 +3489,7 @@ $(function () {
             $('#navboxExtra').append($('<span>', { class: 'info infol' }).text((albumIndex+1)+"/"+rp.photos[imageIndex].album.length));
 
         if (authName)
-            $('#navboxAuthor').html(redditLink('/user/'+authName+'/submitted',  authName, '/u/'+authName)).show();
+            $('#navboxAuthor').html(redditLink(localUserUrl(authName, "reddit"),  authName, '/u/'+authName)).show();
 
         else if (image.site && image.site.user)
             $('#navboxAuthor').html(siteUserLink(image.site)).show();
@@ -5176,7 +5192,7 @@ $(function () {
         $('#subRedditInfo').html("&nbsp;");
         if (user) {
             list.append($('<li>').append($('<hr>', { class: "split" })));
-            list.append($('<li>').append(redditLink('/user/'+user+'/submitted', "submitted", "submitted", is_submitted)));
+            list.append($('<li>').append(redditLink(localUserUrl(user, "reddit"), "submitted", "submitted", is_submitted)));
 
             var jsonUrl = rp.reddit.api + '/api/multi/user/' + user;
             var handleData = function (data) {
@@ -5340,11 +5356,7 @@ $(function () {
                 return;
             }
             var pic = photoParent(photo);
-            var index = addPhotoDupe(pic, { subreddit: item.data.subreddit,
-                                            commentN: item.data.num_comments,
-                                            title: item.data.title,
-                                            date: item.data.created,
-                                            id: item.data.id });
+            var index = addPhotoDupe(pic, redditT3ToDupe(item.data));
             dedupArrAdd(dupes, item.data.subreddit, item.data.id);
             if (index >= 0)
                 getRedditComments(pic, pic.dupes[index]);
@@ -5511,6 +5523,18 @@ $(function () {
         });
     };
 
+    // Reddit T3 to duplicate (photo.dupes[N])
+    var redditT3ToDupe = function(item) {
+        var dupe = { subreddit: item.subreddit,
+                     commentN: item.num_comments,
+                     title: item.title,
+                     date: item.created,
+                     id: item.id };
+        if (item.author != "[deleted]")
+            dupe.a = item.author;
+        return dupe
+    };
+
     // T3 is reddit post
     var processRedditT3 = function(photo, t3) {
         // Reddit Gallery Function
@@ -5625,11 +5649,7 @@ $(function () {
                     var cross_link = dedupAdd(item.subreddit, item.id, link);
                     if (cross_link != link)
                         throw "cross-dup: "+cross_link;
-                    duplicates.push({subreddit: item.subreddit,
-                                     commentN: item.num_comments,
-                                     title: item.title,
-                                     date: item.created,
-                                     id: item.id});
+                    duplicates.push(redditT3ToDupe(item));
                 }
                 duplicates = duplicateAddCross(orig_id, duplicates, item);
             }
@@ -5788,11 +5808,7 @@ $(function () {
                         log.info('cannot display url [non-self dup]: '+item.data.url);
                         return;
                     }
-                    duplicates.push({subreddit: dupe.data.subreddit,
-                                     commentN: dupe.data.num_comments,
-                                     title: dupe.data.title,
-                                     date: dupe.data.created,
-                                     id: dupe.data.id});
+                    duplicates.push(redditT3ToDupe(dupe.data));
                 }
                 addImageSlideRedditT3(item.data, duplicates);
 

@@ -17,6 +17,9 @@
     line-height: 20px;
 }
 
+/* info for reddit author link */
+.infoa { margin-left: 2px; }
+
 .title .social {
     padding-top: 1px;
 }
