@@ -1540,6 +1540,9 @@ $(function () {
                 $('#duplicatesCollapser').click();
             }
 
+            // New mobile site doesn't work for auth if not logged in
+            rp.reddit.loginUrl = 'https://old.reddit.com/api/v1/authorize.compact';
+
             // Remove :hover on #loginLi, so it only responds to clicks
             $('#loginLi').removeClass('use-hover');
 
@@ -2340,6 +2343,38 @@ $(function () {
                 else
                     throw "unknown flickr url";
 
+            } else if (hostname == 'flourish.studio') {
+                a = pathnameOf(pic.url).split('/');
+                initPhotoEmbed(pic, "https://flo.uri.sh/"+a[1]+"/"+a[2]+"/embed", false);
+
+            } else if (hostname == 'fw.tv') {
+                a = pathnameOf(pic.url).split('/');
+                if (a[1] == 'videos' ||
+                    a[2] == 'videos')
+                    initPhotoEmbed(pic);
+                else
+                    throw "unknown fw.tv url";
+
+            } else if (hostname == 'gettyimages.com') {
+                o = pathnameOf(pic.url);
+                a = o.split('/');
+                if (fqdn == 'media.gettyimages.com') {
+                    if (a[1] == 'videos')
+                        initPhotoImage(pic, 'https://media.gettyimages.com'+o);
+                    else // assume everything else is photo
+                        initPhotoImage(pic, 'https://media.gettyimages.com'+o+'?s=2048x2048');
+
+                } else if (a[1] == 'detail') {
+                    if (a[a.length-1] == "")
+                        a.pop();
+                    shortid = a.pop();
+                    if (a[2] == 'video')
+                        initPhotoVideo(pic, 'https://media.gettyimages.com/videos/'+a.pop()+'-id'+shortid);
+                    else // photo
+                        initPhotoImage(pic, 'https://media.gettyimages.com/photos/'+a.pop()+'-id'+shortid+'?s=2048x2048');
+                } else
+                    throw "unknown url";
+
             } else if (hostname == 'gyazo.com') {
                 shortid = url2shortid(pic.url);
                 pic.fallback = [ 'https://i.gyazo.com/'+shortid+'.jpg',
@@ -2626,6 +2661,7 @@ $(function () {
                          'camwhores.tube',
                          'cc.com',
                          'fodder.gg',
+                         'fite.tv',
                          'gifscroll.com',
                          'gothdporn.com',
                          'hdpornz.biz',
@@ -2639,7 +2675,9 @@ $(function () {
                          'watchmygf.me',
                          'xfantasy.com',
                          'xfantazy.com',
-                         'xfantasy.tv'].includes(hostname))
+                         'xfantasy.tv',
+                         'xhamster.com'
+                        ].includes(hostname))
                         throw "no embed";
                     shortid = url2shortid(pic.url, 2, '-');
                     var href = $('<a>').attr('href', pic.url);
@@ -2649,7 +2687,6 @@ $(function () {
                     if (hostname == 'bigfuck.tv' ||
                         hostname == 'nonktube.com' ||
                         hostname == 'theporngod.com' ||
-                        hostname == 'xhamster.com' ||
                         hostname == 'youporn.com')
                         initPhotoEmbed(pic, href.prop('origin')+'/embed/'+shortid, false);
 
@@ -3633,7 +3670,7 @@ $(function () {
             oldDiv.detach();
 
             var vid = $('#gfyvid');
-            if (vid) {
+            if (vid && vid.length) {
                 vid.prop('autoplay', true);
                 if (vid[0])
                     try {
@@ -4198,7 +4235,6 @@ $(function () {
             // @@ check xhr.responseJSON?
             // timeout: xhr.status == 0 && xhr.statusText == "timeout"
             if (xhr.status != 0) {
-                log.info("no wp ["+xhr.status+"]: "+xhr.response);
                 rp.wp[hostname] = 0;
                 setConfig(configNames.wp, rp.wp);
             }
@@ -4796,7 +4832,7 @@ $(function () {
 
     // output: html to wrap in <span class="linkflair">RETURNED FLAIR</span>
     var redditFlair = function(type, text, richtexts) {
-        if (type == "text")
+        if (type == "text" || type === undefined)
             return text;
         else { // "richtext"
             var rc = "";
@@ -5221,34 +5257,40 @@ $(function () {
                     crossDomain: true,
                 });
         }
-        if (rp.url.site == "reddit" && rp.url.type == "r" && !rp.url.sub.includes('+')) {
-            var jsonUrl2 = rp.reddit.api + rpurlbase() + '/about.json';
-            // handle t5 data
-            var handleT5 = function(sub, t5) {
-                setRedditInfoHtml((t5.public_description) ?t5.public_description_html :t5.description_html);
-            };
-            var handleData2 = function (data) {
-                var sub = data.data.display_name;
-                updateRedditSubCache(sub, data.data);
-                handleT5(sub, data.data);
-            };
-            if (checkRedditSubCache(rp.url.sub))
-                handleT5(rp.url.sub, rp.sitecache.reddit.sub[rp.url.sub.toLowerCase()].data)
-
-            else
-                $.ajax({
-                    url: jsonUrl2,
-                    headers: rp.session.redditHdr,
-                    dataType: 'json',
-                    success: handleData2,
-                    error: failedAjax,
-                    timeout: rp.settings.ajaxTimeout,
-                    crossDomain: true,
-                });
-        }
 
         $('#choiceTitle').text(base);
         $('#choiceLi').show();
+
+        // Load Sub Info
+        if (rp.url.site != "reddit" ||
+            rp.url.type != "r" ||
+            rp.url.sub.includes('+') ||
+            ["all", "popular", "random", "randnsfw"].includes(rp.url.sub))
+            return;
+
+        var jsonUrl2 = rp.reddit.api + rpurlbase() + '/about.json';
+        // handle t5 data
+        var handleT5 = function(sub, t5) {
+            setRedditInfoHtml((t5.public_description) ?t5.public_description_html :t5.description_html);
+        };
+        var handleData2 = function (data) {
+            var sub = data.data.display_name;
+            updateRedditSubCache(sub, data.data);
+            handleT5(sub, data.data);
+        };
+        if (checkRedditSubCache(rp.url.sub))
+            handleT5(rp.url.sub, rp.sitecache.reddit.sub[rp.url.sub.toLowerCase()].data)
+
+        else
+            $.ajax({
+                url: jsonUrl2,
+                headers: rp.session.redditHdr,
+                dataType: 'json',
+                success: handleData2,
+                error: failedAjax,
+                timeout: rp.settings.ajaxTimeout,
+                crossDomain: true,
+            });
     };
 
     //
@@ -7408,6 +7450,7 @@ $(function () {
             arr = ['', rp.url.site, rp.url.type, rp.url.sub];
         return arr.join("/").replace(/\/+/g, '/').replace(/(.)\/$/, '$1');
     };
+    rp.fn.rpurlbase = rpurlbase;
 
     var rpurlpath = function() {
         return [rpurlbase(), rp.url.choice].join("/").replace(/\/+/g, '/').replace(/(.)\/$/, '$1');
