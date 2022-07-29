@@ -140,7 +140,7 @@ rp.settings = {
     shouldAutoNextSlide: false,
     timeToNextSlide: 8,
     dupeCacheTimeout: 360, // 6 minutes
-    goodImageExtensions: ['jpg', 'jpeg', 'gif', 'bmp', 'png', 'svg'],
+    goodImageExtensions: ['jpg', 'jpeg', 'gif', 'bmp', 'png', 'svg', 'webp'],
     goodVideoExtensions: ['webm', 'mp4', 'mov', 'm4v'], // Matched entry required in rp.mime2ext
     alwaysSecure: true,
     minScore: 1,
@@ -747,6 +747,8 @@ $(function () {
     };
 
     var socialUserLink = function(user, type, alt) {
+        if (type === undefined)
+            throw "Bad Social Type";
         try {
             return siteUserLink({user: user, t: type}, alt);
         } catch (e) {
@@ -2347,6 +2349,21 @@ $(function () {
                 a = pathnameOf(pic.url).split('/');
                 initPhotoEmbed(pic, "https://flo.uri.sh/"+a[1]+"/"+a[2]+"/embed", false);
 
+            } else if (hostname == 'freeuseporn.com') {
+                a = pathnameOf(pic.url).split('/');
+                if (a[1] == 'video') {
+                    o = originOf(pic.url);
+                    shortid = a[2];
+                    initPhotoVideo(pic, [
+                        o+'/media/videos/h264/'+shortid+'_1080p.mp4',
+                        o+'/media/videos/h264/'+shortid+'_720p.mp4',
+                        o+'/media/videos/hd/'+shortid+'.mp4',
+                        o+'/media/videos/h264/'+shortid+'_480p.mp4',
+                        o+'/media/videos/iphone/'+shortid+'.mp4',
+                    ], o+'/media/videos/tmb/'+shortid+'/default.jpg');
+                } else
+                    throw "unknown url";
+
             } else if (hostname == 'fw.tv') {
                 a = pathnameOf(pic.url).split('/');
                 if (a[1] == 'videos' ||
@@ -2670,13 +2687,14 @@ $(function () {
                          'javtiful.com',
                          'madnsfw.com',
                          'mulemax.com',
+                         'noodlemagazine.com',
                          'pornloupe.com', // embed is SAMEORIGIN
                          'pornzog.com',
                          'watchmygf.me',
                          'xfantasy.com',
                          'xfantazy.com',
                          'xfantasy.tv',
-                         'xhamster.com'
+                         'xhamster.com' // only paid embeds
                         ].includes(hostname))
                         throw "no embed";
                     shortid = url2shortid(pic.url, 2, '-');
@@ -2684,9 +2702,11 @@ $(function () {
                     if (href.prop('hostname').startsWith('m.'))
                         href.prop('hostname', href.prop('hostname').replace('m.', 'www.'));
 
+                    // Sistes that do work w/o autoplay
                     if (hostname == 'bigfuck.tv' ||
                         hostname == 'nonktube.com' ||
                         hostname == 'theporngod.com' ||
+                        hostname == 'vrbangers.com' ||
                         hostname == 'youporn.com')
                         initPhotoEmbed(pic, href.prop('origin')+'/embed/'+shortid, false);
 
@@ -2857,9 +2877,9 @@ $(function () {
         while (a.length > 2) {
             a.shift();
             var hn = a.join('.');
-            backup.push(origin.replace(hostname, hn)+'/favicon.ico');
-            backup.push(origin.replace(hostname, hn)+'/favicon.png');
-            backup.push(origin.replace(hostname, hn)+'/favicon-16x16.png');
+            backup.push(fixupUrl(origin.replace(hostname, hn)+'/favicon.ico'));
+            backup.push(fixupUrl(origin.replace(hostname, hn)+'/favicon.png'));
+            backup.push(fixupUrl(origin.replace(hostname, hn)+'/favicon-16x16.png'));
         }
         // #4c check if wordpress v2 site
         if (rp.wp[hostname])
@@ -3076,19 +3096,6 @@ $(function () {
                 audio = hasAudio(i);
             break;
         }
-        var subs = {};
-        rp.photos.forEach(function(photo) {
-            if (photo.subreddit)
-                subs[photo.subreddit] = 1;
-        });
-        i = Object.keys(subs).join("+");
-        if (i) {
-            $('#imageInfoSubMulti').attr('href', rp.reddit.base+'/r/'+i);
-            $('#imageInfoSubMultiP').attr('href', rp.url.base+'/r/'+i);
-            $('tr.forSubs').show();
-        }
-        t.find('tr.forAll').show();
-
         $('#imageInfoType').text(imageTypeStyle[pic.type]);
         $('#imageInfoSize').text(size);
         $('#imageInfoLength').text(length);
@@ -3106,6 +3113,42 @@ $(function () {
             $('#imageInfoAudio').text("?");
             break;
         }
+        var subs = {};
+        var allsubs = {};
+        rp.photos.forEach(function(photo) {
+            if (photo.subreddit) {
+                subs[photo.subreddit] = 1;
+                delete allsubs[photo.subreddit];
+            }
+            if (photo.dupes) {
+                photo.dupes.forEach(function(dupe) {
+                    if (dupe.subreddit && !subs[dupe.subreddit])
+                        allsubs[dupe.subreddit] = (allsubs[dupe.subreddit]) ?allsubs[dupe.subreddit]+1 :1;
+                });
+            }
+        });
+        delete subs[rp.url.sub];
+        i = Object.keys(subs).join("+");
+        if (i) {
+            length = Object.keys(subs).length;
+            $('#imageInfoSubMulti').attr('href', rp.reddit.base+'/r/'+i).attr('title', length);
+            $('#imageInfoSubMultiP').attr('href', rp.url.base+'/r/'+i).attr('title', length);
+            $('tr.forSubs').show();
+        }
+        delete allsubs[rp.url.sub];
+        // Sub list is capped at 250 (for non-gold accounts)
+        length = Object.keys(allsubs).length;
+        if (length <= 250)
+            i = Object.keys(allsubs).join("+");
+        else
+            i = Object.keys(allsubs).sort(function(a, b) { return allsubs[b]-allsubs[a] }).slice(0, 250).join("+");
+        if (i) {
+            $('#imageInfoAllSubMulti').attr('href', rp.reddit.base+'/r/'+i).attr('title', length);
+            $('#imageInfoAllSubMultiP').attr('href', rp.url.base+'/r/'+i).attr('title', length);
+            $('tr.forAllSubs').show();
+        }
+        t.find('tr.forAll').show();
+
         $('#info').show();
     };
 
@@ -4295,9 +4338,12 @@ $(function () {
 
                 initPhotoEmbed(photo, f[0].src);
 
-            } else if (data.fullsize_url && (data.type == 'rich' && data.type == 'link')) {
+            } else if (data.fullsize_url && (data.type == 'rich' || data.type == 'link')) {
                 // non-standard deviantart extention
                 initPhotoImage(photo, data.fullsize_url);
+
+            } else if (data.type == 'rich' && data.html) {
+                initPhotoHtml(photo, data.html);
 
             } else {
                 log.info("cannot display url [unhandled type "+data.type+"]: "+photo.url);
@@ -4920,6 +4966,30 @@ $(function () {
             return titleFLink(match, fqdn+path);
         });
 
+        var metaSocial = function(hn, subreddit, flair, def) {
+            if (hn == "tiktok.com" || subreddit.match(/tiktok/i) || flair.match(/tiktok/i))
+                return "tiktok";
+            if (["facereveals"].includes(subreddit.toLowerCase()))
+                return "reddit";
+            if (subreddit.match(/onlyfan/i) || flair.match(/onlyfan/i))
+                return "onlyfans";
+            if (subreddit.match(/fansly/i) || flair.match(/fansly/i))
+                return "fansly";
+            if (subreddit.match(/snap/i) || flair.match(/snap/i))
+                return "snapchat";
+            if (subreddit.match(/face/i))
+                return "facebook";
+            if (subreddit.match(/(insta|gram)/i) || flair.match(/insta/i))
+                return "instagram";
+            if (subreddit.match(/twitch/i) || flair.match(/twitch/i))
+                return "twitch";
+            if (hn == "twitter.com" || subreddit.match(/twit/i) || flair.match(/twit/i))
+                return "twitter";
+            if (subreddit.match(/vsco/i) || flair.match(/vsco/i))
+                return "vsco";
+            return def;
+        };
+
         // SITE : NAME  and @NAME
         var re;
         if (rp.session.regexUnicode)
@@ -4928,6 +4998,7 @@ $(function () {
             re = /(?:[[{(]\s*|\b|^)?([A-Za-z.$]*)\s*((?:&\w+;)?[-:@][-:@\s]*|\]\[|\)\s*\()[[\s]*([\w.-]+\w)(?:\s*[)\]}])?/g;
         t1 = t1.replace(re, function(match, site, connector, name) {
             site = site.toLowerCase().replaceAll(".", "");
+            var prefix = "";
             try {
                 if (site) {
                     if (site == "fb")
@@ -4944,32 +5015,20 @@ $(function () {
                         site = "twitter";
                     else if (site == "kik")
                         return site+" : "+name; // ensure it doesn't get picked up below
-                    return socialUserLink(name, site, match);
-                } else if (!connector.match(/@/)) {
+                    try {
+                        return socialUserLink(name, site, match);
+                    } catch (e) {
+                        // fall through and attempt to match just name + subreddit/flair
+                        prefix = site+" "
+                    }
+                }
+                if (!connector.match(/@/)) {
                     log.debug("Bad connector "+connector+" for title: "+t1);
                     throw "Bad Connector"
                 } else {
                     var social = (pic.over18) ?"instagram" :"twitter";
-                    var flair = picFlair(pic);
-                    if (hn == "tiktok.com" || subreddit.match(/tiktok/i) || flair.match(/tiktok/i))
-                        social = "tiktok";
-                    else if (subreddit.match(/onlyfan/i) || flair.match(/onlyfan/i))
-                        social = "onlyfans";
-                    else if (subreddit.match(/fansly/i) || flair.match(/fansly/i))
-                        social = "fansly";
-                    else if (subreddit.match(/snap/i) || flair.match(/snap/i))
-                        social = "snapchat";
-                    else if (subreddit.match(/face/i))
-                        social = "facebook";
-                    else if (subreddit.match(/(insta|gram)/i) || flair.match(/insta/i))
-                        social = "instagram";
-                    else if (subreddit.match(/twitch/i) || flair.match(/twitch/i))
-                        social = "twitch";
-                    else if (hn == "twitter.com" || subreddit.match(/twit/i) || flair.match(/twit/i))
-                        social = "twitter";
-                    else if (subreddit.match(/vsco/i) || flair.match(/vsco/i))
-                        social = "vsco";
-                    return socialUserLink(name, social, match);
+                    social = metaSocial(hn, subreddit, picFlair(pic), social);
+                    return prefix+socialUserLink(name, social, match);
                 }
             } catch (e) {
                 return match;
@@ -4988,8 +5047,20 @@ $(function () {
         });
 
         // u/redditUser
-        t1 = t1.replace(/(?=^|\W|\b)(?:[[{(]\s*)?\/?u\/([\w-]+)\s*(?:\s*[)\]}])?/gi, function(match, p1) {
+        t1 = t1.replace(/(?=^|\W|\b)(?:[[{(]\s*)?\/?(?:u|user)\/([\w-]+)\s*(?:\s*[)\]}])?/gi, function(match, p1) {
             return socialUserLink(p1, "reddit", match);
+        });
+
+        // Single Word title (might be username)
+        t1 = t1.replace(/^[\w-]+$/, function(match) {
+            var p1 = match;
+            var flair = picFlair(pic);
+            var social = metaSocial(hn, subreddit, picFlair(pic));
+            try {
+                return socialUserLink(p1, social, match);
+            } catch (e) {
+                return match;
+            }
         });
 
         if (t1 != title)
@@ -5743,17 +5814,23 @@ $(function () {
                 commentN: idorig.num_comments,
                 comments: rp.reddit.base + idorig.permalink
             };
-            var title = photo.title;
 
             // Add flair (but remove if also in title)
             var flair = redditFlair(idorig.link_flair_type, idorig.link_flair_text, idorig.link_flair_richtext);
             if (flair) {
                 photo.flair = flair;
-                // trim out flair from picture title
+                var toremove = [];
                 flair = idorig.link_flair_text.replace(/:[^:]+:/g, "").trim();
-                if (flair) {
-                    var re = new RegExp('[\\[\\{\\(]'+RegExp.quote(flair)+'[\\]\\}\\)]', "ig");
-                    photo.title = title.replace(re, "").trim();
+                if (flair)
+                    toremove.push(flair);
+                if (flair.match(/instagram/i))
+                    toremove.push("ig");
+                var f = photo.flair.match(/\b(\w)/g);
+                if (f)
+                    toremove.push(f.join(''));
+                for(var i in toremove) {
+                    var re = new RegExp('[\\[\\{\\(]'+RegExp.quote(toremove[i])+'[\\]\\}\\)]', "ig");
+                    photo.title = photo.title.replace(re, "").trim();
                 }
             }
             flair = redditFlair(idorig.author_flair_type, idorig.author_flair_text, idorig.author_flair_richtext);
