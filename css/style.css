@@ -50,7 +50,6 @@ h3 {
 
 .title .favicon {
     vertical-align: middle;
-    margin-right: -2px;
 }
 
 .clouds {
@@ -290,6 +289,8 @@ div.progress {
 }
 
 #duplicates ul { display: inline; }
+
+#subredditLink { padding-left: 4px; }
 
 #subredditUrl {
     border: 1px dashed;

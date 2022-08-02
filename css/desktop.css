@@ -4,8 +4,9 @@
     margin-top: 4px;
 }
 
+.material-icons { font-size: 24px; }
+
 #choiceLi { margin: 0 14px 0 -44px; }
-#subredditLink { padding-left: 4px; }
 #refresh { margin-top: -8px; }
 
 #controlsDiv a::before {
@@ -16,6 +17,13 @@
     font-size: 12px;
     line-height: 20px;
 }
+.icontristate { appearance: inline-block; }
+.navbox ul li a { height: 18px; }
+#subredditUrl { font-size: 12px; }
+
+#choiceLi a { margin-top: 2px; }
+
+#multiListDiv ul.iconrow a { height: 18px; }
 
 /* info for reddit author link */
 .infoa { margin-left: 2px; }
@@ -40,24 +48,20 @@
 
 .numberButtonList { max-height: 120px; }
 .numberButton { font-size: 12px; }
-
 .nbmenu { font-size: 14px; }
 
 #navboxContents ul li { line-height: 24px; }
 
-.navbox ul li a {
-    height: 18px;
-}
-
-#choiceLi a { margin-top: 2px; }
-
 #navboxLink {
     width: 24px;
+    height: 24px;
 }
 
 #navboxVolume {
     height: 24px;
 }
+
+.reddit { display: inline; }
 
 .redditp {
     height: 24px;
@@ -74,6 +78,7 @@
 .title .favicon {
     height: 24px;
     width: 24px;
+    margin-bottom: 6px;
 }
 
 .nbmenu .favicon {

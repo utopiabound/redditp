@@ -122,6 +122,7 @@
  * * highlight "selected" multireddit under loginLi
  * * on rotation/fullscreen event, check icon toggle
  * * Use /api/v1/me/prefs for defaults?
+ * * Make title social link alterable (change from twitter to instagram...)
  */
 
 var rp = {};
@@ -280,7 +281,8 @@ rp.sitecache = {
     reddit: {
         multi: {}, // username: { date: DATE, data: [] }
         sub: {} // subreddit.toLowerCase(): { date: DATE, data: {T5} }
-    }
+    },
+    wp2: {} // site: { date: DATE, data: {wp-json.data} }
 };
 
 // maybe checkout http://engineeredweb.com/blog/09/12/preloading-images-jquery-and-javascript/
@@ -5054,7 +5056,6 @@ $(function () {
         // Single Word title (might be username)
         t1 = t1.replace(/^[\w-]+$/, function(match) {
             var p1 = match;
-            var flair = picFlair(pic);
             var social = metaSocial(hn, subreddit, picFlair(pic));
             try {
                 return socialUserLink(p1, social, match);
