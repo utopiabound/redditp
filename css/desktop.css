@@ -9,6 +9,8 @@
 #choiceLi { margin: 0 14px 0 -44px; }
 #refresh { margin-top: -8px; }
 
+#subredditPopup { left: 24px; }
+
 #controlsDiv a::before {
     font-size: 24px;
 }
