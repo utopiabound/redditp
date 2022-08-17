@@ -100,7 +100,9 @@ a.failed { text-decoration: line-through; }
 }
 
 /* Major Div Styles (navboxes) */
-.navbox { width: 450px; }
+.navbox {
+    width: 400px;
+}
 
 .navbox ul { display: block; }
 
