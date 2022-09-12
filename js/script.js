@@ -91,7 +91,7 @@
  *      -- Depending on host site --
  *      subreddit:      TEXT of subreddit name
  *      site:           HASH
- *              t:      imgur|redgifs|gfycat|iloopit|flickr
+ *              t:      imgur|gfycat|iloopit|flickr
  *              -- Optional --
  *              user:   TEXT username
  *              tags:   ARRAY of TEXT Tags for photo
@@ -309,13 +309,6 @@ rp.choices = {
         'submitted': [ [ "hot", "new", "top", "top:day", "top:week", "top:month",  "top:year", "top:all", "controversial" ] ],
         'm':         [ [ "hot", "new", "top", "top:day", "top:week", "top:month",  "top:year", "top:all",
                          "rising", "controversial", 'gilded' ] ],
-    },
-    'redgifs': { // top W M A
-        '':  [ [ "trending", "top7", "top28", "best", "latest" ],
-               [ "trending", "top:week", "top:month", "top:all", "latest" ] ],
-        't': [ [ "trending", "top7", "top28", "best", "latest" ],
-               [ "trending", "top:week", "top:month", "top:all", "latest" ] ],
-        'u': [ [ "recent", "best" ] ],
     },
     'tumblr': {},
     'wp':  { '': [ [ "DESC", "ASC" ], [ "new", "old" ] ] },
@@ -2103,10 +2096,10 @@ $(function () {
 
                 else if (isVideoExtension(pic.url)) {
                     initPhotoVideo(pic);
-                    pic.url = 'https://imgur.com/'+url2shortid(pic.url);
+                    pic.url = sitePhotoUrl(url2shortid(pic.url), 'imgur');
 
                 } else if (!a) {
-                    pic.url = 'https://imgur.com/'+url2shortid(pic.url);
+                    pic.url = sitePhotoUrl(url2shortid(pic.url), 'imgur');
                     pic.type = imageTypes.later;
 
                 } else if (a == 'gif') {
@@ -2114,14 +2107,14 @@ $(function () {
                     a = pic.url.substr(0, pic.url.lastIndexOf('.'));
                     if (isVideoExtension(a)) {
                         initPhotoVideo(pic, a);
-                        pic.url = 'https://imgur.com/'+url2shortid(pic.url);
+                        pic.url = sitePhotoUrl(url2shortid(pic.url), 'imgur');
                     } else {
-                        pic.url = 'https://imgur.com/'+url2shortid(pic.url);
+                        pic.url = sitePhotoUrl(url2shortid(pic.url), 'imgur');
                         pic.type = imageTypes.later;
                     }
 
                 } else
-                        initPhotoImage(pic)
+                    initPhotoImage(pic)
 
             } else if (hostname == 'gifs.com') {
                 shortid = url2shortid(pic.url, -1, '-');
@@ -2162,20 +2155,12 @@ $(function () {
                     throw "bad path";
 
             } else if (hostname == 'gfycat.com' ||
-                       hostname == 'redgifs.com' ||
                        hostname == 'gifdeliverynetwork.com') {
                 shortid = url2shortid(pic.url, -1, '-', false);
                 if (shortid == 'about')
                     throw "bad url";
                 a = pathnameOf(pic.url).split('/');
-                o = 'redgifs';
-                if (hostname == 'gfycat.com')
-                    o = 'gfycat';
-                else if (hostname == 'redgifs.com' && !(['ifr', 'watch'].includes(a[1])))
-                    throw "bad path";
-                else
-                    o = 'redgifs';
-                pic.url = sitePhotoUrl(shortid, o);
+                pic.url = sitePhotoUrl(shortid, 'gfycat');
                 pic.type = imageTypes.later;
 
             } else if (hostname == 'iloopit.net') {
@@ -2523,9 +2508,14 @@ $(function () {
                 initPhotoEmbed(pic, 'https://embed.redtube.com/?bgcolor=000000&id='+shortid, false);
 
             } else if (hostname == 'spankbang.com') {
-                shortid = url2shortid(pic.url, 1);
-                if (shortid == "s")
-                    throw "search url";
+                a = pathnameOf(pic.url).split('/');
+                if (a[1] == 'embed')
+                    shortid = a[2];
+                else if (a[2] == 'video')
+                    shortid = a[1];
+                else
+                    throw "unknown url";
+
                 initPhotoEmbed(pic, 'https://spankbang.com/embed/'+shortid, false);
 
             } else if (hostname == 'streamff.com') {
@@ -2692,6 +2682,7 @@ $(function () {
                          'noodlemagazine.com',
                          'pornloupe.com', // embed is SAMEORIGIN
                          'pornzog.com',
+                         'tiktits.com',
                          'watchmygf.me',
                          'xfantasy.com',
                          'xfantazy.com',
@@ -4526,27 +4517,9 @@ $(function () {
             };
 
             handleError = function() {
-                jsonUrl = "https://api.redgifs.com/v2/gifs/" + shortid.toLowerCase();
-                photo.url = sitePhotoUrl(shortid, 'redgifs');
-
-                $.ajax({
-                    url: jsonUrl,
-                    type: postType,
-                    data: postData,
-                    headers: headerData,
-                    dataType: dataType,
-                    success: handleRedgifsData,
-                    error: handleRedgifsError,
-                    timeout: rp.settings.ajaxTimeout,
-                    crossDomain: true
-                });
+                initPhotoEmbed(pic, 'https://redgifs.com/ifr/'+shortid.toLowerCase(), false);
+                showCB(photo);
             };
-
-        } else if (hostname == 'redgifs.com') {
-            jsonUrl = "https://api.redgifs.com/v2/gifs/" + shortid.toLowerCase();
-
-            handleData = handleRedgifsData;
-            handleError = handleRedgifsError;
 
         } else if (hostname == 'iloopit.net') {
             shortid = searchValueOf(photo.url, "loopid");
@@ -4643,7 +4616,8 @@ $(function () {
                 if (data[0].data.children.length != 1) {
                     log.error("Comment Listing had multiple primary children: "+photo.url);
                 }
-                if (processRedditT3(photo, data[0].data.children[0]) !== true)
+                if (processRedditT3(photo, data[0].data.children[0]) !== true &&
+                    processPhoto(photo))
                     initPhotoThumb(photo)
                 showCB(photo);
             };
@@ -5054,7 +5028,7 @@ $(function () {
         });
 
         // Single Word title (might be username)
-        t1 = t1.replace(/^[\w-]+$/, function(match) {
+        t1 = t1.replace(/^[\w-]{6,}$/, function(match) {
             var p1 = match;
             var social = metaSocial(hn, subreddit, picFlair(pic));
             try {
@@ -5705,20 +5679,18 @@ $(function () {
                 return false;
             }
 
-        } else if (t3.media && t3.media.oembed && t3.media.type == "redgifs.com") {
-            photo.site = { t: "redgifs", user: t3.media.oembed.author_name };
-            if (t3.media.oembed.type != "video") {
-                log.info("cannot convert oembed [non-video"+t3.media.oembed.type+"]: "+photo.url);
-                return undefined;
+        } else if (!photo.url && (t3.secure_media_embed || t3.media_embed)) {
+            // use .(secure_)media.oembed?
+            var html = (t3.secure_media_embed) ?t3.secure_media_embed.content :t3.media_embed.content;
+            var ownerDocument = document.implementation.createHTMLDocument('virtual');
+            var iframe = $('<div />', ownerDocument).html(unescapeHTML(html)).find('iframe')[0];
+            if (iframe) {
+                photo.url = iframe.src;
+
+            } else {
+                log.error(photo.id+": cannot display embed [bad media_embed]");
+                return false;
             }
-            if (photo.o_url === undefined)
-                photo.o_url = photo.url;
-            if (!t3.media.oembed.thumbnail_url) {
-                log.info("cannot convert oembed [video: no thumbnail]: "+photo.url);
-                return undefined;
-            }
-            var shortid = url2shortid(t3.media.oembed.thumbnail_url, -1, '-', false);
-            initPhotoVideo(photo, originOf(t3.media.oembed.thumbnail_url)+"/"+shortid+".mp4", t3.media.oembed.thumbnail_url);
 
         } else
             return undefined;
@@ -7050,165 +7022,6 @@ $(function () {
         });
     };
 
-    var processRedgifsItem = function(image, data) {
-        image.site = { t: 'redgifs' };
-        addPhotoSiteTags(image, data.tags);
-        addPhotoSiteUser(image, data.userName);
-        if (data.type == 1)
-            initPhotoVideo(image, data.urls.hd, data.urls.dataer);
-        else if (data.type == 2)
-            initPhotoImage(image, data.urls.hd);
-        else
-            throw "Unknown data type ["+data.type+"]: "+image.url;
-        return image;
-    };
-
-    var getRedgifs = function() {
-        // URLs:
-        // TRENDING:    /redgifs/[ORDER]
-        // USER:        /redgifs/u/USER[/(recent|best)]
-        // TAG:         /redgifs/t/(TAG|SEARCH)[/ORDER]
-        var errmsg = "No videos";
-        var jsonUrl;
-        var url;
-        var user;
-        var first = false;
-        var order = rp.url.choice || rp.choices.redgifs[rp.url.type][0][0];
-
-        switch (rp.url.type) {
-        case "u":
-            user = rp.url.sub;
-            errmsg = "User "+user+" has no videos";
-            jsonUrl = 'https://api.redgifs.com/v2/users/'+user+'/search?order='+order;
-            url = siteUserUrl(user, 'redgifs')+'?order='+order;
-            break;
-        case "t":
-            errmsg = "Tag "+rp.url.sub+" has no videos";
-            jsonUrl = 'https://api.redgifs.com/v2/gifs/search?order='+order+'&search_text='+rp.url.sub;
-            url = siteTagUrl(rp.url.sub, 'redgifs')+'&order='+order;
-            break;
-        default:
-            jsonUrl = 'https://api.redgifs.com/v2/gifs/search?order='+order;
-            url = "https://www.redgifs.com/browse?order="+order;
-            break;
-        }
-        setSubredditLink(url);
-
-        if (!setupLoading(1, errmsg))
-            return;
-
-        if (rp.session.after)
-            jsonUrl += rp.session.after;
-        else
-            first = true;
-
-        var post2pic = function(post) {
-            var image = { url: sitePhotoUrl(post.id, 'redgifs'),
-                          o_url: sitePhotoUrl(post.id, 'redgifs'),
-                          over18: true,
-                          date: post.createDate,
-                          score: post.likes,
-                        };
-            processRedgifsItem(image, post);
-            return image;
-        };
-
-        var handleData = function (data) {
-            var gifs = data.gfycats || data.gifs;
-            if (gifs.length) {
-                gifs.forEach(function (post) {
-                    var image = post2pic(post);
-                    addImageSlide(image);
-                });
-                if (data.cursor) {
-                    rp.session.after = '&cursor='+data.cursor;
-                    rp.session.loadAfter = getRedgifs;
-                } else if (data.page && data.page < data.pages) {
-                    rp.session.after = '&page='+data.page+1;
-                    rp.session.loadAfter = getRedgifs;
-                } else
-                    rp.session.loadAfter = null;
-            }
-            doneLoading();
-        };
-
-        $.ajax({
-            url: jsonUrl,
-            dataType: 'json',
-            success: handleData,
-            error: failedAjaxDone,
-            timeout: rp.settings.ajaxTimeout,
-            crossDomain: true
-        });
-
-        // Get Albums if loading for User
-        if (user && first) {
-            addLoading();
-            var jsonAlbumUrl = 'https://api.redgifs.com/v2/users/'+user+'/collections';
-            var handleAlbumData = function (data) {
-                if (data.totalCount === 0) {
-                    doneLoading();
-                    return;
-                }
-
-                data.collections.forEach(function (album) {
-                    var url = 'https://api.redgifs.com/v2/users/'+user+'/collections/'+album.folderId+"/gifs";
-                    // @ process as album?
-                    if (album.folderSubType != "Album") {
-                        log.error("Unknown type ["+album.folderSubType+"]: "+url);
-                        return;
-                    }
-                    var photo = fixupPhotoTitle({
-                        url: siteUserUrl(user, 'redgifs')+'/collections/'+album.folderId,
-                        site: { t: 'redgifs', user: user },
-                        title: album.folderName || album.description,
-                        date: album.createDate,
-                        over18: true,
-                    });
-                    var hd = function(data) {
-                        initPhotoAlbum(photo, false);
-                        var gifs = data.gfycats || data.gifs;
-                        if (!gifs.length) {
-                            doneLoading();
-                            return;
-                        }
-                        gifs.forEach(function(data) {
-                            var pic = post2pic(data);
-                            addAlbumItem(photo, pic);
-                        });
-                        addImageSlide(photo);
-                        doneLoading();
-                    };
-                    addLoading();
-                    $.ajax({
-                        url: url,
-                        dataType: 'json',
-                        success: hd,
-                        error: failedAjaxDone,
-                        timeout: rp.settings.ajaxTimeout,
-                        crossDomain: true
-                    });
-                });
-                doneLoading();
-            };
-            var handleAlbumError = function (xhr, ajaxOptions, thrownError) {
-                if (xhr.status == 404 || xhr.status == 403) {
-                    doneLoading();
-                    return;
-                }
-                failedAjax(xhr, ajaxOptions, thrownError);
-            };
-            $.ajax({
-                url: jsonAlbumUrl,
-                dataType: 'json',
-                success: handleAlbumData,
-                error: handleAlbumError,
-                timeout: rp.settings.ajaxTimeout,
-                crossDomain: true
-            });
-        }
-    }
-
     var processGfycatItem = function(photo, item) {
         photo.site =  { t: 'gfycat' };
         if (!photo.title) {
@@ -7604,7 +7417,7 @@ $(function () {
                     log.info("Bad PATH: "+arr[i]);
                     continue;
                 }
-            } else if (['flickr', 'gfycat', 'imgur', 'redgifs', 'iloopit'].includes(t)) {
+            } else if (['flickr', 'gfycat', 'imgur', 'iloopit'].includes(t)) {
                 rp.url.site = t;
                 rp.url.type = a.shift() || "";
                 // peak at last item to see if it's a "choice"
@@ -7759,7 +7572,6 @@ $(function () {
             case 'wp2': getWordPressBlogV2(); break;
             case 'blogger': getBloggerBlog(); break;
             case 'gfycat': getGfycat(); break;
-            case 'redgifs': getRedgifs(); break;
             case 'flickr': getFlickr(); break;
             case 'iloopit': getiLoopit(); break;
             case 'reddit': getRedditImages(); break;
