@@ -3122,6 +3122,7 @@ $(function () {
         });
         delete subs[rp.url.sub];
         i = Object.keys(subs).join("+");
+        // @@ skip for mult-reddit?
         if (i) {
             length = Object.keys(subs).length;
             $('#imageInfoSubMulti').attr('href', rp.reddit.base+'/r/'+i).attr('title', length);
@@ -3129,8 +3130,21 @@ $(function () {
             $('tr.forSubs').show();
         }
         delete allsubs[rp.url.sub];
-        // Sub list is capped at 250 (for non-gold accounts)
         length = Object.keys(allsubs).length;
+        if (length > 100) {
+            var newsubs = {};
+            var keys = Object.keys(allsubs);
+            for (i in keys) {
+                var key = keys[i];
+                if (allsubs[key] > 1) {
+                    newsubs[key] = allsubs[key];
+                }
+            }
+            allsubs = newsubs;
+            // Sub list is capped at 250 (for non-gold accounts)
+            length = Object.keys(allsubs).length;
+        }
+        // @@ fitler based on number? (> once?)
         if (length <= 250)
             i = Object.keys(allsubs).join("+");
         else
@@ -4253,20 +4267,6 @@ $(function () {
             initPhotoThumb(photo);
             showCB(photo);
         };
-        var handleRedgifsData = function (data) {
-            processRedgifsItem(photo, data.gif);
-            showCB(photo);
-        };
-        var handleRedgifsError = function(xhr) {
-            var data = xhr.responseJSON;
-            if (data && data.errorMessage.code == "Gone") {
-                log.info('cannot display url ['+data.errorMessage.description+']: ' + photo.url);
-                initPhotoFailed(photo);
-                showCB(photo);
-            } else {
-                handleErrorOrig(xhr);
-            }
-        };
         var handleWPError = function(xhr) {
             // @@ check xhr.responseJSON?
             // timeout: xhr.status == 0 && xhr.statusText == "timeout"
@@ -4517,7 +4517,7 @@ $(function () {
             };
 
             handleError = function() {
-                initPhotoEmbed(pic, 'https://redgifs.com/ifr/'+shortid.toLowerCase(), false);
+                initPhotoEmbed(photo, 'https://redgifs.com/ifr/'+shortid.toLowerCase(), false);
                 showCB(photo);
             };
 

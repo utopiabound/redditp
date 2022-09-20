@@ -313,6 +313,8 @@ div.progress {
     vertical-align: text-bottom;
 }
 
+.icontristate { appearance: none; }
+
 /* infoLink:   infol infop [infoc]  infod  [infol infop [infoc]] */
 
 /* redditLink: infol infor [infoa] [infoc] */
