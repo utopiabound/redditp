@@ -18,11 +18,11 @@ RewriteRule ^user/(.*) /index.html
 RewriteRule ^domain/(.*) /index.html
 RewriteRule ^search(.*) /index.html
 RewriteRule ^blogger(.*) /index.html
+RewriteRule ^danbooru/(.*) /index.html
 RewriteRule ^flickr(.*) /index.html
 RewriteRule ^gfycat(.*) /index.html
 RewriteRule ^iloopit(.*) /index.html
 RewriteRule ^imgur(.*) /index.html
-RewriteRule ^redgifs(.*) /index.html
 RewriteRule ^tumblr/(.*) /index.html
 RewriteRule ^wp(.*) /index.html
 RewriteRule ^wp2(.*) /index.html

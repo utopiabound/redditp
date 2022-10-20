@@ -91,7 +91,7 @@
  *      -- Depending on host site --
  *      subreddit:      TEXT of subreddit name
  *      site:           HASH
- *              t:      imgur|gfycat|iloopit|flickr
+ *              t:      imgur|gfycat|iloopit|flickr|danbooru
  *              -- Optional --
  *              user:   TEXT username
  *              tags:   ARRAY of TEXT Tags for photo
@@ -294,6 +294,7 @@ rp.dedup = {};
 // rp.choices[rp.url.site][rp.url.type][0].includes(rp.url.choice) == true
 rp.choices = {
     'blogger': {},
+    'danbooru': {},
     'gfycat': {},
     'flickr': { 'u': [ [ "photos", "albums" ] ] },
     'iloopit': {},
@@ -695,6 +696,14 @@ $(function () {
         return div.html();
     };
 
+    var titleTagLink = function(tag, type) {
+        var div = $('<div/>');
+        var span = $('<span>', { class: "social infor" });
+        span.append(_localLink(siteTagUrl(tag, type), '/'+type+'/t/'+tag, tag, "", "", ""));
+        div.append(span);
+        return div.html();
+    };
+
     var localLink = function(url, text, local, urlalt, favicon) {
         return _localLink(url, local, text, urlalt, favicon);
     };
@@ -763,6 +772,8 @@ $(function () {
                 return titleFaviconLink('https://t.me/'+user, user, "Telegram", alt);
             if (type == "tiktok")
                 return titleFaviconLink('https://tiktok.com/@'+user, user, "TikTok", alt);
+            if (type == "telegram")
+                return titleFaviconLink('https://t.me/'+user, user, "Telegram", alt);
             if (type == 'tumblr')
                 return tumblrLink(user, type, alt);
             if (type == "twitch")
@@ -786,6 +797,8 @@ $(function () {
     };
 
     var siteUserUrl = function(user, type) {
+        if (type == 'danbooru')
+            return 'https://danbooru.donmai.us/posts?tags='+user;
         if (type == 'gfycat')
             return 'https://gfycat.com/@'+user;
         if (type == 'redgifs')
@@ -806,6 +819,7 @@ $(function () {
             return "/"+type+"/u/"+user;
     };
 
+    // Sites that are locally browseable (c.f. localUserUrl, siteUserUrl)
     // site == rp.photo[x].site
     var siteUserLink = function(site, alt) {
         var username = site.user;
@@ -819,6 +833,8 @@ $(function () {
     };
 
     var siteTagUrl = function(tag, type) {
+        if (type == 'danbooru')
+            return 'https://danbooru.donmai.us/posts?tags='+tag;
         if (type == 'gfycat')
             return 'https://gfycat.com/gifs/search/'+tag.toLowerCase().replaceAll(" ", "+");
         if (type == 'redgifs')
@@ -1483,7 +1499,8 @@ $(function () {
         // OS/Browser Specific
         var dups;
         var ua = navigator.userAgent;
-        if (/(iPad|iPhone|iPod|Mobile)/.test(ua)) {
+        // iOS
+        if (/(iPad|iPhone|iPod)/.test(ua)) {
             var v = ua.match(/OS (\d+)/);
             if (v.length < 2)
                 v[1] = 9;
@@ -1504,14 +1521,14 @@ $(function () {
             // caues fatfinger presses
             rp.session.showRedditLink = false;
 
+            // Hide useless "fullscreen" button on iOS safari
+            $('.fullscreen-ctrl').remove();
+
             // collapse duplicates by default
             dups = $('#duplicatesCollapser');
             if (dups.data(STATE) != "closed") {
                 $('#duplicatesCollapser').click();
             }
-
-            // Hide useless "fullscreen" button on iOS safari
-            $('.fullscreen-ctrl').remove();
 
             // New mobile site doesn't work for auth if not logged in
             rp.reddit.loginUrl = 'https://old.reddit.com/api/v1/authorize.compact';
@@ -2151,6 +2168,9 @@ $(function () {
                 if (['ifr', 'watch'].includes(a[1]))
                     // this DOES autoplay, but it's muted
                     initPhotoEmbed(pic, 'https://redgifs.com/ifr/'+a[2], false);
+                // ifr of images fail to load
+                else if (a[1] == 'i')
+                    initPhotoThumb(pic);
                 else
                     throw "bad path";
 
@@ -2285,6 +2305,13 @@ $(function () {
             } else if (hostname == 'd.tube') {
                 a = pathnameOf(pic.url).split('/');
                 initPhotoEmbed(pic, 'https://emb.d.tube/#!/'+a.slice(2,4).join('/'), false);
+
+            } else if (fqdn == 'danbooru.donmai.us') {
+                a = pathnameOf(pic.url).split('/');
+                if (a[1] == 'posts' && a[2])
+                    pic.type = imageTypes.later;
+                else
+                    throw "unknown url";
 
             } else if (hostname == 'deviantart.com') {
                 a = pathnameOf(pic.url).split('/');
@@ -2680,6 +2707,7 @@ $(function () {
                          'madnsfw.com',
                          'mulemax.com',
                          'noodlemagazine.com',
+                         'pixabay.com',
                          'pornloupe.com', // embed is SAMEORIGIN
                          'pornzog.com',
                          'tiktits.com',
@@ -4325,6 +4353,7 @@ $(function () {
 
             } else if (data.type == 'photo') {
                 initPhotoImage(photo, data.url);
+                addPhotoThumb(photo, data.thumbnail_url);
 
             } else if (data.type == 'video') {
                 var f = $.parseHTML(data.html);
@@ -4413,6 +4442,13 @@ $(function () {
             jsonUrl = originOf(photo.url)+'/oembed?url=' + encodeURIComponent(photo.url);
 
             handleData = handleOembed;
+
+        } else if (fqdn == 'danbooru.donmai.us') {
+            jsonUrl = 'https://danbooru.donmai.us/posts/'+shortid+'.json';
+            handleData = function(post) {
+                processDanbooruPost(photo, post);
+                showCB(photo);
+            };
 
         } else if (hostname == 'deviantart.com' ||
                    hostname == 'sta.sh' ||
@@ -4991,6 +5027,8 @@ $(function () {
                         site = "twitter";
                     else if (site == "kik")
                         return site+" : "+name; // ensure it doesn't get picked up below
+                    else if (site == "reddit")
+                        return "u/"+name; // this will be picked up below for u/USER
                     try {
                         return socialUserLink(name, site, match);
                     } catch (e) {
@@ -5776,7 +5814,7 @@ $(function () {
             duplicates.sort(subredditCompare);
 
             var photo = {
-                url: idx.url || idx.url_overridden_by_dest,
+                url: idx.url || idx.url_overridden_by_dest || idorig.url || idorig.url_overridden_by_dest,
                 title: idorig.title,
                 id: idorig.id,
                 over18: idorig.over_18,
@@ -5827,7 +5865,7 @@ $(function () {
             else if (idorig.thumbnail != 'default' && idorig.thumbnail != 'nsfw')
                 addPhotoThumb(photo, idorig.thumbnail);
 
-            var rc = processRedditT3(photo, idx);
+            var rc = processRedditT3(photo, idorig);
             if (rc === false)
                 return;
 
@@ -6849,6 +6887,109 @@ $(function () {
         });
     };
 
+    /////////////////////////////////////////////////////////////////
+    // DANBOORU
+    //
+    // https://danbooru.donmai.us/wiki_pages/api:posts
+    var processDanbooruPost = function(photo, post) {
+        photo.site = {
+            t: "danbooru",
+        };
+        if (!photo.title)
+            photo.title = post.tag_string_character.split(" ")
+            .map(function(x) { return titleTagLink(x, "danbooru"); }).join(" and ");
+        addPhotoSiteTags(photo, post.tag_string_general.split(" ").concat(
+            post.tag_string_copyright.split(" ")
+        ));
+        addPhotoSiteUser(photo, post.tag_string_artist);
+        if (post.source)
+            photo.extra = remoteLink(post.source, "Source");
+        if (rp.settings.goodImageExtensions.includes(post.file_ext))
+            initPhotoImage(photo, post.file_url);
+        else if (rp.settings.goodVideoExtensions.includes(post.file_ext))
+            initPhotoVideo(photo, post.file_url, post.preview_file_url);
+        else {
+            log.error("Unknown Extension: "+post.file_ext);
+            addPhotoThumb(photo, post.preview_file_url);
+            initPhotoFailed(photo);
+        }
+        if (post.has_children) {
+            //initPhotoAlbum?
+            log.info("Found Children: "+post.id);
+        }
+    };
+
+    var danbooru2pic = function(post) {
+        var photo = {
+            url: 'https://danbooru.donmai.us/posts/'+post.id,
+            date: processDate(post.created_at),
+            over18: post.rating != 'g',
+            score: post.up_score - post.down_score,
+        };
+        processDanbooruPost(photo, post);
+        return photo;
+    };
+
+    var getDanbooru = function() {
+        // URLs:
+        // TRENDING:    /danbooru/
+        // USER:        /danbooru/u/USER
+        // TAG:         /danboorut/t/TAG
+        var user;
+        var jsonUrl;
+        var errmsg = "Tag "+rp.url.sub+" has no posts";
+        var url;
+
+        switch (rp.url.type) {
+        case "u":
+            errmsg = "User "+user+" has no posts";
+        case "t":
+            jsonUrl = 'https://danbooru.donmai.us/posts.json?tags='+rp.url.sub;
+            url = siteTagUrl(rp.url.sub, "danbooru");
+            break;
+        default:
+            jsonUrl = 'https://danbooru.donmai.us/posts.json';
+            errmsg = "No top posts";
+            url = "https://danbooru.donmai.us/posts";
+            break;
+        }
+        if (!setupLoading(1, errmsg))
+            return;
+
+        setSubredditLink(url);
+
+        if (rp.session.after)
+            jsonUrl += "&page="+rp.session.after;
+        else
+            rp.session.after = 1;
+
+        var handleData = function(data) {
+            if (data.length) {
+                data.forEach(function (post) {
+                    var photo = danbooru2pic(post);
+                    addImageSlide(photo);
+                })
+                rp.session.loadAfter = getDanbooru;
+            } else {
+                rp.session.loadAfter = null;
+            }
+            doneLoading();
+        }
+
+        $.ajax({
+            url: jsonUrl,
+            dataType: 'json',
+            success: handleData,
+            error: failedAjaxDone,
+            timeout: rp.settings.ajaxTimeout,
+            crossDomain: true
+        });
+    }
+
+    /////////////////////////////////////////////////////////////////
+    // Flicker
+    //
+
     var flickrThumbnail = function(post) {
         if (post.id && post.secret && post.farm && post.server)
             return 'https://farm'+post.farm+'.staticflickr.com/'+post.server+'/'+post.id+'_'+post.secret+'_z.jpg';
@@ -7417,7 +7558,8 @@ $(function () {
                     log.info("Bad PATH: "+arr[i]);
                     continue;
                 }
-            } else if (['flickr', 'gfycat', 'imgur', 'iloopit'].includes(t)) {
+
+            } else if (['flickr', 'gfycat', 'imgur', 'iloopit', 'danbooru'].includes(t)) {
                 rp.url.site = t;
                 rp.url.type = a.shift() || "";
                 // peak at last item to see if it's a "choice"
@@ -7566,15 +7708,16 @@ $(function () {
 
         } else {
             switch (rp.url.site) {
+            case 'blogger': getBloggerBlog(); break;
+            case 'danbooru': getDanbooru(); break;
+            case 'flickr': getFlickr(); break;
+            case 'gfycat': getGfycat(); break;
+            case 'iloopit': getiLoopit(); break;
             case 'imgur': getImgur(); break;
+            case 'reddit': getRedditImages(); break;
             case 'tumblr': getTumblrBlog(); break;
             case 'wp': getWordPressBlog(); break;
             case 'wp2': getWordPressBlogV2(); break;
-            case 'blogger': getBloggerBlog(); break;
-            case 'gfycat': getGfycat(); break;
-            case 'flickr': getFlickr(); break;
-            case 'iloopit': getiLoopit(); break;
-            case 'reddit': getRedditImages(); break;
             default:
                 throw("Bad site: "+rp.url.site);
             }
