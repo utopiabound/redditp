@@ -1844,7 +1844,7 @@ $(function () {
 
             if (keepfirst) {
                 if (!processPhoto(img))
-                    initPhotoFailed(img);
+                    initPhotoThumb(img);
                 log.debug("moved primary to first album item: "+img.url);
                 addAlbumItem(photo, img);
             } else if (photo.o_url === undefined)
@@ -2079,10 +2079,13 @@ $(function () {
             return (pic.album !== undefined);
 
         if (pic.type == imageTypes.video)
-            return (pic.video !== undefined)
+            return (pic.video !== undefined);
 
         if (pic.type == imageTypes.html)
-            return (pic.html !== undefined)
+            return (pic.html !== undefined);
+
+        if (pic.type == imageTypes.thumb)
+            return (pic.thumb !== undefined);
 
         if (pic.type == imageTypes.embed ||
             pic.type == imageTypes.image)
@@ -3832,7 +3835,7 @@ $(function () {
         else
             photo = rp.photos[imageIndex];
 
-        // Used by showVideo and showImage
+        // Used by showPic, showVideo, and showImage
         var divNode = $("<div />", { class: "fullscreen"});
 
         if (photo === undefined)
@@ -3886,7 +3889,7 @@ $(function () {
                 if (find_fallback(photo, thumb))
                     return;
                 log.info("cannot display photo [load error]: "+photo.url);
-                initPhotoFailed(photo);
+                initPhotoThumb(photo);
                 // ensure no infinite loop
                 if (!thumb)
                     showThumb(photo);
@@ -3899,7 +3902,7 @@ $(function () {
                     if ($(this)[0].naturalHeight == 60 &&
                         $(this)[0].naturalWidth == 130) {
                         log.info("["+photo.index+"] Image has been removed: "+photo.url);
-                        initPhotoFailed(photo);
+                        initPhotoThumb(photo);
                         if (!thumb)
                             showThumb(photo);
                     }
@@ -3910,7 +3913,7 @@ $(function () {
                     if ($(this)[0].naturalHeight == 81 &&
                         $(this)[0].naturalWidth == 161) {
                         log.info("["+photo.index+"] Image has been removed: "+photo.url);
-                        initPhotoFailed(photo);
+                        initPhotoThumb(photo);
                         if (!thumb)
                             showThumb(photo);
                     }
@@ -3928,7 +3931,7 @@ $(function () {
                             return;
                         }
                         log.info("["+photo.index+"] Image has been removed: "+url);
-                        initPhotoFailed(photo);
+                        initPhotoThumb(photo);
                         if (!thumb)
                             showThumb(photo);
                     }
@@ -3944,7 +3947,7 @@ $(function () {
                             return;
                         }
                         log.info("["+photo.index+"] Image has been removed: "+url);
-                        initPhotoFailed(photo);
+                        initPhotoThumb(photo);
                         if (!thumb)
                             showThumb(photo);
                     }
@@ -4029,13 +4032,13 @@ $(function () {
                 if (find_fallback(pic))
                     return;
 
-                initPhotoFailed(pic);
+                initPhotoThumb(pic);
                 resetNextSlideTimer();
             });
 
             $(video).on('error', function() {
                 log.info("["+imageIndex+"] video failed to load: "+pic.url);
-                initPhotoFailed(pic);
+                initPhotoThumb(pic);
                 resetNextSlideTimer();
             });
 
@@ -4057,7 +4060,7 @@ $(function () {
                     e.target.videoHeight == 480 &&
                     hostnameOf(e.target.currentSrc, true) == 'gfycat.com') {
                     log.info("cannot display video [copyright claim]: "+pic.url);
-                    initPhotoFailed(pic);
+                    initPhotoThumb(pic);
                     resetNextSlideTimer();
                     showThumb(pic);
                }
@@ -4150,17 +4153,18 @@ $(function () {
                 resetNextSlideTimer();
         }
 
-        var rpdisplayHtml = function() {
+        var rpdisplayHtml = function(event) {
             var div = $(this);
             div.empty();
-            var pic = getCurrentPic();
+            var pic = event.data;
             showHtml(div, pic.html);
             return true;
         };
-        var rpdisplayEmbed = function() {
+        var rpdisplayEmbed = function(event) {
             var div = $(this);
             div.empty();
-            showEmbed(div, getCurrentPic());
+            var pic = event.data;
+            showEmbed(div, pic);
             return true;
         };
         var rpdisplayVideo = function() {
@@ -4225,13 +4229,13 @@ $(function () {
 
             else if (pic.type == imageTypes.html) {
                 // triggered in replaceBackgroundDiv
-                divNode.bind("rpdisplay", rpdisplayHtml);
+                divNode.bind("rpdisplay", pic, rpdisplayHtml);
                 if (divNode.parent()[0] == $('#pictureSlider')[0])
                     divNode.trigger("rpdisplay");
 
             } else if (pic.type == imageTypes.embed) {
                 // triggered in replaceBackgroundDiv
-                divNode.bind("rpdisplay", rpdisplayEmbed);
+                divNode.bind("rpdisplay", pic, rpdisplayEmbed);
                 if (divNode.parent()[0] == $('#pictureSlider')[0])
                     divNode.trigger("rpdisplay");
 
@@ -4349,7 +4353,7 @@ $(function () {
 
             if (data.error) {
                 log.info("cannot display url ["+(data.message || data.error)+"]: "+photo.url);
-                initPhotoFailed(photo);
+                initPhotoThumb(photo);
 
             } else if (data.type == 'photo') {
                 initPhotoImage(photo, data.url);
@@ -4369,7 +4373,7 @@ $(function () {
 
             } else {
                 log.info("cannot display url [unhandled type "+data.type+"]: "+photo.url);
-                initPhotoFailed(photo);
+                initPhotoThumb(photo);
             }
             showCB(photo);
         };
@@ -4414,6 +4418,7 @@ $(function () {
             var handleBloggerPost = function(data) {
                 if (!processBloggerPost(photo, data))
                     initPhotoThumb(photo);
+                // @@ check if photo is later?
                 showCB(photo);
             };
 
@@ -4474,7 +4479,7 @@ $(function () {
                     if (data.stat !== 'ok') {
                         var errFunc = function(data) {
                             log.info("failed to load flickr [error: "+data.message+"]: "+photo.url)
-                            initPhotoFailed(photo);
+                            initPhotoThumb(photo);
                             showCB(photo);
                         };
                         if (data.code == 2)
@@ -4505,7 +4510,7 @@ $(function () {
                     var i;
                     if (data.stat !== 'ok') {
                         log.info("failed to load flickr [error: "+data.message+"]: "+photo.url)
-                        initPhotoFailed(photo);
+                        initPhotoThumb(photo);
                         showCB(photo);
                         return;
                     }
@@ -4538,7 +4543,7 @@ $(function () {
                     } else if (p)
                         initPhotoImage(photo, p.source);
                     else
-                        initPhotoFailed(photo);
+                        initPhotoThumb(photo);
 
                     showCB(photo);
                 };
@@ -4672,7 +4677,7 @@ $(function () {
                     initPhotoVideo(photo, list, data.thumbnail_url.split(/[?#]/)[0]);
                 else {
                     log.info("cannot to load video [no files]: "+photo.url);
-                    initPhotoFailed(photo);
+                    initPhotoThumb(photo);
                 }
                 showCB(photo);
             };
@@ -4778,7 +4783,7 @@ $(function () {
 
         } else {
             log.error("["+photo.index+"] Unknown site ["+hostname+"]: "+photo.url);
-            initPhotoFailed(photo);
+            initPhotoThumb(photo);
             showCB(photo);
         }
 
@@ -6662,7 +6667,7 @@ $(function () {
             rc = true;
             if (post.video_type == "youtube") {
                 if (post.video === undefined) {
-                    initPhotoFailed(pic);
+                    initPhotoThumb(pic);
                     rc = false;
                 } else {
                     initPhotoYoutube(pic, post.video.youtube.video_id);
@@ -6767,6 +6772,10 @@ $(function () {
             timeout: rp.settings.ajaxTimeout
         });
     };
+
+    /////////////////////////////////////////////////////////////////
+    // Blogger
+    //
 
     var processBloggerPost = function(photo, post) {
         if (photo.url != post.url) {
