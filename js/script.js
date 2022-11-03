@@ -2761,11 +2761,15 @@ $(function () {
                         return true;
                     }
                 }
-                throw "unknown url";
+                throw "unknown host";
             }
         } catch (e) {
-            log.info("cannot display url ["+e+"]: "+pic.url);
-            return false;
+            initPhotoThumb(pic);
+            if (pic.type == imageTypes.fail) {
+                log.info("cannot display url ["+e+"]: "+pic.url);
+                return false;
+            }
+            log.info("Fallback to thumbnail: "+pic.o_url);
         }
         if (pic.type === undefined)
             throw "Failed to set pic type: "+pic.url;
@@ -4956,6 +4960,7 @@ $(function () {
     // Missing, query (?stuff), and fragment (#stuff)
     var urlregexp = new RegExp('https?://[\\w\\._-]{1,256}\\.[a-z]{2,6}(/([\\w\\-\\.~]|%[0-9a-f]{2}|[!$&\'()*+,;=@])+)*', 'gi');
 
+    // Returns pic with updated title
     var fixupPhotoTitle = function(pic, origtitle, parent_sub) {
         var title = unescapeHTML(origtitle) || pic.title;
         if (!title)
@@ -5071,7 +5076,7 @@ $(function () {
         });
 
         // Single Word title (might be username)
-        t1 = t1.replace(/^[\w-]{6,}$/, function(match) {
+        t1 = t1.replace(/^[\w.-]{6,}$/, function(match) {
             var p1 = match;
             var social = metaSocial(hn, subreddit, picFlair(pic));
             try {
@@ -5880,22 +5885,22 @@ $(function () {
                 return;
             }
 
-            rc = processPhoto(photo);
+            if (processPhoto(photo)) {
+                flair = picFlair(photo).toLowerCase();
 
-            flair = picFlair(photo);
+                if ((photo.type != imageTypes.fail) &&
+                    (flair == 'request' ||
+                     photo.title.match(/[[({]request[\])}]/i) ||
+                     photo.title.match(/^psbattle:/i) ||
+                     // Album/Video/Source/More in comments
+                     flair.match(/(more|source|video|album).*in.*com/) ||
+                     idorig.title.match(/(source|more|video|album).*in.*com/i) ||
+                     idorig.title.match(/in.*comment/i) ||
+                     idorig.title.match(/[[({\d\s][asvm]ic([\])}]|$)/i)))
+                    getRedditComments(photo);
 
-            if ((photo.type != imageTypes.fail) &&
-                (flair.toLowerCase() == 'request' ||
-                 photo.title.match(/[[({]request[\])}]/i) ||
-                 photo.title.match(/^psbattle:/i) ||
-                 flair.match(/(more|source|video|album).*in.*com/i) ||
-                 idorig.title.match(/(source|more|video|album).*in.*com/i) ||
-                 idorig.title.match(/in.*comment/i) ||
-                 idorig.title.match(/[[({\d\s][asvm]ic([\])}]|$)/i)))
-                getRedditComments(photo);
-
-            if (rc)
                 addImageSlide(photo);
+            }
         }; // END addImageSlideRedditT3
 
         var handleData = function (data) {
@@ -6292,7 +6297,9 @@ $(function () {
                 data.forEach(function(item) {
                     if (!item)
                         return;
-                    var pic = { url: item.source_url, extra: extra, o_url: o_link,
+                    var pic = { url: item.source_url,
+                                extra: extra,
+                                o_url: o_link,
                                 title: item.title.rendered || unescapeHTML(item.caption.rendered) || item.alt_text };
                     fixupPhotoTitle(pic);
                     if (processPhoto(pic)) {
@@ -6371,7 +6378,8 @@ $(function () {
         var photo = initPhotoAlbum(pic, false);
         for(k in post.attachments) {
             att = post.attachments[k];
-            var img = { title: att.caption || att.title, o_url: pic.url };
+            var img = { title: att.caption || att.title,
+                        o_url: pic.url };
             if (processAttachment(att, img) && processPhoto(img)) {
                 addAlbumItem(photo, img);
                 rc = true;
