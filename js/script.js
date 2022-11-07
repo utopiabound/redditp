@@ -143,7 +143,6 @@ rp.settings = {
     dupeCacheTimeout: 360, // 6 minutes
     goodImageExtensions: ['jpg', 'jpeg', 'gif', 'bmp', 'png', 'svg', 'webp'],
     goodVideoExtensions: ['webm', 'mp4', 'mov', 'm4v'], // Matched entry required in rp.mime2ext
-    alwaysSecure: true,
     minScore: 1,
     decivolume: 5,
     // cache Multi-reddit per-user lifetime (1H)
@@ -1607,11 +1606,8 @@ $(function () {
         fixPhotoButton(photo);
     };
 
-    var initPhotoThumb = function(photo, url) {
-        if (!url)
-            url = photo.thumb;
-        if (url) {
-            photo.url = url;
+    var initPhotoThumb = function(photo) {
+        if (photo.thumb) {
             photo.type = imageTypes.thumb;
             fixPhotoButton(photo);
         } else
@@ -1624,24 +1620,23 @@ $(function () {
         fixPhotoButton(photo);
     };
 
-    var initPhotoEmbed = function(photo, url, autoplay, thumb) {
+    var initPhotoEmbed = function(photo, url, autoplay) {
         if (autoplay === undefined)
             autoplay = true;
         photo.type = imageTypes.embed;
         if (url)
             photo.url = url;
-        addPhotoThumb(photo, thumb);
         photo.embed = { aplay: autoplay };
         fixPhotoButton(photo);
     };
 
     var initPhotoYoutube = function(photo, shortid, startat) {
         addPhotoThumb(photo, 'https://i.ytimg.com/vi/'+shortid+'/hqdefault.jpg');
+        addPhotoThumb(photo, 'https://i.ytimg.com/vi/'+shortid+'/maxresdefault.jpg');
         initPhotoEmbed(
             photo,
             youtubeURL(shortid, startat),
             true,
-            'https://i.ytimg.com/vi/'+shortid+'/maxresdefault.jpg'
         );
     };
 
@@ -2256,6 +2251,11 @@ $(function () {
             } else if (isImageExtension(pic.url) || // #### IMAGE ####
                        fqdn == 'blogger.googleusercontent.com' ||
                        fqdn == 'i.reddituploads.com') {
+                // Remove query string from certain domains
+                if (hostname == 'wordpress.com' ||
+                    hostname == 'wp.com' ||
+                    hostname == 'hotnessrater.com')
+                    pic.url = originOf(pic.url)+pathnameOf(pic.url);
                 initPhotoImage(pic);
 
                 // ###################### //
@@ -2414,6 +2414,10 @@ $(function () {
                 pic.fallback = [ 'https://i.gyazo.com/'+shortid+'.jpg',
                                  'https://i.gyazo.com/'+shortid+'.mp4' ];
                 initPhotoImage(pic, 'https://i.gyazo.com/'+shortid+'.png');
+
+            } else if (hostname == 'hotnessrater.com') {
+                a = pathnameOf(pic.url).split('/');
+                initPhotoImage(pic, "https://img1.hotnessrater.com/"+a[2]+"/"+a[3]+".jpg");
 
             } else if (hostname == 'hugetits.win') {
                 shortid = url2shortid(pic.url, -1, '-', false);
@@ -4228,29 +4232,32 @@ $(function () {
                 pic = pic.album[index];
             }
 
-            if (pic.type == imageTypes.video)
+            switch (pic.type) {
+            case imageTypes.image:
+                showImage(pic.url);
+                break;
+            case imageTypes.video:
                 showVideo(pic);
-
-            else if (pic.type == imageTypes.html) {
+                break;
+            case imageTypes.html:
                 // triggered in replaceBackgroundDiv
                 divNode.bind("rpdisplay", pic, rpdisplayHtml);
                 if (divNode.parent()[0] == $('#pictureSlider')[0])
                     divNode.trigger("rpdisplay");
-
-            } else if (pic.type == imageTypes.embed) {
+                break;
+            case imageTypes.embed:
                 // triggered in replaceBackgroundDiv
                 divNode.bind("rpdisplay", pic, rpdisplayEmbed);
                 if (divNode.parent()[0] == $('#pictureSlider')[0])
                     divNode.trigger("rpdisplay");
-
-            } else if (pic.type == imageTypes.fail)
+                break;
+            case imageTypes.thumb:
+            case imageTypes.fail:
                 showThumb(pic);
-
-            else if (pic.type == imageTypes.later) {
-                throw("called showPic() on later type: "+pic.url);
-
-            } else // Default to image type
-                showImage(pic.url);
+                break;
+            default:
+                throw("called showPic() on "+imageTypeStyle[pic.type]+" type: "+pic.url);
+            }
 
             if (isActive(pic)) {
                 var p = photoParent(pic);
@@ -4871,8 +4878,7 @@ $(function () {
         if (url.includes('?'))
             url = url.replace(/\?[^.]*/, '');
 
-        if (rp.settings.alwaysSecure)
-            url = url.replace(/^http:/, "https:");
+        url = url.replace(/^http:/, "https:");
 
         if (url.includes("/a/") ||
             url.includes('/gallery/')) {
@@ -4919,12 +4925,21 @@ $(function () {
     var fixupUrl = function (url) {
         // fix reddit bad quoting
         url = url.replace(/&amp;/gi, '&');
-        if (!rp.settings.alwaysSecure)
-            return url;
 
         var hostname = hostnameOf(url, true);
 
-        if (url.startsWith('//'))
+        var path = pathnameOf(url).split('/');
+
+        if (hostname == 'google.com' && path[1] == 'amp') {
+            var n = 2;
+            var scheme = 'http';
+            if (path[n] == 's') {
+                ++n;
+                scheme = 'https';
+            }
+            url = scheme + '://'+path.slice(n).join('/');
+
+        } else if (url.startsWith('//'))
             url = ((rp.insecure[hostname]) ?"http:" :"https:")+url;
 
         if (hostname == 'gfycat.com' ||
@@ -4938,18 +4953,8 @@ $(function () {
             hostname == 'youporn.com')
             url = url.replace(/^http:/, "https:");
 
-        if (hostname == 'dropbox.com')
+        else if (hostname == 'dropbox.com')
             url = originOf(url)+pathnameOf(url)+'?dl=1';
-
-        if ((hostname == 'wordpress.com' ||
-             hostname == 'wp.com') &&
-            isImageExtension(url))
-            url = originOf(url)+pathnameOf(url);
-
-        if (hostname == 'hotnessrater.com') {
-            var a = pathnameOf(url).split('/');
-            url = ["https://img1.hotnessrater.com", a[2], a[3]].join("/")+".jpg";
-        }
 
         return url;
     };
@@ -5063,7 +5068,7 @@ $(function () {
             log.debug("TITLE 1: `"+title+"'\n      -> `"+t1);
 
         // r/subreddit
-        t1 = t1.replace(/(?=^|\W|\b)\/?(r\/[\w-]+)((?:\/[\w-]+)*)\/?\s*/gi, function(match, p1, p2) {
+        t1 = t1.replace(/(?=^|\W|\b)(?:[[{(]\s*)\/?(r\/[\w-]+)((?:\/[\w-]+)*)\/?\s*(?:\s*[)\]}])?/gi, function(match, p1, p2) {
             var t = titleRLink('/'+p1, p1, match);
             if (p2)
                 t += titleFLink("https://reddit.com"+match, url2shortid(p2));
