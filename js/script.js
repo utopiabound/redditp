@@ -64,13 +64,13 @@
  *      cross_id:       TEXT ID in duplictes of original link
  *      extra:          HTML Extra information for links concerning photo
  *      thumb:          URL  thumbnail of image (e.g. cached version from reddit)       [set by addPhotoThumb()]
- *      fb_thumb:       ARRAY of URLs Fallback thumbnail urls (must be images)          [set by addPhotoThumb()]
+ *      fb_thumb:       ARRAY of URLs Fallback thumbnail urls (must be images)          [set by addPhotoThumb()/used by find_fallback()]
  *      flair:          HTML flair put next to title                                    [read by picFlair()]
  *      score:          INT  Score (upvotes - downvotes)
- *      fallback:       ARRAY of URLs Fallback urls (if processed pic.url fails, try pic.fallback) [read by find_fallback()]
+ *      fallback:       ARRAY of URLs Fallback urls (if processed pic.url fails, try pic.fallback) [used by find_fallback()]
  *
  *      -- Other, NOT creator setable --
- *      type:           ENUM of imageTypes                              [set by processPhoto()]
+ *      type:           ENUM of imageTypes                              [set by processPhoto()/initPhoto*()]
  *      o_url:          URL original URL                                [set by processPhoto()]
  *      insertAt:       INT where to insert pictures in album           [set by addAlbumItem()]
  *      index:          INT index in rp.photos, used by album functions [set by addImageSlide()]
@@ -3849,27 +3849,22 @@ $(function () {
         if (photo === undefined)
             return divNode;
 
-        var find_fallback = function(pic, thumb) {
-            if (thumb) {
+        // Called on failed pic load
+        var find_fallback = function(pic) {
+            if (pic.type == imageTypes.thumb) {
                 var photo = photoParent(pic);
+                delete pic.thumb;
                 if (pic.fb_thumb && pic.fb_thumb.length)
                     pic.thumb = pic.fb_thumb.shift();
 
                 else if (photo == pic)
-                    return false;
+                    return;
 
                 else if (pic.thumb != photo.thumb)
                     pic.thumb = photo.thumb;
 
-                else {
-                    var rc = find_fallback(photo);
-                    pic.thumb = photo.thumb;
-                    return rc;
-                }
-                if (pic.thumb) {
-                    showPic(pic);
-                    return true;
-                }
+                if (pic.thumb)
+                    showThumb(pic);
 
             } else {
                 if (pic.fallback && pic.fallback.length) {
@@ -3877,42 +3872,44 @@ $(function () {
                     delete pic.type;
                     if (processPhoto(pic)) {
                         showPic(pic);
-                        return true;
+                        return;
                     }
                 }
+                initPhotoThumb(pic);
+                if (pic.type == imageTypes.thumb) {
+                    showThumb(pic)
+                    return;
+                }
             }
-            return false;
         }
 
         // Create a new div and apply the CSS
-        var showImage = function(url, needreset, thumb) {
+        var showImage = function(photo, needreset, thumb) {
             if (needreset === undefined)
                 needreset = true;
             if (thumb === undefined)
-                thumb = false;
+                thumb = (photo.type == imageTypes.thumb || photo.type == imageTypes.fail);
+            var url;
+            if (thumb)
+                url = photo.thumb;
+            else
+                url = photo.url;
 
             var img = $('<img />', { class: "fullscreen", src: url});
 
             img.on('error', function() {
-                if (find_fallback(photo, thumb))
-                    return;
-                log.info("cannot display photo [load error]: "+photo.url);
-                initPhotoThumb(photo);
-                // ensure no infinite loop
-                if (!thumb)
-                    showThumb(photo);
+                log.info("cannot display photo [load error]: "+url);
+                find_fallback(photo);
             });
 
-            var hn = hostnameOf(url, true);
+            var hn = hostnameOf(photo.url, true);
             // https://i.redd.it/removed.png is 130x60
             if (hn == 'redd.it')
                 img.on('load', function() {
                     if ($(this)[0].naturalHeight == 60 &&
                         $(this)[0].naturalWidth == 130) {
-                        log.info("["+photo.index+"] Image has been removed: "+photo.url);
-                        initPhotoThumb(photo);
-                        if (!thumb)
-                            showThumb(photo);
+                        log.info("["+photo.index+"] Image has been removed: "+url);
+                        find_fallback(photo);
                     }
                 });
             // https://i.imgur.com/removed.png is 161x81
@@ -3920,10 +3917,8 @@ $(function () {
                 img.on('load', function() {
                     if ($(this)[0].naturalHeight == 81 &&
                         $(this)[0].naturalWidth == 161) {
-                        log.info("["+photo.index+"] Image has been removed: "+photo.url);
-                        initPhotoThumb(photo);
-                        if (!thumb)
-                            showThumb(photo);
+                        log.info("["+photo.index+"] Image has been removed: "+url);
+                        find_fallback(photo);
                     }
                 });
             // YouTube 404 thumbnail is 120x90
@@ -3933,15 +3928,8 @@ $(function () {
                 img.on('load', function() {
                     if ($(this)[0].naturalHeight == 90 &&
                         $(this)[0].naturalWidth == 120) {
-                        if (thumb) {
-                            log.info("cannot display thumb [place holder]: "+url);
-                            find_fallback(photo, thumb);
-                            return;
-                        }
                         log.info("["+photo.index+"] Image has been removed: "+url);
-                        initPhotoThumb(photo);
-                        if (!thumb)
-                            showThumb(photo);
+                        find_fallback(photo);
                     }
                 });
             // 404 221x80
@@ -3949,15 +3937,8 @@ $(function () {
                 img.on('load', function() {
                     if ($(this)[0].naturalHeight == 80 &&
                         $(this)[0].naturalWidth == 221) {
-                        if (thumb) {
-                            log.info("cannot display thumb [place holder]: "+url);
-                            find_fallback(photo, thumb);
-                            return;
-                        }
                         log.info("["+photo.index+"] Image has been removed: "+url);
-                        initPhotoThumb(photo);
-                        if (!thumb)
-                            showThumb(photo);
+                        find_fallback(photo);
                     }
                 });
             divNode.html(img);
@@ -3969,7 +3950,7 @@ $(function () {
         var showThumb = function(pic, needreset) {
             var thumb = pic.thumb || photoParent(pic).thumb;
             if (thumb)
-                showImage(thumb, needreset, true);
+                showImage(pic, needreset, true);
         }
 
         // Called with showVideo(pic)
@@ -4037,17 +4018,14 @@ $(function () {
 
             $(lastsource).on('error', function() {
                 log.info("["+imageIndex+"] video failed to load last source: "+pic.url);
-                if (find_fallback(pic))
-                    return;
-
-                initPhotoThumb(pic);
                 resetNextSlideTimer();
+                find_fallback(pic);
             });
 
             $(video).on('error', function() {
                 log.info("["+imageIndex+"] video failed to load: "+pic.url);
-                initPhotoThumb(pic);
                 resetNextSlideTimer();
+                find_fallback(pic);
             });
 
             $(video).on('ended', function() {
@@ -4068,9 +4046,8 @@ $(function () {
                     e.target.videoHeight == 480 &&
                     hostnameOf(e.target.currentSrc, true) == 'gfycat.com') {
                     log.info("cannot display video [copyright claim]: "+pic.url);
-                    initPhotoThumb(pic);
                     resetNextSlideTimer();
-                    showThumb(pic);
+                    find_fallback(pic);
                }
                 pic.video.duration = e.target.duration;
                 if (pic.video.duration < rp.settings.timeToNextSlide) {
@@ -4124,7 +4101,7 @@ $(function () {
                                           allowfullscreen: true });
             $(iframe).on("error", function() {
                 log.info("["+imageIndex+"] FAILED TO LOAD: "+pic.url);
-                throw("Failed to load iframe"+pic.url);
+                throw("Failed to load iframe: "+pic.url);
             });
             $(iframe).attr('src', pic.url);
             return iframe;
@@ -4234,7 +4211,7 @@ $(function () {
 
             switch (pic.type) {
             case imageTypes.image:
-                showImage(pic.url);
+                showImage(pic);
                 break;
             case imageTypes.video:
                 showVideo(pic);
@@ -4266,16 +4243,13 @@ $(function () {
             return divNode;
         };
 
-        if (photo.type == imageTypes.image ||
-            photo.type == imageTypes.thumb) {
-            showImage(photo.url, false);
+        switch (photo.type) {
+        case imageTypes.image:
+        case imageTypes.thumb:
+        case imageTypes.fail:
+            showImage(photo, false);
             return divNode;
-
-        } else if (photo.type == imageTypes.fail) {
-            showThumb(photo, false);
-            return divNode;
-
-        } else if (photo.type == imageTypes.html) {
+        case imageTypes.html:
             showHtml(divNode, photo.html, false);
             return divNode;
         }
