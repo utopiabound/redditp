@@ -4758,6 +4758,7 @@ $(function () {
                     jsonUrl += shortid+'?_jsonp=?';
                 else
                     jsonUrl += '?slug='+shortid+'&_jsonp=?';
+                dataType = 'jsonp';
                 handleData = handleWPv2Data;
                 handleError = handleWPError;
             }
@@ -5683,7 +5684,7 @@ $(function () {
             checkPhotoAlbum(photo);
         }
         // Reddit hosted videos
-        else if (t3.domain == 'v.redd.it') {
+        else if (t3.domain == 'v.redd.it' && (t3.media || t3.secure_media)) {
             // intentionally load with empty video, load mp4 below
             initPhotoVideo(photo, []);
             var media = (t3.media) ?t3.media.reddit_video
@@ -5706,9 +5707,9 @@ $(function () {
                 return false;
             }
 
-        } else if (!photo.url && (t3.secure_media_embed || t3.media_embed)) {
+        } else if (!photo.url && (Object.keys(t3.secure_media_embed).length != 0 || Object.keys(t3.media_embed).length != 0)) {
             // use .(secure_)media.oembed?
-            var html = (t3.secure_media_embed) ?t3.secure_media_embed.content :t3.media_embed.content;
+            var html = (t3.secure_media_embed.content) ?t3.secure_media_embed.content :t3.media_embed.content;
             var ownerDocument = document.implementation.createHTMLDocument('virtual');
             var iframe = $('<div />', ownerDocument).html(unescapeHTML(html)).find('iframe')[0];
             if (iframe) {
@@ -5855,12 +5856,14 @@ $(function () {
                 addPhotoThumb(photo, idorig.thumbnail);
 
             var rc = processRedditT3(photo, idorig);
+            if (rc === undefined)
+                rc = processRedditT3(photo, idx);
             if (rc === false)
                 return;
 
             else if (!rc && idorig.domain == 'reddit.com') {
                 // these shouldn't be added via tryPreview nor speculative lookups
-                log.info('will not display url [no image]: ' + (photo.o_url || photo.url));
+                log.info('will not display url [no image '+photo.id+']: ' + (photo.o_url || photo.url));
                 return;
             }
 
