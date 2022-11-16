@@ -2013,6 +2013,17 @@ $(function () {
     var updateNavboxTypes = function(image) {
         $('#navboxLink').attr('href', image.url).attr('title', picTitleText(image)+" (i)");
         updateButtonClass($('#navboxLink'), image);
+
+        switch (image.type) {
+        case imageTypes.image:
+        case imageTypes.thumb:
+        case imageTypes.fail:
+            $('#navboxImageSearch').attr('href', 'https://lens.google.com/uploadbyurl?url='+image.url).show();
+            break;
+        default:
+            $('#navboxImageSearch').attr('href', '#').hide();
+            break;
+        }
     };
 
     var fixPhotoButton = function(pic, button) {
@@ -2983,6 +2994,9 @@ $(function () {
         case "f":
             $('#fullscreen').click();
             break;
+        case "g":
+            open_in_background('#navboxImageSearch');
+            break;
         case "h":
             $('#choice').click();
             break;
@@ -3551,7 +3565,7 @@ $(function () {
         $('#navboxOrigLink').attr('href', url).parent().show();
         setFavicon($('#navboxOrigLink'), url);
 
-        // Setup navboxLink
+        // Setup navboxLink and navboxImageSearch
         updateNavboxTypes(image);
         $('#info').hide();
 
