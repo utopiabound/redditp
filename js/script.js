@@ -35,19 +35,20 @@
  * Cookies - NONE
  *
  * Locations for per-Site processing:
- * rp.favicons    - limited number of favicons based on second level domain (for major sites that don't support http://fqdn/favicon.ico)
- * processPhoto() - initial processing of photo.url, if it can be determined to be photo/video/later
- * fillLaterDiv() - where photo's tagged as later, are processed via ajax callout
- * fixupPhotoTitle()   - any urls that can be added/processed from a photo.title (only affects photo.title)
- * fixupUrl()     - known https: sites
+ *   rp.favicons - limited number of favicons based on second level domain (for major sites that don't support http://fqdn/favicon.ico)
+ *   processPhoto() - initial processing of photo.url, if it can be determined to be photo/video/later
+ *   fillLaterDiv() - where photo's tagged as later, are processed via ajax callout
+ *   fixupUrl()     - known https: sites / url munging
+ *   fixupPhotoTitle() - any urls that can be added/processed from a photo.title (only affects photo.title)
+ *   initPhotoYoutube() - wrapper around initPhotoEmbed()
  *
- * initPhotoYoutube() - wrapper around initPhotoEmbed()
+ *   site{User,Photo}{Link,Url} - social media links
  *
  * per-Site Duplicate handling:
- * getRedditDupe()
- * updateDuplicates()
- * animateNavigationBox()
- * processUrl() - RESTORE
+ *   getRedditDupe()
+ *   updateDuplicates()
+ *   animateNavigationBox()
+ *   processUrl() - RESTORE
  */
 /* Data Structures:
  * rp.photos = ARRAY of HASH
@@ -64,10 +65,10 @@
  *      cross_id:       TEXT ID in duplictes of original link
  *      extra:          HTML Extra information for links concerning photo
  *      thumb:          URL  thumbnail of image (e.g. cached version from reddit)       [set by addPhotoThumb()]
- *      fb_thumb:       ARRAY of URLs Fallback thumbnail urls (must be images)          [set by addPhotoThumb()/used by find_fallback()]
+ *      fb_thumb:       ARRAY of URLs Fallback thumbnail urls (must be images)          [set/use by addPhotoThumb()/nextPhotoFallback()]
  *      flair:          HTML flair put next to title                                    [read by picFlair()]
  *      score:          INT  Score (upvotes - downvotes)
- *      fallback:       ARRAY of URLs Fallback urls (if processed pic.url fails, try pic.fallback) [used by find_fallback()]
+ *      fallback:       ARRAY of URLs Fallback urls (if pic.url fails)  [set/use by addPhotoFallback()/nextPhotoFallback()]
  *
  *      -- Other, NOT creator setable --
  *      type:           ENUM of imageTypes                              [set by processPhoto()/initPhoto*()]
@@ -1588,6 +1589,40 @@ $(function () {
         }
     };
 
+    // push fallback to back of list
+    var addPhotoFallback = function(photo, url) {
+        if (!url)
+            return;
+        var urls;
+        if (Array.isArray(url))
+            urls = url;
+        else
+            urls = [ url ];
+        urls.forEach(function (url) {
+            url = fixupUrl(url);
+            if (url == photo.url || url == photo.o_url)
+                return;
+            if (!photo.fallback)
+                photo.fallback = [];
+            photo.fallback.push(url);
+        });
+    };
+
+    var nextPhotoFallback = function(photo) {
+        if (photo.fallback && photo.fallback.length) {
+            photo.url = photo.fallback.shift();
+            delete photo.type;
+            return true;
+        }
+        if (photo.type == imageTypes.thumb) {
+            delete photo.thumb;
+            if (photo.fb_thumb && photo.fb_thumb.length)
+                photo.thumb = photo.fb_thumb.shift();
+        }
+        initPhotoThumb(photo);
+        return (photo.type == imageTypes.thumb);
+    }
+
     var addPhotoSiteTags = function(photo, tags) {
         if (tags && tags.length > 0)
             photo.site.tags = tags;
@@ -2067,24 +2102,21 @@ $(function () {
         pic.url = fixupUrl(pic.url);
 
         // Return if already setup
-        if (pic.type == imageTypes.fail)
+        switch (pic.type) {
+        case imageTypes.fail:
             return false;
-
-        if (pic.type == imageTypes.album)
+        case imageTypes.album:
             return (pic.album !== undefined);
-
-        if (pic.type == imageTypes.video)
+        case imageTypes.video:
             return (pic.video !== undefined);
-
-        if (pic.type == imageTypes.html)
+        case imageTypes.html:
             return (pic.html !== undefined);
-
-        if (pic.type == imageTypes.thumb)
+        case imageTypes.thumb:
             return (pic.thumb !== undefined);
-
-        if (pic.type == imageTypes.embed ||
-            pic.type == imageTypes.image)
+        case imageTypes.embed:
+        case imageTypes.image:
             return true;
+        }
 
         var shortid, a, i, o, host;
         var fqdn = hostnameOf(pic.url);
@@ -2411,9 +2443,9 @@ $(function () {
 
             } else if (hostname == 'gyazo.com') {
                 shortid = url2shortid(pic.url);
-                pic.fallback = [ 'https://i.gyazo.com/'+shortid+'.jpg',
-                                 'https://i.gyazo.com/'+shortid+'.mp4' ];
                 initPhotoImage(pic, 'https://i.gyazo.com/'+shortid+'.png');
+                addPhotoFallback(pic, [ 'https://i.gyazo.com/'+shortid+'.jpg',
+                                        'https://i.gyazo.com/'+shortid+'.mp4' ]);
 
             } else if (hostname == 'hotnessrater.com') {
                 a = pathnameOf(pic.url).split('/');
@@ -2444,8 +2476,8 @@ $(function () {
                                a[4],
                                [ a[3], a[4], a[5] ].join("-")
                               ].join("/");
-                    pic.fallback = [ shortid + ".png" ];
                     initPhotoImage(pic, shortid + ".jpg");
+                    addPhotoFallback(pic, shortid + ".png");
 
                 } else
                     throw "non-picture";
@@ -2492,7 +2524,7 @@ $(function () {
                 else {
                     initPhotoVideo(pic, 'https://pixeldrain.com/api/file/'+shortid,
                                    'https://pixeldrain.com/api/file/'+shortid+'/thumbnail');
-                    pic.fallback = [ 'https://pixeldrain.com/api/file/'+shortid+'/image' ];
+                    addPhotoFallback(pic, 'https://pixeldrain.com/api/file/'+shortid+'/image');
                 }
 
             } else if (hostname == 'playvids.com' ||
@@ -2768,9 +2800,12 @@ $(function () {
                 throw "unknown host";
             }
         } catch (e) {
-            initPhotoThumb(pic);
+            var url = pic.url;
+            if (nextPhotoFallback(pic))
+                return processPhoto(pic);
+
             if (pic.type == imageTypes.fail) {
-                log.info("cannot display url ["+e+"]: "+pic.url);
+                log.info("cannot display url ["+e+"]: "+url);
                 return false;
             }
             log.info("Fallback to thumbnail: "+pic.o_url);
@@ -3851,36 +3886,10 @@ $(function () {
 
         // Called on failed pic load
         var find_fallback = function(pic) {
-            if (pic.type == imageTypes.thumb) {
-                var photo = photoParent(pic);
-                delete pic.thumb;
-                if (pic.fb_thumb && pic.fb_thumb.length)
-                    pic.thumb = pic.fb_thumb.shift();
-
-                else if (photo == pic)
-                    return;
-
-                else if (pic.thumb != photo.thumb)
-                    pic.thumb = photo.thumb;
-
-                if (pic.thumb)
-                    showThumb(pic);
-
-            } else {
-                if (pic.fallback && pic.fallback.length) {
-                    pic.url = pic.fallback.shift();
-                    delete pic.type;
-                    if (processPhoto(pic)) {
-                        showPic(pic);
-                        return;
-                    }
-                }
-                initPhotoThumb(pic);
-                if (pic.type == imageTypes.thumb) {
-                    showThumb(pic)
-                    return;
-                }
-            }
+            if (!nextPhotoFallback(pic))
+                return;
+            if (processPhoto(pic))
+                showPic(pic);
         }
 
         // Create a new div and apply the CSS
@@ -4930,6 +4939,9 @@ $(function () {
 
         else if (hostname == 'dropbox.com')
             url = originOf(url)+pathnameOf(url)+'?dl=1';
+
+        else if (hostname == 'fapdungeon.com' && isVideoExtension(url))
+            url = 'https://media.'+hostname+pathnameOf(url);
 
         return url;
     };
@@ -6112,6 +6124,7 @@ $(function () {
                     if (!val.startsWith("http"))
                         continue;
                     src = val;
+                    break;
                 }
                 // Shortcut <A href="video/embed"><img src="url" /></a>
                 if (item.parentElement.tagName == 'A') {
@@ -6121,6 +6134,9 @@ $(function () {
                         return true;
                     }
                 }
+
+                if (!src)
+                    return false;
 
                 // Skip thumbnails
                 if (item.className.includes('thumbnail'))
@@ -6134,9 +6150,10 @@ $(function () {
                     (item.getAttribute("width") || 100) < 100)
                     return false;
 
-                if (!src)
-                    return false;
-                pic.url = src;
+                var orig_src = src;
+                // Attempt to get largest res available
+                pic.url = src.replace(/-(scaled|\d+x\d+).jpg$/, '.jpg');
+                addPhotoFallback(pic, orig_src);
 
                 if (item.alt)
                     pic.title = item.alt;
@@ -6157,7 +6174,7 @@ $(function () {
                         src = originOf(pic.url)+src;
 
                     if (rp.mime2ext[source.type])
-                        addVideoUrl(pic, rp.mime2ext[source.type], src);
+                        addVideoUrl(pic, rp.mime2ext[source.type], fixupUrl(src));
                     else
                         log.info("Unknown type: "+source.type+" at: "+src);
                 });
@@ -6279,10 +6296,11 @@ $(function () {
                 data.forEach(function(item) {
                     if (!item)
                         return;
-                    var pic = { url: item.source_url,
+                    var pic = { url: fixupUrl(item.guid.rendered),
                                 extra: extra,
                                 o_url: o_link,
                                 title: item.title.rendered || unescapeHTML(item.caption.rendered) || item.alt_text };
+                    addPhotoFallback(pic, item.source_url);
                     fixupPhotoTitle(pic);
                     if (processPhoto(pic)) {
                         addAlbumItem(photo, pic);
