@@ -3602,7 +3602,7 @@ $(function () {
 
         // Setup navboxLink and navboxImageSearch
         updateNavboxTypes(image);
-        $('#info').hide();
+        $('.popup').hide();
 
         if (albumIndex >= 0) {
             $('#navboxAlbumOrigLink').attr('href', photo.o_url).attr('title', photo.title+" (a)").parent().show();

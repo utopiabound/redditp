@@ -6,27 +6,24 @@
 
 .material-icons { font-size: 36px; }
 
-/* 36px width + 10px margin of .nbmenu */
-#subredditPopup { left: 46px; }
-
 #choiceLi { margin: 0 -6px 0 -36px; }
 
-#controlsDiv a::before {
-    font-size: 36px;
-}
+#subredditPopup { left: 46px; }
+
+#controlsDiv a::before { font-size: 36px; }
 
 .info {
     font-size: 16px;
     line-height: 20px;
 }
+
 .navbox { width: 440px; }
 .navbox ul li a { height: 24px; }
+
+/* blank */
 #multiListDiv ul.iconrow a { height: 36px; }
 
-#subredditUrl {
-    font-size: 16px;
-    width: 150px;
-}
+#subredditUrl { font-size: 16px; }
 
 #navboxLink {
     width: 36px;
@@ -40,11 +37,13 @@
     width: 36px;
 }
 
+/* blank */
 .favicon {
     height: 24px;
     width: 24px;
 }
 
+/* blank */
 .title .favicon {
     height: 28px;
     width: 28px;
@@ -59,11 +58,9 @@
     height: 36px;
 }
 
-.numberButton {
-    font-size: 16px;
-}
+.numberButton { font-size: 16px; }
 
-.nbmenu { margin-left: 10px; }
+.nbmenu { margin-left: inherit; }
 
 #navboxContents ul li { line-height: 30px; }
 
