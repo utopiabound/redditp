@@ -43,12 +43,12 @@ Features
 * Autonext waits for the end of a video (does not work for gif, but does work for gifv)
 * Parsing for a collection of domains including: (see createDiv() and processPhoto() for complete list)
 * Special User / Album browsing in addition to reddit.com:
-	* Imgur		(User support)  /imgur/[u/*USER*|t/*TAG*]
+	* Imgur		(User/Tag/Trending support)  /imgur/[u/*USER*|t/*TAG*]
 	* Tumblr	(Album support) /tumblr/*HOSTNAME*
 	* WordPress	(Album support) /wp/*HOSTNAME* (both self, and wp hosted)
 	* Gfycat	(User/Tag/Trending support) /gfycat/[u/*USER*|t/*TAG*]
 	* Blogger	(Album support) /blogger/*HOSTNAME*
-	* Flickr	(User/Album support) /flickr/*USER*[/*ALBUM*]
+	* Flickr	(User/Tag/Search/Trending support) /flickr/[u/*USER*[/*ALBUM*]|t/*TAG*[,*tag2*...]|s/*SEARCH*]
 * Deduplication support when browsing mulitple reddits (e.g. a multireddit /user/NAME/m/MULTIREDDIT or /r/funny+pics)
 * Albums will display inline for subreddits
 * You can save the html file locally and use it, just make sure you add a separator e.g. the question mark in file:///path/to/redditp/index.html?/r/gifs so the browser knows to pick up the right file and go to the right subreddit.

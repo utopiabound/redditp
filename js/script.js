@@ -240,6 +240,7 @@ rp.defaults = {
         'tmz.com': 0,
     },
     favicon: {
+        'i.pximg.net': 'https://www.pixiv.net/favicon.ico',
         'sta.sh': 'https://www.deviantart.com/favicon.ico',
         'snapchat.com': 'https://static.snapchat.com/favicon.ico',
     }
@@ -291,29 +292,35 @@ rp.cache = {};
 // use dedupAdd() and dedupVal()
 rp.dedup = {};
 
-// rp.choices[rp.url.site][rp.url.type][0].includes(rp.url.choice) == true
+// rp.choices[rp.url.site][rp.url.type].includes(rp.url.choice) == true
+// SITE -> { TYPE => [ "DEFAULT", "OTHER", "CHOICES" ] }
 rp.choices = {
     'blogger': {},
     'danbooru': {},
     'gfycat': {},
-    'flickr': { 'u': [ [ "photos", "albums" ] ] },
+    'flickr': {
+        '':  [ 'hot', 'new' ],
+        'u': [ "photos", "albums" ],
+        't': [ 'hot', 'new' ],
+        's': [ 'hot', 'new' ],
+    },
     'iloopit': {},
-    'imgur': {},
+    'imgur': { '': [ "hot", "top", "top:day", "top:week", "top:month", "top:year", "top:all" ] },
     'reddit': { // top D W M Y A
-        '':          [ [ "best", "hot", "new", "top", "top:day", "top:week", "top:month",  "top:year", "top:all",
-                         "rising", "controversial", "gilded" ] ],
-        'r':         [ [ "hot", "new", "top", "top:day", "top:week", "top:month",  "top:year", "top:all",
-                         "rising", "controversial", "gilded" ] ],
-        'domain':    [ [ "hot", "new", "top", "top:day", "top:week", "top:month",  "top:year", "top:all",
-                         "rising", "controversial", 'gilded' ] ],
-        'friends':   [ [ "new", "gilded" ] ],
-        'submitted': [ [ "hot", "new", "top", "top:day", "top:week", "top:month",  "top:year", "top:all", "controversial" ] ],
-        'm':         [ [ "hot", "new", "top", "top:day", "top:week", "top:month",  "top:year", "top:all",
-                         "rising", "controversial", 'gilded' ] ],
+        '':          [ "best", "hot", "new", "top", "top:day", "top:week", "top:month",  "top:year", "top:all",
+                         "rising", "controversial", "gilded" ],
+        'r':         [ "hot", "new", "top", "top:day", "top:week", "top:month",  "top:year", "top:all",
+                       "rising", "controversial", "gilded" ],
+        'domain':    [ "hot", "new", "top", "top:day", "top:week", "top:month",  "top:year", "top:all",
+                       "rising", "controversial", 'gilded' ],
+        'friends':   [ "new", "gilded" ],
+        'submitted': [ "hot", "new", "top", "top:day", "top:week", "top:month",  "top:year", "top:all", "controversial" ],
+        'm':         [ "hot", "new", "top", "top:day", "top:week", "top:month",  "top:year", "top:all",
+                       "rising", "controversial", 'gilded' ],
     },
     'tumblr': {},
-    'wp':  { '': [ [ "DESC", "ASC" ], [ "new", "old" ] ] },
-    'wp2': { '': [ [ "desc", "asc" ], [ "new", "old" ] ] },
+    'wp':  { '': [ "new", "old" ] },
+    'wp2': { '': [ "new", "old" ] },
 };
 
 rp.reddit = {
@@ -804,11 +811,11 @@ $(function () {
         if (type == 'redgifs')
             return 'https://www.redgifs.com/users/'+user;
         if (type == 'imgur')
-            return 'https://'+user+'.imgur.com';
+            return 'https://imgur.com/user/'+user;
         if (type == 'iloopit')
             return 'https://iloopit.net/'+user;
         if (type == 'flickr')
-            return 'https://flickr.com/'+user;
+            return 'https://flickr.com/photos/'+user;
         throw "Unknown Site type: "+type;
     };
 
@@ -3698,6 +3705,7 @@ $(function () {
                       album: rp.session.activeAlbumIndex,
                       after: rp.session.after,
                       url: rp.url,
+                      subredditLink: $('#subredditLink').prop('href'),
                       loadAfter: (rp.session.loadAfter) ?rp.session.loadAfter.name :null,
                       filler: null};
         rp.history.replaceState(state, "", rp.url.path);
@@ -5271,11 +5279,9 @@ $(function () {
 
     var setupChoices = function () {
         var prefix = '/';
-        var a = rp.choices[rp.url.site][rp.url.type];
-        if (!a || a.length == 0)
+        var arr = rp.choices[rp.url.site][rp.url.type];
+        if (!arr || arr.length == 0)
             return;
-        var arr = a[0];
-        var names = a[a.length-1];
         var base = rpurlbase();
         var is_submitted = (rp.url.site == 'reddit' && rp.url.type == 'submitted');
         var multi;
@@ -5286,24 +5292,27 @@ $(function () {
                 ? (rp.url.sub) ?rp.url.sub :rp.session.loginUser :rp.session.loginUser;
         }
 
-        var choice = rp.url.choice.split(':')[0];
+        var choice = rp.url.choice.split(':')[0] || arr[0];
 
         var list = $('#subredditPopup ul');
         list.empty();
         var i = 0;
         while (i < arr.length) {
-            var name = names[i].split(':');
+            var name = arr[i].split(':');
             // @@ iff !name[1]
-            a = _infoAnchor(rp.url.base+base+((i) ?prefix+arr[i] :""),
+            var a = _infoAnchor(rp.url.base+base+((i) ?prefix+arr[i] :""),
                                 name[0], arr[i], "info infol local");
             if (name[0] == choice)
                 a.addClass('selected');
             var li = $('<li>').append(a);
 
-            if (i < arr.length-1 && names[i+1].split(':')[0] == name[0]) {
-                for (var next = name; i < arr.length && next[0] == name[0]; next = names[++i].split(':')) {
-                    if (next.length == 1)
-                        continue;
+            if (i < arr.length-1 && arr[i+1].split(':')[0] == name[0]) {
+                for (var next = name; i < arr.length && next[0] == name[0]; ++i) {
+                    if (i < arr.length) {
+                        next = arr[i].split(':');
+                        if (next.length == 1)
+                            continue;
+                    }
                     a = _infoAnchor(rp.url.base+base+prefix+arr[i],
                                     next[1][0].toUpperCase(), arr[i], "info infol local");
                     if (rp.url.choice == arr[i])
@@ -6041,6 +6050,7 @@ $(function () {
         case 'u':
             user = rp.url.sub;
             errmsg = "User "+user+" has no items";
+            setSubredditLink(siteUserUrl(user, 'imgur'));
             jsonUrl = 'https://api.imgur.com/3/account/' + user + '/submissions/'+rp.session.after+'/newest';
 
             handleData = function (data) {
@@ -6070,6 +6080,7 @@ $(function () {
         case 't':
             tag = rp.url.sub;
             errmsg = "Tag "+tag+" has no items";
+            setSubredditLink(siteTagUrl(tag, 'imgur'));
             jsonUrl = 'https://api.imgur.com/post/v1/posts/t/'+tag+"?page="+rp.session.after;
             handleData = function (data) {
                 data.posts.forEach(processPostItem);
@@ -6079,8 +6090,15 @@ $(function () {
             };
             break;
         default:
+            var order = rp.url.choice.split(':');
             errmsg = "No popular items";
-            jsonUrl = 'https://api.imgur.com/post/v1/posts?filter[section]=eq:hot&page='+rp.session.after;
+            setSubredditLink('https://imgur.com');
+            jsonUrl = 'https://api.imgur.com/post/v1/posts?filter[section]=eq:'
+            if (order[0] == 'top')
+                jsonUrl += 'top&filter[window]='+order[1];
+            else
+                jsonUrl += 'hot';
+            jsonUrl += '&page='+rp.session.after;
             handleData = function (data) {
                 data.forEach(processPostItem);
                 ++rp.session.after;
@@ -6424,8 +6442,10 @@ $(function () {
 
         var jsonUrl = wp2BaseJsonUrl(hostname)+'?orderby=date';
 
-        if (rp.url.choice)
-            jsonUrl += '&order='+rp.url.choice;
+        if (rp.url.choice == 'old')
+            jsonUrl += '&order=asc';
+        else
+            jsonUrl += '&order=desc';
 
         if (rp.session.after !== "")
             jsonUrl += '&offset='+rp.session.after;
@@ -6496,7 +6516,7 @@ $(function () {
     // https://developer.wordpress.com/docs/api/1.1/get/sites/%24site/posts/
     var getWordPressBlog = function () {
         // Path Schema:
-        // /wp/HOSTNAME[/(DESC|ASC)]
+        // /wp/HOSTNAME[/(new|old)]
         // DESC: newest to oldest
         // ASC: oldest to newest
         if (rp.session.loadingNextImages)
@@ -6524,8 +6544,10 @@ $(function () {
 
         var jsonUrl = 'https://public-api.wordpress.com/rest/v1.1/sites/'+hostname+'/posts?order_by=date';
 
-        if (rp.url.choice)
-            jsonUrl += '&order='+rp.url.choice;
+        if (rp.url.choice == 'old')
+            jsonUrl += '&order=ASC';
+        else
+            jsonUrl += '&order=DESC';
 
         if (rp.session.after !== "")
             jsonUrl = jsonUrl+'&offset='+rp.session.after;
@@ -6972,12 +6994,12 @@ $(function () {
         }
         if (!setupLoading(1, errmsg))
             return;
-
         setSubredditLink(url);
 
-        if (rp.session.after)
+        if (rp.session.after) {
+            ++rp.session.after;
             jsonUrl += "&page="+rp.session.after;
-        else
+        } else
             rp.session.after = 1;
 
         var handleData = function(data) {
@@ -7094,13 +7116,18 @@ $(function () {
     // z - 640 on longest (gaurenteed to exist)
     var getFlickr = function() {
         // Path Schema:
+        // /flickr
+        // /flickr/s/SEARCHSTRING
+        // /flickr/t/TAG[,tag2]
         // /flickr/u/USER[/albums]
+        var url = "https://flickr.com/explore";
         if (rp.session.after == undefined)
             rp.session.after = 1;
 
-        var reqFunc = 'flickr.photos.getRecent';
+        var reqFunc = 'flickr.photos.search';
         var reqData = { primary_photo_extras: 'url_o,url_h,url_k,url_b,date_uploaded',
                         extras: 'url_o,url_h,url_k,url_b,date_taken,date_uploaded,owner_name,tags',
+                        view_all: 1,
                         per_page: rp.settings.count,
                         safe_search: 3,
                         page: rp.session.after };
@@ -7108,17 +7135,38 @@ $(function () {
         switch (rp.url.type) {
         case 'u':
             reqData.user_id = flickrUserNSID(rp.url.sub);
-            if (rp.url.choice == 'albums')
+            url = siteUserUrl(reqData.user_id, 'flickr');
+            if (rp.url.choice == 'albums') {
                 reqFunc = 'flickr.photosets.getList';
-            else
+                url += '/albums';
+            } else
                 reqFunc = 'flickr.people.getPhotos';
             break;
-        case 't':
-            reqFunc = 'flickr.photos.search';
-            reqData.tags = rp.url.sub;
+        case 's':
+            reqData.text = rp.url.sub;
+            if (rp.url.choice == 'new')
+                reqData.sort = 'date-posted-desc';
+            else
+                //reqData.sort = 'interestingness-desc';
+                reqData.sort = 'relevance';
+            url = 'https://flickr.com/search?safe_search=3&view_all=1&sort='+reqData.sort+'&text='+rp.url.sub;
             break;
+        case 't':
+            reqData.tags = rp.url.sub.split(" ").join("");
+            reqData.tag_mode = "all";
+            url = siteTagUrl(reqData.tags, 'flickr');
+            if (rp.url.choice == 'new')
+                reqData.sort = 'date-posted-desc';
+            else
+                reqData.sort = 'interestingness-desc';
+            break;
+        default:
+            if (rp.url.choice == 'new')
+                reqFunc = 'flickr.photos.getRecent';
+            else // hot
+                reqFunc = 'flickr.interestingness.getList';
         }
-        //setSubredditLink(url);
+        setSubredditLink(url);
 
         if (!setupLoading(1, "No photos loaded"))
             return;
@@ -7201,14 +7249,14 @@ $(function () {
         var jsonUrl;
         var errmsg;
         var first = false;
-        var url;
+        var url = "https://gfycat.com/discover/popular-gifs";
 
         switch (rp.url.type) {
         case "u":
             user = rp.url.sub;
             errmsg = "User "+user+" has no videos";
             jsonUrl = 'https://api.gfycat.com/v1/users/'+user+'/gfycats?count='+rp.settings.count;
-            url = siteUserUrl(user, 'gfycat');
+            url = siteUserUrl(rp.url.sub, 'gfycat');
             break;
         case "t":
             errmsg = "Tag "+rp.url.sub+" has no videos";
@@ -7218,7 +7266,6 @@ $(function () {
         default:
             jsonUrl = 'https://api.gfycat.com/v1/gfycats/trending?tagName=_gfycat_all_trending&count='+rp.settings.count;
             errmsg = "No trending videos";
-            url = "https://gfycat.com/discover/popular-gifs";
             break;
         }
         setSubredditLink(url);
@@ -7578,10 +7625,10 @@ $(function () {
 
             } else if (['flickr', 'gfycat', 'imgur', 'iloopit', 'danbooru'].includes(t)) {
                 rp.url.site = t;
-                rp.url.type = a.shift() || "";
-                // peak at last item to see if it's a "choice"
-                if (a.length > 1 && rp.choices[rp.url.site][rp.url.type][0].includes(a[a.length-1]))
+                var c = (a.length > 1) ?a[0] :'';
+                if (a.length > 0 && rp.choices[rp.url.site][c] && rp.choices[rp.url.site][c].includes(a[a.length-1]))
                     rp.url.choice = a.pop();
+                rp.url.type = a.shift() || '';
                 if (a.length > 0) {
                     rp.url.sub = decodeURIComponent(a.join(" "));
                     a = [];
@@ -7592,13 +7639,14 @@ $(function () {
             }
 
             if (a.length > 0) {
-                var c = a.shift();
-                if (c && !rp.choices[rp.url.site][rp.url.type][0].includes(c)) {
+                c = a.shift();
+                if (c && !rp.choices[rp.url.site][rp.url.type].includes(c)) {
                     log.error("Bad choice ["+rp.url.site+"]["+rp.url.type+"]: "+c);
                     continue;
                 }
                 rp.url.choice = c;
             }
+
             okay = true;
             pathIsLocation = (i == arr.length-1);
             break;
@@ -7718,6 +7766,8 @@ $(function () {
 
             if (data.album < 0)
                 data.album = -1;
+
+            setSubredditLink(data.subredditLink);
 
             log.info("Restored "+path+" and "+rp.photos.length+" images of "+data.photos.length+" at index "+data.index+"."+data.album);
             rp.session.isAnimating = false;
