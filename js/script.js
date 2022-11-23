@@ -815,9 +815,19 @@ $(function () {
         if (type == 'iloopit')
             return 'https://iloopit.net/'+user;
         if (type == 'flickr')
-            return 'https://flickr.com/photos/'+user;
+            return 'https://flickr.com/photos/'+flickrUserNSID(user);
         throw "Unknown Site type: "+type;
     };
+
+    var siteSearchUrl = function(text, type, sort) {
+        if (type == 'flickr')
+            return 'https://flickr.com/search?safe_search=3&view_all=1&text='+text+((sort) ?'&sort='+sort :'');
+        if (type == 'gfycat')
+            return 'https://gfycat.com/gifs/search/'+text.toLowerCase().replaceAll(" ", "+");
+        if (type == 'reddit')
+            return rp.reddit.base+'/search/?q='+text+((sort) ?'&sort='+sort :'');
+        throw "Unknown Site type: "+type;
+    }
 
     var localUserUrl = function(user, type) {
         if (type == "reddit")
@@ -843,7 +853,7 @@ $(function () {
         if (type == 'danbooru')
             return 'https://danbooru.donmai.us/posts?tags='+tag;
         if (type == 'gfycat')
-            return 'https://gfycat.com/gifs/search/'+tag.toLowerCase().replaceAll(" ", "+");
+            return siteSearchUrl(tag, type);
         if (type == 'redgifs')
             return 'https://www.redgifs.com/browse?tags='+tag;
         if (type == 'imgur')
@@ -3072,6 +3082,7 @@ $(function () {
             break;
         case "?":
             $('#help').toggle();
+            $('#recommend').toggle();
             break;
         case "+":
             volume_adjust(+1);
@@ -6537,10 +6548,8 @@ $(function () {
                 getWordPressBlogV2();
                 return;
             }
-        } else if (rp.wp[hostname] === 0) {
-            failCleanup("No Wordpress Blog for "+hostname);
-            return;
-        }
+        } else if (rp.wp[hostname] === 0)
+            return failCleanup("No Wordpress Blog for "+hostname);
 
         var jsonUrl = 'https://public-api.wordpress.com/rest/v1.1/sites/'+hostname+'/posts?order_by=date';
 
@@ -6730,20 +6739,18 @@ $(function () {
                 rc = false;
             }
 
-        } else if (post.type == 'html') {
+        } else if (post.type == 'html')
             rc = processHaystack(photo, post.description);
 
-        } else if (post.type == 'text') {
+        else if (post.type == 'text')
             rc = processHaystack(photo, post.body);
 
-        }
         checkPhotoAlbum(photo);
 
         if (!rc && !dupe) {
             log.info("cannot display url [Tumblr post type: "+post.type+"]: "+photo.url);
             laterPhotoFailed(opic);
         }
-
         return rc;
     };
 
@@ -6755,6 +6762,9 @@ $(function () {
         rp.session.loadingNextImages = true;
 
         var hostname = rp.url.sub;
+        if (!hostname)
+            return failCleanup("No tumblr blog provided");
+
         if (!hostname.includes('.'))
             hostname += '.tumblr.com';
 
@@ -6974,14 +6984,13 @@ $(function () {
         // TRENDING:    /danbooru/
         // USER:        /danbooru/u/USER
         // TAG:         /danboorut/t/TAG
-        var user;
         var jsonUrl;
         var errmsg = "Tag "+rp.url.sub+" has no posts";
         var url;
 
         switch (rp.url.type) {
         case "u":
-            errmsg = "User "+user+" has no posts";
+            errmsg = "User "+rp.url.sub+" has no posts";
         case "t":
             jsonUrl = 'https://danbooru.donmai.us/posts.json?tags='+rp.url.sub;
             url = siteTagUrl(rp.url.sub, "danbooru");
@@ -7009,9 +7018,8 @@ $(function () {
                     addImageSlide(photo);
                 })
                 rp.session.loadAfter = getDanbooru;
-            } else {
+            } else
                 rp.session.loadAfter = null;
-            }
             doneLoading();
         }
 
@@ -7068,10 +7076,8 @@ $(function () {
     var flickrUserLookup = function(user, callback, ReqFunc, ReqData, errFunc) {
         var jsonUrl = flickrJsonURL('flickr.urls.lookupUser', { url: 'https://flickr.com/photos/'+user });
         var handleData = function(data) {
-            if (data.stat !== 'ok') {
-                errFunc(data);
-                return;
-            }
+            if (data.stat !== 'ok')
+                return errFunc(data);
             flickrAddUserMap(user, data.user.id);
             ReqData.user_id = flickrUserNSID(user);
             $.ajax({
@@ -7149,7 +7155,7 @@ $(function () {
             else
                 //reqData.sort = 'interestingness-desc';
                 reqData.sort = 'relevance';
-            url = 'https://flickr.com/search?safe_search=3&view_all=1&sort='+reqData.sort+'&text='+rp.url.sub;
+            url = siteSearchUrl(rp.ur.sub, 'flickr', reqData.sort);
             break;
         case 't':
             reqData.tags = rp.url.sub.split(" ").join("");
@@ -7201,10 +7207,9 @@ $(function () {
                     return pic;
                 };
             }
-            if (info.pages == 0) {
-                failCleanup("Flickr user has no images");
-                return;
-            }
+            if (info.pages == 0)
+                return failCleanup("Flickr user has no images");
+
             if (info.page < info.pages) {
                 rp.session.loadAfter = getFlickr;
                 rp.session.after = info.page+1;
@@ -7260,11 +7265,12 @@ $(function () {
             break;
         case "t":
             errmsg = "Tag "+rp.url.sub+" has no videos";
-            jsonUrl = "https://api.gfycat.com/v1/gfycats/search?count="+rp.settings.count+"&search_text="+rp.url.sub.toLowerCase();
+            jsonUrl = "https://api.gfycat.com/v1/gfycats/search?start=0&count="+rp.settings.count+"&search_text="+rp.url.sub.toLowerCase();
             url = siteTagUrl(rp.url.sub, 'gfycat');
             break;
         default:
-            jsonUrl = 'https://api.gfycat.com/v1/gfycats/trending?tagName=_gfycat_all_trending&count='+rp.settings.count;
+            jsonUrl = "https://api.gfycat.com/v1/gfycats/search?start=0&count="+rp.settings.count+"&search_text=trending";
+            //jsonUrl = 'https://api.gfycat.com/v1/gfycats/trending?tagName=_gfycat_all_trending&count='+rp.settings.count;
             errmsg = "No trending videos";
             break;
         }
@@ -7319,10 +7325,8 @@ $(function () {
             addLoading();
             var jsonAlbumUrl = 'https://api.gfycat.com/v1/users/'+user+'/collections';
             var handleAlbumData = function (data) {
-                if (data.count === 0) {
-                    doneLoading();
-                    return;
-                }
+                if (data.count === 0)
+                    return doneLoading();
                 var collections = data.gfyCollections || data.gifCollections;
 
                 collections.forEach(function (album) {
@@ -7366,10 +7370,8 @@ $(function () {
 
             };
             var handleAlbumError = function (xhr, ajaxOptions, thrownError) {
-                if (xhr.status == 404 || xhr.status == 403) {
-                    doneLoading();
-                    return;
-                }
+                if (xhr.status == 404 || xhr.status == 403)
+                    return doneLoading();
                 failedAjax(xhr, ajaxOptions, thrownError);
             };
             $.ajax({
