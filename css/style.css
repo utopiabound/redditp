@@ -31,6 +31,8 @@ h3 {
     font-size: 16px;
 }
 
+ul li { list-style-type: none; }
+
 /* Generic Styles */
 
 .title {
@@ -104,7 +106,6 @@ a.failed { text-decoration: line-through; }
 
 .navbox ul li {
     display: inline-block;
-    list-style-type: none;
     vertical-align: middle;
 }
 
@@ -173,16 +174,15 @@ a.failed { text-decoration: line-through; }
 }
 
 #recommend {
-    margin: 10px;
+    padding: 3px;
     color: #bbb;
     position: absolute;
     left: 50%;
     transform: translateX(-50%);
 }
 
-#recommend ul {
-    margin-left: 25px;
-}
+#recommend ul { margin-left: 20px; }
+#recommend .material-icons { font-size: 16px; }
 
 .topper { z-index: 1; }
 
@@ -272,9 +272,7 @@ div.progress {
     margin-left: 2px;
 }
 
-#navboxLink {
-    display: inline-block;
-}
+#navboxLink { display: inline-block; }
 
 #controlsDiv {
     position: absolute;
@@ -295,13 +293,7 @@ div.progress {
 #duplicates ul { display: inline; }
 
 #subredditLink { padding-left: 4px; }
-
-#subredditUrl {
-    border: 1px dashed;
-    background-color: black;
-    color: white;
-    float: left;
-}
+#subredditUrl { float: left; }
 
 #duplicatesCollapser {
     position: absolute;
@@ -478,6 +470,12 @@ label.checkbox { font-weight: bold; }
 input[type="checkbox"] { display: none; }
 input[type="checkbox"]:checked + label.colortoggle { color: red; }
 
+input[type="text"] {
+    border: 1px dashed;
+    background-color: black;
+    color: white;
+}
+
 .fullscreen {
     width: 100%;
     height: 100%;
@@ -491,10 +489,7 @@ input[type="checkbox"]:checked + label.colortoggle { color: red; }
 }
 
 #choiceLi input:checked ~ #subredditPopup { display: block; }
-
-#choiceLi li.multi {
-    display: inline-block;
-}
+#choiceLi li.multi { display: inline-block; }
 
 #choiceLi div {
     display: none;

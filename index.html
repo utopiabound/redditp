@@ -51,7 +51,7 @@
 	    </ul>
 	  </div>
 	</li><li><form id="subredditForm" onsubmit="return false">
-	    <input type="text" id="subredditUrl" size="16"/>
+	    <input type="text" id="subredditUrl" class="noInput" size="16"/>
 	    <a id="subredditLink" class="remote" href="#"><img class="favicon reddit" src="images/reddit.svg" /></a>
 	  </form>
 	</li><li id="choiceLi">
@@ -97,7 +97,7 @@
 	<ul class="nbmenu">
 	  <li id="refresh" title="auto-refresh interval in seconds">
 	    <label for="timeToNextSlide" class="textlabel">Refresh:</label>
-	    <input type="text" pattern="[0-9]*" class="textlabel" name="timeToNextSlide" id="timeToNextSlide" value="8" size="2"/>
+	    <input type="text" pattern="[0-9]*" class="textlabel noInput" name="timeToNextSlide" id="timeToNextSlide" value="8" size="2"/>
 	  </li><li  class="list-start volume">
 	    <a id='navboxVolumeDown' class="volume" data-value="-1" href='#' title="Decrease Volume (-)"><i class="material-icons">volume_down</i></a>
 	  </li><li class="list-item volume">
@@ -108,6 +108,8 @@
 	    <a id='navboxExtraLoad' href='#' title="placeholder"><i class="material-icons">mms</i></a>
 	  </li><li>
 	    <a id='navboxShowInfo' href='#' title="Photo Info (v)"><i class="material-icons">info</i></a>
+	  </li><li>
+	    <a id='navboxShowHelp' href='#' title="placeholder"><i class="material-icons">help</i></a>
 	    <!-- These are in reverse order because of float: right -->
 	  </li><li class="right">
 	    <a id='navboxOrigDomain' href='#' title="Other posts from domain" class='local'><img class="redditp" src="images/favicon.png" /></a>
@@ -171,15 +173,28 @@
 	  <li class="show-nsfw"><a class="infop local hardlink" href="/r/randnsfw">/r/random (nsfw)</a></li>
 	  <li><a class="infop local hardlink" href="/r/all">All</a></li>
 	</ul></li>
-	<li><a href="/flickr" class="infop local">Flickr</a>
-	  <a class="infor remote" href="https://flickr.com/explore">
-	    <img class="favicon" src="https://flickr.com/favicon.ico"></a></li>
+        <li><a href="/gfycat" class="infop local">Gfycat</a>
+	  <a class="infor remote" href="https://gfycat.com/">
+	    <img class="favicon" src="https://gfycat.com/favicon.ico"></a></li>
         <li><a href="/imgur" class="infop local">Imgur</a>
 	  <a class="infor remote" href="https://imgur.com/">
 	    <img class="favicon" src="https://imgur.com/favicon.ico"></a></li>
-	<li><a href="/danbooru" class="infop local">Danbooru</a>
+	<li><a href="/flickr" class="infop local">Flickr</a>
+	  <a class="infor remote" href="https://flickr.com/explore">
+	    <img class="favicon" src="https://flickr.com/favicon.ico"></a>
+	  <ul><li><form onsubmit="return false" class="site-search" data-site="flickr">
+		<i class="material-icons">search</i>
+		<input type="text" name="search" class="remote noInput"/>
+	  </form></li></ul>
+	</li>
+	<li class="show-nsfw"><a href="/danbooru" class="infop local">Danbooru</a>
 	  <a class="infor remote" href="https://danbooru.donmai.us/">
-	    <img class="favicon" src="https://danbooru.donmai.us/favicon.ico"></a></li>
+	    <img class="favicon" src="https://danbooru.donmai.us/favicon.ico"></a>
+	  <ul><li><form onsubmit="return false" class="site-search" data-site="danbooru">
+		<i class="material-icons">search</i>
+		<input type="text" name="search" class="remote"/>
+	  </form></li></ul>
+	</li>
       </ul>
     </div>
 

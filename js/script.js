@@ -305,7 +305,11 @@ rp.choices = {
         's': [ 'hot', 'new' ],
     },
     'iloopit': {},
-    'imgur': { '': [ "hot", "top", "top:day", "top:week", "top:month", "top:year", "top:all" ] },
+    'imgur': {
+        '': [ "hot", "new", "top", "top:day", "top:week", "top:month", "top:year", "top:all" ],
+        'u': [ "new", "old", "best" ],
+        't' : [ "hot", "new", "top", "top:day", "top:week", "top:month", "top:year", "top:all" ],
+    },
     'reddit': { // top D W M Y A
         '':          [ "best", "hot", "new", "top", "top:day", "top:week", "top:month",  "top:year", "top:all",
                          "rising", "controversial", "gilded" ],
@@ -1501,7 +1505,16 @@ $(function () {
             processUrl($('#subredditUrl').val());
             $('#subredditUrl').blur();
         });
-        $('#subredditUrl').keyup(function (event) {
+
+        $('form.site-search').on('submit', function (event) {
+            if (event) {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+            }
+            processUrl("/"+event.target.dataset.site+"/s/"+event.target.children[0].value)
+        });
+
+        $('.noInput').keyup(function (event) {
             // don't forward keyup to document
             if (event) {
                 event.preventDefault();
@@ -3081,8 +3094,7 @@ $(function () {
             $("#autoNextSlide").click();
             break;
         case "?":
-            $('#help').toggle();
-            $('#recommend').toggle();
+            showHelp();
             break;
         case "+":
             volume_adjust(+1);
@@ -3152,6 +3164,11 @@ $(function () {
         if (obj.audioTracks != undefined)
             return (obj.audioTracks.length > 0) ?trueValue :0;
         return undefined;
+    };
+
+    var showHelp = function() {
+        $('#help').toggle();
+        $('#recommend').toggle();
     };
 
     var showInfo = function() {
@@ -3301,6 +3318,7 @@ $(function () {
     });
 
     $(document).on('click', '#navboxShowInfo', showInfo);
+    $(document).on('click', '#navboxShowHelp', showHelp);
 
     // Bind to PopState Event
     //rp.history.Adapter.bind(window, 'popstate', function(e) {
@@ -6033,14 +6051,14 @@ $(function () {
         // POPULAR:     /imgur/
         // USER:        /imgur/u/USER
         // TAG:         /imgur/t/TAG
-        var user;
-        var tag;
         var errmsg;
         var jsonUrl;
         var handleData;
+        var order = rp.url.choice.split(':');
+        var lem = rp.url.sub;
 
         if (!rp.session.after) {
-            rp.session.after = 0;
+            rp.session.after = 1;
             rp.session.loadAfter = getImgur;
         }
 
@@ -6059,11 +6077,14 @@ $(function () {
 
         switch(rp.url.type) {
         case 'u':
-            user = rp.url.sub;
-            errmsg = "User "+user+" has no items";
-            setSubredditLink(siteUserUrl(user, 'imgur'));
-            jsonUrl = 'https://api.imgur.com/3/account/' + user + '/submissions/'+rp.session.after+'/newest';
-
+            errmsg = "User "+lem+" has no items";
+            setSubredditLink(siteUserUrl(lem, 'imgur'));
+            jsonUrl = 'https://api.imgur.com/3/account/' + lem + '/submissions/'+rp.session.after+'/';
+            switch(rp.url.choice) {
+            case 'best': jsonUrl += "best"; break;
+            case 'old': jsonUrl += "oldest"; break;
+            default: jsonUrl += "newest"; break; // new | ''
+            }
             handleData = function (data) {
                 if (data.status != 200 || !data.success)
                     return doneLoading();
@@ -6089,10 +6110,14 @@ $(function () {
             };
             break;
         case 't':
-            tag = rp.url.sub;
-            errmsg = "Tag "+tag+" has no items";
-            setSubredditLink(siteTagUrl(tag, 'imgur'));
-            jsonUrl = 'https://api.imgur.com/post/v1/posts/t/'+tag+"?page="+rp.session.after;
+            errmsg = "Tag "+lem+" has no items";
+            setSubredditLink(siteTagUrl(lem, 'imgur', order));
+            jsonUrl = 'https://api.imgur.com/post/v1/posts/t/'+lem+"?page="+rp.session.after;
+            switch(order[0]) {
+            case 'top': jsonUrl += "&sort=-top"+((order[1]) ?"&filter[window]="+order[1] :""); break;
+            case 'new': jsonUrl += "&sort=-time"; break;
+            default: jsonUrl += "&sort=-viral"; break; // hot | ""
+            }
             handleData = function (data) {
                 data.posts.forEach(processPostItem);
                 ++rp.session.after;
@@ -6101,15 +6126,10 @@ $(function () {
             };
             break;
         default:
-            var order = rp.url.choice.split(':');
             errmsg = "No popular items";
             setSubredditLink('https://imgur.com');
-            jsonUrl = 'https://api.imgur.com/post/v1/posts?filter[section]=eq:'
-            if (order[0] == 'top')
-                jsonUrl += 'top&filter[window]='+order[1];
-            else
-                jsonUrl += 'hot';
-            jsonUrl += '&page='+rp.session.after;
+            jsonUrl = 'https://api.imgur.com/post/v1/posts?filter[section]=eq:'+
+                order[0]+((order[1]) ?'&filter[window]='+order[1] :'')+'&page='+rp.session.after;
             handleData = function (data) {
                 data.forEach(processPostItem);
                 ++rp.session.after;
@@ -7155,7 +7175,7 @@ $(function () {
             else
                 //reqData.sort = 'interestingness-desc';
                 reqData.sort = 'relevance';
-            url = siteSearchUrl(rp.ur.sub, 'flickr', reqData.sort);
+            url = siteSearchUrl(rp.url.sub, 'flickr', reqData.sort);
             break;
         case 't':
             reqData.tags = rp.url.sub.split(" ").join("");
