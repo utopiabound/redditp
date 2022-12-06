@@ -2160,6 +2160,7 @@ $(function () {
 
             if (pic.type == imageTypes.thumb &&
                 (orig_hn == 'dropbox.com' ||
+                 orig_hn == 'onlyfans.com' ||
                  orig_hn == 'tumblr.com'))
                 // capture items we want to skip from tryPreview()
                 throw "REJECTED";
@@ -2331,7 +2332,8 @@ $(function () {
                     // These domains should always be processed later
                     pic.type = imageTypes.later;
 
-            } else if (hostname == 'asianpornmovies.com') {
+            } else if (hostname == 'asianpornmovies.com' ||
+                       hostname == 'yespornplease.sexy') {
                 a = pathnameOf(pic.url).split('/');
                 if (a[1] != "embed" && a[1] != "video")
                     throw "unknown url"
@@ -4184,18 +4186,18 @@ $(function () {
                 resetNextSlideTimer();
         }
 
-        var rpdisplayHtml = function(event) {
+        var rpdisplayFunc = function(event) {
             var div = $(this);
             div.empty();
             var pic = event.data;
-            showHtml(div, pic.html);
-            return true;
-        };
-        var rpdisplayEmbed = function(event) {
-            var div = $(this);
-            div.empty();
-            var pic = event.data;
-            showEmbed(div, pic);
+            if (pic.type == imageTypes.album)
+                pic = event.data = pic.album[0];
+            if (pic.type == imageTypes.html)
+                showHtml(div, pic.html);
+            else if (pic.type == imageTypes.embed)
+                showEmbed(div, pic);
+            else
+                throw "Bad image type "+imageTypeStyle[pic.type]+": "+pic.url;
             return true;
         };
         var rpdisplayVideo = function() {
@@ -4263,14 +4265,9 @@ $(function () {
                 showVideo(pic);
                 break;
             case imageTypes.html:
-                // triggered in replaceBackgroundDiv
-                divNode.bind("rpdisplay", pic, rpdisplayHtml);
-                if (divNode.parent()[0] == $('#pictureSlider')[0])
-                    divNode.trigger("rpdisplay");
-                break;
             case imageTypes.embed:
                 // triggered in replaceBackgroundDiv
-                divNode.bind("rpdisplay", pic, rpdisplayEmbed);
+                divNode.bind("rpdisplay", pic, rpdisplayFunc);
                 if (divNode.parent()[0] == $('#pictureSlider')[0])
                     divNode.trigger("rpdisplay");
                 break;
