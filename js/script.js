@@ -1281,7 +1281,6 @@ $(function () {
 
         try {
             window.localStorage[name] = value;
-
         } catch (e) {
             log.error("Real localStoage is not supported: "+e.message);
             rp.session.fakeStorage = true;
@@ -2131,23 +2130,6 @@ $(function () {
 
         pic.url = fixupUrl(pic.url);
 
-        // Return if already setup
-        switch (pic.type) {
-        case imageTypes.fail:
-            return false;
-        case imageTypes.album:
-            return (pic.album !== undefined);
-        case imageTypes.video:
-            return (pic.video !== undefined);
-        case imageTypes.html:
-            return (pic.html !== undefined);
-        case imageTypes.thumb:
-            return (pic.thumb !== undefined);
-        case imageTypes.embed:
-        case imageTypes.image:
-            return true;
-        }
-
         var shortid, a, i, o, host;
         var fqdn = hostnameOf(pic.url);
         // hostname only: second-level-domain.tld
@@ -2155,15 +2137,29 @@ $(function () {
         var orig_hn = hostnameOf(pic.o_url, true);
 
         try {
+            // Return if already setup
+            switch (pic.type) {
+            case imageTypes.fail:
+                return false;
+            case imageTypes.album:
+                return (pic.album !== undefined);
+            case imageTypes.video:
+                return (pic.video !== undefined);
+            case imageTypes.html:
+                return (pic.html !== undefined);
+            case imageTypes.thumb:
+                if (orig_hn == 'dropbox.com' ||
+                    orig_hn == 'onlyfans.com' ||
+                    orig_hn == 'tumblr.com')
+                    throw "REJECTED";
+                return (pic.thumb !== undefined);
+            case imageTypes.embed:
+            case imageTypes.image:
+                return true;
+            }
+
             if (!pic.url.startsWith('http'))
                 throw "bad schema in URL";
-
-            if (pic.type == imageTypes.thumb &&
-                (orig_hn == 'dropbox.com' ||
-                 orig_hn == 'onlyfans.com' ||
-                 orig_hn == 'tumblr.com'))
-                // capture items we want to skip from tryPreview()
-                throw "REJECTED";
 
             if (hostname == 'imgur.com') {
                 pic.url = fixImgurPicUrl(pic.url);
@@ -2675,6 +2671,7 @@ $(function () {
                 } catch (e) {
                     shortid = 'embed';
                 }
+
                 a = searchOf(pic.url);
                 host = window.location.host;
 
@@ -2884,13 +2881,12 @@ $(function () {
         var numberButton = $("<a />", { title: title,
                                         id: "numberButton" + (index + 1),
                                         "class": "numberButton",
-                                        click: function () {startAnimation($(this).data("index"));},
+                                        "click": function () {startAnimation($(this).data("index"));},
                                       })
             .data("index", index)
             .html(index + 1)
 
         addButtonClass(numberButton, photo);
-
         addNumberButton(numberButton);
 
         // show the first valid image
@@ -5069,7 +5065,7 @@ $(function () {
                         return socialUserLink(name, site, match);
                     } catch (e) {
                         // fall through and attempt to match just name + subreddit/flair
-                        prefix = site+" "
+                        prefix = site+" ";
                     }
                 }
                 if (!connector.match(/@/)) {
@@ -5088,7 +5084,7 @@ $(function () {
         if (t1 != title)
             log.debug("TITLE 1: `"+title+"'\n      -> `"+t1);
 
-        // r/subreddit
+        // r/Subreddit
         t1 = t1.replace(/(?=^|\W|\b)(?:[[{(]\s*)\/?(r\/[\w-]+)((?:\/[\w-]+)*)\/?\s*(?:\s*[)\]}])?/gi, function(match, p1, p2) {
             var t = titleRLink('/'+p1, p1, match);
             if (p2)
@@ -5096,8 +5092,8 @@ $(function () {
             return t;
         });
 
-        // u/redditUser
-        t1 = t1.replace(/(?=^|\W|\b)(?:[[{(]\s*)?\/?(?:u|user)\/([\w-]+)\s*(?:\s*[)\]}])?/gi, function(match, p1) {
+        // u/RedditUser - https://github.com/reddit-archive/reddit/blob/master/r2/r2/lib/validator/validator.py#L1567
+        t1 = t1.replace(/(?=^|\W|\b)(?:[[{(]\s*)?\/?(?:u|user)\/([\w-]{3,20})\s*(?:\s*[)\]}])?/gi, function(match, p1) {
             return socialUserLink(p1, "reddit", match);
         });
 
@@ -5228,9 +5224,9 @@ $(function () {
         if ('code' in data) {
             data.grant_type = 'authorization_code';
             data.redirect_uri = rp.redirect;
-        } else if ('refresh_token' in data) {
+        } else if ('refresh_token' in data)
             data.grant_type = 'refresh_token';
-        } else
+        else
             throw "Unknown Code Flow: "+data;
 
         var jsonUrl = 'https://www.reddit.com/api/v1/access_token';
@@ -5844,8 +5840,7 @@ $(function () {
             try {
                 duplicates = duplicateAddCross(idorig, duplicates, idorig);
             } catch (e) {
-                log.info("cannot display url ["+e+"]: "+idorig.url);
-                return;
+                return log.info("cannot display url ["+e+"]: "+idorig.url);
             }
 
             duplicates.sort(subredditCompare);
@@ -7008,6 +7003,7 @@ $(function () {
         switch (rp.url.type) {
         case "u":
             errmsg = "User "+rp.url.sub+" has no posts";
+            // fall through
         case "t":
             jsonUrl = 'https://danbooru.donmai.us/posts.json?tags='+rp.url.sub;
             url = siteTagUrl(rp.url.sub, "danbooru");

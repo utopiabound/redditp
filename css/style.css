@@ -339,6 +339,7 @@ li.xorig a.infol { margin-left: 3px; }
 .infoc { margin: 0 3px 0 2px; }
 
 label.textlabel { font-weight: bold; }
+
 input.textlabel {
     height: 16px;
     width: 16px;
@@ -355,10 +356,6 @@ input.textlabel {
     left: 0;
 }
 
-#navboxScore {
-    position: relative;
-}
-
 div.score {
     position: absolute;
     background-image: url("images/upvote.svg");
@@ -369,6 +366,8 @@ div.score {
     bottom: -20px;
     left: 10px;
 }
+
+#navboxScore { position: relative; }
 
 #navboxScore span {
     width: 34px;
