@@ -79,6 +79,8 @@ a.failed { text-decoration: line-through; }
 
 .numberButtonList .over18 { color: #f99; }
 
+#refresh { margin-top: -8px; }
+
 /* List of Info Links */
 .nbmenu { width: 100%; }
 
@@ -336,16 +338,11 @@ li.xorig a.infol { margin-left: 3px; }
 /* info comment link (between infol and infop */
 .infoc { margin: 0 3px 0 2px; }
 
-label.textlabel {
-    font-weight: bold;
-    margin: 0 0 0 2px;
-}
-
+label.textlabel { font-weight: bold; }
 input.textlabel {
     height: 16px;
     width: 16px;
     text-align: center;
-    margin: 0 5px 0 0;
 }
 
 #controlsDiv a { position: relative; }
