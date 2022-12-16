@@ -318,6 +318,8 @@ rp.choices = {
         'domain':    [ "hot", "new", "top", "top:day", "top:week", "top:month",  "top:year", "top:all",
                        "rising", "controversial", 'gilded' ],
         'friends':   [ "new", "gilded" ],
+        'search':    [ "relevence", "relevence:day", "relevence:week", "relevence:month",  "relevence:year", "relevence:all",
+                       "top", "top:day", "top:week", "top:month",  "top:year", "new" ],
         'submitted': [ "hot", "new", "top", "top:day", "top:week", "top:month",  "top:year", "top:all", "controversial" ],
         'm':         [ "hot", "new", "top", "top:day", "top:week", "top:month",  "top:year", "top:all",
                        "rising", "controversial", 'gilded' ],
@@ -1467,6 +1469,9 @@ $(function () {
 
         volume_set(getConfig(configNames.decivolume));
         $("a.volume").click(volume_adjust);
+        $('#timeToNextSlide').keyup(updateTimeToNextSlide);
+        $('#prevButton').click(prevAlbumSlide);
+        $('#nextButton').click(nextAlbumSlide);
 
         $('#fullscreen').change(function() {
             var elem = document.getElementById('page');
@@ -1491,26 +1496,21 @@ $(function () {
             }
         });
 
-        $('#timeToNextSlide').keyup(updateTimeToNextSlide);
-
-        $('#prevButton').click(prevAlbumSlide);
-        $('#nextButton').click(nextAlbumSlide);
-
         $('#subredditForm').on('submit', function (event) {
-            if (event) {
-                event.preventDefault();
-                event.stopImmediatePropagation();
-            }
+            event.preventDefault();
+            event.stopImmediatePropagation();
             processUrl($('#subredditUrl').val());
             $('#subredditUrl').blur();
         });
 
         $('form.site-search').on('submit', function (event) {
-            if (event) {
-                event.preventDefault();
-                event.stopImmediatePropagation();
-            }
-            processUrl("/"+event.target.dataset.site+"/s/"+event.target.children[0].value)
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            var value = $(event.target).find("input")[0].value;
+            if (event.target.dataset.site == "reddit")
+                processUrl("/search/"+value);
+            else
+                processUrl("/"+event.target.dataset.site+"/s/"+value)
         });
 
         $('.noInput').keyup(function (event) {
@@ -2796,7 +2796,8 @@ $(function () {
                         hostname == 'nonktube.com' ||
                         hostname == 'theporngod.com' ||
                         hostname == 'vrbangers.com' ||
-                        hostname == 'youporn.com')
+                        hostname == 'youporn.com' ||
+                        hostname == 'xxxbox.me')
                         initPhotoEmbed(pic, href.prop('origin')+'/embed/'+shortid, false);
 
                     else if (shortid.match(/^\d+$/)) {
@@ -4602,26 +4603,21 @@ $(function () {
             headerData = { Authorization: "Client-ID "+ rp.api_key.imgur };
             a = pathnameOf(photo.url).split('/');
 
+            var handleImgurAlbum = function(data) {
+                handleImgurItemMeta(photo, data.data);
+                showCB(handleImgurItemAlbum(photo, data.data));
+            };
+
             if (a[1] == 'a') {
                 jsonUrl = "https://api.imgur.com/3/album/" + a[2];
-                handleData = function(data) {
-                    handleImgurItemMeta(photo, data.data);
-
-                    photo = handleImgurItemAlbum(photo, data.data);
-                    showCB(photo);
-                }
+                handleData = handleImgurAlbum;
 
             } else if (a[1] == 'gallery') {
                 jsonUrl = "https://api.imgur.com/3/gallery/" + a[2];
 
                 handleError = function () {
                     jsonUrl = "https://api.imgur.com/3/album/" + a[2];
-                    var hdata = function (data) {
-                        handleImgurItemMeta(photo, data.data);
-
-                        photo = handleImgurItemAlbum(photo, data.data);
-                        showCB(photo);
-                    };
+                    var hdata = handleImgurAlbum;
                     var herr = function() {
                         initPhotoImage(photo, "https://i.imgur.com/"+shortid+".jpg");
 
@@ -4648,16 +4644,13 @@ $(function () {
                     }
                     if (Array.isArray(data.data)) {
                         photo = handleImgurItemAlbum(photo, {
+                            is_album: true,
                             images: data.data,
                             link: "https://imgur.com/gallery/"+shortid,
                         });
-
-                    } else {
-                        handleImgurItemMeta(photo, data.data);
-
-                        photo = handleImgurItemAlbum(photo, data.data);
-                    }
-                    showCB(photo);
+                        showCB(photo);
+                    } else
+                        handleImgurAlbum(data);
                 };
 
             } else {
@@ -5780,14 +5773,26 @@ $(function () {
         var jsonUrl = rp.reddit.api + rpurlbase() + ((order[0]) ? "/"+order[0] :"") + ".json?";
         var dataType = 'json';
         var hdrData = rp.session.redditHdr;
+        var urlargs = [];
 
-        if (rp.url.sub == 'random' || rp.url.sub == 'randnsfw') {
-            jsonUrl = rp.reddit.base + rpurlbase() + ".json?jsonp=redditcallback";
+        if (order.length > 0)
+            urlargs.push('sort='+order[0]);
+        if (order.length > 1)
+            urlargs.push('t='+order[1]);
+        if (rp.session.after)
+            urlargs.push(rp.session.after);
+
+        if (rp.url.type == 'search') {
+            jsonUrl = rp.reddit.api + '/search.json?';
+            urlargs.push('q='+rp.url.sub);
+
+        } else if (rp.url.sub == 'random' || rp.url.sub == 'randnsfw') {
+            jsonUrl = rp.reddit.base + rpurlbase() + '.json?jsonp=redditcallback';
             dataType = 'jsonp';
-        } else if (order.length > 1)
-            jsonUrl += 'sort='+order[0]+'&t='+order[1];
+            urlargs = [];
+        }
 
-        jsonUrl += rp.session.after;
+        jsonUrl += urlargs.join('&');
 
         var duplicateInList = function(duplicates, item) {
             for (var dup of duplicates) {
@@ -5932,7 +5937,7 @@ $(function () {
             // NOTE: if data.data.after is null then this causes us to start
             // from the top on the next getRedditImages which is fine.
             if (data.data.after !== null) {
-                rp.session.after = "&after=" + data.data.after;
+                rp.session.after = "after=" + data.data.after;
                 rp.session.loadAfter = getRedditImages;
 
             } else
@@ -5951,7 +5956,7 @@ $(function () {
                 var base = rpurlbase();
                 log.info("ACTUAL: "+base);
 
-                setSubredditLink(rp.reddit.base + base, "reddit");
+                setSubredditLink(rp.reddit.base + base + (rp.url.choice) ?'/'+rp.url.choice :'', "reddit");
                 $('#subredditUrl').val(base);
                 // fix choices after determining correct subreddit
                 setupChoices();
@@ -6040,9 +6045,9 @@ $(function () {
     };
 
     var getImgur = function () {
-        // POPULAR:     /imgur/
-        // USER:        /imgur/u/USER
-        // TAG:         /imgur/t/TAG
+        // POPULAR:     /imgur/[/CHOICES]
+        // USER:        /imgur/u/USER[/CHOICES]
+        // TAG:         /imgur/t/TAG[/CHOICES]
         var errmsg;
         var jsonUrl;
         var handleData;
@@ -6446,9 +6451,7 @@ $(function () {
 
     var getWordPressBlogV2 = function () {
         // Path Schema:
-        // /wp2/HOSTNAME[/(asc|desc)]
-        // desc: newest to oldest
-        // asc: oldest to newest
+        // /wp2/HOSTNAME[/CHOICES]
         if (rp.session.loadingNextImages)
             return;
         rp.session.loadingNextImages = true;
@@ -6539,9 +6542,7 @@ $(function () {
     // https://developer.wordpress.com/docs/api/1.1/get/sites/%24site/posts/
     var getWordPressBlog = function () {
         // Path Schema:
-        // /wp/HOSTNAME[/(new|old)]
-        // DESC: newest to oldest
-        // ASC: oldest to newest
+        // /wp/HOSTNAME[/CHOICES]
         if (rp.session.loadingNextImages)
             return;
         rp.session.loadingNextImages = true;
@@ -7135,10 +7136,10 @@ $(function () {
     // z - 640 on longest (gaurenteed to exist)
     var getFlickr = function() {
         // Path Schema:
-        // /flickr
-        // /flickr/s/SEARCHSTRING
-        // /flickr/t/TAG[,tag2]
-        // /flickr/u/USER[/albums]
+        // /flickr[/CHOICES]
+        // /flickr/s/SEARCHSTRING[/CHOICES]
+        // /flickr/t/TAG[,tag2][/CHOICES]
+        // /flickr/u/USER[/albums][/CHOICES]
         var url = "https://flickr.com/explore";
         if (rp.session.after == undefined)
             rp.session.after = 1;
@@ -7581,6 +7582,12 @@ $(function () {
         var okay = false;
         var arr = path.split('?').reverse();
 
+        var inUrlChoice = function(type, arr) {
+            return (arr.length > 0 &&
+                    rp.choices[rp.url.site][type] &&
+                    rp.choices[rp.url.site][type].includes(arr[arr.length-1]));
+        };
+
         for (var i in arr) {
             var a = arr[i].split(/[/ ]/);
             if (a.length == 1)
@@ -7591,7 +7598,8 @@ $(function () {
 
             var t = a.shift().toLowerCase();
 
-            if (t == 'auth') {
+            switch (t) {
+            case 'auth':
                 var args = searchOf(window.location.href);
                 var url = decodeURIComponent(args.state);
                 if (url.startsWith('/auth'))
@@ -7615,44 +7623,67 @@ $(function () {
                 processUrl(url, true);
                 loadRedditMultiList();
                 return;
-
-            } else if (['r', 'me', 'u', 'user', 'domain'].includes(t)) {
-                if (t == 'r' || t == 'domain') {
-                    rp.url.type = t;
-                    rp.url.sub = decodeURIComponent(a.shift());
-                    if (rp.url.sub == 'friends') {
-                        rp.url.type = 'friends';
-                    }
-                } else if (t == 'u' || t == 'user') {
-                    // /(user|u)/USERNAME/(m/MULTI|submitted)
-                    rp.url.sub = a.shift();
-                    rp.url.type = a.shift() || "submitted";
-                    if (rp.url.type == 'm')
-                        rp.url.multi = a.shift();
-                } else if (t == 'me') {
-                    rp.url.type = a.shift();
-                    rp.url.multi = a.shift();
-                    rp.session.loginNeeded = true;
-                } else {
-                    log.info("Bad PATH: "+arr[i]);
-                    continue;
-                }
-
-            } else if (['flickr', 'gfycat', 'imgur', 'iloopit', 'danbooru'].includes(t)) {
+            case 'blogger':
+            case 'wp':
+            case 'wp2':
+            case 'tumblr':
+                rp.url.site = t;
+                rp.url.sub = a.shift();
+                break;
+            case 'domain':
+            case 'r':
+                rp.url.type = t;
+                rp.url.sub = decodeURIComponent(a.shift());
+                if (rp.url.sub == 'friends')
+                    rp.url.type = 'friends';
+                else if (rp.url.sub == 'random' || rp.url.sub == 'randnsfw')
+                    if (inUrlChoice(t, a))
+                        a.pop(); // this can't be used, so drop it
+                break;
+            case 'flickr':
+            case 'gfycat':
+            case 'imgur':
+            case 'iloopit':
+            case 'danbooru':
                 rp.url.site = t;
                 var c = (a.length > 1) ?a[0] :'';
-                if (a.length > 0 && rp.choices[rp.url.site][c] && rp.choices[rp.url.site][c].includes(a[a.length-1]))
+                if (inUrlChoice(c, a))
                     rp.url.choice = a.pop();
                 rp.url.type = a.shift() || '';
                 if (a.length > 0) {
                     rp.url.sub = decodeURIComponent(a.join(" "));
                     a = [];
                 }
-            } else if (['blogger', 'wp', 'wp2', 'tumblr'].includes(t)) {
-                rp.url.site = t;
+                break;
+            case 'me':
+                rp.url.type = a.shift();
+                rp.url.multi = a.shift();
+                rp.session.loginNeeded = true;
+                break;
+            case 'u':
+            case 'user':
+                // /(user|u)/USERNAME/(m/MULTI|submitted)
                 rp.url.sub = a.shift();
+                rp.url.type = a.shift() || "submitted";
+                if (rp.url.type == 'm')
+                    rp.url.multi = a.shift();
+                break;
+            case 'search':
+                if (a.length == 0) {
+                    log.error("Empty search string");
+                    continue;
+                }
+                rp.url.type = t;
+                if (inUrlChoice(t, a))
+                    rp.url.choice = a.pop();
+                rp.url.sub = decodeURIComponent(a.join(" "));
+                a = [];
+                break;
+            case '': break;
+            default:
+                log.info("Bad PATH: "+arr[i]);
+                continue;
             }
-
             if (a.length > 0) {
                 c = a.shift();
                 if (c && !rp.choices[rp.url.site][rp.url.type].includes(c)) {
