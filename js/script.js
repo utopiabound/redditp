@@ -3686,10 +3686,7 @@ $(function () {
         var image = photo;
         if (albumIndex >= 0)
             image = photo.album[albumIndex];
-        var subreddit = '/r/' + photo.subreddit;
         var now = currentTime();
-
-        var authName = image.author || photo.author;
 
         // COMMENTS/BUTTON LIST Box
         updateExtraLoad();
@@ -3724,56 +3721,13 @@ $(function () {
         else
             $('#navboxScore').hide();
 
-        $('#navboxExtra').html(picExtra(image));
-
-        if (photo.subreddit) {
-            $('#navboxSubreddit').html(redditLink(subreddit)).show();
-
-            if (authName && image.site && image.site.user)
-                $('#navboxExtra').append(siteUserLink(image.site));
-
-            else if (image.tumblr)
-                $('#navboxExtra').append(tumblrLink(image.tumblr.blog));
-
-        } else if (authName && image.site && image.site.user)
-            $('#navboxSubreddit').html(siteUserLink(image.site)).show();
-
-        else if (image.tumblr)
-            $('#navboxSubreddit').html(tumblrLink(image.tumblr.blog)).show();
-
-        else
-            $('#navboxSubreddit').hide();
-
-        if (albumIndex >= 0)
-            $('#navboxExtra').append($('<span>', { class: 'info infol' }).text((albumIndex+1)+"/"+rp.photos[imageIndex].album.length));
-
-        if (authName)
-            $('#navboxAuthor').html(redditLink(localUserUrl(authName, "reddit"),  authName, '/u/'+authName)).show();
-
-        else if (image.site && image.site.user)
-            $('#navboxAuthor').html(siteUserLink(image.site)).show();
-
-        else
-            $('#navboxAuthor').hide();
-
-        if (photo.comments)
-            $('#navboxSubreddit').append($('<a>', { href: photo.comments,
-                                                    class: "info infoc",
-                                                    title: "Comments (o)" }
-                                          ).text('('+photo.commentN+")"));
         var date = image.date || photo.date;
         if (date)
             $('#navboxDate').attr("title", (new Date(date*1000)).toString()).text(sec2dms(now - date));
         else
             $('#navboxDate').attr("title", "").text("");
 
-        if (photo.subreddit) {
-            $('#navboxDuplicatesLink').attr('href',  rp.reddit.base + '/r/' +
-                                            photo.subreddit + '/duplicates/' + photo.id).show();
-        } else {
-            $('#navboxDuplicatesLink').attr('href', '#').hide();
-        }
-
+        updateAuthor(image);
         updateDuplicates(image);
 
         if (oldIndex != imageIndex) {
@@ -4581,7 +4535,7 @@ $(function () {
                     // @@TODO: check to see if data.photoset.total > data.photoset.perpage
                     data.photoset.photo.forEach( function(item) {
                         var pic = processFlickrPost(item);
-                        pic.site.user = data.photoset.owner;
+                        addPhotoSiteUser(pic, data.photoset.owner);
                         if (processPhoto(pic))
                             addAlbumItem(photo, pic);
                     });
@@ -4921,20 +4875,18 @@ $(function () {
             photo.site = { t: "imgur" };
         if (item.account_url)
             photo.site.user = item.account_url;
-        if (item.section && !photo.subreddit)
-            photo.subreddit = item.section;
+        if (item.section) {
+            if (photo.subreddit)
+                addPhotoSiteTags(photo, [ item.section ]);
+            else
+                photo.subreddit = item.section;
+        }
         if (item.datetime && !photo.date)
             photo.date = item.datetime;
         if (item.nsfw && !photo.over18)
             photo.over18 = item.nsfw;
-        if (item.tags && item.tags.length > 0) {
-            var i;
-            if (!photo.site.tags)
-                photo.site.tags = [];
-            for (i in item.tags) {
-                photo.site.tags.push(item.tags[i].name);
-            }
-        }
+        if (item.tags)
+            addPhotoSiteTags(photo, item.tags.map(function(x) { return x.name }));
     };
 
     var fixImgurPicUrl = function(url) {
@@ -5530,6 +5482,53 @@ $(function () {
         if (rp.loaded[site][shortid] > (now-rp.settings.dupeCacheTimeout))
             return;
         rp.loaded[site][shortid] = now;
+
+        // Load Tags for site
+        var jurl, tagData;
+        if (site == "flickr.com" && !picHasSiteTags(photo) && !isNaN(parseInt(shortid, 10))) {
+            log.info("getting flickr tags: "+shortid);
+            jurl = flickrJsonURL("flickr.photos.getInfo", { photo_id: shortid });
+            tagData = function(post) {
+                if (post.stat == "fail") {
+                    log.info("Failed to getInfo("+shortid+"): "+post.message);
+                    return;
+                }
+                photo.site = { t: 'flickr', user: post.photo.owner.nsid };
+                flickrAddUserMap(post.photo.owner.username, post.photo.owner.nsid);
+                if (post.photo.tags.tag)
+                    addPhotoSiteTags(photo, post.photo.tags.tag.map(function(x) { return x.raw }));
+                if (isActiveCurrent(photo)) {
+                    updateAuthor(photo);
+                    updateDuplicates(photo);
+                }
+            };
+            $.ajax({
+                url: jurl,
+                dataType: 'jsonp',
+                success: tagData,
+                error: failedAjax,
+                timeout: rp.settings.ajaxTimeout,
+                crossDomain: true,
+            });
+
+        } else if (site == "imgur.com" && !picHasSiteTags(photo)) {
+            log.info("getting imgur tags: "+shortid);
+            jurl = 'https://api.imgur.com/3/image/'+shortid;
+            tagData = function(data) {
+                handleImgurItemMeta(photo, data.data);
+                if (isActiveCurrent(photo))
+                    updateDuplicates(photo);
+            };
+            $.ajax({
+                url: jurl,
+                dataType: 'json',
+                headers: { Authorization: "Client-ID "+ rp.api_key.imgur },
+                success: tagData,
+                error: failedAjax,
+                timeout: rp.settings.ajaxTimeout,
+                crossDomain: true,
+            });
+        }
 
         // This allow loading duplicates of found subreddits w/o loops
         var dupes = { };
@@ -7241,7 +7240,7 @@ $(function () {
             url = siteSearchUrl(rp.url.sub, 'flickr', reqData.sort);
             break;
         case 't':
-            reqData.tags = rp.url.sub.split(" ").join("");
+            reqData.tags = rp.url.sub.toLowerCase().replaceAll(" ", "").replaceAll("+", ",");
             reqData.tag_mode = "all";
             url = siteTagUrl(reqData.tags, 'flickr');
             if (rp.url.choice == 'new')
