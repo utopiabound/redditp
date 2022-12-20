@@ -95,13 +95,13 @@
  *              t:      imgur|gfycat|iloopit|flickr|danbooru
  *              -- Optional --
  *              user:   TEXT username
- *              tags:   ARRAY of TEXT Tags for photo
+ *              tags:   ARRAY of TEXT Tags for photo                    [picHasSiteTags(), addPhotoSiteTags()]
  *      tumblr:         HASH (e.g. 'https://'+tumblr.blog+'.tumblr.com'+/post/+tumblr.id )
  *              blog:   TEXT blog name
  *              id:     TEXT tumblr post id
  *
  *      -- Depending on image Type [see initPhotoTYPE()] --
- *      video:          HASH for video ext to url + thumbnail (see showVideo() / rp.mime2ext)   [set by initPhotoVideo() / addVideoUrl()]
+ *      video:          HASH for video ext to url + thumbnail (see showVideo() / rp.mime2ext)   [initPhotoVideo() / addVideoUrl()]
  *              TYPE:           ARRAY of URLs (type is ext c.f. rp.ext2mime video/*)
  *              audio:          HASH of TYPE to URL (type is ext c.f. rp.ext2mime audio/*)
  *              -- set by showVideo() --
@@ -969,6 +969,7 @@ $(function () {
         }
         return hostname;
     };
+    rp.fn.hostnameOf = hostnameOf;
 
     var pathnameOf = function(url) {
         return $('<a>').attr('href', url).prop('pathname');
@@ -1100,6 +1101,11 @@ $(function () {
             return photo.extra;
         return "";
     };
+
+
+    var picHasSiteTags = function(pic) {
+        return pic.site && pic.site.tags && pic.site.tags.length > 0;
+    }
 
     // **************************************************************
     // rp.dedup Helper functions
@@ -1654,13 +1660,12 @@ $(function () {
 
     var addPhotoSiteTags = function(photo, tags) {
         if (tags && tags.length > 0)
-            photo.site.tags = tags;
+            photo.site.tags = ((photo.site.tags) ?photo.site.tags :[]).concat(tags);
     }
 
     var addPhotoSiteUser = function(photo, user) {
-        if (user)
-            if (photo.site.t != 'gfycat' || user != 'anonymous')
-                photo.site.user = user;
+        if (user && !photo.site.user && (photo.site.t != 'gfycat' || user != 'anonymous'))
+            photo.site.user = user;
     }
 
     var initPhotoImage = function(photo, url) {
@@ -3513,6 +3518,44 @@ $(function () {
         }
     };
 
+    // Update subreddit, author, and Extras
+    var updateAuthor = function(pic) {
+        var photo = photoParent(pic);
+        var authName = pic.author || photo.author;
+        $('#navboxExtra').html(picExtra(pic));
+
+        if (photo.subreddit) {
+            $('#navboxSubreddit').html(redditLink('/r/'+photo.subreddit)).show();
+
+            if (authName && pic.site && pic.site.user)
+                $('#navboxExtra').append(siteUserLink(pic.site));
+            else if (pic.tumblr)
+                $('#navboxExtra').append(tumblrLink(pic.tumblr.blog));
+
+        } else if (authName && pic.site && pic.site.user)
+            $('#navboxSubreddit').html(siteUserLink(pic.site)).show();
+        else if (pic.tumblr)
+            $('#navboxSubreddit').html(tumblrLink(pic.tumblr.blog)).show();
+        else
+            $('#navboxSubreddit').hide();
+
+        if (photo != pic)
+            $('#navboxExtra').append($('<span>', { class: 'info infol' }).text((photo.album.indexOf(pic)+1)+"/"+photo.album.length));
+
+        if (authName)
+            $('#navboxAuthor').html(redditLink(localUserUrl(authName, "reddit"),  authName, '/u/'+authName)).show();
+        else if (pic.site && pic.site.user)
+            $('#navboxAuthor').html(siteUserLink(pic.site)).show();
+        else
+            $('#navboxAuthor').hide();
+
+        if (photo.comments)
+            $('#navboxSubreddit').append($('<a>', { href: photo.comments,
+                                                    class: "info infoc",
+                                                    title: "Comments (o)" }
+                                          ).text('('+photo.commentN+")"));
+    };
+
     var updateDuplicates = function(pic) {
         var photo = photoParent(pic);
         if (!isActive(photo))
@@ -3520,23 +3563,43 @@ $(function () {
         $('#duplicateUl').html("");
         var total = 0;
 
-        // Gfycat "duplicates" aka Tags
-        if (pic.site) {
-            if (pic.site.tags && pic.site.tags.length > 0)
-                pic.site.tags.forEach(function(tag) {
-                    var li = $("<li>", { class: 'list'});
-                    li.html(siteTagLink(tag, pic.site.t));
-                    ++ total;
-                    $('#duplicateUl').append(li);
-                });
+        if (photo.subreddit) {
+            $('#navboxDuplicatesLink').attr('href',  rp.reddit.base + '/r/' +
+                                            photo.subreddit + '/duplicates/' + photo.id).show();
+        } else {
+            $('#navboxDuplicatesLink').attr('href', '#').hide();
         }
 
+        // Add Site Tags
+        if (picHasSiteTags(pic)) {
+            pic.site.tags.forEach(function(tag) {
+                var li = $("<li>", { class: 'list'});
+                li.html(siteTagLink(tag, pic.site.t));
+                ++ total;
+                $('#duplicateUl').append(li);
+            });
+        }
+
+        // Add Site Tags (album)
+        if (photo != pic && picHasSiteTags(photo)) {
+            photo.site.tags.forEach(function(tag) {
+                var li = $("<li>", { class: 'list'});
+                li.html(siteTagLink(tag, photo.site.t));
+                ++ total;
+                $('#duplicateUl').append(li);
+            });
+        }
+
+        var dupes = ((photo.dupes) ?photo.dupes :[]);
+        if (pic != photo && pic.dupes)
+            dupes = dupes.concat(pic.dupes);
+
         // Reddit Duplicates
-        if (photo.dupes && photo.dupes.length > 0) {
+        if (dupes.length > 0) {
             var multi = [];
             if (photo.subreddit)
                 multi.push(photo.subreddit);
-            photo.dupes.forEach(function(item) {
+            dupes.forEach(function(item) {
                 var li = $("<li>", { class: 'list'});
 
                 if (item.subreddit) {
@@ -5442,9 +5505,14 @@ $(function () {
 
         if (site === undefined) {
             site = hn;
-            if (hn == 'imgur.com' ||
+            if (hn == 'fav.me' ||
+                hn == 'imgur.com' ||
+                hn == 'gifs.com' ||
                 hn == 'gfycat.com' ||
-                hn == 'redgifs.com')
+                hn == 'makeagif.com' ||
+                hn == 'redd.it' ||
+                hn == 'redgifs.com' ||
+                hn == 'sta.sh')
                 shortid = url2shortid(photo.url);
 
             else if (hn == 'iloopit.net') {
@@ -5510,11 +5578,10 @@ $(function () {
                 log.info("Ignoring duplicate [score too low: "+item.data.score+"]: "+item.data.subreddit);
                 return;
             }
-            var pic = photoParent(photo);
-            var index = addPhotoDupe(pic, redditT3ToDupe(item.data));
+            var index = addPhotoDupe(photo, redditT3ToDupe(item.data));
             dedupArrAdd(dupes, item.data.subreddit, item.data.id);
             if (index >= 0)
-                getRedditComments(pic, pic.dupes[index]);
+                getRedditComments(photo, photo.dupes[index]);
         };
 
         // https://www.reddit.com/search.json?q=url:SHORTID+site:HOSTNAME
@@ -6209,6 +6276,8 @@ $(function () {
                 initPhotoVideo(pic, [], item.poster);
 
                 item.childNodes.forEach(function(source) {
+                    if (source.nodeName != "SOURCE")
+                        return;
                     var src = source.getAttribute('src');
                     if (src === null)
                         return;

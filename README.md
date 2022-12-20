@@ -60,6 +60,12 @@ Features
 Possible future features, depending on feedback:
 * Zoom/Pan for comics
 
+Supported Browsers
+------------------
+* Modern Desktop (firefox, chrome, safari, webkit, opera, etc.)
+* iOS 9.x
+   * No Unicode Regex
+
 URLs
 ----
 
@@ -85,16 +91,17 @@ These are available from the popup menu
 * /user/USER/m/MULTIREDDIT
 
 ## Other Services:
-* /imgur/			Popular Imgur Items
-* /imgur/u/USER			Images from that USER
-* /imgur/t/TAG			Items with that TAG
-* /gfycat				Trending gfycat items
-* /gfycat/u/USER		Gfycat items from that USER
+* /imgur			Popular Imgur Items
+* /imgur/u/USER		Images from that USER
+* /imgur/t/TAG		Items with that TAG
+* /gfycat			Trending gfycat items
+* /gfycat/u/USER	Gfycat items from that USER
 * /gfycat/t/TAG		Gfycat items with that TAG
 * /wp/HOSTNAME		(with or without .wordpress.com)
 * /wp2/HOSTNAME		(fqdn of Self-hosted wordpress site aka API version 2)
 * /tumblr/HOSTNAME	(with or without .tumblr.com)
 * /blogger/HOSTNAME	(fqdn of blogger hosted site)
+* /flickr			Popular Flickr Items
 * /flickr/USER[/ALBUM] (username of flickr user)
 * /iloopit/[u/USER|t/TAG]
 
