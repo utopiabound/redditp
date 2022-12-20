@@ -5042,48 +5042,52 @@ $(function () {
             return def;
         };
 
-        // SITE : NAME  and @NAME
+        // "{SITE}{connector}{NAME}"/"@NAME"/"[SITE][NAME]"
+        // 0x1f47b - Ghost
+        // 0x25b6 - play button
+        // 0x27a1 - right arrow
         var re;
         if (rp.session.regexUnicode)
-            re = /(?:[[{(]\s*|\b|^)?([A-Za-z.$]*|\p{Emoji})\s*((?:&\w+;)?[-:@][-:@\s]*|\]\[|\)\s*\()[[\s]*([\w.-]+\w)(?:\s*[)\]}])?/gu;
+            re = /(?:[[{(]\s*|[mM][yY]\s+|[Oo][Nn]\s+|\b|^)?([\p{L}.$]+\p{L}|[@]+|\u{1f47b})\s*((?:&\w+;)?[-:@][-:@\s]*|(?:&gt;|=)+|\b\s*|\]\[|\)\s*\(|(?:\u{25b6}|\u{27a1})\u{fe0f}?)[[\s]*([\w.-]+\w)(?:\s*[)\]}])?/gu;
         else
-            re = /(?:[[{(]\s*|\b|^)?([A-Za-z.$]*)\s*((?:&\w+;)?[-:@][-:@\s]*|\]\[|\)\s*\()[[\s]*([\w.-]+\w)(?:\s*[)\]}])?/g;
+            re = /(?:[[{(]\s*|\b|^)?([A-Za-z.$]+[A-Za-z]|[@]+)\s*((?:&\w+;)?[-:@][-:@\s]*|(?:&gt;|=)+|\b\s*|\]\[|\)\s*\()[[\s]*([\w.-]+\w)(?:\s*[)\]}])?/g;
         t1 = t1.replace(re, function(match, site, connector, name) {
             site = site.toLowerCase().replaceAll(".", "");
             var prefix = "";
             try {
-                if (site) {
-                    if (site == "fb")
-                        site = "facebook";
-                    else if (site == "tk")
-                        site = "tiktok";
-                    else if (site.match(/^(onlyfans?|of)$/))
-                        site = "onlyfans";
-                    else if (site.match(/^[s$](na?pcha?t|np|nap?|c)$/) || site == "\u{1f47b}") // Ghost
-                        site = "snapchat";
-                    else if (site.match(/^(insta.*|i?g)$/) && !["rated", "string", "cups", "spot"].includes(name.toLowerCase()))
-                        site = "instagram";
-                    else if (site == "tw")
-                        site = "twitter";
-                    else if (site == "kik")
-                        return site+" : "+name; // ensure it doesn't get picked up below
-                    else if (site == "reddit")
-                        return "u/"+name; // this will be picked up below for u/USER
-                    try {
-                        return socialUserLink(name, site, match);
-                    } catch (e) {
-                        // fall through and attempt to match just name + subreddit/flair
-                        prefix = site+" ";
-                    }
-                }
-                if (!connector.match(/@/)) {
-                    log.debug("Bad connector "+connector+" for title: "+t1);
-                    throw "Bad Connector"
-                } else {
+                if (["and", "free", "link", "vs"].includes(name.toLowerCase()))
+                    throw "bad username";
+                if (site == "fb")
+                    site = "facebook";
+                else if (site == "tk")
+                    site = "tiktok";
+                else if (site.match(/^(onlyfans?|of)$/) && !(site == "of" && connector == ""))
+                    site = "onlyfans";
+                else if (site.match(/^[sś$](na?pcha?t|np|nap?|c)$/) || site == "\u{1f47b}") // Ghost
+                    site = "snapchat";
+                else if (connector == "\u{1f47b}") {
+                    prefix = site+" ";
+                    site = "snapchat";
+                } else if (site.match(/^(insta.*|i?g)$/) && !["rated", "string", "cups", "spot"].includes(name.toLowerCase()))
+                    site = "instagram";
+                else if (site == "tw")
+                    site = "twitter";
+                else if (site == "telegran")
+                    site = "telegram";
+                else if (site == "@") {
                     var social = (pic.over18) ?"instagram" :"twitter";
-                    social = metaSocial(hn, subreddit, picFlair(pic), social);
-                    return prefix+socialUserLink(name, social, match);
+                    site = metaSocial(hn, subreddit, picFlair(pic), social);
+                } else if (site == "kik" || site == "kk")
+                    return "kik : "+name; // ensure it doesn't get picked up below
+                else if (site == "reddit")
+                    return "u/"+name; // this will be picked up below for u/USER
+                try {
+                    return prefix+socialUserLink(name, site, match);
+                } catch (e) {
+                    // fall through and attempt to match just name + subreddit/flair
+                    prefix = site+" ";
                 }
+                throw "unknown";
             } catch (e) {
                 return match;
             }
@@ -5093,11 +5097,11 @@ $(function () {
             log.debug("TITLE 1: `"+title+"'\n      -> `"+t1);
 
         // r/Subreddit
-        t1 = t1.replace(/(?=^|\W|\b)(?:[[{(]\s*)\/?(r\/[\w-]+)((?:\/[\w-]+)*)\/?\s*(?:\s*[)\]}])?/gi, function(match, p1, p2) {
+        t1 = t1.replace(/(?=^|\W|\b)(?:[[{(]\s*)?\/?(r\/[\w-]+)((?:\/[\w-]+)*)\/?\s*(?:\s*[)\]}])?/gi, function(match, p1, p2) {
             var t = titleRLink('/'+p1, p1, match);
             if (p2)
                 t += titleFLink("https://reddit.com"+match, url2shortid(p2));
-            return t;
+            return " "+t;
         });
 
         // u/RedditUser - https://github.com/reddit-archive/reddit/blob/master/r2/r2/lib/validator/validator.py#L1567
