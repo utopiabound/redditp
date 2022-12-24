@@ -63,8 +63,9 @@ Possible future features, depending on feedback:
 Supported Browsers
 ------------------
 * Modern Desktop (firefox, chrome, safari, webkit, opera, etc.)
-* iOS 9.x
-   * No Unicode Regex
+* iOS 9.x+
+   * Pre-11 - No Unicode Regex (titles won't have as many substitutions / links)
+* Android
 
 URLs
 ----

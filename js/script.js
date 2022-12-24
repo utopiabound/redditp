@@ -455,7 +455,14 @@ $(function () {
         var as = a.subreddit || a.tumblr;
         var bs = b.subreddit || b.tumblr;
         return as.toLowerCase().localeCompare(bs.toLowerCase());
-    }
+    };
+
+    var stopEvent = function(event) {
+        if (event) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+        }
+    };
 
     var getNextPhotoOk = function(pic) {
         var photo = photoParent(pic);
@@ -888,10 +895,7 @@ $(function () {
     var playButton = function(cb) {
         var lem = $('<a>', { title: 'Play Video (Enter)', href: '#' }).html(googleIcon('play_circle_filled'));
         lem.click(function (event) {
-            if (event) {
-                event.preventDefault();
-                event.stopImmediatePropagation();
-            }
+            stopEvent(event);
             clearSlideTimeout();
             cb();
         });
@@ -1503,15 +1507,13 @@ $(function () {
         });
 
         $('#subredditForm').on('submit', function (event) {
-            event.preventDefault();
-            event.stopImmediatePropagation();
+            stopEvent(event);
             processUrl($('#subredditUrl').val());
             $('#subredditUrl').blur();
         });
 
         $('form.site-search').on('submit', function (event) {
-            event.preventDefault();
-            event.stopImmediatePropagation();
+            stopEvent(event);
             var value = $(event.target).find("input")[0].value;
             if (event.target.dataset.site == "reddit")
                 processUrl("/search/"+value);
@@ -1519,13 +1521,7 @@ $(function () {
                 processUrl("/"+event.target.dataset.site+"/s/"+value)
         });
 
-        $('.noInput').keyup(function (event) {
-            // don't forward keyup to document
-            if (event) {
-                event.preventDefault();
-                event.stopImmediatePropagation();
-            }
-        });
+        $('.noInput').keyup(stopEvent);
 
         // Remove elements that require ability to login
         if (hostnameOf(rp.redirect) != window.location.hostname)
@@ -1572,10 +1568,7 @@ $(function () {
             $('#loginLi').removeClass('use-hover');
 
             $(document).on('click', 'a.remote', function (event) {
-                if (event) {
-                    event.preventDefault();
-                    event.stopImmediatePropagation();
-                }
+                stopEvent(event);
                 open_in_background($(this));
             });
             // Some embedded sites don't display correctly, so disable by default
@@ -1596,10 +1589,7 @@ $(function () {
             $('#loginLi').removeClass('use-hover');
 
             $(document).on('click', 'a.remote', function (event) {
-                if (event) {
-                    event.preventDefault();
-                    event.stopImmediatePropagation();
-                }
+                stopEvent(event);
                 open_in_background($(this));
             });
         }
@@ -1702,11 +1692,7 @@ $(function () {
     var initPhotoYoutube = function(photo, shortid, startat) {
         addPhotoThumb(photo, 'https://i.ytimg.com/vi/'+shortid+'/hqdefault.jpg');
         addPhotoThumb(photo, 'https://i.ytimg.com/vi/'+shortid+'/maxresdefault.jpg');
-        initPhotoEmbed(
-            photo,
-            youtubeURL(shortid, startat),
-            true,
-        );
+        initPhotoEmbed(photo, youtubeURL(shortid, startat), true);
     };
 
     var initPhotoiLoopit = function(photo, shortid) {
@@ -2327,8 +2313,7 @@ $(function () {
             } else if (hostname == 'apnews.com' ||
                        hostname == 'livestream.com' ||
                        hostname == 'streamable.com' ||
-                       hostname == 'wordpress.com' ||
-                       hostname == 'wp.com') {
+                       hostname == 'wordpress.com') {
                 if (url2shortid(pic.url))
                     // These domains should always be processed later
                     pic.type = imageTypes.later;
@@ -2714,6 +2699,13 @@ $(function () {
                 shortid = url2shortid(pic.url);
                 initPhotoEmbed(pic, 'https://player.vimeo.com/video/'+shortid+'?autoplay=1');
 
+            } else if (hostname == 'wp.com') {
+                a = pathnameOf(pic.url).split('/');
+                if (a[1] == "latex.php")
+                    initPhotoImage(pic);
+                else
+                    pic.type = imageTypes.later;
+
             } else if (hostname == 'worldsex.com') {
                 shortid = url2shortid(pic.url);
                 initPhotoEmbed(pic, originOf(pic.url)+'/videos/embed/'+shortid, false);
@@ -2822,9 +2814,17 @@ $(function () {
 
                 } else if (rp.wp[hostname] === undefined) {
                     shortid = url2shortid(pic.url);
-                    if (path.match(/^(?:\/index.php)?\/(?:\d+\/){3}([\w\p{N}\p{L}]+(?:-[\w\p{N}\p{L}]+)*)\/$/))
+                    var re1, re2;
+                    if (rp.session.regexUnicode) {
+                        re1 = /^(?:\/index.php)?\/(?:\d+\/){3}([\w\p{N}\p{L}]+(?:-[\w\p{N}\p{L}]+)*)\/$/u;
+                        re2 = /^\/(?:\w+\/)?[\w\p{N}\p{L}]+(?:-[\w\p{N}\p{L}]+)+\/$/u;
+                    } else {
+                        re1 = /^(?:\/index.php)?\/(?:\d+\/){3}([\w]+(?:-[\w]+)*)\/$/;
+                        re2 = /^\/(?:\w+\/)?[\w]+(?:-[\w]+)+\/$/;
+                    }
+                    if (path.match(re1))
                         rp.wp[hostname] = 1;
-                    if (path.match(/^\/(?:\w+\/)?[\w\p{N}\p{L}]+(?:-[\w\p{N}\p{L}]+)+\/$/) && !extensionOf(pic.url))
+                    if (path.match(re2) && !extensionOf(pic.url))
                         rp.wp[hostname] = 2;
                     if (rp.wp[hostname]) {
                         log.info("ATTEMPT wordpress v"+rp.wp[hostname]+": "+pic.url);
@@ -3186,6 +3186,7 @@ $(function () {
 
         var i, size = '', length = '', audio;
         switch (pic.type) {
+        case imageTypes.thumb:
         case imageTypes.image:
             t.find('tr.forImage').show();
             i = $('#pictureSlider').find('img')[0];
@@ -3274,10 +3275,7 @@ $(function () {
 
     // Capture all clicks on infop links (links that direct locally
     $(document).on('click', 'a.local', function (event) {
-        if (event) {
-            event.preventDefault();
-            event.stopImmediatePropagation();
-        }
+        stopEvent(event);
         if ($('#login').is(':checked'))
             $('#login').click();
         if ($('#choice').is(':checked'))
@@ -3289,19 +3287,13 @@ $(function () {
 
     // Capture clicks on AlbumButtons
     $(document).on('click', 'a.albumButton', function (event) {
-        if (event) {
-            event.preventDefault();
-            event.stopImmediatePropagation();
-        }
+        stopEvent(event);
         startAnimation($('#allNumberButtons a.active').data("index"),
                        $(this).data("index"));
     });
 
     $(document).on('click', '#navboxExtraLoad', function (event) {
-        if (event) {
-            event.preventDefault();
-            event.stopImmediatePropagation();
-        }
+        stopEvent(event);
         if (rp.session.activeIndex < 0)
             return false;
         var photo = rp.photos[rp.session.activeIndex];
@@ -4772,7 +4764,7 @@ $(function () {
                 showCB(photo);
             };
 
-        } else if (hostname == 'wordpress.com') {
+        } else if (hostname == 'wordpress.com' || hostname == 'wp.com') {
             photo.url = photo.url.replace(/\/amp\/?$/, '');
             shortid = url2shortid(photo.url);
 
@@ -4970,6 +4962,7 @@ $(function () {
             hostname == 'juicygif.com' ||
             hostname == 'pornhub.com' ||
             hostname == 'sendvid.com' ||
+            hostname == 'wordpress.com' ||
             hostname == 'xhamster.com' ||
             hostname == 'xvideos.com' ||
             hostname == 'youporn.com')
@@ -4995,7 +4988,7 @@ $(function () {
         var title = unescapeHTML(origtitle) || pic.title;
         if (!title)
             return pic;
-        var subreddit = pic.subreddit || parent_sub || "";
+        var subreddit = (pic.subreddit || parent_sub || "").toLowerCase();
         var hn = hostnameOf(pic.url, true);
 
         // Do URLs first, so we don't pickup those added later
@@ -5021,23 +5014,23 @@ $(function () {
         var metaSocial = function(hn, subreddit, flair, def) {
             if (hn == "tiktok.com" || subreddit.match(/tiktok/i) || flair.match(/tiktok/i))
                 return "tiktok";
-            if (["facereveals"].includes(subreddit.toLowerCase()))
+            if (["facereveals"].includes(subreddit))
                 return "reddit";
-            if (subreddit.match(/onlyfan/i) || flair.match(/onlyfan/i))
+            if (subreddit.match(/onlyfan/) || flair.match(/onlyfan/i))
                 return "onlyfans";
-            if (subreddit.match(/fansly/i) || flair.match(/fansly/i))
+            if (subreddit.match(/fansly/) || flair.match(/fansly/i))
                 return "fansly";
-            if (subreddit.match(/snap/i) || flair.match(/snap/i))
+            if (subreddit.match(/snap/) || flair.match(/snap/i))
                 return "snapchat";
-            if (subreddit.match(/face/i))
+            if (subreddit.match(/face/))
                 return "facebook";
-            if (subreddit.match(/(insta|gram)/i) || flair.match(/insta/i))
+            if (subreddit.match(/(insta|gram)/) || flair.match(/insta/i))
                 return "instagram";
-            if (subreddit.match(/twitch/i) || flair.match(/twitch/i))
+            if (subreddit.match(/twitch/) || flair.match(/twitch/i))
                 return "twitch";
-            if (hn == "twitter.com" || subreddit.match(/twit/i) || flair.match(/twit/i))
+            if (hn == "twitter.com" || subreddit.match(/twit/) || flair.match(/twit/i))
                 return "twitter";
-            if (subreddit.match(/vsco/i) || flair.match(/vsco/i))
+            if (subreddit.match(/vsco/) || flair.match(/vsco/i))
                 return "vsco";
             return def;
         };
@@ -5048,15 +5041,17 @@ $(function () {
         // 0x27a1 - right arrow
         var re;
         if (rp.session.regexUnicode)
-            re = /(?:[[{(]\s*|[mM][yY]\s+|[Oo][Nn]\s+|\b|^)?([\p{L}.$]+\p{L}|[@]+|\u{1f47b})\s*((?:&\w+;)?[-:@][-:@\s]*|(?:&gt;|=)+|\b\s*|\]\[|\)\s*\(|(?:\u{25b6}|\u{27a1})\u{fe0f}?)[[\s]*([\w.-]+\w)(?:\s*[)\]}])?/gu;
+            re = /(?:[[{(]\s*|my\s+|on\s+|\b|^)?([\p{L}.$]+\p{L}|[@]+|\u{1f47b})\s*((?:&\w+;)?[-:@][-:@\s]*|(?:&gt;|=)+|\b\s*|\]\[|\)\s*\(|(?:\u{25b6}|\u{27a1})\u{fe0f}?)[[\s]*(\w[\w.-]+\w)(?:\s*[)\]}])?/gui;
         else
-            re = /(?:[[{(]\s*|\b|^)?([A-Za-z.$]+[A-Za-z]|[@]+)\s*((?:&\w+;)?[-:@][-:@\s]*|(?:&gt;|=)+|\b\s*|\]\[|\)\s*\()[[\s]*([\w.-]+\w)(?:\s*[)\]}])?/g;
+            re = /(?:[[{(]\s*|\b|my\s+|on\s+|^)?([A-Za-z.$]+[A-Za-z]|[@]+)\s*((?:&\w+;)?[-:@][-:@\s]*|(?:&gt;|=)+|\b\s*|\]\[|\)\s*\()[[\s]*([\w.-]+\w)(?:\s*[)\]}])?/gi;
         t1 = t1.replace(re, function(match, site, connector, name) {
             site = site.toLowerCase().replaceAll(".", "");
             var prefix = "";
             try {
-                if (["and", "free", "link", "vs"].includes(name.toLowerCase()))
+                if (connector == "" && ["and", "free", "link", "profile"].includes(name.toLowerCase()))
                     throw "bad username";
+                if (connector == "" && subreddit.match(/news/))
+                    throw "bad subreddit";
                 if (site == "fb")
                     site = "facebook";
                 else if (site == "tk")
@@ -5488,50 +5483,51 @@ $(function () {
         rp.loaded[site][shortid] = now;
 
         // Load Tags for site
-        var jurl, tagData;
-        if (site == "flickr.com" && !picHasSiteTags(photo) && !isNaN(parseInt(shortid, 10))) {
-            log.info("getting flickr tags: "+shortid);
-            jurl = flickrJsonURL("flickr.photos.getInfo", { photo_id: shortid });
-            tagData = function(post) {
-                if (post.stat == "fail") {
-                    log.info("Failed to getInfo("+shortid+"): "+post.message);
-                    return;
-                }
-                photo.site = { t: 'flickr', user: post.photo.owner.nsid };
-                flickrAddUserMap(post.photo.owner.username, post.photo.owner.nsid);
-                if (post.photo.tags.tag)
-                    addPhotoSiteTags(photo, post.photo.tags.tag.map(function(x) { return x.raw }));
-                if (isActiveCurrent(photo)) {
-                    updateAuthor(photo);
-                    updateDuplicates(photo);
-                }
-            };
-            $.ajax({
-                url: jurl,
-                dataType: 'jsonp',
-                success: tagData,
-                error: failedAjax,
-                timeout: rp.settings.ajaxTimeout,
-                crossDomain: true,
-            });
+        if (!picHasSiteTags(photo)) {
+            var jurl, tagData;
+            var dtype = 'json';
+            var hdata = {};
 
-        } else if (site == "imgur.com" && !picHasSiteTags(photo)) {
-            log.info("getting imgur tags: "+shortid);
-            jurl = 'https://api.imgur.com/3/image/'+shortid;
-            tagData = function(data) {
-                handleImgurItemMeta(photo, data.data);
-                if (isActiveCurrent(photo))
-                    updateDuplicates(photo);
-            };
-            $.ajax({
-                url: jurl,
-                dataType: 'json',
-                headers: { Authorization: "Client-ID "+ rp.api_key.imgur },
-                success: tagData,
-                error: failedAjax,
-                timeout: rp.settings.ajaxTimeout,
-                crossDomain: true,
-            });
+            if (site == "flickr.com" && !isNaN(parseInt(shortid, 10))) {
+                log.info("getting flickr tags: "+shortid);
+                jurl = flickrJsonURL("flickr.photos.getInfo", { photo_id: shortid });
+                tagData = function(post) {
+                    if (post.stat == "fail") {
+                        log.info("Failed to getInfo("+shortid+"): "+post.message);
+                        return;
+                    }
+                    photo.site = { t: 'flickr', user: post.photo.owner.nsid };
+                    flickrAddUserMap(post.photo.owner.username, post.photo.owner.nsid);
+                    if (post.photo.tags.tag)
+                        addPhotoSiteTags(photo, post.photo.tags.tag.map(function(x) { return x.raw }));
+                    if (isActiveCurrent(photo)) {
+                        updateAuthor(photo);
+                        updateDuplicates(photo);
+                    }
+                };
+                dtype = 'jsonp';
+
+            } else if (site == "imgur.com") {
+                log.info("getting imgur tags: "+shortid);
+                jurl = 'https://api.imgur.com/3/image/'+shortid;
+                tagData = function(data) {
+                    handleImgurItemMeta(photo, data.data);
+                    if (isActiveCurrent(photo))
+                        updateDuplicates(photo);
+                };
+                hdata = { Authorization: "Client-ID "+ rp.api_key.imgur };
+            }
+
+            if (jurl)
+                $.ajax({
+                    url: jurl,
+                    dataType: dtype,
+                    headers: hdata,
+                    success: tagData,
+                    error: failedAjax,
+                    timeout: rp.settings.ajaxTimeout,
+                    crossDomain: true,
+                });
         }
 
         // This allow loading duplicates of found subreddits w/o loops
@@ -6179,7 +6175,7 @@ $(function () {
         case 't':
             errmsg = "Tag "+lem+" has no items";
             setSubredditLink(siteTagUrl(lem, 'imgur', order));
-            jsonUrl = 'https://api.imgur.com/post/v1/posts/t/'+lem+"?page="+rp.session.after;
+            jsonUrl = 'https://api.imgur.com/post/v1/posts/t/'+lem+"?mature=true&page="+rp.session.after;
             switch(order[0]) {
             case 'top': jsonUrl += "&sort=-top"+((order[1]) ?"&filter[window]="+order[1] :""); break;
             case 'new': jsonUrl += "&sort=-time"; break;
@@ -6195,7 +6191,7 @@ $(function () {
         default:
             errmsg = "No popular items";
             setSubredditLink('https://imgur.com');
-            jsonUrl = 'https://api.imgur.com/post/v1/posts?filter[section]=eq:'+
+            jsonUrl = 'https://api.imgur.com/post/v1/posts?mature=true&filter[section]=eq:'+
                 order[0]+((order[1]) ?'&filter[window]='+order[1] :'')+'&page='+rp.session.after;
             handleData = function (data) {
                 data.forEach(processPostItem);
