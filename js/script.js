@@ -3223,6 +3223,8 @@ $(function () {
         var subs = {};
         var allsubs = {};
         rp.photos.forEach(function(photo) {
+            if (photo.type == imageTypes.fail)
+                return;
             if (photo.subreddit) {
                 subs[photo.subreddit] = 1;
                 delete allsubs[photo.subreddit];
@@ -4453,7 +4455,8 @@ $(function () {
                 if (!processBloggerPost(photo, data))
                     initPhotoThumb(photo);
                 // @@ check if photo is later?
-                showCB(photo);
+                if (photo.type != imageTypes.later)
+                    showCB(photo);
             };
 
             if (blogid === undefined) {
@@ -5307,11 +5310,11 @@ $(function () {
     rp.fn.setupRedditLogin = setupRedditLogin;
 
     var setupChoices = function () {
-        var prefix = '/';
         var arr = rp.choices[rp.url.site][rp.url.type];
         if (!arr || arr.length == 0)
             return;
         var base = rpurlbase();
+        var prefix = (base == '/') ?'' :'/';
         var is_submitted = (rp.url.site == 'reddit' && rp.url.type == 'submitted');
         var multi;
         var user;
@@ -5328,28 +5331,23 @@ $(function () {
         var i = 0;
         while (i < arr.length) {
             var name = arr[i].split(':');
-            // @@ iff !name[1]
             var a = _infoAnchor(rp.url.base+base+((i) ?prefix+arr[i] :""),
                                 name[0], arr[i], "info infol local");
             if (name[0] == choice)
                 a.addClass('selected');
             var li = $('<li>').append(a);
 
-            if (i < arr.length-1 && arr[i+1].split(':')[0] == name[0]) {
-                for (var next = name; i < arr.length && next[0] == name[0]; ++i) {
-                    if (i < arr.length) {
-                        next = arr[i].split(':');
-                        if (next.length == 1)
-                            continue;
-                    }
-                    a = _infoAnchor(rp.url.base+base+prefix+arr[i],
-                                    next[1][0].toUpperCase(), arr[i], "info infol local");
-                    if (rp.url.choice == arr[i])
-                        a.addClass('selected');
-                    li.append(a);
-                }
-            } else
+            ++i;
+            var next = (i < arr.length) ?arr[i].split(':') :[];
+            while (next[0] == name[0]) {
+                a = _infoAnchor(rp.url.base+base+prefix+arr[i],
+                                next[1][0].toUpperCase(), arr[i], "info infol local");
+                if (rp.url.choice == arr[i])
+                    a.addClass('selected');
+                li.append(a);
                 ++i;
+                next = (i < arr.length) ?arr[i].split(':') :[];
+            }
             list.append(li);
         }
         $('#subRedditInfo').html("&nbsp;");
@@ -6216,9 +6214,6 @@ $(function () {
     };
 
     var processHaystack = function(photo, html, docheck, extra, o_link) {
-        if (docheck === undefined)
-            docheck = false;
-
         var processNeedle = function(pic, item) {
             var src;
             if (item.tagName == 'IMG') {
@@ -6332,9 +6327,6 @@ $(function () {
                 rc = true;
             }
         });
-        if (docheck)
-            checkPhotoAlbum(photo);
-
         return rc;
     };
 
@@ -6360,10 +6352,10 @@ $(function () {
             photo.o_url = photo.url;
         var rc = false;
 
-        if (post.content && processHaystack(photo, post.content.rendered, false, extra, o_link))
+        if (post.content && processHaystack(photo, post.content.rendered, extra, o_link))
             rc = true;
 
-        if (post.description && processHaystack(photo, post.description.rendered, false, extra, o_link))
+        if (post.description && processHaystack(photo, post.description.rendered, extra, o_link))
             rc = true;
 
         if (post.yoast_head_json) {
@@ -6907,7 +6899,9 @@ $(function () {
         photo.extra = localLink(post.author.url, post.author.displayName,
                                 '/blogger/'+hostnameOf(post.url));
         initPhotoAlbum(photo, false);
-        return processHaystack(photo, post.content, true);
+        var rc = processHaystack(photo, post.content);
+        checkPhotoAlbum(photo);
+        return rc; // ??
     };
 
     var getBloggerPosts = function(hostname) {
