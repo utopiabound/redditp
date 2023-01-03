@@ -296,7 +296,10 @@ rp.dedup = {};
 // SITE -> { TYPE => [ "DEFAULT", "OTHER", "CHOICES" ] }
 rp.choices = {
     'blogger': {},
-    'danbooru': {},
+    'danbooru': {
+        '': [ 'new', 'hot', 'popular', 'popular:day', 'popular:week', 'popular:month',
+              'curated', 'curated:day', 'curated:week', 'curated:month', 'viewed'],
+    },
     'gfycat': {},
     'flickr': {
         '':  [ 'hot', 'new' ],
@@ -7045,7 +7048,7 @@ $(function () {
 
     var danbooru2pic = function(post) {
         var photo = {
-            url: 'https://danbooru.donmai.us/posts/'+post.id,
+            o_url: 'https://danbooru.donmai.us/posts/'+post.id,
             date: processDate(post.created_at),
             over18: post.rating != 'g',
             score: post.up_score - post.down_score,
@@ -7056,7 +7059,7 @@ $(function () {
 
     var getDanbooru = function() {
         // URLs:
-        // TRENDING:    /danbooru/
+        // TRENDING:    /danbooru/[CHOICE]
         // USER:        /danbooru/u/USER
         // TAG:         /danboorut/t/TAG
         var jsonUrl;
@@ -7072,9 +7075,28 @@ $(function () {
             url = siteTagUrl(rp.url.sub, "danbooru");
             break;
         default:
-            jsonUrl = 'https://danbooru.donmai.us/posts.json';
+            var order = rp.url.choice.split(':');
+            var extra = '';
+            switch (order[0]) {
+            case 'viewed':
+            case 'curated':
+            case 'popular':
+                if (order[1])
+                    extra = 'scale='+order[1];
+                url = 'https://danbooru.donmai.us/explore/posts/'+order[0];
+                jsonUrl = url+'.json'+extra;
+                break;
+            case 'hot':
+                extra = 'tags=order:rank';
+                // fall through
+            default: // new
+                url = "https://danbooru.donmai.us/posts";
+                break;
+            }
+            jsonUrl = url+'.json'+((extra) ?'?'+extra :'');
+            if (extra)
+                url += '?'+extra;
             errmsg = "No top posts";
-            url = "https://danbooru.donmai.us/posts";
             break;
         }
         if (!setupLoading(1, errmsg))
@@ -7083,7 +7105,7 @@ $(function () {
 
         if (rp.session.after) {
             ++rp.session.after;
-            jsonUrl += "&page="+rp.session.after;
+            jsonUrl += ((jsonUrl.includes('?')) ?'&' :'?')+"page="+rp.session.after;
         } else
             rp.session.after = 1;
 
@@ -7743,8 +7765,12 @@ $(function () {
                 break;
             case '': break;
             default:
-                log.info("Bad PATH: "+arr[i]);
-                continue;
+                if (rp.choices[rp.url.site][rp.url.type].includes(t)) {
+                    rp.url.choice = t;
+                } else {
+                    log.info("Bad PATH: "+arr[i]);
+                    continue;
+                }
             }
             if (a.length > 0) {
                 c = a.shift();
