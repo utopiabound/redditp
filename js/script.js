@@ -5429,6 +5429,7 @@ $(function () {
         var shortid;
 
         var hn = hostnameOf(photo.url, true);
+        var fqdn = hostnameOf(photo.o_url, false);
 
         if (dupe) {
             shortid = dupe.id;
@@ -5467,7 +5468,11 @@ $(function () {
                 hn == 'sta.sh')
                 shortid = url2shortid(photo.url);
 
-            else if (hn == 'iloopit.net') {
+            else if (fqdn == 'danbooru.donmai.us') {
+                shortid = url2shortid(photo.o_url);
+                site = fqdn;
+
+            } else if (hn == 'iloopit.net') {
                 shortid = searchValueOf(photo.url, "loopid");
                 if (!shortid)
                     return;
