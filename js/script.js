@@ -7046,13 +7046,31 @@ $(function () {
             initPhotoFailed(photo);
         }
         if (post.has_children) {
-            //initPhotoAlbum?
-            log.info("Found Children: "+post.id);
+            var jsonUrl = 'https://danbooru.donmai.us/posts.json?tags=parent:'+post.id;
+            var handleData = function(items) {
+                var p = initPhotoAlbum(photo, true);
+                items.forEach(function(subpost) {
+                    if (subpost.id == post.id)
+                        return;
+                    var pic = danbooru2pic(subpost);
+                    addAlbumItem(p, pic);
+                });
+                checkPhotoAlbum(p);
+            };
+            $.ajax({
+                url: jsonUrl,
+                dataType: 'json',
+                success: handleData,
+                error: failedAjaxDone,
+                timeout: rp.settings.ajaxTimeout,
+                crossDomain: true
+            });
         }
     };
 
     var danbooru2pic = function(post) {
         var photo = {
+            id: post.id,
             o_url: 'https://danbooru.donmai.us/posts/'+post.id,
             date: processDate(post.created_at),
             over18: post.rating != 'g',
@@ -7118,8 +7136,14 @@ $(function () {
             if (data.length) {
                 data.forEach(function (post) {
                     var photo = danbooru2pic(post);
+                    var val = (post.parent_id) ?dedupVal(':danbooru', post.parent_id) :'';
+                    if (val) {
+                        log.info("cannot display url [duplicate "+val+"]: "+photo.o_url);
+                        return;
+                    }
                     addImageSlide(photo);
-                })
+                    dedupAdd(':danbooru', photo.id);
+                });
                 rp.session.loadAfter = getDanbooru;
             } else
                 rp.session.loadAfter = null;
@@ -7890,6 +7914,8 @@ $(function () {
                         dedupAdd(photo.subreddit, photo.id);
                     else if (photo.tumblr)
                         dedupAdd(photo.tumblr.blog, photo.tumblr.id);
+                    else if (rp.url.site == 'danbooru')
+                        dedupAdd(':danbooru', photo.id);
                     if (!photo.dupes)
                         return;
                     photo.dupes.forEach(function(dupe) {
