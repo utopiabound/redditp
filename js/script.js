@@ -202,7 +202,7 @@ rp.session = {
     loadAfter: null,
 
     // Login dependent values
-    loginExpire: undefined, // Used to determin if login has expired
+    loginExpire: 0, // Used to determin if login has expired
     loginNeeded: false, // true if current subreddit needs a login to work correctly
     loginUser: '',
 
@@ -249,26 +249,28 @@ rp.defaults = {
 rp.history = window.history;
 
 // CHANGE THESE FOR A DIFFERENT Reddit Application
-rp.api_key = { tumblr:  'sVRWGhAGTVlP042sOgkZ0oaznmUOzD8BRiRwAm5ELlzEaz4kwU',
-               blogger: 'AIzaSyDbkU7e2ewiPeBtPwr1cfExV0XxMAQKhTg',
-               flickr:  '24ee6b81f406711f8c7d3a9070fe47a7',
-               reddit:  '7yKYY2Z-tUioLA',
-               imgur:   'ae493e76de2e724'
-             };
+rp.api_key = {
+    tumblr:  'sVRWGhAGTVlP042sOgkZ0oaznmUOzD8BRiRwAm5ELlzEaz4kwU',
+    blogger: 'AIzaSyDbkU7e2ewiPeBtPwr1cfExV0XxMAQKhTg',
+    flickr:  '24ee6b81f406711f8c7d3a9070fe47a7',
+    reddit:  '7yKYY2Z-tUioLA',
+    imgur:   'ae493e76de2e724'
+};
 rp.redirect = 'http://redditp.utopiabound.net/auth';
 
 // Hosts will default to originOf(url)+'/favicon.ico' (c.f. setFavicon())
 // this list overrides based on second level domain (e.g. mywebsite.wordpress.com -> wordpress)
-rp.favicons = { tumblr:  'https://assets.tumblr.com/images/favicons/favicon.ico',
-                wordpress: 'https://s1.wp.com/i/favicon.ico',
-                wp: 'https://s1.wp.com/i/favicon.ico',
-                dropbox: 'https://cfl.dropboxstatic.com/static/images/favicon.ico',
-                redgifs: 'https://www.redgifs.com/assets/favicon.ico',
-                xhamster: 'https://static-lvlt.xhcdn.com/xh-mobile/images/favicon/favicon.ico',
-                tiktok: 'https://lf16-tiktok-common.ibytedtos.com/obj/tiktok-web-common-sg/mtact/static/pwa/icon_128x128.png',
-                // i.redd.it/v.redd.it - reddit hosted images
-                redd: 'https://www.redditstatic.com/icon.png'
-              };
+rp.favicons = {
+    tumblr:  'https://assets.tumblr.com/images/favicons/favicon.ico',
+    wordpress: 'https://s1.wp.com/i/favicon.ico',
+    wp: 'https://s1.wp.com/i/favicon.ico',
+    dropbox: 'https://cfl.dropboxstatic.com/static/images/favicon.ico',
+    redgifs: 'https://www.redgifs.com/assets/favicon.ico',
+    xhamster: 'https://static-lvlt.xhcdn.com/xh-mobile/images/favicon/favicon.ico',
+    tiktok: 'https://lf16-tiktok-common.ibytedtos.com/obj/tiktok-web-common-sg/mtact/static/pwa/icon_128x128.png',
+    // i.redd.it/v.redd.it - reddit hosted images
+    redd: 'https://www.redditstatic.com/icon.png'
+};
 
 // Variable to store the images we need to set as background
 // which also includes some text and url's.
@@ -353,7 +355,7 @@ rp.url = {
     multi: '', // MULTI
     choice: '', // <NONE> | new | hot | ... (c.f. rp.choices)
 
-    // old
+    // Called path
     path: '',
 };
 
@@ -469,13 +471,10 @@ $(function () {
 
     var getNextPhotoOk = function(pic) {
         var photo = photoParent(pic);
-
         if (!rp.settings.nsfw && photo.over18)
             return false;
-
         if (pic.type == imageTypes.fail)
             return false;
-
         return true;
     };
 
@@ -494,7 +493,6 @@ $(function () {
                 continue;
              return i;
         }
-        log.debug("["+currentIndex+"] Couldn't find previous index.");
         return currentIndex;
     };
 
@@ -685,7 +683,7 @@ $(function () {
     // text - text of local Url (default: local URL)
     // urlalt - alt text of foreign and local URLs
     // favicon - url of favicon
-    // classes - additional class of links (default: "info infol")
+    // classes - alternate class of links (default: "info infol")
     var _localLink = function(url, local, text, urlalt, favicon, classes) {
         if (text === undefined)
             text = local;
@@ -703,10 +701,10 @@ $(function () {
         return data.html();
     };
 
-    var redditLink = function(path, pathalt, pathname, selected) {
+    var redditLink = function(path, pathalt, pathname, select) {
         var classes;
-        if (selected === true)
-            classes = "info infol selected";
+        if (select)
+            classes = "info infol selectable";
         return _localLink(rp.reddit.base+path, path, pathname, pathalt, "reddit", classes);
     };
 
@@ -1392,6 +1390,11 @@ $(function () {
             $('#navboxExtraLoad').html(googleIcon("speaker_notes_off")).attr('title', 'No Comments Available');
         else
             $('#navboxExtraLoad').html(googleIcon("mms")).attr('title', "Load Extras from Comments (e)");
+    };
+
+    var updateSelected = function() {
+        $('a.selectable').removeClass("selected");
+        $('a.selectable[href="'+rp.url.base+rpurlbase()+'"]').addClass("selected");
     };
 
     var initState = function () {
@@ -2719,6 +2722,8 @@ $(function () {
 
             } else if (hostname == 'xvideos.com') {
                 shortid = url2shortid(pic.url, 1, 'video');
+                if (isNaN(parseInt(shortid, 10)))
+                    throw "bad video link";
                 initPhotoEmbed(pic, 'https://www.xvideos.com/embedframe/'+shortid, false);
 
             } else if (hostname == 'youtube.com' ||
@@ -3016,41 +3021,35 @@ $(function () {
                 rp.sitecache.reddit.sub[sub].date+rp.settings.multiExpire > currentTime());
     };
 
+    var _updateRedditCache = function(key, data, type) {
+        var now = currentTime();
+        if (rp.sitecache.reddit[type][key] &&
+            rp.sitecache.reddit[type][key].date + rp.settings.multiExpire > now)
+            return;
+        rp.sitecache.reddit[type][key] = { date: now, data: data };
+    };
+
     var updateRedditMultiCache = function(user, data) {
         if (!user)
             return;
-        var now = currentTime();
-        if (rp.sitecache.reddit.multi[user] &&
-            rp.sitecache.reddit.multi[user].date+rp.settings.multiExpire > now)
-            return;
-        rp.sitecache.reddit.multi[user] = { date: now, data: data };
+        _updateRedditCache(user, data, "multi");
     };
 
-    var updateRedditSubCache = function(name, data) {
-        if (!name)
-            return;
-        var sub = name.toLowerCase();
-        var now = currentTime();
-        if (rp.sitecache.reddit.sub[sub] &&
-            rp.sitecache.reddit.sub[sub].date+rp.settings.subExpire > now)
-            return;
-        rp.sitecache.reddit.sub[sub] = { date: now, data: data };
+    var updateRedditSubCache = function(t5) {
+        _updateRedditCache(t5.display_name.toLowerCase(), t5, "sub");
     };
 
     // Register keyboard events on the whole document
     $(document).keyup(function (e) {
         if (e.ctrlKey || e.altKey || e.metaKey) {
-            // ctrl key is pressed so we're most likely switching tabs or doing something
-            // unrelated to redditp UI
+            // ctrl key is pressed so we're most likely switching tabs
+            // or doing something unrelated to redditp UI
             return;
         }
 
-        //log.info(e.keyCode, e.which, e.charCode);
-
         var i = 0;
-        var key = e.key;
 
-        switch (key.toLowerCase()) {
+        switch (e.key.toLowerCase()) {
         case "a":
             open_in_background("#navboxAlbumOrigLink");
             break;
@@ -3161,18 +3160,6 @@ $(function () {
         }
     });
 
-    var hasAudio = function(obj, trueValue) {
-        if (trueValue == undefined)
-            trueValue = 1;
-        if (obj.webkitAudioDecodedByteCount != undefined)
-            return (obj.webkitAudioDecodedByteCount > 0) ?trueValue :0;
-        if (obj.mozHasAudio != undefined)
-            return (obj.mozHasAudio) ?trueValue :0;
-        if (obj.audioTracks != undefined)
-            return (obj.audioTracks.length > 0) ?trueValue :0;
-        return undefined;
-    };
-
     var showHelp = function() {
         $('#help').toggle();
         $('#recommend').toggle();
@@ -3186,6 +3173,16 @@ $(function () {
             return;
         var t = $('#imageInfoTable');
         t.find('tr').hide();
+
+        var hasAudio = function(obj, trueValue) {
+            if (obj.webkitAudioDecodedByteCount != undefined)
+                return (obj.webkitAudioDecodedByteCount > 0) ?trueValue :0;
+            if (obj.mozHasAudio != undefined)
+                return (obj.mozHasAudio) ?trueValue :0;
+            if (obj.audioTracks != undefined)
+                return (obj.audioTracks.length > 0) ?trueValue :0;
+            return undefined;
+        };
 
         var i, size = '', length = '', audio;
         switch (pic.type) {
@@ -3203,7 +3200,7 @@ $(function () {
             if ($('#gfyaudio').length > 0)
                 audio = hasAudio($('#gfyaudio')[0], 2);
             else
-                audio = hasAudio(i);
+                audio = hasAudio(i, 1);
             break;
         }
         $('#imageInfoType').text(imageTypeStyle[pic.type]);
@@ -3255,9 +3252,8 @@ $(function () {
             var keys = Object.keys(allsubs);
             for (i in keys) {
                 var key = keys[i];
-                if (allsubs[key] > 1) {
+                if (allsubs[key] > 1)
                     newsubs[key] = allsubs[key];
-                }
             }
             allsubs = newsubs;
             // Sub list is capped at 250 (for non-gold accounts)
@@ -3358,10 +3354,8 @@ $(function () {
         // Save or Create next
         if (oldCache[next])
             rp.cache[next] = oldCache[next];
-        else {
-            rp.cache[next] = {};
-            rp.cache[next][0] = createDiv(next);
-        }
+        else
+            rp.cache[next] = { 0: createDiv(next) };
 
         // Also create next+1
         var next1 = getNextSlideIndex(next);
@@ -3369,10 +3363,8 @@ $(function () {
             loadMoreSlides();
         else if (oldCache[next1])
             rp.cache[next1] = oldCache[next1];
-        else {
-            rp.cache[next1] = {};
-            rp.cache[next1][0] = createDiv(next1);
-        }
+        else
+            rp.cache[next1] = { 0: createDiv(next1) };
 
         // save next+2, but don't create it
         var next2 = getNextSlideIndex(next1);
@@ -3385,10 +3377,8 @@ $(function () {
         if (prev >= 0) {
             if (oldCache[prev])
                 rp.cache[prev] = oldCache[prev];
-            else {
-                rp.cache[prev] = {};
-                rp.cache[prev][0] = createDiv(prev);
-            }
+            else
+                rp.cache[prev] = { 0: createDiv(prev) };
         }
         // Preload previous image
         if (rp.photos[prev].type == imageTypes.album) {
@@ -3434,11 +3424,12 @@ $(function () {
         if (imageIndex < 0 || imageIndex >= rp.photos.length ||
             rp.session.isAnimating || rp.photos.length == 0) {
 
-            log.debug("NOT ANIMATING photo.length=="+rp.photos.length+" isAnimating:"+rp.session.isAnimating);
+            log.debug("NOT ANIMATING photo.length=="+rp.photos.length+
+                      " isAnimating: "+rp.session.isAnimating);
             if (imageIndex >= rp.photos.length)
                 loadMoreSlides();
             if (rp.session.isAnimating)
-                rp.session.needReanimation=true;
+                rp.session.needReanimation = true;
             return;
         }
 
@@ -3496,9 +3487,8 @@ $(function () {
         if (turnOn) {
             numberButton.addClass('active');
             scrollNumberButton(numberButton, 'allNumberButtonList');
-        } else {
+        } else
             numberButton.removeClass('active');
-        }
     };
 
     var toggleAlbumButton = function (imageIndex, turnOn) {
@@ -3510,9 +3500,8 @@ $(function () {
         if (turnOn) {
             numberButton.addClass('active');
             scrollNumberButton(numberButton, 'albumNumberButtons');
-        } else {
+        } else
             numberButton.removeClass('active');
-        }
     };
 
     // Update subreddit, author, and Extras
@@ -3560,32 +3549,29 @@ $(function () {
         $('#duplicateUl').html("");
         var total = 0;
 
-        if (photo.subreddit) {
+        if (photo.subreddit)
             $('#navboxDuplicatesLink').attr('href',  rp.reddit.base + '/r/' +
                                             photo.subreddit + '/duplicates/' + photo.id).show();
-        } else {
+        else
             $('#navboxDuplicatesLink').attr('href', '#').hide();
-        }
 
         // Add Site Tags
-        if (picHasSiteTags(pic)) {
+        if (picHasSiteTags(pic))
             pic.site.tags.forEach(function(tag) {
                 var li = $("<li>", { class: 'list'});
                 li.html(siteTagLink(tag, pic.site.t));
                 ++ total;
                 $('#duplicateUl').append(li);
             });
-        }
 
         // Add Site Tags (album)
-        if (photo != pic && picHasSiteTags(photo)) {
+        if (photo != pic && picHasSiteTags(photo))
             photo.site.tags.forEach(function(tag) {
                 var li = $("<li>", { class: 'list'});
                 li.html(siteTagLink(tag, photo.site.t));
                 ++ total;
                 $('#duplicateUl').append(li);
             });
-        }
 
         var dupes = ((photo.dupes) ?photo.dupes :[]);
         if (pic != photo && pic.dupes)
@@ -3617,9 +3603,8 @@ $(function () {
 
                         li.html(redditLink(subr, item.title));
                     }
-                    if (item.a && item.a != photo.author) {
+                    if (item.a && item.a != photo.author)
                         li.append(localUserIcon(item.a, "reddit"));
-                    }
                     li.append($("<a>", { href: rp.reddit.base + subr + "/comments/"+item.id,
                                          class: 'info infoc',
                                          title: (new Date(item.date*1000)).toString(),
@@ -3705,7 +3690,7 @@ $(function () {
             $('#navboxAlbumOrigLink').attr('href', "#").parent().hide();
         $('#navboxOrigDomain').attr('href', '/domain/'+hostnameOf(image.o_url));
 
-        if (rp.session.loginExpire && now > rp.session.loginExpire-30)
+        if (now > rp.session.loginExpire-30)
             expiredRedditLogin();
 
         // TITLE BOX
@@ -3805,6 +3790,7 @@ $(function () {
         log.info("ajaxOptions:", ajaxOptions);
         log.error("error:", thrownError);
     };
+
     var failedAjaxDone = function (xhr, ajaxOptions, thrownError) {
         failedAjax(xhr, ajaxOptions, thrownError);
         var text;
@@ -3857,7 +3843,7 @@ $(function () {
 
             rp.session.isAnimating = false;
             if (rp.session.needReanimation) {
-                rp.session.needReanimation=false;
+                rp.session.needReanimation = false;
                 startAnimation(rp.session.activeIndex, rp.session.activeAlbumIndex);
             }
         });
@@ -3900,7 +3886,6 @@ $(function () {
 
             if (type == imageTypes.album) {
                 log.error("["+index+"] type is ALBUM with albumIndex:"+albumIndex);
-
                 type = rp.photos[index].album[0].type;
             }
 
@@ -4093,7 +4078,7 @@ $(function () {
                     var audio = $('#gfyaudio')[0];
                     if (audio) {
                         audio.pause();
-                        audio.currentTime=0;
+                        audio.currentTime = 0;
                     }
                     $(video)[0].play();
                 }
@@ -4143,7 +4128,6 @@ $(function () {
                     addPlayButton(divNode, video);
                 else if ($(video)[0].paused)
                     addPlayButton(divNode, video);
-
             }
         };
 
@@ -4211,6 +4195,7 @@ $(function () {
                 throw "Bad image type "+imageTypeStyle[pic.type]+": "+pic.url;
             return true;
         };
+
         var rpdisplayVideo = function() {
             var div = $(this);
             var video = $(this).children('#gfyvid');
@@ -4449,15 +4434,16 @@ $(function () {
                 a = pathnameOf(photo.url).split('/');
                 postid = a.pop();
                 blogid = a.pop();
-                // @@ sanity check postid & blogid are long ints
-            } else {
+                if (!isNaN(parseInt(postid, 10)) || !isNaN(parseInt(blogid, 10))) {
+                    log.error("Blogger returned bad value postid:"+postid+" blogid:"+blogid);
+                    return;
+                }
+            } else
                 blogid = rp.blogger[fqdn];
-            }
 
             var handleBloggerPost = function(data) {
                 if (!processBloggerPost(photo, data))
                     initPhotoThumb(photo);
-                // @@ check if photo is later?
                 if (photo.type != imageTypes.later)
                     showCB(photo);
             };
@@ -4485,7 +4471,6 @@ $(function () {
 
         } else if (hostname == 'livestream.com') {
             jsonUrl = originOf(photo.url)+'/oembed?url=' + encodeURIComponent(photo.url);
-
             handleData = handleOembed;
 
         } else if (fqdn == 'danbooru.donmai.us') {
@@ -5054,7 +5039,7 @@ $(function () {
             site = site.toLowerCase().replaceAll(".", "");
             var prefix = "";
             try {
-                if (connector == "" && ["and", "free", "link", "profile"].includes(name.toLowerCase()))
+                if (connector == "" && ["and", "free", "link", "pics", "profile"].includes(name.toLowerCase()))
                     throw "bad username";
                 if (connector == "" && subreddit.match(/news/))
                     throw "bad subreddit";
@@ -5169,11 +5154,11 @@ $(function () {
         $('#subRedditInfo').html(div.html());
     };
 
-    var redditMultiAppend = function(data, list, multi) {
+    var redditMultiAppend = function(data, list) {
+        var base = rpurlbase();
         data.forEach(function(item) {
             var path;
             var cl = "multi";
-            var selected = false;
             if (item.data.visibility == "public")
                 path = item.data.path;
             else if (item.data.visibility == "private") {
@@ -5181,32 +5166,35 @@ $(function () {
                 cl += " needlogin";
             } else // hidden == ignore
                 return;
+            if (path.endsWith('/'))
+                path = path.slice(0,-1);
             if (item.data.over_18)
                 cl += " show-nsfw";
-            if (item.data.name == multi) {
-                selected = true;
+            if (path == base)
                 setRedditInfoHtml(item.data.description_html);
-            }
 
-            var link = redditLink(path, item.data.description_md, item.data.display_name, selected);
+            var link = redditLink(path, item.data.description_md, item.data.display_name, true);
 
             list.append($('<li>', {class: cl}).html(link));
         });
+        updateSelected();
     };
 
     var loadRedditMultiList = function () {
         var jsonUrl = rp.reddit.api+'/api/multi/mine';
-        var handleData = function(data) {
+        var handleData = function(data, status) {
             var list = $('#multiListDiv ul:first-of-type');
             list.empty();
             if (data.length)
                 rp.session.loginUser = data[0].data.owner
-            updateRedditMultiCache(rp.session.loginUser, data);
-
+            if (status)
+                updateRedditMultiCache(rp.session.loginUser, data);
             redditMultiAppend(data, list);
         };
+
         if (checkRedditMultiCache(rp.session.loginUser))
             handleData(rp.sitecache.reddit.multi[rp.session.loginUser].data)
+
         else
             $.ajax({
                 url: jsonUrl,
@@ -5275,15 +5263,13 @@ $(function () {
     };
 
     var setupRedditLogin = function (bearer, by) {
-        if (hostnameOf(rp.redirect) != window.location.hostname)
+        if ((hostnameOf(rp.redirect) != window.location.hostname) ||
+            rp.session.loginExpire > (currentTime())-60)
             return;
         if (bearer === undefined) {
             bearer = getConfig(configNames.redditBearer, '');
             by = getConfig(configNames.redditRefreshBy, 0);
         }
-        if (rp.session.loginExpire &&
-            rp.session.loginExpire > (currentTime())-60)
-            return;
         $('#loginUsername').attr('href', rp.reddit.loginUrl + '?' +
                                  ['client_id=' + rp.api_key.reddit,
                                   'response_type=code',
@@ -5318,14 +5304,10 @@ $(function () {
             return;
         var base = rpurlbase();
         var prefix = (base == '/') ?'' :'/';
-        var is_submitted = (rp.url.site == 'reddit' && rp.url.type == 'submitted');
-        var multi;
         var user;
-        if (rp.url.site == 'reddit') {
-            multi = (rp.url.type == 'm') ? rp.url.multi :'';
+        if (rp.url.site == 'reddit')
             user = (rp.url.type == 'm' || rp.url.type == 'submitted')
                 ? (rp.url.sub) ?rp.url.sub :rp.session.loginUser :rp.session.loginUser;
-        }
 
         var choice = rp.url.choice.split(':')[0] || arr[0];
 
@@ -5356,15 +5338,18 @@ $(function () {
         $('#subRedditInfo').html("&nbsp;");
         if (user) {
             list.append($('<li>').append($('<hr>', { class: "split" })));
-            list.append($('<li>').append(redditLink(localUserUrl(user, "reddit"), "submitted", "submitted", is_submitted)));
+            list.append($('<li>').append(redditLink(localUserUrl(user, "reddit"), "submitted", "submitted", true)));
+            if (user == rp.session.loginUser)
+                list.append($('<li>').append(redditLink("/r/friends", "friends", "friends", true)));
 
             var jsonUrl = rp.reddit.api + '/api/multi/user/' + user;
-            var handleData = function (data) {
-                updateRedditMultiCache(user, data);
+            var handleData = function (data, status) {
+                if (status)
+                    updateRedditMultiCache(user, data);
                 if (data.length) {
                     var list = $('#subredditPopup ul');
                     list.append($('<li>').append($('<hr>', { class: "split" })));
-                    redditMultiAppend(data, list, multi);
+                    redditMultiAppend(data, list);
                 }
             };
 
@@ -5385,6 +5370,7 @@ $(function () {
 
         $('#choiceTitle').text(base);
         $('#choiceLi').show();
+        updateSelected();
 
         // Load Sub Info
         if (rp.url.site != "reddit" ||
@@ -5393,25 +5379,22 @@ $(function () {
             ["all", "popular", "random", "randnsfw"].includes(rp.url.sub))
             return;
 
-        var jsonUrl2 = rp.reddit.api + rpurlbase() + '/about.json';
-        // handle t5 data
-        var handleT5 = function(sub, t5) {
-            setRedditInfoHtml((t5.public_description) ?t5.public_description_html :t5.description_html);
+        var jsonUrl2 = rp.reddit.api + base + '/about.json';
+        var handleT5Data = function (data, status) {
+            if (status)
+                updateRedditSubCache(data.data);
+            setRedditInfoHtml((data.data.public_description) ?data.data.public_description_html :data.data.description_html);
         };
-        var handleData2 = function (data) {
-            var sub = data.data.display_name;
-            updateRedditSubCache(sub, data.data);
-            handleT5(sub, data.data);
-        };
+
         if (checkRedditSubCache(rp.url.sub))
-            handleT5(rp.url.sub, rp.sitecache.reddit.sub[rp.url.sub.toLowerCase()].data)
+            handleT5Data(rp.sitecache.reddit.sub[rp.url.sub.toLowerCase()].data)
 
         else
             $.ajax({
                 url: jsonUrl2,
                 headers: rp.session.redditHdr,
                 dataType: 'json',
-                success: handleData2,
+                success: handleT5Data,
                 error: failedAjax,
                 timeout: rp.settings.ajaxTimeout,
                 crossDomain: true,
@@ -6221,7 +6204,7 @@ $(function () {
         });
     };
 
-    var processHaystack = function(photo, html, docheck, extra, o_link) {
+    var processHaystack = function(photo, html, extra, o_link) {
         var processNeedle = function(pic, item) {
             var src;
             if (item.tagName == 'IMG') {
@@ -6324,7 +6307,11 @@ $(function () {
         var ownerDocument = document.implementation.createHTMLDocument('virtual');
         $('<div />', ownerDocument).html(html).find('img, video, iframe, a').each(function(_i, item) {
             // init url for relative urls/srcs
-            var pic = { url: item.src || item.currentSrc, title: item.alt || item.title, o_url: o_link || photo.url, };
+            var pic = {
+                url: item.src || item.currentSrc || item.href,
+                title: item.alt || item.title,
+                o_url: o_link || photo.url,
+            };
             if (extra)
                 pic.extra = extra;
             if (processNeedle(pic, item) &&
@@ -6352,8 +6339,7 @@ $(function () {
             successcb = addImageSlide;
         var hn = hostnameOf(photo.url);
         var extra = localLink(originOf(photo.url), hn, "/wp2/"+hn, "", rp.favicons.wordpress);
-        var o_link = photo.url;
-        photo.extra = extra;
+        var o_link = post.link;
 
         photo = initPhotoAlbum(photo, false);
         if (photo.o_url === undefined)
@@ -6371,7 +6357,7 @@ $(function () {
                 post.yoast_head_json.og_image.forEach(function(item) {
                     if (item.url == photo.url)
                         return;
-                    var pic = { url: item.url, title: post.yoast_head_json.og_title, o_url: o_link };
+                    var pic = { url: item.url, title: post.yoast_head_json.og_title, o_url: o_link, extra: extra };
                     fixupPhotoTitle(pic);
                     if (processPhoto(pic)) {
                         addAlbumItem(photo, pic);
@@ -6952,10 +6938,11 @@ $(function () {
     var bloggerBlogLookupUrl = function(hostname) {
         return 'https://www.googleapis.com/blogger/v3/blogs/byurl?url=https://'+hostname+'&key='+rp.api_key.blogger;
     };
+
     var bloggerPostLookupUrl = function(hostname, path) {
-        return 'https://www.googleapis.com/blogger/v3/blogs/'+rp.blogger[hostname]+'/posts/bypath?path='+encodeURI(path)+
-            '&key='+rp.api_key.blogger;
+        return 'https://www.googleapis.com/blogger/v3/blogs/'+rp.blogger[hostname]+'/posts/bypath?path='+encodeURI(path)+'&key='+rp.api_key.blogger;
     };
+
     var recallBlogger = function(data, handleData, doneError) {
         var hostname = hostnameOf(data.url);
         if (data.error) {
@@ -6978,15 +6965,14 @@ $(function () {
         var hostname = rp.url.sub;
 
         if (rp.blogger[hostname] === 0) {
-            // @@ error to UI
-            log.error("cannot load blogger [Already Failed]: "+hostname);
+            failCleanup("cannot load blogger [Already Failed]: "+hostname);
             return;
         }
 
         if (!setupLoading(1, "No photos loaded"))
             return;
 
-        if (rp.blogger[hostname] !== undefined) {
+        if (rp.blogger[hostname]) {
             setSubredditLink("http://"+hostname);
             getBloggerPosts(hostname);
             return;
@@ -7003,9 +6989,8 @@ $(function () {
             if (xhr.status == 404) {
                 rp.blogger[hostname] = 0;
                 setConfig(configNames.blogger, rp.blogger);
-            } else {
+            } else
                 log.error("cannot load blogger ["+xhr.status+" "+err.error.message+"]: "+hostname);
-            }
 
             doneLoading("cannot load blogger");
         };
@@ -7024,9 +7009,7 @@ $(function () {
     //
     // https://danbooru.donmai.us/wiki_pages/api:posts
     var processDanbooruPost = function(photo, post) {
-        photo.site = {
-            t: "danbooru",
-        };
+        photo.site = { t: "danbooru" };
         if (!photo.title)
             photo.title = post.tag_string_character.split(" ")
             .map(function(x) { return titleTagLink(x, "danbooru"); }).join(" and ");
@@ -7794,9 +7777,9 @@ $(function () {
                 break;
             case '': break;
             default:
-                if (rp.choices[rp.url.site][rp.url.type].includes(t)) {
+                if (rp.choices[rp.url.site][rp.url.type].includes(t))
                     rp.url.choice = t;
-                } else {
+                else {
                     log.info("Bad PATH: "+arr[i]);
                     continue;
                 }
@@ -7826,8 +7809,7 @@ $(function () {
                 rp.url.root = '/';
             } else {
                 rp.url.base = window.location.pathname + '?';
-                rp.url.root = window.location.pathname;
-                rp.url.root = rp.url.root.replace(/index.html$/, "");
+                rp.url.root = window.location.pathname.replace(/index.html$/, "");
             }
 
         if (!path.startsWith(pathnameOf(rp.url.base)))
@@ -7849,11 +7831,11 @@ $(function () {
 
         if (initial)
             rp.history.replaceState({}, "", path);
+
         else if (data === undefined && path != "")
             rp.history.pushState({}, "", path);
 
         var subredditName = rpurlpath();
-
         var visitSubreddit = rp.reddit.base + rpurlpath();
 
         setSubredditLink(visitSubreddit, "reddit");
