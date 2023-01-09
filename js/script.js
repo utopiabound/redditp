@@ -118,9 +118,7 @@
  *
  * TODO:
  * * Cleanup photo.dupes - should be related to local url
- * * Fix dupes on album items (currently album dupes get assigned to parent dupes list), should behave more like tags
  * * use https://oembed.com/providers.json or a processed version for oembed reference?
- * * highlight "selected" multireddit under loginLi
  * * on rotation/fullscreen event, check icon toggle
  * * Use /api/v1/me/prefs for defaults?
  * * Make title social link alterable (change from twitter to instagram...)
@@ -5032,14 +5030,14 @@ $(function () {
         // 0x27a1 - right arrow
         var re;
         if (rp.session.regexUnicode)
-            re = /(?:[[{(]\s*|my\s+|on\s+|\b|^)?([\p{L}.$]+\p{L}|[@]+|\u{1f47b})\s*((?:&\w+;)?[-:@][-:@\s]*|(?:&gt;|=)+|\b\s*|\]\[|\)\s*\(|(?:\u{25b6}|\u{27a1})\u{fe0f}?)[[\s]*(\w[\w.-]+\w)(?:\s*[)\]}])?/gui;
+            re = /(?:[[{(]\s*|my\s+|on\s+|\b|^)?([\p{L}.$]+\p{L}|[@]+|\u{1f47b})\s*((?:&\w+;)?[-:@][-:@\s]*|(?:&gt;|=|-)+|\b\s*|\]\[|\)\s*\(|(?:\u{25b6}|\u{27a1})\u{fe0f}?)[[\s]*(\w[\w.-]+\w)(?:\s*[)\]}])?/gui;
         else
-            re = /(?:[[{(]\s*|\b|my\s+|on\s+|^)?([A-Za-z.$]+[A-Za-z]|[@]+)\s*((?:&\w+;)?[-:@][-:@\s]*|(?:&gt;|=)+|\b\s*|\]\[|\)\s*\()[[\s]*([\w.-]+\w)(?:\s*[)\]}])?/gi;
+            re = /(?:[[{(]\s*|\b|my\s+|on\s+|^)?([A-Za-z.$]+[A-Za-z]|[@]+)\s*((?:&\w+;)?[-:@][-:@\s]*|(?:&gt;|=|-)+|\b\s*|\]\[|\)\s*\()[[\s]*([\w.-]+\w)(?:\s*[)\]}])?/gi;
         t1 = t1.replace(re, function(match, site, connector, name) {
             site = site.toLowerCase().replaceAll(".", "");
             var prefix = "";
             try {
-                if (connector == "" && ["and", "free", "link", "pics", "profile"].includes(name.toLowerCase()))
+                if (connector == "" && ["and", "for", "free", "link", "pics", "profile"].includes(name.toLowerCase()))
                     throw "bad username";
                 if (connector == "" && subreddit.match(/news/))
                     throw "bad subreddit";
@@ -5054,7 +5052,7 @@ $(function () {
                 else if (connector == "\u{1f47b}") {
                     prefix = site+" ";
                     site = "snapchat";
-                } else if (site.match(/^(insta.*|i?g)$/) && !["rated", "string", "cups", "spot"].includes(name.toLowerCase()))
+                } else if (site.match(/^i?(nsta)?g(ram)?$/) && !["rated", "string", "cups", "spot"].includes(name.toLowerCase()))
                     site = "instagram";
                 else if (site == "tw")
                     site = "twitter";
@@ -5063,7 +5061,7 @@ $(function () {
                 else if (site == "@") {
                     var social = (pic.over18) ?"instagram" :"twitter";
                     site = metaSocial(hn, subreddit, picFlair(pic), social);
-                } else if (site == "kik" || site == "kk")
+                } else if (site.match(/^k[li]?k$/))
                     return "kik : "+name; // ensure it doesn't get picked up below
                 else if (site == "reddit")
                     return "u/"+name; // this will be picked up below for u/USER
