@@ -118,6 +118,7 @@
  *
  * TODO:
  * * Cleanup photo.dupes - should be related to local url
+ * * Grey out volume appropriately
  * * use https://oembed.com/providers.json or a processed version for oembed reference?
  * * on rotation/fullscreen event, check icon toggle
  * * Use /api/v1/me/prefs for defaults?
@@ -638,12 +639,12 @@ $(function () {
     };
 
     var youtubeURL = function(id, start) {
+        //var ytExtra = '?enablejsapi=1';
         var ytExtra = '?';
         if (start !== undefined)
             ytExtra += 'start='+start+'&';
 
         ytExtra += 'autoplay=1&origin='+encodeURI(window.location.origin);
-        //var ytExtra = '?enablejsapi=1';
         return 'https://www.youtube.com/embed/'+id+ytExtra;
     };
 
@@ -651,7 +652,6 @@ $(function () {
         var sid = "";
         if (id)
             sid = '&id='+id;
-
         // reblog_info=true to get "duplicate" information for reblogged_from_* and reblogged_root_*
         return 'https://api.tumblr.com/v2/blog/'+hn+'/posts?reblog_info=true&api_key='+rp.api_key.tumblr+sid;
     }
@@ -665,8 +665,6 @@ $(function () {
     }
 
     var _infoAnchor = function(url, text, urlalt, classes) {
-        if (urlalt === undefined)
-            urlalt = "";
         if (classes === undefined)
             classes = "info infol";
         var a = $('<a>', {href: url, class: classes}).html(text);
@@ -685,8 +683,6 @@ $(function () {
     var _localLink = function(url, local, text, urlalt, favicon, classes) {
         if (text === undefined)
             text = local;
-        if (urlalt === undefined)
-            urlalt = "";
         // favicon set in setFavicon
         if (classes === undefined)
             classes = "info infol";
@@ -2765,6 +2761,7 @@ $(function () {
                     // Sites that definitely don't work with above
                     if (['bing.com',
                          'analhorny.com',
+                         'camwhores.film',
                          'camwhores.tube',
                          'cc.com',
                          'fodder.gg',
@@ -3576,73 +3573,63 @@ $(function () {
             dupes = dupes.concat(pic.dupes);
 
         // Reddit Duplicates
-        if (dupes.length > 0) {
-            var multi = [];
-            if (photo.subreddit)
-                multi.push(photo.subreddit);
-            dupes.forEach(function(item) {
-                var li = $("<li>", { class: 'list'});
+        var multi = [];
+        if (photo.subreddit)
+            multi.push(photo.subreddit);
+        dupes.forEach(function(item) {
+            var li = $("<li>", { class: 'list'});
 
-                if (item.subreddit) {
-                    try {
-                        var nli = $('#duplicateUl').find('[subreddit='+item.subreddit+']');
-                    } catch(e) {
-                        log.error("Failed to find duplicateLi subreddit = "+item.subreddit);
-                        return;
-                    }
-                    if (nli.length) {
-                        li = $(nli);
-                    } else {
-                        var subr = '/r/' +item.subreddit;
-                        li.attr('subreddit', item.subreddit);
-
-                        ++ total;
-                        multi.push(item.subreddit);
-
-                        li.html(redditLink(subr, item.title));
-                    }
-                    if (item.a && item.a != photo.author)
-                        li.append(localUserIcon(item.a, "reddit"));
-                    li.append($("<a>", { href: rp.reddit.base + subr + "/comments/"+item.id,
-                                         class: 'info infoc',
-                                         title: (new Date(item.date*1000)).toString(),
-                                       }).text('('+item.commentN+')'));
-
-                } else if (item.tumblr) {
-                    if (item.off)
-                        li.html(localLinkFailed(item.url, item.tumblr, '/tumblr/'+item.tumblr, item.title));
-                    else
-                        li.html(localLink(item.url, item.tumblr, '/tumblr/'+item.tumblr, item.title));
-                    ++ total;
-
-                } else {
-                    log.error("Unknown Duplicate Type", item);
+            if (item.subreddit) {
+                try {
+                    var nli = $('#duplicateUl').find('[subreddit='+item.subreddit+']');
+                } catch(e) {
+                    log.error("Failed to find duplicateLi subreddit = "+item.subreddit);
                     return;
                 }
+                if (nli.length) {
+                    li = $(nli);
+                } else {
+                    var subr = '/r/' +item.subreddit;
+                    li.attr('subreddit', item.subreddit);
 
-                if (photo.cross_id && photo.cross_id == item.id)
-                    li.addClass('xorig');
-                if (li.parent().length == 0)
-                    $('#duplicateUl').append(li);
-            });
-            if (multi) {
-                $('#navboxDuplicatesMulti').attr('href', rp.reddit.base+'/r/'+multi.join('+'));
-                $('#navboxDuplicatesMultiP').attr('href', rp.url.base+'/r/'+multi.join('+'));
+                    ++ total;
+                    multi.push(item.subreddit);
+
+                    li.html(redditLink(subr, item.title));
+                }
+                if (item.a && item.a != photo.author)
+                    li.append(localUserIcon(item.a, "reddit"));
+                li.append($("<a>", { href: rp.reddit.base + subr + "/comments/"+item.id,
+                                     class: 'info infoc',
+                                     title: (new Date(item.date*1000)).toString(),
+                                   }).text('('+item.commentN+')'));
+
+            } else if (item.tumblr) {
+                if (item.off)
+                    li.html(localLinkFailed(item.url, item.tumblr, '/tumblr/'+item.tumblr, item.title));
+                else
+                    li.html(localLink(item.url, item.tumblr, '/tumblr/'+item.tumblr, item.title));
+                ++ total;
+
+            } else {
+                log.error("Unknown Duplicate Type", item);
+                return;
+            }
+
+            if (photo.cross_id && photo.cross_id == item.id)
+                li.addClass('xorig');
+            if (li.parent().length == 0)
+                $('#duplicateUl').append(li);
+        });
+        $('#duplicatesLink').hide();
+        if (multi) {
+            $('#navboxDuplicatesMulti').attr('href', rp.reddit.base+'/r/'+multi.join('+'));
+            $('#navboxDuplicatesMultiP').attr('href', rp.url.base+'/r/'+multi.join('+'));
+            if (multi.length > 1 || (multi.length == 1 && multi[0] != photo.subreddit))
                 $('#duplicatesLink').show();
-            } else {
-                $('#navboxDuplicatesMulti').attr('href', "#");
-                $('#navboxDuplicatesMultiP').attr('href', "#");
-                $('#duplicatesLink').hide();
-            }
         } else {
-            if (photo.subreddit) {
-                $('#navboxDuplicatesMulti').attr('href', rp.reddit.base+'/r/'+photo.subreddit);
-                $('#navboxDuplicatesMultiP').attr('href', rp.url.base+'/r/'+photo.subreddit);
-            } else {
-                $('#navboxDuplicatesMulti').attr('href', "#");
-                $('#navboxDuplicatesMultiP').attr('href', "#");
-            }
-            $('#duplicatesLink').hide();
+            $('#navboxDuplicatesMulti').attr('href', "#");
+            $('#navboxDuplicatesMultiP').attr('href', "#");
         }
         $('#duplicatesCollapser').data('count', total);
         setVcollapseHtml($('#duplicatesCollapser'));
@@ -3745,17 +3732,12 @@ $(function () {
         }
         addLoading(val);
         rp.session.loadingNextImages = true;
-        if (msg)
-            rp.session.loadingMessage = msg;
-        else
-            rp.session.loadingMessage = "";
+        rp.session.loadingMessage = (msg) ?msg :"";
         return true;
     };
 
     var addLoading = function(val) {
-        if (!isFinite(val))
-            val = 1;
-        rp.session.loading += val;
+        rp.session.loading += (isFinite(val)) ?val :1;
     };
 
     var doneLoading = function(message) {
@@ -3791,11 +3773,9 @@ $(function () {
 
     var failedAjaxDone = function (xhr, ajaxOptions, thrownError) {
         failedAjax(xhr, ajaxOptions, thrownError);
-        var text;
-        if (xhr.status == 0)
-            text = "<br> Check tracking protection";
-        else
-            text = ": "+thrownError+" "+xhr.status;
+        var text = (xhr.status == 0)
+            ?"<br> Check tracking protection"
+            :(": "+thrownError+" "+xhr.status);
         failCleanup("Failed to get "+rp.url.sub+text);
     };
 
@@ -3931,11 +3911,8 @@ $(function () {
                 needreset = true;
             if (thumb === undefined)
                 thumb = (photo.type == imageTypes.thumb || photo.type == imageTypes.fail);
-            var url;
-            if (thumb)
-                url = photo.thumb;
-            else
-                url = photo.url;
+
+            var url = (thumb) ?photo.thumb :photo.url;
 
             var img = $('<img />', { class: "fullscreen", src: url});
 
@@ -4764,7 +4741,8 @@ $(function () {
         } else if (rp.wp[hostname]) {
             shortid = url2shortid(photo.url);
 
-            if (rp.wp[hostname] == 1) {
+            switch (rp.wp[hostname]) {
+            case 1:
                 jsonUrl = 'https://public-api.wordpress.com/rest/v1.1/sites/'+hostname+'/posts/slug:'+shortid;
                 handleData = handleWPv1Data;
                 handleError = function() {
@@ -4781,8 +4759,8 @@ $(function () {
                         crossDomain: true
                     });
                 };
-
-            } else { // v2
+                break;
+            case 2:
                 jsonUrl = wp2BaseJsonUrl(hostname);
                 if (/^\d+$/.test(shortid))
                     jsonUrl += shortid+'?_jsonp=?';
@@ -4791,6 +4769,7 @@ $(function () {
                 dataType = 'jsonp';
                 handleData = handleWPv2Data;
                 handleError = handleWPError;
+                break;
             }
 
         } else if (rp.wp[hostname] === 0) {
@@ -4854,8 +4833,7 @@ $(function () {
     var handleImgurItemMeta = function(photo, item) {
         if (!photo.site)
             photo.site = { t: "imgur" };
-        if (item.account_url)
-            photo.site.user = item.account_url;
+        addPhotoSiteUser(photo, item.account_url);
         if (item.section) {
             if (photo.subreddit)
                 addPhotoSiteTags(photo, [ item.section ]);
@@ -4866,8 +4844,7 @@ $(function () {
             photo.date = item.datetime;
         if (item.nsfw && !photo.over18)
             photo.over18 = item.nsfw;
-        if (item.tags)
-            addPhotoSiteTags(photo, item.tags.map(function(x) { return x.name }));
+        addPhotoSiteTags(photo, (item.tags) ?item.tags.map(function(x) { return x.name }) :[]);
     };
 
     var fixImgurPicUrl = function(url) {
@@ -5632,13 +5609,11 @@ $(function () {
         if (comment.data.score >= rp.settings.minScore) {
             var links = [];
             if (comment.data.body_html) {
-
                 var ownerDocument = document.implementation.createHTMLDocument('virtual');
-
                 links = $('<div />', ownerDocument).html(unescapeHTML(comment.data.body_html)).find('a');
-            } else {
+
+            } else
                 log.info("cannot display comment [no body]: "+comment.data.permalink);
-            }
 
             photo = initPhotoAlbum(photo);
             for (j = 0; j < links.length; ++j) {
@@ -5797,7 +5772,7 @@ $(function () {
             }
 
         } else if (!photo.url && (Object.keys(t3.secure_media_embed).length != 0 || Object.keys(t3.media_embed).length != 0)) {
-            // use .(secure_)media.oembed?
+            // @@ use .(secure_)media.oembed?
             var html = (t3.secure_media_embed.content) ?t3.secure_media_embed.content :t3.media_embed.content;
             var ownerDocument = document.implementation.createHTMLDocument('virtual');
             var iframe = $('<div />', ownerDocument).html(unescapeHTML(html)).find('iframe')[0];
@@ -6518,12 +6493,7 @@ $(function () {
 
         setSubredditLink('https://'+hostname);
 
-        var jsonUrl = wp2BaseJsonUrl(hostname)+'?orderby=date';
-
-        if (rp.url.choice == 'old')
-            jsonUrl += '&order=asc';
-        else
-            jsonUrl += '&order=desc';
+        var jsonUrl = wp2BaseJsonUrl(hostname)+'?orderby=date&order='+((rp.url.choice == 'old') ?'asc' :'desc');
 
         if (rp.session.after !== "")
             jsonUrl += '&offset='+rp.session.after;
@@ -6539,10 +6509,9 @@ $(function () {
                 log.error("Something bad happened: "+data);
                 failedAjaxDone();
                 return;
-            } else if (data.length == 0)
-                rp.session.loadAfter = null;
-            else
-                rp.session.loadAfter = getWordPressBlogV2;
+
+            } else
+                rp.session.loadAfter = (data.length) ?getWordPressBlogV2 :null;
             rp.session.after = rp.session.after + data.length;
             data.forEach(function(post) {
                 var photo = fixupPhotoTitle(
