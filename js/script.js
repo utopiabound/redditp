@@ -644,7 +644,7 @@ $(function () {
         if (start !== undefined)
             ytExtra += 'start='+start+'&';
 
-        ytExtra += 'autoplay=1&origin='+encodeURI(window.location.origin);
+        ytExtra += 'autoplay=1&origin='+encodeURIComponent(window.location.origin);
         return 'https://www.youtube.com/embed/'+id+ytExtra;
     };
 
@@ -2383,7 +2383,9 @@ $(function () {
 
             } else if (hostname == 'eporner.com') {
                 a = pathnameOf(pic.url).replaceAll('//', '/').split('/');
-                if (a.length < 5)
+                if (a[1] == "gallery")
+                    throw "cannot process gallery";
+                if (a[1].startsWith("video-"))
                     shortid = url2shortid(pic.url, 1, '-');
                 else
                     shortid = a[2];
@@ -3776,7 +3778,7 @@ $(function () {
         var text = (xhr.status == 0)
             ?"<br> Check tracking protection"
             :(": "+thrownError+" "+xhr.status);
-        failCleanup("Failed to get "+rp.url.sub+text);
+        doneLoading("Failed to get "+rp.url.sub+text);
     };
 
     // Set Autoplay for iOS devices
@@ -4211,6 +4213,7 @@ $(function () {
         };
 
         var showPic = function(pic) {
+            pic = photoParent(pic);
             if (pic.type == imageTypes.album) {
                 var index = 0;
                 if (rp.cache[imageIndex] == undefined) {
@@ -4312,7 +4315,7 @@ $(function () {
                 rp.wp[hostname] = 1;
             setConfig(configNames.wp, rp.wp);
             processWordPressPost(photo, data);
-            showCB(photoParent(photo));
+            showCB(photo);
         };
         var handleWPv2Data = function(data) {
             if (rp.wp[hostname] !== 2) {
@@ -4329,11 +4332,7 @@ $(function () {
                     initPhotoThumb(photo);
                     showCB(photo);
                 },
-                function(photo) {
-                    if (photo.type == imageTypes.later)
-                        return;
-                    showCB(photoParent(photo));
-                }
+                showCB,
             );
         };
         var handleError = handleErrorOrig;
@@ -4419,8 +4418,7 @@ $(function () {
             var handleBloggerPost = function(data) {
                 if (!processBloggerPost(photo, data))
                     initPhotoThumb(photo);
-                if (photo.type != imageTypes.later)
-                    showCB(photo);
+                showCB(photo);
             };
 
             if (blogid === undefined) {
@@ -4615,9 +4613,7 @@ $(function () {
                     if (data === undefined) {
                         initPhotoImage(photo, "https://i.imgur.com/"+shortid+".jpg");
                         showCB(photo);
-                        return;
-                    }
-                    if (Array.isArray(data.data)) {
+                    } else if (Array.isArray(data.data)) {
                         photo = handleImgurItemAlbum(photo, {
                             is_album: true,
                             images: data.data,
@@ -4633,9 +4629,7 @@ $(function () {
 
                 handleData = function (data) {
                     handleImgurItemMeta(photo, data.data);
-
                     processImgurItemType(photo, data.data);
-
                     showCB(photo);
                 };
             }
@@ -4698,7 +4692,7 @@ $(function () {
 
             handleData = function(data) {
                 processTumblrPost(photo, data.response.posts[0]);
-                showCB(photoParent(photo));
+                showCB(photo);
             };
 
         } else if (hostname == 'twitter.com') {
@@ -5548,7 +5542,7 @@ $(function () {
         };
 
         // https://www.reddit.com/search.json?q=url:SHORTID+site:HOSTNAME
-        var jsonUrl = rp.reddit.base + '/search.json?include_over_18=on&q=url:'+shortid+'+site:'+site;
+        var jsonUrl = rp.reddit.base + '/search.json?include_over_18=on&q=url:'+shortid+'%20site:'+site;
         var handleData = function (data) {
             if (isActive(photo))
                 updateExtraLoad();
@@ -5791,9 +5785,8 @@ $(function () {
     };
 
     var getRedditImages = function () {
-        if (rp.session.loadingNextImages)
+        if (!setupLoading(1, "No Reddit Pics"))
             return;
-        rp.session.loadingNextImages = true;
 
         setupRedditLogin();
 
@@ -5812,7 +5805,7 @@ $(function () {
 
         if (rp.url.type == 'search') {
             jsonUrl = rp.reddit.api + '/search.json?';
-            urlargs.push('q='+rp.url.sub);
+            urlargs.push('q='+encodeURIComponent(rp.url.sub));
 
         } else if (rp.url.sub == 'random' || rp.url.sub == 'randnsfw') {
             jsonUrl = rp.reddit.base + rpurlbase() + '.json?jsonp=redditcallback';
@@ -5973,7 +5966,7 @@ $(function () {
 
             if (data.data.children.length === 0) {
                 log.info("No more data");
-                rp.session.loadingNextImages = false;
+                doneLoading();
                 return;
             }
 
@@ -6005,22 +5998,23 @@ $(function () {
                     var cross_link = dedupAdd(dupe.data.subreddit, dupe.data.id, link);
                     if (cross_link != link) {
                         log.info('cannot display url [cross-dup: '+cross_link+']: '+item.data.url);
+                        doneLoading();
                         return;
                     }
                     if (cross_link == "SELF") {
                         log.info('cannot display url [non-self dup]: '+item.data.url);
+                        doneLoading();
                         return;
                     }
                     duplicates.push(redditT3ToDupe(dupe.data));
                 }
                 addImageSlideRedditT3(item.data, duplicates);
-
                 // Place self in dedup list
                 dedupAdd(item.data.subreddit, item.data.id);
+                doneLoading();
             };
 
             data.data.children.forEach(function (item) {
-                var func = null;
                 var url = null;
 
                 // Text entry, no actual media
@@ -6040,22 +6034,22 @@ $(function () {
                     return;
                 }
 
-                func = handleDuplicatesData;
                 url = rp.reddit.base + '/duplicates/' + item.data.id + '.json?show=all';
 
-                // Don't use oauth'd API for this, if oauth has expired, lots of failures happen,
-                // and oauth adds nothing here.
+                addLoading();
+                // Don't use oauth'd API for this, if oauth has expired,
+                // lots of failures happen, and oauth adds nothing here.
                 $.ajax({
                     url: url,
                     dataType: 'json',
-                    success: func,
-                    error: failedAjax,
+                    success: handleDuplicatesData,
+                    error: failedAjaxDone,
                     jsonp: false,
                     timeout: rp.settings.ajaxTimeout,
                     crossDomain: true
                 });
             });
-            rp.session.loadingNextImages = false;
+            doneLoading();
         };
 
         log.debug('Ajax requesting ('+dataType+'): ' + jsonUrl);
@@ -6283,8 +6277,9 @@ $(function () {
             var pic = {
                 url: item.src || item.currentSrc || item.href,
                 title: item.alt || item.title,
-                o_url: o_link || photo.url,
             };
+            if (o_link)
+                pic.o_url = o_link;
             if (extra)
                 pic.extra = extra;
             if (processNeedle(pic, item) &&
@@ -6479,15 +6474,13 @@ $(function () {
     var getWordPressBlogV2 = function () {
         // Path Schema:
         // /wp2/HOSTNAME[/CHOICES]
-        if (rp.session.loadingNextImages)
+        if (!setupLoading(1, "No blog entries"))
             return;
-        rp.session.loadingNextImages = true;
 
         var hostname = rp.url.sub;
 
         if (rp.wp[hostname] === 0) {
-            log.error("not WP site: "+hostname);
-            rp.session.loadingNextImages = false;
+            doneLoading("not WP site: "+hostname);
             return;
         }
 
@@ -6525,7 +6518,7 @@ $(function () {
                 );
                 getPostWPv2(photo, post, function() { log.info("cannot display WPv2 [no photos]: "+photo.url) });
             });
-            rp.session.loadingNextImages = false;
+            doneLoading();
         };
         var failedData = function (xhr, ajaxOptions, thrownError) {
             if (jsonUrl.startsWith('https:')) {
@@ -6564,10 +6557,6 @@ $(function () {
     var getWordPressBlog = function () {
         // Path Schema:
         // /wp/HOSTNAME[/CHOICES]
-        if (rp.session.loadingNextImages)
-            return;
-        rp.session.loadingNextImages = true;
-
         var hostname = rp.url.sub;
 
         if (!hostname.includes('.'))
@@ -6578,12 +6567,14 @@ $(function () {
         // If we know this fails, bail
         if (rp.wp[hostname]) {
             if (rp.wp[hostname] == 2) {
-                rp.session.loadingNextImages = false;
                 getWordPressBlogV2();
                 return;
             }
         } else if (rp.wp[hostname] === 0)
             return failCleanup("No Wordpress Blog for "+hostname);
+
+        if (!setupLoading(1, "No wordpress entries"))
+            return;
 
         var jsonUrl = 'https://public-api.wordpress.com/rest/v1.1/sites/'+hostname+'/posts?order_by=date';
 
@@ -6620,11 +6611,11 @@ $(function () {
                 else
                     log.info("cannot display WP [no photos]: "+photo.url);
             });
-            rp.session.loadingNextImages = false;
+            doneLoading();
         };
 
         var failedData = function () {
-            rp.session.loadingNextImages = false;
+            doneLoading();
             getWordPressBlogV2();
         };
 
@@ -6791,9 +6782,6 @@ $(function () {
     var getTumblrBlog = function () {
         // Path Schema:
         // /tumblr/HOSTNAME
-        if (rp.session.loadingNextImages)
-            return;
-        rp.session.loadingNextImages = true;
 
         var hostname = rp.url.sub;
         if (!hostname)
@@ -6801,6 +6789,9 @@ $(function () {
 
         if (!hostname.includes('.'))
             hostname += '.tumblr.com';
+
+        if (!setupLoading(1, "no tumblr"))
+            return;
 
         var jsonUrl = tumblrJsonURL(hostname);
         if (rp.session.after)
@@ -6832,8 +6823,7 @@ $(function () {
                     addImageSlide(image);
 
             });
-
-            rp.session.loadingNextImages = false;
+            doneLoading();
         };
 
         log.debug('getTumblrBlog requesting: '+jsonUrl);
@@ -6857,12 +6847,12 @@ $(function () {
                 photo.o_url = photo.url;
             photo.url = post.url;
         }
-        photo.extra = localLink(post.author.url, post.author.displayName,
+        var extra = localLink(post.author.url, post.author.displayName,
                                 '/blogger/'+hostnameOf(post.url));
-        initPhotoAlbum(photo, false);
-        var rc = processHaystack(photo, post.content);
+        photo = initPhotoAlbum(photo, false);
+        var rc = processHaystack(photo, post.content, extra, post.url);
         checkPhotoAlbum(photo);
-        return rc; // ??
+        return rc;
     };
 
     var getBloggerPosts = function(hostname) {
@@ -6945,7 +6935,7 @@ $(function () {
             return;
         } // else lookup blogger ID
 
-        var jsonUrl = 'https://www.googleapis.com/blogger/v3/blogs/byurl?url=https://'+hostname+'&key='+rp.api_key.blogger;
+        var jsonUrl = bloggerBlogLookupUrl(hostname);
 
         var handleData = function(data) {
             recallBlogger(data, function() { getBloggerPosts(hostname) }, doneLoading);
