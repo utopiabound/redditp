@@ -17,12 +17,6 @@ a {
     text-decoration: none;
     color: #eee;
     font-weight: bold;
-    border-bottom: 1px dotted rgba(0, 0, 0, 0);
-}
-
-a:hover {
-    opacity: 1;
-    border-bottom-color: white;
 }
 
 h3 {
@@ -40,8 +34,6 @@ ul li { list-style-type: none; }
     width: 16px;
     vertical-align: baseline;
 }
-
-.favicon:hover { background-color: rgba(255, 255, 255, 0.7); }
 
 .title {
     padding: 2px;
@@ -70,7 +62,6 @@ ul li { list-style-type: none; }
 }
 
 .material-icons { font-size: 24px; }
-.unset { color: red; }
 .icontoggle { cursor: pointer; }
 .origlink { margin-top: 5px; }
 .origlink i { font-size: 18px; }
@@ -105,7 +96,6 @@ a.failed { text-decoration: line-through; }
 .nbmenu li {
     text-align: left;
     padding: 2px 2px 0;
-    max-width: 300px;
     overflow: hidden;
 }
 
@@ -163,32 +153,20 @@ a.failed { text-decoration: line-through; }
     border: 1px solid transparent;
 }
 
-.numberButtonList { overflow: auto; }
-
-.numberButtonList ul li {
-    width: 30px;
-    height: 30px;
+.numberButtonList {
+    overflow-y: auto;
+    overflow-x: hidden;
 }
 
-.numberButtonList ul li a:hover {
-    background: #888;
-    color: #000;
-    border: 1px solid transparent;
-}
+/* NUMBER BUTTON SLIDE SIZE */
+.numberButtonList ul li { width: 30px; }
 
 .numberButtonList ul li a.active {
     color: #0aa;
     box-shadow: 2px 2px 3px #ccc;
 }
 
-.numberButtonList ul li a.active:hover {
-    color: #00f;
-    cursor: default;
-}
-
-.numberButtonList ul li a::before {
-    opacity: 0.4;
-}
+.numberButtonList ul li a::before { opacity: 0.4; }
 
 /* PICTURES */
 #pictureSlider {
@@ -201,20 +179,18 @@ a.failed { text-decoration: line-through; }
 }
 
 #recommend {
-    padding: 3px;
-    color: #bbb;
     position: absolute;
     left: 50%;
     transform: translateX(-50%);
 }
 
 #recommend ul { margin-left: 20px; }
-#recommend .material-icons { font-size: 16px; }
+#recommend ul .material-icons { font-size: 16px; }
 
-.topper { z-index: 1; }
-
-.hidden { display: none; }
+.error,
 .selected { color: red; }
+.hidden { display: none; }
+.topper { z-index: 1; }
 
 #pictureSlider div.fullscreen {
     height: 100%;
@@ -233,17 +209,9 @@ hr.split { border: 1px inset; }
     max-width: 50%;
 }
 
-#info table {
-    width: 100%;
-}
-
-#info th {
-    text-align: left;
-}
-
-#info td {
-    text-align: right;
-}
+#info table { width: 100%; }
+#info th { text-align: left; }
+#info td { text-align: right; }
 
 /* Help Popup */
 #help {
@@ -252,9 +220,8 @@ hr.split { border: 1px inset; }
     right: 0;
 }
 
-#help td:first-child {
-    font-weight: bold;
-}
+#help td:first-child { font-weight: bold; }
+#help .title { height: 28px; }
 
 div.progressbar {
     width: 100%;
@@ -294,8 +261,6 @@ div.progress {
 #navboxVolume {
     height: 24px;
 }
-
-.error { color: red; }
 
 /* Embedded html - vertically center it */
 #gfyhtml {
@@ -338,6 +303,8 @@ div.progress {
 #subredditUrl {
     float: left;
     font-size: 12px;
+    margin-top: 2px;
+    height: 18px;
 }
 
 #duplicatesCollapser {
@@ -358,7 +325,6 @@ div.progress {
 
 /* redditLink: infol infor [infoa] [infoc] */
 
-/* font-size set in mobile/desktop */
 .info {
     font-weight: bold;
     float: left;
@@ -400,6 +366,13 @@ input.textlabel {
     top: 0;
     left: 0;
     font-size: 24px;
+}
+
+#navboxDuplicatesMulti,
+#navboxDuplicatesMultiP,
+#controlsDiv label {
+    height: 24px;
+    display: inline-block;
 }
 
 div.score {
@@ -485,6 +458,7 @@ div.score {
 .arrows {
     position: absolute;
     top: 50%;
+    transform: translateY(-50%);
 }
 
 .prevArrow { border-right: 30px solid white; }
@@ -524,12 +498,6 @@ input[type="text"] {
     width: 100%;
     height: 100%;
     object-fit: contain;
-}
-
-#fullScreenButton {
-    width: 20px;
-    padding-left: 10px;
-    cursor: pointer;
 }
 
 #choiceLi input:checked ~ #subredditPopup { display: block; }
@@ -578,9 +546,6 @@ input[type="text"] {
     padding: 0 2px 2px;
     overflow: visible;
 }
-#multiListDiv ul li.right { float: right; }
-#multiListDiv hr { margin: 0; }
-
 #loginLi input:checked ~ #multiListDiv { display: block; }
 #loginLi.use-hover:hover div { display: block; }
 
@@ -608,14 +573,14 @@ input[type="text"] {
     border: 1px solid transparent;
 }
 
-#playbutton a:hover {
-    color: red;
-    border: 1px solid transparent;
-}
-
 blockquote.tiktok-embed {
     max-width: 605px;
     min-width: 325px;
 }
 
 #multiListDiv ul.iconrow a { height: 18px; }
+
+#navboxContents ul.nbmenu a {
+    height: 24px;
+    display: inline-block;
+}

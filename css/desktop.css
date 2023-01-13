@@ -2,7 +2,8 @@
 
 #subredditPopup { left: 24px; }
 
-.navbox { width: 400px; }
+/* 14 slides wide */
+.navbox { width: 420px; }
 
 .reddit { display: inline; }
 
@@ -17,6 +18,7 @@
 }
 
 /* 4 rows of numbers visible */
+.numberButtonList ul li { height: 30px; }
 .numberButtonList { max-height: 120px; }
 
 /* info for reddit author link */
@@ -27,3 +29,33 @@
 }
 
 .altArrow { display: none; }
+
+a:hover {
+    opacity: 1;
+    color: white;
+    background-color: rgba(64, 64, 64, 0.8);
+}
+
+.arrow:hover { opacity: 1; }
+
+.numberButtonList ul li a:hover {
+    background: #888;
+    color: #000;
+    border: 1px solid transparent;
+}
+
+.numberButtonList ul li a.active:hover {
+    color: #00f;
+    cursor: default;
+}
+
+#playbutton a:hover {
+    color: red;
+    border: 1px solid transparent;
+}
+
+#controlsDiv input[type="button"]:hover,
+#controlsDiv label:hover {
+    opacity: 1;
+    background-color: rgba(64, 64, 64, 0.8);
+}

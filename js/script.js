@@ -1147,6 +1147,11 @@ $(function () {
     });
 
     var STATE = "openstate";
+    var closeCollapser = function(item) {
+        if (item.data(STATE) != "closed")
+            item.click();
+    };
+
     $('.hcollapser').click(function () {
         var state = $(this).data(STATE);
         if (state == "open") {
@@ -1201,6 +1206,10 @@ $(function () {
             $(this).data(STATE, "open");
         }
         setVcollapseHtml($(this));
+    });
+
+    $('.parentCloser').click(function () {
+        $(this).parent().hide();
     });
 
     // Called to fixup input.icontoggle
@@ -1528,7 +1537,6 @@ $(function () {
             $('.canlogin').remove();
 
         // OS/Browser Specific
-        var dups;
         var ua = navigator.userAgent;
         // iOS
         if (/(iPad|iPhone|iPod)/.test(ua)) {
@@ -1556,10 +1564,8 @@ $(function () {
             $('.fullscreen-ctrl').remove();
 
             // collapse duplicates by default
-            dups = $('#duplicatesCollapser');
-            if (dups.data(STATE) != "closed") {
-                $('#duplicatesCollapser').click();
-            }
+            closeCollapser($('#duplicatesCollapser'));
+            closeCollapser($('#albumCollapser'));
 
             // New mobile site doesn't work for auth if not logged in
             rp.reddit.loginUrl = 'https://old.reddit.com/api/v1/authorize.compact';
@@ -1577,10 +1583,8 @@ $(function () {
 
         } else if (/(Android)/.test(ua)) {
             // collapse duplicates by default
-            dups = $('#duplicatesCollapser');
-            if (dups.data(STATE) != "closed") {
-                $('#duplicatesCollapser').click();
-            }
+            closeCollapser($('#duplicatesCollapser'));
+            closeCollapser($('#albumCollapser'));
 
             // New mobile site doesn't work for auth if not logged in
             rp.reddit.loginUrl = 'https://old.reddit.com/api/v1/authorize.compact';
@@ -3158,8 +3162,13 @@ $(function () {
     });
 
     var showHelp = function() {
-        $('#help').toggle();
-        $('#recommend').toggle();
+        if ($('#help').is(':visible') || $('#recommend').is(':visible')) {
+            $('#help').hide();
+            $('#recommend').hide();
+        } else {
+            $('#help').show();
+            $('#recommend').show();
+        }
     };
 
     var showInfo = function() {

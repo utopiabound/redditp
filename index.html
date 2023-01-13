@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
     <!-- https://github.com/utopiabound/redditp -->
     <meta http-equiv="content-type" content="text/html;charset=utf-8" />
@@ -46,7 +46,7 @@
 	    <i class="material-icons">menu</i></label>
 	  <div id="multiListDiv" class="clouds">
 	    <ul class="canlogin"><li><i>Login to Load</i></li></ul>
-	    <hr class="canlogin">
+	    <hr class="canlogin split">
 	    <ul class="iconrow"><li><a href="/" class="info infol selectable local hardlink" title="Front Page"><i class="material-icons">home</i></a></li>
 	      <li><a href="/r/popular" class="info infol selectable local hardlink" title="Popular"><i class="material-icons">whatshot</i></a></li>
 	      <li><a href="/r/all" class="info infol selectable local hardlink" title="All"><i class="material-icons">all_inclusive</i></a></li>
@@ -57,8 +57,10 @@
 	    </ul>
 	  </div>
 	</li><li><form id="subredditForm" onsubmit="return false">
-	    <input type="text" id="subredditUrl" class="noInput" size="16"/>
-	    <a id="subredditLink" class="remote" href="#"><img class="favicon reddit" src="images/reddit.svg" /></a>
+	    <input type="text" id="subredditUrl" name="subredditUrl" class="noInput" size="16" title="Location"/>
+	    <label for="subredditUrl" title="Site Link">
+	      <a id="subredditLink" class="remote" href="#"><img alt="Location Site Icon" class="favicon reddit" src="images/reddit.svg" /></a>
+	    </label>
 	  </form>
 	</li><li id="choiceLi">
 	  <input class="checkbox" type="checkbox" name="choice" id="choice" value="Auto" />
@@ -95,7 +97,7 @@
 	</li><li class="fullscreen-ctrl">
 	  <input class="checkbox icontoggle" type="checkbox" name="fullscreen" id="fullscreen" value="Auto"
 		 icon-on="fullscreen_exit" icon-off="fullscreen" />
-	  <label class="icontoggle fullscreen" for="fullscreen" title="toggle fullscreen (f)">
+	  <label class="icontoggle" for="fullscreen" title="toggle fullscreen (f)">
 	    <i class="material-icons">fullscreen</i></label>
 	</li>
       </ul>
@@ -118,7 +120,7 @@
 	    <a id='navboxShowInfo' href='#' title="Photo Info (v)"><i class="material-icons">info</i></a>
 	    <!-- These are in reverse order because of float: right -->
 	  </li><li class="right">
-	    <a id='navboxOrigDomain' href='#' title="Other posts from domain" class='local'><img class="redditp" src="images/favicon.png" /></a>
+	    <a id='navboxOrigDomain' href='#' title="Other posts from domain" class='local'><img alt="RedditP Icon" class="redditp" src="images/favicon.png" /></a>
 	  </li><li class="right origlink">
 	    <a id='navboxAlbumOrigLink' href='#' title='original album link (a)' class="remote redditp"><i class="material-icons">link</i></a>
 	  </li><li class="right origlink">
@@ -153,20 +155,21 @@
       <div id="duplicates">
 	<ul id="duplicatesLink">
 	  <li><h3><a id='navboxDuplicatesLink' href="#" class="" title="Show Duplciates (d)">Duplicates</a></h3></li>
-	  <li><a id='navboxDuplicatesMultiP' href="#" class="local"><img class="redditp" src="images/favicon.png" /></a></li>
+	  <li><a id='navboxDuplicatesMultiP' href="#" class="local"><img alt="RedditP Icon" class="redditp" src="images/favicon.png" /></a></li>
 	  <li><a id='navboxDuplicatesMulti' href="#" title="MultiReddit of duplicate subreddits (r)" class="remote">
-	      <img class="reddit redditp" src="images/reddit.svg" /></a></li>
+	      <img alt="Reddit Icon" class="reddit redditp" src="images/reddit.svg" /></a></li>
 	</ul>
 	<ul id="duplicateUl" />
       </div>
     </div>
 
     <div id="recommend" class="clouds topper popup">
+      <div class="collapser parentCloser"><i class="material-icons">close</i></div>
       <div class="title">Sites Supported</div>
       <ul>
 	<li><a href="/" class="infop local">Reddit</A>
 	  <a class="infor remote" href="https://reddit.com/">
-	    <img class="favicon" src="images/reddit.svg"></a></li>
+	    <img alt="Reddit Icon" class="favicon" src="images/reddit.svg"></a></li>
 	<ul>
 	  <li><a class="infop local hardlink" href="/r/earthporn">/r/earthporn</a></li>
 	  <li><a class="infop local hardlink" href="/r/aww">/r/aww</a></li>
@@ -185,13 +188,13 @@
         </ul></li>
         <li><a href="/gfycat" class="infop local">Gfycat</a>
 	  <a class="infor remote" href="https://gfycat.com/">
-	    <img class="favicon" src="https://gfycat.com/favicon.ico"></a></li>
+	    <img alt="Gfycat Icon" class="favicon" src="https://gfycat.com/favicon.ico"></a></li>
         <li><a href="/imgur" class="infop local">Imgur</a>
 	  <a class="infor remote" href="https://imgur.com/">
-	    <img class="favicon" src="https://imgur.com/favicon.ico"></a></li>
+	    <img alt="Imgur Icon" class="favicon" src="https://imgur.com/favicon.ico"></a></li>
 	<li><a href="/flickr" class="infop local">Flickr</a>
 	  <a class="infor remote" href="https://flickr.com/explore">
-	    <img class="favicon" src="https://flickr.com/favicon.ico"></a>
+	    <img alt="Flickr Icon" class="favicon" src="https://flickr.com/favicon.ico"></a>
 	  <ul><li><form onsubmit="return false" class="site-search" data-site="flickr">
 		<i class="material-icons">search</i>
 		<input type="text" name="search" class="remote noInput"/>
@@ -199,7 +202,7 @@
 	</li>
 	<li class="show-nsfw"><a href="/danbooru" class="infop local">Danbooru</a>
 	  <a class="infor remote" href="https://danbooru.donmai.us/">
-	    <img class="favicon" src="https://danbooru.donmai.us/favicon.ico"></a>
+	    <img alt="Danbooru Icon" class="favicon" src="https://danbooru.donmai.us/favicon.ico"></a>
 	  <ul><li><form onsubmit="return false" class="site-search" data-site="danbooru">
 		<i class="material-icons">search</i>
 		<input type="text" name="search" class="remote"/>
@@ -209,6 +212,7 @@
     </div>
 
     <div id="help" class="clouds topper popup" style="display: none;">
+      <div class="collapser parentCloser"><i class="material-icons">close</i></div>
       <div class="title">Shortcuts</div>
       <table>
 	<tr><td><i>&rarr;</i></td><td>Next (in album)</td></tr>
@@ -239,6 +243,7 @@
     </div>
 
     <div id="info" class="clouds topper popup" style="display: none;">
+      <div class="collapser parentCloser"><i class="material-icons">close</i></div>
       <div class="title">Sub/Multi Reddit</div>
       <div id="subRedditInfo">&nbsp;</div>
       <div class="title">Info</div>
@@ -248,12 +253,12 @@
 	<tr class="forVideo"><th>Length</th><td id="imageInfoLength">&nbsp;</td></tr>
 	<tr class="forVideo"><th>Has Audio</th><td id="imageInfoAudio">&nbsp;</td></tr>
 	<tr class="forSubs"><th>Subs &forall; Photos</th><td>
-	    <a id='imageInfoSubMultiP' href="#" class="local"><img class="redditp" src="images/favicon.png" /></a>
-	    <a id='imageInfoSubMulti' href="#" class="remote"><img class="reddit redditp" src="images/reddit.svg" /></a>
+	    <a id='imageInfoSubMultiP' href="#" class="local"><img alt="RedditP Icon" class="redditp" src="images/favicon.png" /></a>
+	    <a id='imageInfoSubMulti' href="#" class="remote"><img alt="Reddit Icon" class="reddit redditp" src="images/reddit.svg" /></a>
 	</td></tr>
 	<tr class="forAllSubs"><th>Dups &forall; Photos - Subs</th><td>
-	    <a id='imageInfoAllSubMultiP' href="#" class="local"><img class="redditp" src="images/favicon.png" /></a>
-	    <a id='imageInfoAllSubMulti' href="#" class="remote"><img class="reddit redditp" src="images/reddit.svg" /></a>
+	    <a id='imageInfoAllSubMultiP' href="#" class="local"><img alt="RedditP Icon" class="redditp" src="images/favicon.png" /></a>
+	    <a id='imageInfoAllSubMulti' href="#" class="remote"><img alt="Reddit Icon" class="reddit redditp" src="images/reddit.svg" /></a>
 	</td></tr>
       </table>
     </div>

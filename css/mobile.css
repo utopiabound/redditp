@@ -1,5 +1,6 @@
 #choiceLi { margin: 0 0 0 -30px; }
 
+/* 12 slides wide */
 .navbox { width: 360px; }
 
 .title {
@@ -22,4 +23,12 @@
 .nbmenu li { padding: 2px 1px 0 2px; }
 
 /* 3 rows of number visible */
+.numberButtonList ul li { height: 24px; }
 .numberButtonList { max-height: 72px; }
+
+#recommend {
+    left: 0;
+    transform: revert;
+    z-index: 10;
+    opacity: 1;
+}
