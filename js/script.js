@@ -1480,8 +1480,8 @@ $(function () {
         volume_set(getConfig(configNames.decivolume));
         $("a.volume").click(volume_adjust);
         $('#timeToNextSlide').keyup(updateTimeToNextSlide);
-        $('#prevButton').click(prevAlbumSlide);
-        $('#nextButton').click(nextAlbumSlide);
+        $('.prevArrow').click(prevAlbumSlide);
+        $('.nextArrow').click(nextAlbumSlide);
 
         $('#fullscreen').change(function() {
             var elem = document.getElementById('page');

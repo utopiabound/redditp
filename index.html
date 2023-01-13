@@ -18,6 +18,7 @@
     <link rel="stylesheet" type="text/css" href="css/style.css" />
     <link rel="stylesheet" media="screen and (min-width: 1000px)" href="css/desktop.css" />
     <link rel="stylesheet" media="screen and (max-width: 1000px)" href="css/mobile.css" />
+    <link rel="stylesheet" media="screen and (max-device-width: 400px)" href="css/small.css" />
     <script type="text/javascript" src="https://code.jquery.com/jquery-3.6.1.js"></script>
     <script type="text/javascript" src="js/jquery.touchwipe.min.js"></script>
     <script type="text/javascript" src="js/loglevel.min.js"></script>
@@ -25,8 +26,14 @@
     <script type="text/javascript" src="js/script.js"></script>
   </head>
   <body id="page">
-    <div class="prevArrow topper" title="The arrow keys work too" id="prevButton"></div>
-    <div class="nextArrow topper" title="Try the arrow keys too" id="nextButton"></div>
+    <div class="arrows topper" id="leftArrows">
+      <div class="nextArrow altArrow arrow" title="Previous Slide (&larr;)" id="nextButtonAlt"></div>
+      <div class="prevArrow arrow" title="Next Slide (&rarr;)" id="prevButton"></div>
+    </div>
+    <div class="arrows topper" id="rightArrows">
+      <div class="nextArrow arrow" title="Previous Slide (&larr;)" id="nextButton"></div>
+      <div class="prevArrow altArrow arrow" title="Next Slide (&rarr;)" id="prevButtonAlt"></div>
+    </div>
 
     <div id="controlsDiv" class="navbox clouds topper">
       <div id="controlsCollapser" class="collapser vcollapser" symbol-open="&darr;" symbol-close="&uarr;" data-controldiv="navboxContents" data-openstate="open">&darr;</div>

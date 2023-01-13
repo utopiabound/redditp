@@ -2,8 +2,6 @@
 
 #subredditPopup { left: 24px; }
 
-#controlsDiv a::before { font-size: 24px; }
-
 .navbox { width: 400px; }
 
 .reddit { display: inline; }
@@ -27,3 +25,5 @@
 #navboxExtra {
     margin-top: -2px;
 }
+
+.altArrow { display: none; }

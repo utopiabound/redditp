@@ -399,6 +399,7 @@ input.textlabel {
     position: absolute;
     top: 0;
     left: 0;
+    font-size: 24px;
 }
 
 div.score {
@@ -478,28 +479,26 @@ div.score {
     margin-top: 4px;
 }
 
-.prevArrow {
+#leftArrows { left: 10px; }
+#rightArrows { right: 10px; }
+
+.arrows {
     position: absolute;
     top: 50%;
-    left: 10px;
-    width: 0;
-    height: 0;
-    border-top: 15px solid transparent;
-    border-bottom: 15px solid transparent;
-    border-right: 30px solid white;
-    opacity: 0.8;
-    cursor: pointer;
 }
 
+.prevArrow { border-right: 30px solid white; }
+
 .nextArrow {
-    position: absolute;
-    top: 50%;
-    right: 10px;
+    border-left: 30px solid white;
+    margin-bottom: 10px;
+}
+
+.arrow {
     width: 0;
     height: 0;
     border-top: 15px solid transparent;
     border-bottom: 15px solid transparent;
-    border-left: 30px solid white;
     opacity: 0.8;
     cursor: pointer;
 }
