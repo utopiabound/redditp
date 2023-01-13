@@ -1,91 +1,29 @@
-#multiListDiv .icon {
-    font-size: 24px;
-    display: inline-block;
-    margin-top: 4px;
-}
-
-.material-icons { font-size: 24px; }
-
 #choiceLi { margin: 0 14px 0 -44px; }
 
 #subredditPopup { left: 24px; }
 
 #controlsDiv a::before { font-size: 24px; }
 
-.info {
-    font-size: 12px;
-    line-height: 20px;
-}
-
 .navbox { width: 400px; }
-.navbox ul li a { height: 18px; }
-#choiceLi a { margin-top: 2px; }
-
-#multiListDiv ul.iconrow a { height: 18px; }
-
-#subredditUrl { font-size: 12px; }
-
-#navboxLink {
-    width: 24px;
-    height: 24px;
-}
 
 .reddit { display: inline; }
 
-.redditp {
-    height: 24px;
-    width: 24px;
-    vertical-align: top;
-}
-
-.favicon {
-    height: 16px;
-    width: 16px;
-    vertical-align: baseline;
+.title {
+    font-size: 20px;
+    line-height: 24px;
 }
 
 .title .favicon {
     height: 24px;
     width: 24px;
-    margin-bottom: inherit;
 }
 
 /* 4 rows of numbers visible */
 .numberButtonList { max-height: 120px; }
 
-.numberButtonList li {
-    width: 30px;
-    height: 30px;
-}
-
-.numberButton { font-size: 12px; }
-
-.nbmenu { font-size: 14px; }
-
-#navboxContents ul li { line-height: 24px; }
-
-#navboxOrigDomain { margin-right: inherit; }
-
 /* info for reddit author link */
 .infoa { margin-left: 2px; }
 
-.title .social {
-    padding-top: 1px;
-}
-
-#navboxExtra .social {
-    font-size: 12px;
-    line-height: 20px;
-}
-
 #navboxExtra {
     margin-top: -2px;
-}
-
-#navboxVolume {
-    height: 24px;
-}
-
-.nbmenu .favicon {
-    vertical-align: top;
 }

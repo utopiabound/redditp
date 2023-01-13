@@ -1,67 +1,25 @@
-#multiListDiv .icon {
-    font-size: 36px;
-    display: inline-block;
-    margin-top: 6px;
-}
+#choiceLi { margin: 0 0 0 -30px; }
 
-.material-icons { font-size: 36px; }
+.navbox { width: 360px; }
 
-#choiceLi { margin: 0 -6px 0 -36px; }
-
-#subredditPopup { left: 46px; }
-
-#controlsDiv a::before { font-size: 36px; }
-
-.info {
+.title {
     font-size: 16px;
     line-height: 20px;
 }
 
-.navbox { width: 440px; }
-.navbox ul li a { height: 24px; }
+.title .favicon {
+    height: 20px;
+    width: 20px;
+}
 
-/* blank */
-#multiListDiv ul.iconrow a { height: 36px; }
-
-#subredditUrl { font-size: 16px; }
-
-#navboxLink {
-    width: 36px;
-    height: 36px;
+.linkflair {
+    line-height: 14px;
+    padding: 1px;
 }
 
 .reddit { display: none; }
 
-.redditp {
-    height: 36px;
-    width: 36px;
-}
-
-/* blank */
-.favicon {
-    height: 24px;
-    width: 24px;
-}
-
-/* blank */
-.title .favicon {
-    height: 28px;
-    width: 28px;
-    margin-bottom: 2px;
-}
+.nbmenu li { padding: 2px 1px 0 2px; }
 
 /* 3 rows of number visible */
-.numberButtonList { max-height: 108px; }
-
-.numberButtonList li {
-    width: 36px;
-    height: 36px;
-}
-
-.numberButton { font-size: 16px; }
-
-.nbmenu { margin-left: inherit; }
-
-#navboxContents ul li { line-height: 30px; }
-
-#navboxOrigDomain { margin-right: 10px; }
+.numberButtonList { max-height: 72px; }

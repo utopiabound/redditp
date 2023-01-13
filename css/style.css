@@ -35,6 +35,14 @@ ul li { list-style-type: none; }
 
 /* Generic Styles */
 
+.favicon {
+    height: 16px;
+    width: 16px;
+    vertical-align: baseline;
+}
+
+.favicon:hover { background-color: rgba(255, 255, 255, 0.7); }
+
 .title {
     padding: 2px;
     font-weight: bold;
@@ -45,6 +53,7 @@ ul li { list-style-type: none; }
 .title .social {
     border-radius: 5px;
     border: 1px solid white;
+    padding-top: 1px;
     padding-left: 2px;
     margin-right: 3px;
     white-space: nowrap;
@@ -52,6 +61,7 @@ ul li { list-style-type: none; }
 
 .title .favicon {
     vertical-align: middle;
+    margin-bottom: inherit;
 }
 
 .clouds {
@@ -59,6 +69,7 @@ ul li { list-style-type: none; }
     background-color: rgba(0, 0, 0, 0.7);
 }
 
+.material-icons { font-size: 24px; }
 .unset { color: red; }
 .icontoggle { cursor: pointer; }
 .origlink { margin-top: 5px; }
@@ -79,14 +90,21 @@ a.failed { text-decoration: line-through; }
 
 .numberButtonList .over18 { color: #f99; }
 
+.nbmenu .favicon {
+    vertical-align: top;
+}
+
 #refresh { margin-top: -8px; }
 
 /* List of Info Links */
-.nbmenu { width: 100%; }
+.nbmenu {
+    font-size: 14px;
+    width: 100%;
+}
 
 .nbmenu li {
     text-align: left;
-    padding: 2px 2px 0 3px;
+    padding: 2px 2px 0;
     max-width: 300px;
     overflow: hidden;
 }
@@ -113,6 +131,7 @@ a.failed { text-decoration: line-through; }
 
 .navbox ul li a {
     cursor: pointer;
+    height: 18px;
 }
 
 .navbox ul li.hidden { display: none; }
@@ -131,6 +150,7 @@ a.failed { text-decoration: line-through; }
 
 /* Album Button Styles */
 .numberButton {
+    font-size: 12px;
     float: left;
     min-width: 3ex;
     margin-left: 3px;
@@ -144,6 +164,11 @@ a.failed { text-decoration: line-through; }
 }
 
 .numberButtonList { overflow: auto; }
+
+.numberButtonList ul li {
+    width: 30px;
+    height: 30px;
+}
 
 .numberButtonList ul li a:hover {
     background: #888;
@@ -258,6 +283,17 @@ div.progress {
 /* NAVIGATION BOX */
 #navigationBoxes { float: left; }
 #navboxExtra { float: left; }
+#navboxContents ul li { line-height: 24px; }
+#navboxOrigDomain { margin-right: inherit; }
+
+#navboxExtra .social {
+    font-size: 12px;
+    line-height: 20px;
+}
+
+#navboxVolume {
+    height: 24px;
+}
 
 .error { color: red; }
 
@@ -274,7 +310,11 @@ div.progress {
     margin-left: 2px;
 }
 
-#navboxLink { display: inline-block; }
+#navboxLink {
+    display: inline-block;
+    width: 24px;
+    height: 24px;
+}
 
 #controlsDiv {
     position: absolute;
@@ -293,9 +333,12 @@ div.progress {
 }
 
 #duplicates ul { display: inline; }
-
 #subredditLink { padding-left: 4px; }
-#subredditUrl { float: left; }
+
+#subredditUrl {
+    float: left;
+    font-size: 12px;
+}
 
 #duplicatesCollapser {
     position: absolute;
@@ -319,6 +362,8 @@ div.progress {
 .info {
     font-weight: bold;
     float: left;
+    font-size: 12px;
+    line-height: 20px;
 }
 
 /* info link */
@@ -336,7 +381,7 @@ li.xorig a.infol { margin-left: 3px; }
 .infod { margin: 0 5px 0 10px; }
 
 /* info comment link (between infol and infop */
-.infoc { margin: 0 3px 0 2px; }
+.infoc { margin-left: 2px; }
 
 label.textlabel { font-weight: bold; }
 
@@ -408,7 +453,11 @@ div.score {
     line-height: 16px;
 }
 
-.favicon:hover { background-color: rgba(255, 255, 255, 0.7); }
+.redditp {
+    height: 24px;
+    width: 24px;
+    vertical-align: top;
+}
 
 /* Computed width: 28px */
 .collapser {
@@ -485,24 +534,43 @@ input[type="text"] {
 }
 
 #choiceLi input:checked ~ #subredditPopup { display: block; }
-#choiceLi li.multi { display: inline-block; }
+#choiceLi ul li.multi { display: inline-block; }
 
 #choiceLi div {
     display: none;
     position: absolute;
     bottom: 100%;
 }
-#choiceLi a { display: block; }
 
-#choiceLi li {
+#choiceLi a {
+    display: block;
+    margin-top: 2px;
+}
+
+#choiceLi ul li {
     display: block;
     padding: 0;
 }
+
+/* User Login */
+#loginLi div {
+    display: none;
+    position: absolute;
+    bottom: 100%;
+}
+
+#loginLi a { display: inline-block; }
 
 /* MULTI-REDDITS */
 #multiListDiv {
     left: 0;
     padding-bottom: 5px;
+}
+
+#multiListDiv .icon {
+    font-size: 24px;
+    display: inline-block;
+    margin-top: 4px;
 }
 
 #multiListDiv ul { padding-top: 4px; }
@@ -513,15 +581,6 @@ input[type="text"] {
 }
 #multiListDiv ul li.right { float: right; }
 #multiListDiv hr { margin: 0; }
-
-/* User Login */
-#loginLi div {
-    display: none;
-    position: absolute;
-    bottom: 100%;
-}
-
-#loginLi a { display: inline-block; }
 
 #loginLi input:checked ~ #multiListDiv { display: block; }
 #loginLi.use-hover:hover div { display: block; }
@@ -559,3 +618,5 @@ blockquote.tiktok-embed {
     max-width: 605px;
     min-width: 325px;
 }
+
+#multiListDiv ul.iconrow a { height: 18px; }
