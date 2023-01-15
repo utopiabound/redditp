@@ -2289,7 +2289,6 @@ $(function () {
                     shortid = searchValueOf(pic.url, 'v');
                     if (!shortid)
                         throw("Failed to parse vidble url");
-
                     initPhotoVideo(pic, 'https://www.vidble.com/'+shortid+'.mp4',
                                    'https://www.vidble.com/'+shortid+'.png');
 
@@ -2616,6 +2615,12 @@ $(function () {
                 shortid = url2shortid(pic.url);
                 initPhotoVideo(pic, 'https://cdnvistreamviz.r.worldssl.net/uploads/'+shortid+'.mp4',
                                'https://cdn.streamvi.com/uploads/'+shortid+'.jpg');
+
+            } else if (hostname == "theasteris.com") {
+                shortid = searchValueOf(pic.url, "vid");
+                if (!shortid)
+                    throw "bad url";
+                initPhotoEmbed(pic, "https://theasteris.com/embed.php?vid="+shortid, false);
 
             } else if (hostname == "tiktok.com") {
                 a = pathnameOf(pic.url).split('/');
@@ -5013,11 +5018,11 @@ $(function () {
             re = /(?:[[{(]\s*|my\s+|on\s+|\b|^)?([\p{L}.$]+\p{L}|[@]+|\u{1f47b})\s*((?:&\w+;)?[-:@][-:@\s]*|(?:&gt;|=|-)+|\b\s*|\]\[|\)\s*\(|(?:\u{25b6}|\u{27a1})\u{fe0f}?)[[\s]*(\w[\w.-]+\w)(?:\s*[)\]}])?/gui;
         else
             re = /(?:[[{(]\s*|\b|my\s+|on\s+|^)?([A-Za-z.$]+[A-Za-z]|[@]+)\s*((?:&\w+;)?[-:@][-:@\s]*|(?:&gt;|=|-)+|\b\s*|\]\[|\)\s*\()[[\s]*([\w.-]+\w)(?:\s*[)\]}])?/gi;
-        t1 = t1.replace(re, function(match, site, connector, name) {
-            site = site.toLowerCase().replaceAll(".", "");
+        t1 = t1.replace(re, function(match, osite, connector, name) {
+            var site = osite.toLowerCase().replaceAll(".", "");
             var prefix = "";
             try {
-                if (connector == "" && ["and", "for", "free", "link", "pics", "profile"].includes(name.toLowerCase()))
+                if (connector == "" && ["and", "for", "free", "link", "pics", "profile", "story"].includes(name.toLowerCase()))
                     throw "bad username";
                 if (connector == "" && subreddit.match(/news/))
                     throw "bad subreddit";
@@ -5030,7 +5035,7 @@ $(function () {
                 else if (site.match(/^[sś$](na?pcha?t|np|nap?|c)$/) || site == "\u{1f47b}") // Ghost
                     site = "snapchat";
                 else if (connector == "\u{1f47b}") {
-                    prefix = site+" ";
+                    prefix = osite+" ";
                     site = "snapchat";
                 } else if (site.match(/^i?(nsta)?g(ram)?$/) && !["rated", "string", "cups", "spot"].includes(name.toLowerCase()))
                     site = "instagram";
@@ -5038,13 +5043,16 @@ $(function () {
                     site = "twitter";
                 else if (site == "telegran")
                     site = "telegram";
-                else if (site == "@") {
-                    var social = (pic.over18) ?"instagram" :"twitter";
-                    site = metaSocial(hn, subreddit, picFlair(pic), social);
-                } else if (site.match(/^k[li]?k$/))
+                else if (site == "@")
+                    site = metaSocial(hn, subreddit, picFlair(pic), (pic.over18) ?"instagram" :"twitter");
+                else if (site.match(/^k[li]?k$/))
                     return "kik : "+name; // ensure it doesn't get picked up below
                 else if (site == "reddit")
                     return "u/"+name; // this will be picked up below for u/USER
+                else if (connector == "@") {
+                    prefix = osite+" ";
+                    site = metaSocial(hn, subreddit, picFlair(pic), (pic.over18) ?"instagram" :"twitter");
+                }
                 try {
                     return prefix+socialUserLink(name, site, match);
                 } catch (e) {
