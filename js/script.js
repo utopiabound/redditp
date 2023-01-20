@@ -3775,7 +3775,7 @@ $(function () {
         $('#navboxTitle').html($('<span>', { class: 'error' }).html(message));
 
         // display alternate recommendations
-        $('#recommend').css({'display':'block'});
+        $('#recommend').show();
     };
 
     var failedAjax = function (xhr, ajaxOptions, thrownError) {
@@ -4226,24 +4226,10 @@ $(function () {
             return true;
         };
 
-        var showPic = function(pic) {
-            pic = photoParent(pic);
-            if (pic.type == imageTypes.album) {
-                var index = 0;
-                if (rp.cache[imageIndex] == undefined) {
-                    log.info("["+imageIndex+"] Loaded album item after moving on: "+pic.url);
-                    return;
-                }
-                // find correct index based on divNode. albumIndex may be incorrect due to previous item expansion
-                while (index < pic.album.length && rp.cache[imageIndex][index] != divNode)
-                    ++index;
-                if (index >= pic.album.length) {
-                    log.error("Failed to fill divNode [divNode no longer in cache]: "+pic.url);
-                    showThumb(pic);
-                    return;
-                }
-                pic = pic.album[index];
-            }
+        var showPic = function(opic) {
+            pic = photoParent(opic);
+            if (pic.type == imageTypes.album)
+                pic = pic.album[(albumIndex < 0) ?0 :albumIndex];
 
             switch (pic.type) {
             case imageTypes.image:

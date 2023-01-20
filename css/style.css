@@ -258,9 +258,7 @@ div.progress {
     line-height: 20px;
 }
 
-#navboxVolume {
-    height: 24px;
-}
+#navboxVolume { height: 24px; }
 
 /* Embedded html - vertically center it */
 #gfyhtml {
@@ -330,6 +328,7 @@ div.progress {
     float: left;
     font-size: 12px;
     line-height: 20px;
+    height: 20px;
 }
 
 /* info link */
@@ -413,7 +412,7 @@ div.score {
     height: 16px;
     width: 16px;
     vertical-align: top;
-    margin-top: -1px;
+    margin: -1px 0;
 }
 
 .linkflair {
