@@ -94,7 +94,7 @@
  *      site:           HASH
  *              t:      imgur|gfycat|iloopit|flickr|danbooru
  *              -- Optional --
- *              user:   TEXT username
+ *              users:  ARRAY of TEXT usernames                         [addPhotoSiteUser(), siteUserLink(), hasPhotoSiteUser()]
  *              tags:   ARRAY of TEXT Tags for photo                    [picHasSiteTags(), addPhotoSiteTags()]
  *      tumblr:         HASH (e.g. 'https://'+tumblr.blog+'.tumblr.com'+/post/+tumblr.id )
  *              blog:   TEXT blog name
@@ -123,6 +123,7 @@
  * * on rotation/fullscreen event, check icon toggle
  * * Use /api/v1/me/prefs for defaults?
  * * Make title social link alterable (change from twitter to instagram...)
+ * * OAuth Flickr
  */
 
 var rp = {};
@@ -264,6 +265,7 @@ rp.favicons = {
     wordpress: 'https://s1.wp.com/i/favicon.ico',
     wp: 'https://s1.wp.com/i/favicon.ico',
     dropbox: 'https://cfl.dropboxstatic.com/static/images/favicon.ico',
+    patreon: 'https://c5.patreon.com/external/favicon/favicon-16x16.png',
     redgifs: 'https://www.redgifs.com/assets/favicon.ico',
     xhamster: 'https://static-lvlt.xhcdn.com/xh-mobile/images/favicon/favicon.ico',
     tiktok: 'https://lf16-tiktok-common.ibytedtos.com/obj/tiktok-web-common-sg/mtact/static/pwa/icon_128x128.png',
@@ -847,14 +849,22 @@ $(function () {
     // Sites that are locally browseable (c.f. localUserUrl, siteUserUrl)
     // site == rp.photo[x].site
     var siteUserLink = function(site, alt) {
-        var username = site.user;
-        if (site.t == 'flickr')
-            username = flickrUserPP(username);
-        var userlink = siteUserUrl(site.user, site.t);
-        if (site.t == 'redgifs')
-            // CORS
-            return titleFaviconLink(userlink, username, site.t, alt);
-        return localLink(userlink, username, localUserUrl(username, site.t), alt);
+        var users = (site.users) ?site.users :[ site.user ];
+        var ret = "";
+        for (var i in users) {
+            var username = users[i];
+            if (!username)
+                continue;
+            if (site.t == 'flickr')
+                username = flickrUserPP(username);
+            var userlink = siteUserUrl(users[i], site.t);
+            if (site.t == 'redgifs')
+                // CORS
+                ret += titleFaviconLink(userlink, username, site.t, alt);
+            else
+                ret += localLink(userlink, username, localUserUrl(username, site.t), alt);
+        }
+        return ret;
     };
 
     var siteTagUrl = function(tag, type) {
@@ -873,10 +883,13 @@ $(function () {
         throw "Unknown Site type: "+type;
     };
 
-    var siteTagLink = function(tag, type) {
-        if (type == 'iloopit' && rp.sitecache.iloopit[tag])
-            tag = rp.sitecache.iloopit[tag];
-        return localLink(siteTagUrl(tag, type), tag, '/'+type+'/t/'+tag);
+    var siteTagLink = function(otag, type) {
+        var tag;
+        if (type == 'iloopit' && rp.sitecache.iloopit[otag])
+            tag = rp.sitecache.iloopit[otag];
+        else
+            tag = encodeURIComponent(otag);
+        return localLink(siteTagUrl(tag, type), otag, '/'+type+'/t/'+tag);
     };
 
     var tumblrLink = function(blog, alt) {
@@ -1652,14 +1665,22 @@ $(function () {
         return (photo.type == imageTypes.thumb);
     }
 
+    var hasPhotoSiteUser = function(photo) {
+        return photo.site && photo.site.users && photo.site.users.length > 0;
+    };
+
     var addPhotoSiteTags = function(photo, tags) {
         if (tags && tags.length > 0)
             photo.site.tags = ((photo.site.tags) ?photo.site.tags :[]).concat(tags);
     }
 
     var addPhotoSiteUser = function(photo, user) {
-        if (user && !photo.site.user && (photo.site.t != 'gfycat' || user != 'anonymous'))
-            photo.site.user = user;
+        if (!user || (photo.site.t == 'gfycat' && user == 'anonymous'))
+            return;
+        if (photo.site.users)
+            photo.site.users.push(user);
+        else
+            photo.site.users = [ user ];
     }
 
     var initPhotoImage = function(photo, url) {
@@ -2947,14 +2968,13 @@ $(function () {
         if (url === undefined)
             throw "setFavicon() called with empty url";
 
-        var fav = special;
-
         // #1 "reddit" is special
-        if (fav === "reddit") {
+        if (special === "reddit") {
             elem.html($("<img />", {'class': 'favicon reddit', src: rp.url.root+'images/reddit.svg'}));
             return;
         }
-        fav = rp.favicons[special];
+
+        var fav = rp.favicons[special];
 
         // #2 rp.favicon[]
         if (fav === undefined) {
@@ -3524,12 +3544,12 @@ $(function () {
         if (photo.subreddit) {
             $('#navboxSubreddit').html(redditLink('/r/'+photo.subreddit)).show();
 
-            if (authName && pic.site && pic.site.user)
+            if (authName && hasPhotoSiteUser(pic))
                 $('#navboxExtra').append(siteUserLink(pic.site));
             else if (pic.tumblr)
                 $('#navboxExtra').append(tumblrLink(pic.tumblr.blog));
 
-        } else if (authName && pic.site && pic.site.user)
+        } else if (authName && hasPhotoSiteUser(pic))
             $('#navboxSubreddit').html(siteUserLink(pic.site)).show();
         else if (pic.tumblr)
             $('#navboxSubreddit').html(tumblrLink(pic.tumblr.blog)).show();
@@ -3541,7 +3561,7 @@ $(function () {
 
         if (authName)
             $('#navboxAuthor').html(redditLink(localUserUrl(authName, "reddit"),  authName, '/u/'+authName)).show();
-        else if (pic.site && pic.site.user)
+        else if (hasPhotoSiteUser(pic))
             $('#navboxAuthor').html(siteUserLink(pic.site)).show();
         else
             $('#navboxAuthor').hide();
@@ -4227,7 +4247,7 @@ $(function () {
         };
 
         var showPic = function(opic) {
-            pic = photoParent(opic);
+            var pic = photoParent(opic);
             if (pic.type == imageTypes.album)
                 pic = pic.album[(albumIndex < 0) ?0 :albumIndex];
 
@@ -6970,13 +6990,15 @@ $(function () {
     // https://danbooru.donmai.us/wiki_pages/api:posts
     var processDanbooruPost = function(photo, post) {
         photo.site = { t: "danbooru" };
-        if (!photo.title)
+        if (!photo.title && post.tag_string_character)
             photo.title = post.tag_string_character.split(" ")
             .map(function(x) { return titleTagLink(x, "danbooru"); }).join(" and ");
         addPhotoSiteTags(photo, post.tag_string_general.split(" ").concat(
             post.tag_string_copyright.split(" ")
         ));
-        addPhotoSiteUser(photo, post.tag_string_artist);
+        post.tag_string_artist.split(" ").forEach(function(user) {
+            addPhotoSiteUser(photo, user);
+        });
         if (post.source)
             photo.extra = remoteLink(post.source, "Source");
         if (rp.settings.goodImageExtensions.includes(post.file_ext))
@@ -6995,8 +7017,15 @@ $(function () {
                 items.forEach(function(subpost) {
                     if (subpost.id == post.id)
                         return;
+                    var val = dedupVal(':danbooru', subpost.id);
+                    if (val) {
+                        log.info("cannot display child [duplicate "+val+"]: "+subpost.id);
+                        return;
+                    }
+                    // @@ check for duplicate?
                     var pic = danbooru2pic(subpost);
                     addAlbumItem(p, pic);
+                    dedupAdd(':danbooru', subpost.id, post.id);
                 });
                 checkPhotoAlbum(p);
             };
@@ -7078,8 +7107,12 @@ $(function () {
         var handleData = function(data) {
             if (data.length) {
                 data.forEach(function (post) {
+                    if (post.parent_id) {
+                        log.info("cannot display url [parent "+post.parent_id+"]: "+post.id);
+                        return;
+                    }
                     var photo = danbooru2pic(post);
-                    var val = (post.parent_id) ?dedupVal(':danbooru', post.parent_id) :'';
+                    var val = dedupVal(':danbooru', post.id);
                     if (val) {
                         log.info("cannot display url [duplicate "+val+"]: "+photo.o_url);
                         return;
