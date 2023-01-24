@@ -24,10 +24,6 @@
 /* info for reddit author link */
 .infoa { margin-left: 2px; }
 
-#navboxExtra {
-    margin-top: -2px;
-}
-
 .altArrow { display: none; }
 
 a:hover {

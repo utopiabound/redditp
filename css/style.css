@@ -258,6 +258,8 @@ div.progress {
     line-height: 20px;
 }
 
+#navboxExtra i.material-icons { font-size: 20px; }
+
 #navboxVolume { height: 24px; }
 
 /* Embedded html - vertically center it */

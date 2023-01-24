@@ -300,8 +300,7 @@ rp.dedup = {};
 rp.choices = {
     'blogger': {},
     'danbooru': {
-        '': [ 'new', 'hot', 'popular', 'popular:day', 'popular:week', 'popular:month',
-              'curated', 'curated:day', 'curated:week', 'curated:month', 'viewed'],
+        '': [ 'new', 'hot', 'popular', 'popular:day', 'popular:week', 'popular:month', 'viewed'],
     },
     'gfycat': {},
     'flickr': {
@@ -497,13 +496,17 @@ $(function () {
         return currentIndex;
     };
 
-    var getCurrentPic = function() {
-        if (rp.session.activeIndex < 0)
+    var getPic = function(index, album) {
+        if (index < 0)
             return undefined;
-        var photo = rp.photos[rp.session.activeIndex];
-        if (rp.session.activeAlbumIndex >= 0)
-            photo = photo.album[rp.session.activeAlbumIndex];
-        return photo;
+        var photo = rp.photos[index];
+        if (album < 0)
+            return photo;
+        return photo.album[album];
+    };
+
+    var getCurrentPic = function() {
+        return getPic(rp.session.activeIndex, rp.session.activeAlbumIndex);
     };
     rp.fn.getCurrentPic = getCurrentPic;
 
@@ -3544,14 +3547,10 @@ $(function () {
         if (photo.subreddit) {
             $('#navboxSubreddit').html(redditLink('/r/'+photo.subreddit)).show();
 
-            if (authName && hasPhotoSiteUser(pic))
-                $('#navboxExtra').append(siteUserLink(pic.site));
-            else if (pic.tumblr)
+            if (pic.tumblr)
                 $('#navboxExtra').append(tumblrLink(pic.tumblr.blog));
 
-        } else if (authName && hasPhotoSiteUser(pic))
-            $('#navboxSubreddit').html(siteUserLink(pic.site)).show();
-        else if (pic.tumblr)
+        } else if (pic.tumblr)
             $('#navboxSubreddit').html(tumblrLink(pic.tumblr.blog)).show();
         else
             $('#navboxSubreddit').hide();
@@ -3559,12 +3558,11 @@ $(function () {
         if (photo != pic)
             $('#navboxExtra').append($('<span>', { class: 'info infol' }).text((photo.album.indexOf(pic)+1)+"/"+photo.album.length));
 
+        $('#navboxAuthor').html("").hide();
         if (authName)
-            $('#navboxAuthor').html(redditLink(localUserUrl(authName, "reddit"),  authName, '/u/'+authName)).show();
-        else if (hasPhotoSiteUser(pic))
-            $('#navboxAuthor').html(siteUserLink(pic.site)).show();
-        else
-            $('#navboxAuthor').hide();
+            $('#navboxAuthor').append(redditLink(localUserUrl(authName, "reddit"),  authName, '/u/'+authName)).show();
+        if (hasPhotoSiteUser(pic))
+            $('#navboxAuthor').append(siteUserLink(pic.site)).show();
 
         if (photo.comments)
             $('#navboxSubreddit').append($('<a>', { href: photo.comments,
@@ -3917,15 +3915,9 @@ $(function () {
 
         log.debug("createDiv("+imageIndex+", "+albumIndex+")");
         // Retrieve the accompanying photo based on the index
-        var photo;
-        if (albumIndex >= 0)
-            photo = rp.photos[imageIndex].album[albumIndex];
-
-        else if (rp.photos[imageIndex].type == imageTypes.album)
+        var photo = getPic(imageIndex, albumIndex);
+        if (photo.type == imageTypes.album)
             photo = rp.photos[imageIndex].album[0];
-
-        else
-            photo = rp.photos[imageIndex];
 
         // Used by showPic, showVideo, and showImage
         var divNode = $("<div />", { class: "fullscreen"});
@@ -3949,7 +3941,6 @@ $(function () {
                 thumb = (photo.type == imageTypes.thumb || photo.type == imageTypes.fail);
 
             var url = (thumb) ?photo.thumb :photo.url;
-
             var img = $('<img />', { class: "fullscreen", src: url});
 
             img.on('error', function() {
@@ -3998,7 +3989,7 @@ $(function () {
                 });
             divNode.html(img);
 
-            if (needreset && imageIndex == rp.session.activeIndex)
+            if (needreset && isActive(photo))
                 resetNextSlideTimer();
         };
 
@@ -4078,6 +4069,8 @@ $(function () {
             });
 
             $(video).on('error', function() {
+                if (pic.type == imageTypes.album)
+                    pic = pic.album[0];
                 log.info("["+imageIndex+"] video failed to load: "+pic.url);
                 resetNextSlideTimer();
                 find_fallback(pic);
@@ -4096,6 +4089,8 @@ $(function () {
             });
 
             $(video).on("loadeddata", function(e) {
+                if (pic.type == imageTypes.album)
+                    pic = pic.album[0];
                 if (e.target.duration == 2 &&
                     e.target.videoWidth == 640 &&
                     e.target.videoHeight == 480 &&
@@ -5091,6 +5086,8 @@ $(function () {
         t1 = t1.replace(/^[\w.-]{6,}$/, function(match) {
             var p1 = match;
             var social = metaSocial(hn, subreddit, picFlair(pic));
+            if (p1.toLowerCase() == social)
+                return match;
             try {
                 return socialUserLink(p1, social, match);
             } catch (e) {
@@ -6999,7 +6996,7 @@ $(function () {
         post.tag_string_artist.split(" ").forEach(function(user) {
             addPhotoSiteUser(photo, user);
         });
-        if (post.source)
+        if (post.source && post.source.startsWith('http'))
             photo.extra = remoteLink(post.source, "Source");
         if (rp.settings.goodImageExtensions.includes(post.file_ext))
             initPhotoImage(photo, post.file_url);
@@ -7059,6 +7056,7 @@ $(function () {
         // TAG:         /danboorut/t/TAG
         var jsonUrl;
         var errmsg = "Tag "+rp.url.sub+" has no posts";
+        var order = rp.url.choice.split(':');
         var url;
 
         switch (rp.url.type) {
@@ -7070,16 +7068,13 @@ $(function () {
             url = siteTagUrl(rp.url.sub, "danbooru");
             break;
         default:
-            var order = rp.url.choice.split(':');
             var extra = '';
             switch (order[0]) {
             case 'viewed':
-            case 'curated':
             case 'popular':
                 if (order[1])
                     extra = 'scale='+order[1];
                 url = 'https://danbooru.donmai.us/explore/posts/'+order[0];
-                jsonUrl = url+'.json'+extra;
                 break;
             case 'hot':
                 extra = 'tags=order:rank';
@@ -7100,7 +7095,13 @@ $(function () {
 
         if (rp.session.after) {
             ++rp.session.after;
-            jsonUrl += ((jsonUrl.includes('?')) ?'&' :'?')+"page="+rp.session.after;
+            var after = "page="+rp.session.after;
+            if (order[0] == 'viewed') {
+                var d = new Date();
+                d.setDate(d.getDate() - (rp.session.after - 1));
+                after = "date="+d.toISOString().split('T')[0];
+            }
+            jsonUrl += ((jsonUrl.includes('?')) ?'&' :'?')+after;
         } else
             rp.session.after = 1;
 
