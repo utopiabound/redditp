@@ -444,6 +444,7 @@ div.score {
     cursor: pointer;
     height: 28px;
     min-width: 28px;
+    line-height: 24px;
     text-align: center;
 }
 

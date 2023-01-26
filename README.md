@@ -8,6 +8,7 @@ http://github.com/utopiabound/redditp
 Useable Links:
 https://utopiabound.github.io/redditp/?/r/popular
 https://redditp.utopiabound.net/
+file:///path/to/redditp/index.html?/r/gifs
 
 Fork from Ubershmekel's
 
@@ -30,42 +31,41 @@ Hotkeys
 * Arrow keys, pgup/pgdown change slides
     * Up/Down, page-up / page-down - switch Albums
     * left/right - switch pictures within albums (and also to next/previous album)
-* Swipe gestures on phones
+* Swipe gestures on touch interfaces (same as arrow keys)
+* ? - Help popups
+* v - Information popup
 * enter - play embeded
 
 Features
 --------
 
-* All /r/ subreddits, including different ?sort stuff.
+* All /r/ subreddits, including different sortings.
+* Support for /r/random, /r/randnsfw, /r/popular virtual subreddits
 * /user/ , /domain/ , /me/ url's work.
 * Url's ending with ['.jpg', '.jpeg', '.gif', '.bmp', '.png'], or URLs from parsable domains
 * Video support (either direct or embeded)
 * Autonext waits for the end of a video (does not work for gif, but does work for gifv)
 * Parsing for a collection of domains including: (see createDiv() and processPhoto() for complete list)
-* Special User / Album browsing in addition to reddit.com:
+* Special browsing in addition to reddit.com: (See Help (?) popup)
 	* Imgur		(User/Tag/Trending support)  /imgur/[u/*USER*|t/*TAG*]
-	* Tumblr	(Album support) /tumblr/*HOSTNAME*
-	* WordPress	(Album support) /wp/*HOSTNAME* (both self, and wp hosted)
+	* Tumblr	(Album support) /tumblr/*HOSTNAME*[t/*TAG*]
+	* WordPress	(Album support) /wp/*HOSTNAME*[t/*TAG*] (both self, and wp hosted)
 	* Gfycat	(User/Tag/Trending support) /gfycat/[u/*USER*|t/*TAG*]
 	* Blogger	(Album support) /blogger/*HOSTNAME*
 	* Flickr	(User/Tag/Search/Trending support) /flickr/[u/*USER*[/*ALBUM*]|t/*TAG*[,*tag2*...]|s/*SEARCH*]
 * Deduplication support when browsing mulitple reddits (e.g. a multireddit /user/NAME/m/MULTIREDDIT or /r/funny+pics)
 * Albums will display inline for subreddits
-* You can save the html file locally and use it, just make sure you add a separator e.g. the question mark in file:///path/to/redditp/index.html?/r/gifs so the browser knows to pick up the right file and go to the right subreddit.
-* Support for /r/random, /r/randnsfw, /r/popular virtual subreddits
+* You can use this project locally
 * Albums/Video/More in comments will be detected in title and automatically found
 * For subreddits that have "requests", responses will be shown as albums, also 'PsBattles:' is similarly special cased
 * Works on iOS 9+ and modern browsers
-
-Possible future features, depending on feedback:
-* Zoom/Pan for comics
 
 Supported Browsers
 ------------------
 * Modern Desktop (firefox, chrome, safari, webkit, opera, etc.)
 * iOS 9.x+
    * Pre-11 - No Unicode Regex (titles won't have as many substitutions / links)
-* Android
+* Android (tested on FireOS 7 ~ Android 9)
 
 URLs
 ----
@@ -92,6 +92,7 @@ These are available from the popup menu
 * /user/USER/m/MULTIREDDIT
 
 ## Other Services:
+See Help (?) popup
 * /imgur			Popular Imgur Items
 * /imgur/u/USER		Images from that USER
 * /imgur/t/TAG		Items with that TAG

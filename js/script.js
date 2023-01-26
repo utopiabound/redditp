@@ -53,7 +53,7 @@
 /* Data Structures:
  * rp.photos = ARRAY of HASH
  *      url:            URL link of "photo"    (addImageSlide() will call fixupUrl())
- *      over18:         BOOLEAN is nsfw (or any item in album is nsfw)
+ *      over18:         BOOLEAN image is nsfw
  *      -- Optional --
  *      title:          HTML Title of image     (creator of object needs to call fixupPhotoTitle())
  *      id:             TEXT Unique ID based on site+subreddit or blog
@@ -73,8 +73,8 @@
  *      -- Other, NOT creator setable --
  *      type:           ENUM of imageTypes                              [set by processPhoto()/initPhoto*()]
  *      o_url:          URL original URL                                [set by processPhoto()]
- *      insertAt:       INT where to insert pictures in album           [set by addAlbumItem()]
- *      index:          INT index in rp.photos, used by album functions [set by addImageSlide()]
+ * P    insertAt:       INT where to insert pictures in album           [set by addAlbumItem()]
+ * P    index:          INT index in rp.photos, used by album functions [set by addImageSlide()]
  *      dupes:          ARRAY of HASH                                   [set by addPhotoDupe()]
  *              id:             TEXT Unique ID (subreddit article id, tumblr post id, etc.)
  *              -- Optional --
@@ -96,9 +96,13 @@
  *              -- Optional --
  *              users:  ARRAY of TEXT usernames                         [addPhotoSiteUser(), siteUserLink(), hasPhotoSiteUser()]
  *              tags:   ARRAY of TEXT Tags for photo                    [picHasSiteTags(), addPhotoSiteTags()]
- *      tumblr:         HASH (e.g. 'https://'+tumblr.blog+'.tumblr.com'+/post/+tumblr.id )
- *              blog:   TEXT blog name
- *              id:     TEXT tumblr post id
+ * P    blog:           HASH
+ *              t:      blogger|tumblr|wp|wp2
+ *              b:      TEXT blog name
+ *              -- Optional --
+ *              id:     TEXT post id
+ *              user:   TEXT of username                                [hasPhotoBlogUser, blogUser*, cacheBlogUser]
+ *              tags:   ARRAY of TEXT/INT tags (may require lookup)     [addPhotoBlogTags, hasPhotoBlogTags, blogTag*, cacheBlogTag]
  *
  *      -- Depending on image Type [see initPhotoTYPE()] --
  *      video:          HASH for video ext to url + thumbnail (see showVideo() / rp.mime2ext)   [initPhotoVideo() / addVideoUrl()]
@@ -107,7 +111,7 @@
  *              -- set by showVideo() --
  *              duration:       INT length of video in seconds
  *              times:          INT number of times to play video
- *      album:          ARRAY of HASH
+ * P    album:          ARRAY of HASH
  *              (hash items are very similar to photo structure, but are not allowed to be albums)
  *              -- Specific to Album Items --
  *              parentIndex:    INT  Index of parent in rp.photos
@@ -124,6 +128,9 @@
  * * Use /api/v1/me/prefs for defaults?
  * * Make title social link alterable (change from twitter to instagram...)
  * * OAuth Flickr
+ * * Better Blogger&Blogspot urls
+ * * Handle Categories for blogs in addition to Tags
+ * * Finish removing tumblr from dupes
  */
 
 var rp = {};
@@ -289,6 +296,20 @@ rp.sitecache = {
     wp2: {} // site: { date: DATE, data: {wp-json.data} }
 };
 
+rp.blogcache = {
+    // {
+    //    tumblr: { authora: ..
+    //    wp: { author: { name: NAME, url: URL }
+    // ...
+    author: {},                 // cacheBlogUser, blogUserLink, blogUserInfo
+    // [type][site] == { n: "Blog Title", [h: hostname ] }
+    info: {},                   // cacheBlogInfo, blogTitle, blogHostname
+    // [type][site][tag] == "Tag Name"
+    tags: {},                   // cacheBlogTag, blogTag
+    // [site][slug] = TagID
+    wp2tag: {}                  // slug -> tagID: cacheBlogTag
+}
+
 // maybe checkout http://engineeredweb.com/blog/09/12/preloading-images-jquery-and-javascript/
 // for implementing the old precache
 rp.cache = {};
@@ -329,9 +350,9 @@ rp.choices = {
         'm':         [ "hot", "new", "top", "top:day", "top:week", "top:month",  "top:year", "top:all",
                        "rising", "controversial", 'gilded' ],
     },
-    'tumblr': {},
-    'wp':  { '': [ "new", "old" ] },
-    'wp2': { '': [ "new", "old" ] },
+    'tumblr': { '': [ '' ], 't': [ '' ] },
+    'wp':  { '': [ "new", "old" ], 't': [ "new", "old" ] },
+    'wp2': { '': [ "new", "old" ], 't': [ "new", "old" ] },
 };
 
 rp.reddit = {
@@ -457,7 +478,7 @@ $(function () {
 
     // Compare subreddit elements
     var subredditCompare = function(a, b) {
-        var as = a.subreddit || a.tumblr;
+        var as = a.subreddit || a.tumblr; // @@
         var bs = b.subreddit || b.tumblr;
         return as.toLowerCase().localeCompare(bs.toLowerCase());
     };
@@ -653,14 +674,6 @@ $(function () {
         return 'https://www.youtube.com/embed/'+id+ytExtra;
     };
 
-    var tumblrJsonURL = function(hn, id) {
-        var sid = "";
-        if (id)
-            sid = '&id='+id;
-        // reblog_info=true to get "duplicate" information for reblogged_from_* and reblogged_root_*
-        return 'https://api.tumblr.com/v2/blog/'+hn+'/posts?reblog_info=true&api_key='+rp.api_key.tumblr+sid;
-    }
-
     var flickrJsonURL = function(method, args) {
         if (!args)
             args = {};
@@ -794,7 +807,7 @@ $(function () {
                 return titleFaviconLink('https://tiktok.com/@'+user, user, "TikTok", alt);
             if (type == "telegram")
                 return titleFaviconLink('https://t.me/'+user, user, "Telegram", alt);
-            if (type == 'tumblr')
+            if (type == 'tumblr') // @@
                 return tumblrLink(user, type, alt);
             if (type == "twitch")
                 return titleFaviconLink('https://twitch.tv/'+user, user, "Twitch", alt);
@@ -886,7 +899,7 @@ $(function () {
         throw "Unknown Site type: "+type;
     };
 
-    var siteTagLink = function(otag, type) {
+    var siteTagLink = function(type, otag) {
         var tag;
         if (type == 'iloopit' && rp.sitecache.iloopit[otag])
             tag = rp.sitecache.iloopit[otag];
@@ -1118,7 +1131,7 @@ $(function () {
     };
 
 
-    var picHasSiteTags = function(pic) {
+    var hasPhotoSiteTags = function(pic) {
         return pic.site && pic.site.tags && pic.site.tags.length > 0;
     }
 
@@ -1420,6 +1433,10 @@ $(function () {
         rp.wp = getConfig(configNames.wp, rp.defaults.wp);
         rp.insecure = getConfig(configNames.insecure, {});
         rp.blogger = getConfig(configNames.blogger, {});
+        var o = Object.entries(rp.blogger);
+        for (var i in o) {
+            cacheBlogInfo({t: 'blogger', b: o[i][1]}, '', o[i][0]);
+        }
         rp.flickr.u2nsid = getConfig(configNames.nsid, {});
         // Build reverse map
         if (rp.flickr.u2nsid)
@@ -1428,7 +1445,6 @@ $(function () {
                 return obj;
             }, {});
         rp.faviconcache = getConfig(configNames.favicon, rp.defaults.favicon);
-
         rp.session.redditRefreshToken = getConfig(configNames.redditRefresh, "");
         var bearer = getConfig(configNames.redditBearer, "");
         var by = getConfig(configNames.redditRefreshBy, 0);
@@ -1668,6 +1684,204 @@ $(function () {
         return (photo.type == imageTypes.thumb);
     }
 
+    var addPhotoBlogTags = function(photo, tags) {
+        if (tags && tags.length > 0)
+            photo.blog.tags = ((photo.blog.tags) ?photo.blog.tags :[]).concat(tags);
+    }
+
+    var blogBlogUrl = function(blog) {
+        switch (blog.t) {
+        case 'tumblr':
+            return 'https://'+blog.b+'.tumblr.com';
+        case 'blogger':
+            return 'https://'+rp.blogcache.info[blog.t][blog.b].h;
+        case 'wp2':
+        case 'wp':
+            return 'https://'+blog.b;
+        default:
+            throw "Unknown blog type: "+blog.t;
+        }
+    };
+
+    var blogTagUrl = function(blog, tag) {
+        switch (blog.t) {
+        case 'tumblr': return 'https://www.tumblr.com/tagged/'+tag;
+        case 'wp2':
+        case 'wp':
+            return blogBlogUrl(blog)+'/tag/'+tag;
+        default:
+            throw "Unknown Blog Type: "+blog.t;
+        }
+    };
+
+    var blogUserInfo = function(blog) {
+        if (!rp.blogcache.author[blog.t])
+            return undefined;
+        switch (blog.t) {
+        case 'tumblr':
+        case 'wp':
+            return rp.blogcache.author[blog.t][blog.user];
+        default:
+            throw "Unhandled blog type: "+blog.t;
+        }
+    };
+
+    var blogUserLink = function(blog) {
+        var info = blogUserInfo(blog);
+        if (!info)
+            return "";
+        switch (blog.t) {
+        case 'tumblr':
+        case 'wp':
+            return localLink(info.url, info.name, '/'+blog.t+'/'+hostnameOf(info.url));
+        default:
+            throw "Unhandled blog type: "+blog.t;
+        }
+    };
+
+    var blogTagLink = function(blog, tag) {
+        var llink = '/'+blog.t;
+        if (['wp', 'wp2'].includes(blog.t))
+            llink += '/'+blog.b;
+        var display = blogTag(blog, tag);
+        var slug = (blog.t == 'wp2') ?toWPslug(display) :tag;
+        return localLink(blogTagUrl(blog, tag), blogTag(blog, tag), llink+'/t/'+slug);
+    };
+
+    var hasPhotoBlogTags = function(pic) {
+        return pic.blog && pic.blog.tags && pic.blog.tags.length > 0 && ['tumblr', 'wp', 'wp2'].includes(pic.blog.t);
+    };
+
+    var hasPhotoBlogUser = function(pic) {
+        return pic.blog && pic.blog.user && false; // @@
+    };
+
+    var cacheBlogInfo = function(blog, title, hostname) {
+        if (!blog || !blog.b || !blog.t || !(title || hostname))
+            return;
+        if (!rp.blogcache.info[blog.t])
+            rp.blogcache.info[blog.t] = { };
+        rp.blogcache.info[blog.t][blog.b] = { };
+        if (title)
+            rp.blogcache.info[blog.t][blog.b].n = title;
+        if (hostname && hostname != blog.b)
+            rp.blogcache.info[blog.t][blog.b].h = hostname;
+    };
+
+    var cacheBlogUser = function(blog, name, url) {
+        if (!blog || !blog.b || !blog.user || !name || !url)
+            return;
+        if (!rp.blogcache.author[blog.t])
+            rp.blogcache.author[blog.t] = { };
+        switch (blog.t) {
+        case 'blogger':
+        case 'tumblr':
+        case 'wp':
+            rp.blogcache.author[blog.t][blog.user] = { name: name, url: url };
+            break;
+        default:
+            throw "Unhandled blog type: "+blog.t;
+        }
+    };
+
+    var cacheBlogTag = function(blog, tag, name) {
+        if (!blog || !blog.b || !blog.t || !tag || !name || tag == name)
+            return;
+        if (!rp.blogcache.tags[blog.t])
+            rp.blogcache.tags[blog.t] = { };
+        if (!rp.blogcache.tags[blog.t][blog.b])
+            rp.blogcache.tags[blog.t][blog.b] = { };
+        rp.blogcache.tags[blog.t][blog.b][tag] = name;
+        if (blog.t == 'wp2') {
+            if (!rp.blogcache.wp2tag[blog.b])
+                rp.blogcache.wp2tag[blog.b] = {};
+            rp.blogcache.wp2tag[blog.b][toWPslug(name)] = tag;
+        }
+    };
+
+    var blogTitle = function(blog) {
+        if (rp.blogcache.info[blog.t] && rp.blogcache.info[blog.t][blog.b])
+            return rp.blogcache.info[blog.t][blog.b].n || rp.blogcache.info[blog.t][blog.b].h;
+        return blog.b;
+    };
+
+    var blogHostname = function(blog) {
+        if (rp.blogcache.info[blog.t] && rp.blogcache.info[blog.t][blog.b])
+            return rp.blogcache.info[blog.t][blog.b].h || blog.b;
+        return blog.b; // @@ ensure .wordpress or whatever?
+    };
+
+    var blogTag = function(blog, tag) {
+        if (rp.blogcache.tags[blog.t] && rp.blogcache.tags[blog.t][blog.b])
+            return rp.blogcache.tags[blog.t][blog.b][tag] || tag;
+        return tag;
+    };
+
+    var blogTagCount = function(blog) {
+        if (rp.blogcache.tags[blog.t] && rp.blogcache.tags[blog.t][blog.b])
+            return Object.keys(rp.blogcache.tags[blog.t][blog.b]).length;
+        return 0;
+    };
+    rp.fn.blogTagCount = blogTagCount;
+
+    // Return list of tags missing from cache
+    var blogTagMissing = function(blog, tags) {
+        if (rp.blogcache.tags[blog.t] && rp.blogcache.tags[blog.t][blog.b])
+            return tags.filter(function (x) { return (rp.blogcache.tags[blog.t][blog.b][x] == undefined); });
+        return tags;
+    };
+    rp.fn.blogTagMissing = blogTagMissing;
+
+    var blogBlogLink = function(blog, alt) {
+        // name do lookup?
+        return localLink(blogBlogUrl(blog), blogTitle(blog), '/'+blog.t+'/'+blogHostname(blog), (alt || blog.b));
+    };
+
+    // Return tag ID or undefined
+    var wp2RevTag = function(hostname, slug) {
+        if (!isNaN(parseInt(slug, 10)))
+            return slug;
+        return (rp.blogcache.wp2tag[hostname]) ?rp.blogcache.wp2tag[hostname][slug] :undefined;
+    };
+
+    var refreshBlogTitle = function(blog) {
+        if (rp.blogcache.info[blog.t] && rp.blogcache.info[blog.t][blog.b])
+            return;
+        var jsonUrl;
+        var dataType = 'json';
+        var handleData;
+        var handleWPdata = function(data) {
+            if (data.id && data.id != blog.b)
+                log.error("Wordpress ("+blog.t+") id:"+data.id+" does not agree with blog:"+blog.b);
+            cacheBlogInfo(blog, data.name || data.description, blog.b);
+            var icon = data.site_icon_url;
+            if (!icon)
+                icon = (data.icon) ?data.icon.img :undefined;
+            if (icon && !rp.faviconcache[blog.b])
+                rp.faviconcache[blog.b] = icon;
+        };
+        switch (blog.t) {
+        case 'wp2':
+            jsonUrl = 'https://'+blog.b+'/wp-json/';
+            handleData = handleWPdata;
+            break;
+        case 'wp':
+            jsonUrl = 'https://public-api.wordpress.com/rest/v1.1/sites/'+blog.b;
+            handleData = handleWPdata;
+            break;
+        default:
+            return;
+        }
+        $.ajax({
+            url: jsonUrl,
+            dataType: dataType,
+            success: handleData,
+            error: failedAjaxDone,
+            timeout: rp.settings.ajaxTimeout,
+            crossDomain: true
+        });
+    };
+
     var hasPhotoSiteUser = function(photo) {
         return photo.site && photo.site.users && photo.site.users.length > 0;
     };
@@ -1733,6 +1947,7 @@ $(function () {
     var addPhotoDupe = function(photo, dupe) {
         if (photo.id == dupe.id &&
             photo.subreddit == dupe.subreddit &&
+            // @@
             ((photo.tumblr) ?photo.tumblr.blog :undefined) == dupe.tumblr)
             return -1;
         if (!photo.dupes)
@@ -1909,7 +2124,7 @@ $(function () {
                     o_url: photo.o_url,
                 };
 
-                for (var key of ["embed", "video", "html", "extra", "site", "tumblr"]) {
+                for (var key of ["embed", "video", "html", "extra", "site"]) {
                     if (photo[key]) {
                         img[key] = photo[key];
                         delete photo[key];
@@ -2806,6 +3021,7 @@ $(function () {
                          'hdpornz.biz',
                          'hog.mobi',
                          'hog.tv',
+                         'iceporn.tv',
                          'javtiful.com',
                          'madnsfw.com',
                          'mulemax.com',
@@ -2979,13 +3195,8 @@ $(function () {
 
         var fav = rp.favicons[special];
 
-        // #2 rp.favicon[]
-        if (fav === undefined) {
-            var sld = hostnameOf(url, true).match(/[^.]*/)[0];
-            fav = rp.favicons[sld];
-        }
+        // #2 rp.faviconcache
         var hostname = hostnameOf(url);
-        // #3 rp.faviconcache
         if (fav === undefined) {
             // cached failed lookup
             if (rp.faviconcache[hostname] === "") {
@@ -2993,6 +3204,11 @@ $(function () {
                 return;
             }
             fav = rp.faviconcache[hostname];
+        }
+        // #3 rp.favicon[]
+        if (fav === undefined) {
+            var sld = hostnameOf(url, true).match(/[^.]*/)[0];
+            fav = rp.favicons[sld];
         }
         if (fav) {
             elem.html($("<img />", {'class': 'favicon', src: fav}));
@@ -3547,11 +3763,11 @@ $(function () {
         if (photo.subreddit) {
             $('#navboxSubreddit').html(redditLink('/r/'+photo.subreddit)).show();
 
-            if (pic.tumblr)
-                $('#navboxExtra').append(tumblrLink(pic.tumblr.blog));
+            if (photo.blog)
+                $('#navboxExtra').append(blogBlogLink(photo.blog));
 
-        } else if (pic.tumblr)
-            $('#navboxSubreddit').html(tumblrLink(pic.tumblr.blog)).show();
+        } else if (photo.blog)
+            $('#navboxSubreddit').html(blogBlogLink(photo.blog)).show();
         else
             $('#navboxSubreddit').hide();
 
@@ -3563,6 +3779,8 @@ $(function () {
             $('#navboxAuthor').append(redditLink(localUserUrl(authName, "reddit"),  authName, '/u/'+authName)).show();
         if (hasPhotoSiteUser(pic))
             $('#navboxAuthor').append(siteUserLink(pic.site)).show();
+        if (hasPhotoBlogUser(photo))
+            $('#navboxAuthor').append(blogUserLink(photo.blog)).show();
 
         if (photo.comments)
             $('#navboxSubreddit').append($('<a>', { href: photo.comments,
@@ -3584,20 +3802,29 @@ $(function () {
         else
             $('#navboxDuplicatesLink').attr('href', '#').hide();
 
+        // Add Blog Tags
+        if (hasPhotoBlogTags(photo))
+            photo.blog.tags.forEach(function(tag) {
+                var li = $("<li>", { class: 'list'});
+                li.html(blogTagLink(photo.blog, tag));
+                ++ total;
+                $('#duplicateUl').append(li);
+            });
+
         // Add Site Tags
-        if (picHasSiteTags(pic))
+        if (hasPhotoSiteTags(pic))
             pic.site.tags.forEach(function(tag) {
                 var li = $("<li>", { class: 'list'});
-                li.html(siteTagLink(tag, pic.site.t));
+                li.html(siteTagLink(pic.site.t, tag));
                 ++ total;
                 $('#duplicateUl').append(li);
             });
 
         // Add Site Tags (album)
-        if (photo != pic && picHasSiteTags(photo))
+        if (photo != pic && hasPhotoSiteTags(photo))
             photo.site.tags.forEach(function(tag) {
                 var li = $("<li>", { class: 'list'});
-                li.html(siteTagLink(tag, photo.site.t));
+                li.html(siteTagLink(photo.site.t, tag));
                 ++ total;
                 $('#duplicateUl').append(li);
             });
@@ -3637,7 +3864,7 @@ $(function () {
                                      class: 'info infoc',
                                      title: (new Date(item.date*1000)).toString(),
                                    }).text('('+item.commentN+')'));
-
+                // @@ item.blog
             } else if (item.tumblr) {
                 if (item.off)
                     li.html(localLinkFailed(item.url, item.tumblr, '/tumblr/'+item.tumblr, item.title));
@@ -4311,6 +4538,11 @@ $(function () {
         var postData;
         var handleData;
         var headerData;
+        var url = photo.url;
+        var hostname = hostnameOf(url, true);
+        var fqdn = hostnameOf(url);
+        var shortid = url2shortid(url);
+
         var handleErrorOrig = function (xhr) {
             log.info('failed to load url [error '+xhr.status+']: ' + photo.url);
             initPhotoThumb(photo);
@@ -4320,15 +4552,16 @@ $(function () {
             // @@ check xhr.responseJSON?
             // timeout: xhr.status == 0 && xhr.statusText == "timeout"
             if (xhr.status != 0) {
-                rp.wp[hostname] = 0;
+                rp.wp[fqdn] = 0;
                 setConfig(configNames.wp, rp.wp);
             }
             handleErrorOrig(xhr);
         };
         var handleWPv1Data = function(data) {
-            if (rp.wp[hostname] !== 1)
-                rp.wp[hostname] = 1;
+            if (rp.wp[fqdn] !== 1)
+                rp.wp[fqdn] = 1;
             setConfig(configNames.wp, rp.wp);
+            refreshBlogTitle({t:'wp', b: fqdn});
             processWordPressPost(photo, data);
             showCB(photo);
         };
@@ -4337,6 +4570,7 @@ $(function () {
                 rp.wp[hostname] = 2;
                 setConfig(configNames.wp, rp.wp);
             }
+            refreshBlogTitle({t:'wp2', b: fqdn});
             if (Array.isArray(data))
                 data = data[0];
             getPostWPv2(
@@ -4351,11 +4585,6 @@ $(function () {
             );
         };
         var handleError = handleErrorOrig;
-        var url = photo.url;
-
-        var hostname = hostnameOf(url, true);
-        var fqdn = hostnameOf(url);
-        var shortid = url2shortid(url);
 
         var handleOembed = function(data) {
             if (data.author_name && data.author_url)
@@ -4436,6 +4665,7 @@ $(function () {
                 showCB(photo);
             };
 
+            // @@ do lookup if no blogger title
             if (blogid === undefined) {
                 jsonUrl = bloggerBlogLookupUrl(fqdn);
                 handleData = function(data) {
@@ -4747,12 +4977,12 @@ $(function () {
 
             handleData = handleWPv1Data;
 
-        } else if (rp.wp[hostname]) {
+        } else if (rp.wp[fqdn]) {
             shortid = url2shortid(photo.url);
 
-            switch (rp.wp[hostname]) {
+            switch (rp.wp[fqdn]) {
             case 1:
-                jsonUrl = 'https://public-api.wordpress.com/rest/v1.1/sites/'+hostname+'/posts/slug:'+shortid;
+                jsonUrl = 'https://public-api.wordpress.com/rest/v1.1/sites/'+fqdn+'/posts/slug:'+shortid;
                 handleData = handleWPv1Data;
                 handleError = function() {
                     log.info("ATTEMPT wordpress v2: "+photo.url);
@@ -4770,7 +5000,7 @@ $(function () {
                 };
                 break;
             case 2:
-                jsonUrl = wp2BaseJsonUrl(hostname);
+                jsonUrl = wp2BaseJsonUrl(fqdn);
                 if (/^\d+$/.test(shortid))
                     jsonUrl += shortid+'?_jsonp=?';
                 else
@@ -4781,12 +5011,12 @@ $(function () {
                 break;
             }
 
-        } else if (rp.wp[hostname] === 0) {
+        } else if (rp.wp[fqdn] === 0) {
             initPhotoThumb(photo);
             showCB(photo);
 
         } else {
-            log.error("["+photo.index+"] Unknown site ["+hostname+"]: "+photo.url);
+            log.error("["+photo.index+"] Unknown site ["+fqdn+"]: "+photo.url);
             initPhotoThumb(photo);
             showCB(photo);
         }
@@ -4974,7 +5204,7 @@ $(function () {
             var domains = fqdn.split('.').reverse();
             var hn = domains[1]+'.'+domains[0];
 
-            if (hn == 'tumblr.com')
+            if (hn == 'tumblr.com') // @@
                 return socialUserLink(domains[2], "tumblr");
             if (hn == 'instagram.com')
                 return socialUserLink(path.replace(/^[/]/, '').replace(/\/.*/,''), "instagram");
@@ -5356,6 +5586,7 @@ $(function () {
                     crossDomain: true,
                 });
         }
+        // @@ other site links?
 
         $('#choiceTitle').text(base);
         $('#choiceLi').show();
@@ -5405,6 +5636,7 @@ $(function () {
 
         if (dupe) {
             shortid = dupe.id;
+            // @@ blog
             if (dupe.tumblr)
                 site = dupe.tumblr;
 
@@ -5461,7 +5693,7 @@ $(function () {
         rp.loaded[site][shortid] = now;
 
         // Load Tags for site
-        if (!picHasSiteTags(photo)) {
+        if (!hasPhotoSiteTags(photo)) {
             var jurl, tagData;
             var dtype = 'json';
             var hdata = {};
@@ -6313,8 +6545,12 @@ $(function () {
         return rc;
     };
 
-    // This is for processing /wp-json/wp/v2/posts aka
+    /////////////////////////////////////////////////////////////////
+    // WordPress (v2)
+    //
     // https://developer.wordpress.org/rest-api/reference/
+
+    // This is for processing /wp-json/wp/v2/posts
     // errorcb(photo)
     // successcb(photo) : default == addImageSlide
     var getPostWPv2 = function(photo, post, errorcb, successcb) {
@@ -6325,19 +6561,30 @@ $(function () {
         }
         if (successcb === undefined)
             successcb = addImageSlide;
+
         var hn = hostnameOf(photo.url);
-        var extra = localLink(originOf(photo.url), hn, "/wp2/"+hn, "", rp.favicons.wordpress);
+        // lookup missing tags, then go around again
+        var missing_tags = blogTagMissing({t: 'wp2', b: hn}, post.tags);
+        if (missing_tags.length)
+            return refreshWP2Tags(hn, missing_tags, function() {
+                getPostWPv2(photo, post, errorcb, successcb);
+            }, function() { if (errorcb) errorcb(photo);});
+
         var o_link = post.link;
 
         photo = initPhotoAlbum(photo, false);
+        if (!photo.blog) {
+            photo.blog = { t: 'wp2', b: hn, id: post.id };
+            addPhotoBlogTags(photo, post.tags);
+        }
         if (photo.o_url === undefined)
             photo.o_url = photo.url;
         var rc = false;
 
-        if (post.content && processHaystack(photo, post.content.rendered, extra, o_link))
+        if (post.content && processHaystack(photo, post.content.rendered, "", o_link))
             rc = true;
 
-        if (post.description && processHaystack(photo, post.description.rendered, extra, o_link))
+        if (post.description && processHaystack(photo, post.description.rendered, "", o_link))
             rc = true;
 
         if (post.yoast_head_json) {
@@ -6345,7 +6592,7 @@ $(function () {
                 post.yoast_head_json.og_image.forEach(function(item) {
                     if (item.url == photo.url)
                         return;
-                    var pic = { url: item.url, title: post.yoast_head_json.og_title, o_url: o_link, extra: extra };
+                    var pic = { url: item.url, title: post.yoast_head_json.og_title, o_url: o_link };
                     fixupPhotoTitle(pic);
                     if (processPhoto(pic)) {
                         addAlbumItem(photo, pic);
@@ -6385,7 +6632,6 @@ $(function () {
                     if (!item)
                         return;
                     var pic = { url: fixupUrl(item.guid.rendered),
-                                extra: extra,
                                 o_url: o_link,
                                 title: item.title.rendered || unescapeHTML(item.caption.rendered) || item.alt_text };
                     addPhotoFallback(pic, item.source_url);
@@ -6424,79 +6670,51 @@ $(function () {
         });
     };
 
-    // This is for public-api.wordpress.com which uses API v1.1
-    // https://developer.wordpress.com/docs/api/
-    // https://developer.wordpress.com/docs/api/1.1/get/sites/%24site/
-    var processWordPressPost = function(pic, post) {
-        var rc = false;
-
-        // Setup some photo defaults
-        if (post.author.URL) {
-            pic.extra = localLink(post.author.URL, post.author.name,
-                                  '/wp/'+hostnameOf(post.author.URL));
-        } else {
-            var hn = hostnameOf(post.URL);
-            pic.extra = localLink(post.URL.substring(0, post.URL.indexOf(':'))+'://'+hn,
-                                  post.author.name, '/wp/'+hn, post.author.nice_name);
-        }
-
-        if (post.is_reblogged) {
-            log.info("*@@* DUPLICATE: ", post);
-            // @@ do duplicate processing
-        }
-
-        // Process Post
-        var processAttachment = function(att, img) {
-            img.id = att.ID;
-            if (att.mime_type.startsWith('image/')) {
-                initPhotoImage(img, att.URL);
-
-            } else if (att.mime_type.startsWith('video/')) {
-                initPhotoVideo(img, att.URL, (att.thumbnails) ?att.thumbnails.large :undefined);
-
-            } else {
-                log.info("cannot display url [unknown mimetype "+att.mime_type+"]: "+att.url);
-                return false;
-            }
-            return true;
-        };
-
-        var k, att;
-
-        var photo = initPhotoAlbum(pic, false);
-        for(k in post.attachments) {
-            att = post.attachments[k];
-            var img = { title: att.caption || att.title,
-                        o_url: pic.url };
-            if (processAttachment(att, img) && processPhoto(img)) {
-                addAlbumItem(photo, img);
-                rc = true;
-            }
-        }
-        if (processHaystack(pic, post.content))
-            rc = true;
-
-        checkPhotoAlbum(photo);
-
-        if (!rc) {
-            log.info("cannot display wp [no content]: "+pic.url);
-            laterPhotoFailed(pic);
-        }
-
-        return rc;
-    };
-
     var wp2BaseJsonUrl = function(hostname) {
         var scheme = (rp.insecure[hostname]) ?'http' :'https';
         return scheme+'://'+hostname+'/wp-json/wp/v2/posts/';
     };
 
+    var toWPslug = function(name) {
+        return name.toLowerCase().replaceAll(' ', '-');
+    };
+
+    // tags can be either [ id, id, id] or "slug"
+    var refreshWP2Tags = function(hostname, tags, doneLoading, errorcb) {
+        var scheme = (rp.insecure[hostname]) ?'http' :'https';
+        var jsonUrl = scheme+'://'+hostname+'/wp-json/wp/v2/tags?orderby=count&order=desc&per_page=100';
+        if (Array.isArray(tags))
+            jsonUrl += '&include='+tags.join(",");
+        else if (tags)
+            jsonUrl += '&slug='+toWPslug(tags);
+        var handleData = function(tags) {
+            // @@ check for err
+            tags.forEach(function(item) {
+                cacheBlogTag({t: 'wp2', b: hostname}, item.id, item.name);
+            });
+            if (doneLoading)
+                doneLoading();
+        };
+        var failCB = function (xhr, ajaxOptions, thrownError) {
+            if (errorcb)
+                errorcb();
+            else
+                failedAjax(xhr, ajaxOptions, thrownError);
+        };
+        $.ajax({
+            url: jsonUrl+'&_jsonp=?',
+            dataType: 'jsonp',
+            success: handleData,
+            error: failCB,
+            timeout: rp.settings.ajaxTimeout,
+            crossDomain: true
+        });
+    };
+
     var getWordPressBlogV2 = function () {
         // Path Schema:
         // /wp2/HOSTNAME[/CHOICES]
-        if (!setupLoading(1, "No blog entries"))
-            return;
-
+        // /wp2/HOSTNAME/t/TAG[/CHOICES]
         var hostname = rp.url.sub;
 
         if (rp.wp[hostname] === 0) {
@@ -6504,14 +6722,34 @@ $(function () {
             return;
         }
 
-        setSubredditLink('https://'+hostname);
+        var blog = {t: 'wp2', b: hostname};
+        refreshBlogTitle(blog);
+
+        if (blogTagCount(blog) == 0)
+            // @@ add loading message
+            return refreshWP2Tags(hostname, undefined, getWordPressBlogV2);
 
         var jsonUrl = wp2BaseJsonUrl(hostname)+'?orderby=date&order='+((rp.url.choice == 'old') ?'asc' :'desc');
+
+        // @@ could support multiple tags
+        if (rp.url.type == 't') {
+            var slug = toWPslug(rp.url.multi);
+            var tag = wp2RevTag(hostname, slug);
+            if (!tag)
+                return refreshWP2Tags(hostname, slug, getWordPressBlogV2, function() { doneLoading("Bad Tag")});
+            jsonUrl += '&tags='+tag;
+            setSubredditLink('https://'+hostname+'/tag/'+slug);
+
+        } else
+            setSubredditLink('https://'+hostname);
 
         if (rp.session.after !== "")
             jsonUrl += '&offset='+rp.session.after;
         else
             rp.session.after = 0;
+
+        if (!setupLoading(1, "No blog entries"))
+            return;
 
         var handleData = function (data) {
             if (rp.wp[hostname] != 2) {
@@ -6526,6 +6764,10 @@ $(function () {
             } else
                 rp.session.loadAfter = (data.length) ?getWordPressBlogV2 :null;
             rp.session.after = rp.session.after + data.length;
+            var missing = blogTagMissing({t:'wp2', b:hostname}, [].concat.apply([], data.map(function(x) { return x.tags; })));
+            if (missing.length)
+                return refreshWP2Tags(hostname, missing, function() { handleData(data) }, failedAjaxDone);
+
             data.forEach(function(post) {
                 var photo = fixupPhotoTitle(
                     {
@@ -6573,16 +6815,80 @@ $(function () {
         });
     };
 
+    /////////////////////////////////////////////////////////////////
+    // WordPress (v1)
+    //
+    // https://developer.wordpress.com/docs/api/
     // https://developer.wordpress.com/docs/api/1.1/get/sites/%24site/posts/
+    var processWordPressPost = function(pic, post) {
+        var rc = false;
+
+        var hn = hostnameOf(post.URL);
+        pic.blog = { t: 'wp', b: hn, id: post.ID }
+        if (post.author) {
+            pic.blog.user = post.author.login;
+            cacheBlogUser(pic.blog, post.author.name, post.author.URL);
+        }
+        addPhotoBlogTags(pic, Object.keys(post.tags).map(function(k) {
+            var x = post.tags[k];
+            cacheBlogTag(pic.blog, x.slug, x.name);
+            return x.slug;
+        }));
+
+        if (post.is_reblogged) {
+            log.info("*@@* DUPLICATE: ", post);
+            // @@ do duplicate processing
+        }
+
+        // Process Post
+        var processAttachment = function(att, img) {
+            img.id = att.ID;
+            if (att.mime_type.startsWith('image/')) {
+                initPhotoImage(img, att.URL);
+
+            } else if (att.mime_type.startsWith('video/')) {
+                initPhotoVideo(img, att.URL, (att.thumbnails) ?att.thumbnails.large :undefined);
+
+            } else {
+                log.info("cannot display url [unknown mimetype "+att.mime_type+"]: "+att.url);
+                return false;
+            }
+            return true;
+        };
+
+        var k, att;
+
+        var photo = initPhotoAlbum(pic, false);
+        for(k in post.attachments) {
+            att = post.attachments[k];
+            var img = { title: att.caption || att.title,
+                        o_url: pic.url };
+            if (processAttachment(att, img) && processPhoto(img)) {
+                addAlbumItem(photo, img);
+                rc = true;
+            }
+        }
+        if (processHaystack(pic, post.content))
+            rc = true;
+
+        checkPhotoAlbum(photo);
+
+        if (!rc) {
+            log.info("cannot display wp [no content]: "+pic.url);
+            laterPhotoFailed(pic);
+        }
+
+        return rc;
+    };
+
     var getWordPressBlog = function () {
         // Path Schema:
         // /wp/HOSTNAME[/CHOICES]
+        // /wp/HOSTNAME/t/TAG
         var hostname = rp.url.sub;
 
         if (!hostname.includes('.'))
             hostname += '.wordpress.com';
-
-        setSubredditLink('https://'+hostname);
 
         // If we know this fails, bail
         if (rp.wp[hostname]) {
@@ -6596,7 +6902,16 @@ $(function () {
         if (!setupLoading(1, "No wordpress entries"))
             return;
 
+        refreshBlogTitle({t:'wp', b: hostname});
+
         var jsonUrl = 'https://public-api.wordpress.com/rest/v1.1/sites/'+hostname+'/posts?order_by=date';
+
+        if (rp.url.type == 't') {
+            setSubredditLink(blogTagUrl({t: 'wp', b: hostname}, rp.url.multi));
+            jsonUrl += "&tag="+rp.url.multi;
+
+        } else
+            setSubredditLink('https://'+hostname);
 
         if (rp.url.choice == 'old')
             jsonUrl += '&order=ASC';
@@ -6622,6 +6937,7 @@ $(function () {
                               url: post.URL,
                               over18: false,
                               date: processDate(post.date),
+                              blog: { t: 'wp', b: hostname, id: post.ID },
                             };
                 if (post.post_thumbnail)
                     addPhotoThumb(photo, post.post_thumbnail.URL);
@@ -6648,13 +6964,34 @@ $(function () {
         });
     };
 
+    /////////////////////////////////////////////////////////////////
+    // Tumblr
+    //
+    // https://www.tumblr.com/docs/en/api/v2
+
+    var tumblrJsonURL = function(hn, id) {
+        var sid = "";
+        if (id)
+            sid = '&id='+id;
+        // reblog_info=true to get "duplicate" information for reblogged_from_* and reblogged_root_*
+        return 'https://api.tumblr.com/v2/blog/'+hn+'/posts?reblog_info=true&api_key='+rp.api_key.tumblr+sid;
+    }
+
+    var tumblrTagJsonURL = function(tag) {
+        return 'https://api.tumblr.com/v2/tagged?tag='+tag+'&reblog_info=true&api_key='+rp.api_key.tumblr;
+    };
+
     var processTumblrPost = function(opic, post) {
         var rc = false;
         var dupe = false;
         var pic;
 
-        opic.tumblr = { blog: post.blog_name,
-                        id: post.id };
+        opic.blog = { t: 'tumblr',
+                      b: post.blog_name,
+                      id: post.id };
+        addPhotoBlogTags(opic, post.tags);
+
+        cacheBlogInfo(opic.blog, post.blog.title);
 
         var photo = initPhotoAlbum(opic, false);
 
@@ -6679,7 +7016,7 @@ $(function () {
                                       title: post.reblogged_root_title,
                                       url: post.reblogged_root_url,
                                       id: (post.reblogged_root_id) ?post.reblogged_root_id :post.reblogged_root_uuid.split('.')[0]});
-                    dedupAdd(name, post.reblogged_root_id, '/tumblr/'+photo.tumblr.blog+'/'+photo.tumblr.id);
+                    dedupAdd(name, post.reblogged_root_id, '/tumblr/'+photo.blog.b+'/'+photo.blog.id);
                     if (!photo.cross_id)
                         photo.cross_id = post.reblogged_root_id;
                 }
@@ -6697,11 +7034,11 @@ $(function () {
                                       title: post.reblogged_from_title,
                                       url: post.reblogged_from_url,
                                       id: (post.reblogged_from_id) ?post.reblogged_from_id :post.reblogged_from_uuid.split('.')[0]});
-                    dedupAdd(name, post.reblogged_from_id, '/tumblr/'+photo.tumblr.blog+'/'+photo.tumblr.id);
+                    dedupAdd(name, post.reblogged_from_id, '/tumblr/'+photo.blog.b+'/'+photo.blog.id);
                     if (!photo.cross_id)
                         photo.cross_id = post.reblogged_from_id;
 
-                    dedupAdd(photo.tumblr.blog, photo.tumblr.id);
+                    dedupAdd(photo.blog.b, photo.blog.id);
                 }
             }
         }
@@ -6716,7 +7053,7 @@ $(function () {
                         {
                             url: item.original_size.url,
                             type: imageTypes.image,
-                            tumblr: opic.tumblr
+                            blog: opic.blog
                         },
                         item.caption || post.title || post.caption_abstract, opic.subreddit);
                     if (processPhoto(pic)) {
@@ -6734,7 +7071,7 @@ $(function () {
             }
             // "link" type
             if (post.url) {
-                pic = fixupPhotoTitle({ url: post.url, tumblr: opic.tumblr },
+                pic = fixupPhotoTitle({ url: post.url, blog: opic.blog },
                                       post.title || post.summary || post.description, opic.subreddit);
                 if (processPhoto(pic)) {
                     addAlbumItem(photo, pic);
@@ -6746,7 +7083,7 @@ $(function () {
         } else if (post.type == 'video') {
             pic =  fixupPhotoTitle({ url: opic.url,
                                      thumb: post.thumbnail_url,
-                                     tumblr: opic.tumblr},
+                                     blog: opic.blog},
                                    post.summary || post.caption || opic.title, opic.subreddit);
             rc = true;
             if (post.video_type == "youtube") {
@@ -6802,38 +7139,63 @@ $(function () {
     var getTumblrBlog = function () {
         // Path Schema:
         // /tumblr/HOSTNAME
+        // /tumblr/t/TAG
+        var jsonUrl;
 
-        var hostname = rp.url.sub;
-        if (!hostname)
-            return failCleanup("No tumblr blog provided");
+        if (rp.url.type == 't') {
+            jsonUrl = tumblrTagJsonURL(rp.url.sub);
+            if (rp.session.after)
+                jsonUrl = jsonUrl+'&before='+rp.session.after;
+            else
+                rp.session.after = currentTime();
+            $('#subredditUrl').val('/tumblr/t/'+rp.url.sub);
+            setSubredditLink('https://www.tumlbr.com/tagged/'+rp.url.sub);
 
-        if (!hostname.includes('.'))
-            hostname += '.tumblr.com';
+        } else {
+            var hostname = rp.url.sub;
+            if (!hostname)
+                return failCleanup("No tumblr blog provided");
 
-        if (!setupLoading(1, "no tumblr"))
+            if (!hostname.includes('.'))
+                hostname += '.tumblr.com';
+
+            jsonUrl = tumblrJsonURL(hostname);
+            if (rp.session.after)
+                jsonUrl = jsonUrl+'&offset='+rp.session.after;
+            else
+                rp.session.after = 0;
+        }
+
+        if (!setupLoading(1, "no Tumblr entries"))
             return;
 
-        var jsonUrl = tumblrJsonURL(hostname);
-        if (rp.session.after)
-            jsonUrl = jsonUrl+'&offset='+rp.session.after;
-        else
-            rp.session.after = 0;
-
         var handleData = function (data) {
-            setSubredditLink(data.response.blog.url);
-            $('#subredditUrl').val('/tumblr/'+data.response.blog.name);
+            var posts, nsfw = false;
+            if (rp.url.type == '') {
+                setSubredditLink(data.response.blog.url);
+                $('#subredditUrl').val('/tumblr/'+data.response.blog.name);
 
-            if (rp.session.after < data.response.total_posts) {
-                rp.session.after = rp.session.after + data.response.posts.length;
-                rp.session.loadAfter = getTumblrBlog;
+                if (rp.session.after < data.response.total_posts) {
+                    rp.session.after = rp.session.after + data.response.posts.length;
+                    rp.session.loadAfter = getTumblrBlog;
+                } else // Found all posts
+                    rp.session.loadAfter = null;
+                posts = data.response.posts;
+                nsfw = data.response.blog.is_nsfw || data.response.blog.is_adult;
+            } else { // t
+                posts = data.response;
+                if (data.response.length == 0)
+                    rp.session.loadAfter = null;
+                else {
+                    rp.session.loadAfter = getTumblrBlog;
+                    rp.session.after = posts[posts.length-1].timestamp;
+                }
+            }
 
-            } else // Found all posts
-                rp.session.loadAfter = null;
-
-            data.response.posts.forEach(function (post) {
-                var image = { title: post.summary || unescapeHTML(post.caption) || data.response.blog.title,
+            posts.forEach(function (post) {
+                var image = { title: post.summary,
                               id: post.id,
-                              over18: data.response.blog.is_nsfw || data.response.blog.is_adult,
+                              over18: nsfw,
                               date: post.timestamp,
                               url: post.post_url,
                               o_url: post.post_url
@@ -6860,6 +7222,7 @@ $(function () {
     /////////////////////////////////////////////////////////////////
     // Blogger
     //
+    // https://developers.google.com/blogger/docs/3.0/using
 
     var processBloggerPost = function(photo, post) {
         if (photo.url != post.url) {
@@ -6867,10 +7230,13 @@ $(function () {
                 photo.o_url = photo.url;
             photo.url = post.url;
         }
-        var extra = localLink(post.author.url, post.author.displayName,
-                                '/blogger/'+hostnameOf(post.url));
+        photo.blog = { t: 'blogger', b: post.blog.id, id: post.id };
+        if (post.author) {
+            photo.blog.user = post.author.id;
+            cacheBlogUser(photo.blog, post.author.displayName, post.author.url);
+        }
         photo = initPhotoAlbum(photo, false);
-        var rc = processHaystack(photo, post.content, extra, post.url);
+        var rc = processHaystack(photo, post.content, "", post.url);
         checkPhotoAlbum(photo);
         return rc;
     };
@@ -6930,6 +7296,7 @@ $(function () {
                 doneError();
             return;
         }
+        cacheBlogInfo({t: 'blogger', b: data.id}, data.name || data.description, hostname);
         rp.blogger[hostname] = data.id;
         setConfig(configNames.blogger, rp.blogger);
 
@@ -6949,6 +7316,7 @@ $(function () {
         if (!setupLoading(1, "No photos loaded"))
             return;
 
+        // @@ check if need blogger title
         if (rp.blogger[hostname]) {
             setSubredditLink("http://"+hostname);
             getBloggerPosts(hostname);
@@ -7630,7 +7998,8 @@ $(function () {
 
     var rpurlbase = function() {
         var arr;
-        if (rp.url.site == 'reddit') {
+        switch (rp.url.site) {
+        case "reddit":
             switch (rp.url.type) {
             case 'friends':
                 arr = [ '/r/friends' ];
@@ -7648,8 +8017,15 @@ $(function () {
                 arr = [ '', rp.url.type, rp.url.sub ];
                 break;
             }
-        } else
-            arr = ['', rp.url.site, rp.url.type, rp.url.sub];
+            break;
+        case "wp2":
+        case "wp":
+            arr = ['', rp.url.site, rp.url.sub, rp.url.type, rp.url.multi, rp.url.choice ];
+            break;
+        default:
+            arr = ['', rp.url.site, rp.url.type, rp.url.sub, rp.url.choice ];
+            break;
+        }
         return arr.join("/").replace(/\/+/g, '/').replace(/(.)\/$/, '$1');
     };
     rp.fn.rpurlbase = rpurlbase;
@@ -7718,7 +8094,14 @@ $(function () {
             case 'wp2':
             case 'tumblr':
                 rp.url.site = t;
+                if (rp.choices[t] && rp.choices[t][a[0]])
+                    rp.url.type = a.shift();
                 rp.url.sub = a.shift();
+                if (rp.choices[t] && rp.choices[t][a[0]]) {
+                    rp.url.type = a.shift();
+                    if (a.length)
+                        rp.url.multi = a.shift();
+                }
                 break;
             case 'domain':
             case 'r':
@@ -7888,8 +8271,8 @@ $(function () {
                     // rebuild rp.dedup
                     if (photo.subreddit)
                         dedupAdd(photo.subreddit, photo.id);
-                    else if (photo.tumblr)
-                        dedupAdd(photo.tumblr.blog, photo.tumblr.id);
+                    else if (photo.blog)
+                        dedupAdd(photo.blog.b, photo.blog.id);
                     else if (rp.url.site == 'danbooru')
                         dedupAdd(':danbooru', photo.id);
                     if (!photo.dupes)
@@ -7899,7 +8282,7 @@ $(function () {
                         if (dupe.subreddit)
                             dedupAdd(dupe.subreddit, dupe.id, '/r/'+photo.subreddit+'/'+photo.id);
                         else if (dupe.tumblr)
-                            dedupAdd(dupe.tumblr, dupe.id, '/tumblr/'+photo.tumblr.blog+'/'+photo.tumblr.id);
+                            dedupAdd(dupe.tumblr, dupe.id, '/'+photo.blog.t+'/'+photo.blog.b+'/'+photo.blog.id);
                     });
                 } else if (index < orig_index)
                     --data.index;
