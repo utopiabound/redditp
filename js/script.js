@@ -75,12 +75,13 @@
  *      o_url:          URL original URL                                [set by processPhoto()]
  * P    insertAt:       INT where to insert pictures in album           [set by addAlbumItem()]
  * P    index:          INT index in rp.photos, used by album functions [set by addImageSlide()]
- *      dupes:          ARRAY of HASH                                   [set by addPhotoDupe()]
+ *      dupes:          ARRAY of HASH                                   [set by addPhotoDupe(), redditT3ToDupe]
  *              id:             TEXT Unique ID (subreddit article id, tumblr post id, etc.)
  *              -- Optional --
  *              eL:             BOOL True if comments already loaded (same as above)
  *              title:          TEXT (same as above)
  *              date:           INT  (same as above)
+ *              off:            BOOL blog is inactive
  *              -- Site Dependent: Reddit --
  *              subreddit:      TEXT subreddit name (same as above)
  *              commentN:       INT  (same as above)
@@ -297,11 +298,8 @@ rp.sitecache = {
 };
 
 rp.blogcache = {
-    // {
-    //    tumblr: { authora: ..
-    //    wp: { author: { name: NAME, url: URL }
-    // ...
-    author: {},                 // cacheBlogUser, blogUserLink, blogUserInfo
+    // [blogger|tumblr|wp][USERID] = { name: "Display Name", url: URL }
+    user: {},                   // cacheBlogUser, blogUserLink, blogUserInfo
     // [type][site] == { n: "Blog Title", [h: hostname ] }
     info: {},                   // cacheBlogInfo, blogTitle, blogHostname
     // [type][site][tag] == "Tag Name"
@@ -1715,12 +1713,12 @@ $(function () {
     };
 
     var blogUserInfo = function(blog) {
-        if (!rp.blogcache.author[blog.t])
+        if (!rp.blogcache.user[blog.t])
             return undefined;
         switch (blog.t) {
         case 'tumblr':
         case 'wp':
-            return rp.blogcache.author[blog.t][blog.user];
+            return rp.blogcache.user[blog.t][blog.user];
         default:
             throw "Unhandled blog type: "+blog.t;
         }
@@ -1731,6 +1729,7 @@ $(function () {
         if (!info)
             return "";
         switch (blog.t) {
+        case 'blogger':
         case 'tumblr':
         case 'wp':
             return localLink(info.url, info.name, '/'+blog.t+'/'+hostnameOf(info.url));
@@ -1771,13 +1770,13 @@ $(function () {
     var cacheBlogUser = function(blog, name, url) {
         if (!blog || !blog.b || !blog.user || !name || !url)
             return;
-        if (!rp.blogcache.author[blog.t])
-            rp.blogcache.author[blog.t] = { };
+        if (!rp.blogcache.user[blog.t])
+            rp.blogcache.user[blog.t] = { };
         switch (blog.t) {
         case 'blogger':
         case 'tumblr':
         case 'wp':
-            rp.blogcache.author[blog.t][blog.user] = { name: name, url: url };
+            rp.blogcache.user[blog.t][blog.user] = { name: name, url: url };
             break;
         default:
             throw "Unhandled blog type: "+blog.t;
@@ -1948,7 +1947,7 @@ $(function () {
         if (photo.id == dupe.id &&
             photo.subreddit == dupe.subreddit &&
             // @@
-            ((photo.tumblr) ?photo.tumblr.blog :undefined) == dupe.tumblr)
+            ((photo.blog) ?photo.blog.b :undefined) == dupe.tumblr)
             return -1;
         if (!photo.dupes)
             photo.dupes = [];
@@ -4036,6 +4035,7 @@ $(function () {
         failedAjax(xhr, ajaxOptions, thrownError);
         var text = (xhr.status == 0)
             ?"<br> Check tracking protection"
+            :(xhr.responseJSON && xhr.responseJSON.message) ?'<br>'+xhr.responseJSON.message
             :(": "+thrownError+" "+xhr.status);
         doneLoading("Failed to get "+rp.url.sub+text);
     };
@@ -6981,9 +6981,18 @@ $(function () {
         return 'https://api.tumblr.com/v2/tagged?tag='+tag+'&reblog_info=true&api_key='+rp.api_key.tumblr;
     };
 
+    var tumblrPostToDupe = function(root_name, title, url, id, uuid) {
+        var name = root_name.replace(/-deactivated\d+$/, '');
+        return { tumblr: name,
+                 off: (name != root_name),
+                 title: title,
+                 url: url,
+                 id: (id) ?id :uuid.split('.')[0] };
+    };
+
     var processTumblrPost = function(opic, post) {
         var rc = false;
-        var dupe = false;
+        var isdupe = false;
         var pic;
 
         opic.blog = { t: 'tumblr',
@@ -6998,52 +7007,42 @@ $(function () {
         var val = dedupVal(post.blog_name, post.id);
         if (val) {
             log.info("cannot display url [duplicate:"+val+"]: "+opic.url);
-            dupe = true;
+            isdupe = true;
 
         } else if (opic == photo) {
-            var name, off;
-            if (photo.dupes === undefined)
-                photo.dupes = [];
+            var d;
             if (post.reblogged_root_id && post.reblogged_root_name) {
-                name = post.reblogged_root_name.replace(/-deactivated\d+$/, '')
-                off = (name != post.reblogged_root_name);
-                val = dedupVal(name, post.reblogged_root_id);
+                d = tumblrPostToDupe(post.reblogged_root_name, post.reblogged_root_title,
+                    post.reblogged_root_url, post.reblogged_root_id, post.reblogged_root_uuid);
+                val = dedupVal(d.name, d.id);
                 if (val) {
-                    dupe = true;
+                    isdupe = true;
                 } else {
-                    photo.dupes.push({tumblr: name,
-                                      off: off,
-                                      title: post.reblogged_root_title,
-                                      url: post.reblogged_root_url,
-                                      id: (post.reblogged_root_id) ?post.reblogged_root_id :post.reblogged_root_uuid.split('.')[0]});
-                    dedupAdd(name, post.reblogged_root_id, '/tumblr/'+photo.blog.b+'/'+photo.blog.id);
+                    addPhotoDupe(photo, d);
+                    dedupAdd(name, d.id, '/tumblr/'+photo.blog.b+'/'+photo.blog.id);
                     if (!photo.cross_id)
-                        photo.cross_id = post.reblogged_root_id;
+                        photo.cross_id = d.id;
                 }
             }
             if (rc && post.reblogged_from_name && post.reblogged_from_id &&
                 post.reblogged_from_id !== post.reblogged_root_id) {
-                name = post.reblogged_from_name.replace(/-deactivated\d+$/, '')
-                off = (name != post.reblogged_from_name);
-                val = dedupVal(name, post.reblogged_from_id);
+                d = tumblrPostToDupe(post.reblogged_from_name, post.reblogged_from_title,
+                    post.reblogged_from_url, post.reblogged_from_id, post.reblogged_from_uuid);
+                val = dedupVal(name, d.id);
                 if (val) {
-                    dupe = true;
+                    isdupe = true;
                 } else {
-                    photo.dupes.push({tumblr: name,
-                                      off: off,
-                                      title: post.reblogged_from_title,
-                                      url: post.reblogged_from_url,
-                                      id: (post.reblogged_from_id) ?post.reblogged_from_id :post.reblogged_from_uuid.split('.')[0]});
-                    dedupAdd(name, post.reblogged_from_id, '/tumblr/'+photo.blog.b+'/'+photo.blog.id);
+                    addPhotoDupe(photo, d);
+                    dedupAdd(name, d.id, '/tumblr/'+photo.blog.b+'/'+photo.blog.id);
                     if (!photo.cross_id)
-                        photo.cross_id = post.reblogged_from_id;
-
-                    dedupAdd(photo.blog.b, photo.blog.id);
+                        photo.cross_id = d.id;
                 }
             }
+            if (!isdupe)
+                dedupAdd(photo.blog.b, photo.blog.id);
         }
 
-        if (dupe) {
+        if (isdupe) {
             log.info("cannot display url [cross-duplicate:"+val+"]: "+photo.url);
 
         } else if (post.type == "photo" || post.type == "link") {
@@ -7129,7 +7128,7 @@ $(function () {
 
         checkPhotoAlbum(photo);
 
-        if (!rc && !dupe) {
+        if (!rc && !isdupe) {
             log.info("cannot display url [Tumblr post type: "+post.type+"]: "+photo.url);
             laterPhotoFailed(opic);
         }
@@ -7432,6 +7431,7 @@ $(function () {
             errmsg = "User "+rp.url.sub+" has no posts";
             // fall through
         case "t":
+            // @@ max 2 tags in search (space or '+' seperated)
             jsonUrl = 'https://danbooru.donmai.us/posts.json?tags='+rp.url.sub;
             url = siteTagUrl(rp.url.sub, "danbooru");
             break;
