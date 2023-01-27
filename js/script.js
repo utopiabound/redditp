@@ -993,7 +993,7 @@ $(function () {
             if (a)
                 hostname = a[0];
         }
-        return hostname;
+        return hostname.toLowerCase();
     };
     rp.fn.hostnameOf = hostnameOf;
 
@@ -2893,14 +2893,18 @@ $(function () {
                 initPhotoEmbed(pic, 'https://www.tube8.com/embed'+shortid, false);
 
             } else if (hostname == 'tumblr.com') {
-                if (pic.url.includes('/post/'))
-                    // Don't process bare tumblr blogs, nor /day/YYYY/MM/DD/ format
-                    // only BLOGNAME.tumblr.com/post/SHORTID/...
-                    pic.type = imageTypes.later;
-
-                else if (pic.url.endsWith('gifv'))
+                a = pathnameOf(pic.url).split('/');
+                if (pic.url.endsWith('.gifv'))
                     initPhotoVideo(pic, pic.url.replace(/gifv$/, "mp4"));
-
+                else if (pic.url.endsWith('.pnj'))
+                    initPhotoImage(pic, pic.url.replace(/pnj$/, "jpg"));
+                else if (a.length > 3 &&
+                         (!isNaN(parseInt(a[2], 10)) ||
+                          (a[1] == 'blog' && a.length > 5 && !isNaN(parseInt(a[4], 10)))))
+                    // BLOGNAME.tumblr.com/post/POSTID/...
+                    // www.tumblr.com/BLOGNAME/POSTID[...]
+                    // www.tumblr.com/blog/view/BLOGNAME/POSTID
+                    pic.type = imageTypes.later;
                 else
                     throw "unknown url";
 
@@ -4620,7 +4624,7 @@ $(function () {
             showCB(photo);
         };
 
-        var a;
+        var a, hn;
         if (hostname == 'apnews.com') {
             jsonUrl = 'https://storage.googleapis.com/afs-prod/contents/urn:publicid:ap.org:'+shortid;
 
@@ -4930,9 +4934,21 @@ $(function () {
             };
 
         } else if (hostname == 'tumblr.com') {
-            shortid = url2shortid(photo.url, 2);
-
-            jsonUrl = tumblrJsonURL(fqdn, shortid);
+            a = pathnameOf(photo.url).split('/');
+            shortid = a[2];
+            switch (a[1]) {
+            case 'post': // BLOGNAME.tumblr.com/post/POSTID
+                hn = fqdn;
+                break;
+            case 'blog': // tumblr.com/blog/view/BLOGNAME/POSTID
+                hn = a[3];
+                shortid = a[4];
+                break;
+            default: // tumblr.com/BLOGNAME/POSTID
+                hn = a[1];
+                break;
+            }
+            jsonUrl = tumblrJsonURL(hn, shortid);
             dataType = 'jsonp';
 
             handleData = function(data) {
