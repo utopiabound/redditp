@@ -65,7 +65,7 @@
  *      cross_id:       TEXT ID in duplictes of original link
  *      extra:          HTML Extra information for links concerning photo
  *      thumb:          URL  thumbnail of image (e.g. cached version from reddit)       [set by addPhotoThumb()]
- *      fb_thumb:       ARRAY of URLs Fallback thumbnail urls (must be images)          [set/use by addPhotoThumb()/nextPhotoFallback()]
+ *      fb_thumb:       ARRAY of URLs Fallback thumbnail urls (must be images)          [set/use by addPhotoThumb()/nextPhotoThumb()]
  *      flair:          HTML flair put next to title                                    [read by picFlair()]
  *      score:          INT  Score (upvotes - downvotes)
  *      fallback:       ARRAY of URLs Fallback urls (if pic.url fails)  [set/use by addPhotoFallback()/nextPhotoFallback()]
@@ -1648,6 +1648,17 @@ $(function () {
         }
     };
 
+    var nextPhotoThumb = function(photo) {
+        delete photo.thumb;
+        if (photo.fb_thumb && photo.fb_thumb.length)
+            photo.thumb = photo.fb_thumb.shift();
+        if (!photo.thumb && photo.type == imageTypes.thumb) {
+            initPhotoFailed(photo);
+            return false;
+        }
+        return !!photo.thumb;
+    };
+
     // push fallback to back of list
     var addPhotoFallback = function(photo, url) {
         if (!url)
@@ -1673,11 +1684,8 @@ $(function () {
             delete photo.type;
             return true;
         }
-        if (photo.type == imageTypes.thumb) {
-            delete photo.thumb;
-            if (photo.fb_thumb && photo.fb_thumb.length)
-                photo.thumb = photo.fb_thumb.shift();
-        }
+        if (photo.type == imageTypes.thumb)
+            return nextPhotoThumb(photo);
         initPhotoThumb(photo);
         return (photo.type == imageTypes.thumb);
     }
@@ -4157,11 +4165,14 @@ $(function () {
             return divNode;
 
         // Called on failed pic load
-        var find_fallback = function(pic) {
-            if (!nextPhotoFallback(pic))
-                return;
-            if (processPhoto(pic))
-                showPic(pic);
+        var find_fallback = function(pic, thumb) {
+            if (thumb) {
+                if (nextPhotoThumb(pic))
+                    showPic(pic);
+
+            } else if (nextPhotoFallback(pic))
+                if (processPhoto(pic))
+                    showPic(pic);
         }
 
         // Create a new div and apply the CSS
@@ -4186,7 +4197,7 @@ $(function () {
                     if ($(this)[0].naturalHeight == 60 &&
                         $(this)[0].naturalWidth == 130) {
                         log.info("["+photo.index+"] Image has been removed: "+url);
-                        find_fallback(photo);
+                        find_fallback(photo, thumb);
                     }
                 });
             // https://i.imgur.com/removed.png is 161x81
@@ -4195,7 +4206,7 @@ $(function () {
                     if ($(this)[0].naturalHeight == 81 &&
                         $(this)[0].naturalWidth == 161) {
                         log.info("["+photo.index+"] Image has been removed: "+url);
-                        find_fallback(photo);
+                        find_fallback(photo, thumb);
                     }
                 });
             // YouTube 404 thumbnail is 120x90
@@ -4206,7 +4217,7 @@ $(function () {
                     if ($(this)[0].naturalHeight == 90 &&
                         $(this)[0].naturalWidth == 120) {
                         log.info("["+photo.index+"] Image has been removed: "+url);
-                        find_fallback(photo);
+                        find_fallback(photo, thumb);
                     }
                 });
             // 404 221x80
@@ -4215,7 +4226,7 @@ $(function () {
                     if ($(this)[0].naturalHeight == 80 &&
                         $(this)[0].naturalWidth == 221) {
                         log.info("["+photo.index+"] Image has been removed: "+url);
-                        find_fallback(photo);
+                        find_fallback(photo, thumb);
                     }
                 });
             divNode.html(img);
@@ -4296,7 +4307,7 @@ $(function () {
             $(lastsource).on('error', function() {
                 log.info("["+imageIndex+"] video failed to load last source: "+pic.url);
                 resetNextSlideTimer();
-                find_fallback(pic);
+                find_fallback(pic, false);
             });
 
             $(video).on('error', function() {
@@ -4304,7 +4315,7 @@ $(function () {
                     pic = pic.album[0];
                 log.info("["+imageIndex+"] video failed to load: "+pic.url);
                 resetNextSlideTimer();
-                find_fallback(pic);
+                find_fallback(pic, false);
             });
 
             $(video).on('ended', function() {
@@ -4328,7 +4339,7 @@ $(function () {
                     hostnameOf(e.target.currentSrc, true) == 'gfycat.com') {
                     log.info("cannot display video [copyright claim]: "+pic.url);
                     resetNextSlideTimer();
-                    find_fallback(pic);
+                    find_fallback(pic, false);
                }
                 pic.video.duration = e.target.duration;
                 if (pic.video.duration < rp.settings.timeToNextSlide) {
@@ -4424,12 +4435,23 @@ $(function () {
             var pic = event.data;
             if (pic.type == imageTypes.album)
                 pic = event.data = pic.album[0];
-            if (pic.type == imageTypes.html)
+            switch (pic.type) {
+            case imageTypes.html:
                 showHtml(div, pic.html);
-            else if (pic.type == imageTypes.embed)
+                break;
+            case imageTypes.embed:
                 showEmbed(div, pic);
-            else
+                break;
+            case imageTypes.image:
+            case imageTypes.thumb:
+            case imageTypes.fail:
+                log.error("rpdislay: Bad image type "+imageTypeStyle[pic.type]+": "+pic.url);
+                div.unbind("rpdisplay");
+                showImage(pic, false);
+                break;
+            default:
                 throw "Bad image type "+imageTypeStyle[pic.type]+": "+pic.url;
+            }
             return true;
         };
 
@@ -5623,7 +5645,7 @@ $(function () {
         };
 
         if (checkRedditSubCache(rp.url.sub))
-            handleT5Data(rp.sitecache.reddit.sub[rp.url.sub.toLowerCase()].data)
+            handleT5Data(rp.sitecache.reddit.sub[rp.url.sub.toLowerCase()])
 
         else
             $.ajax({
