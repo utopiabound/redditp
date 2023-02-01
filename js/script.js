@@ -317,7 +317,7 @@ rp.dedup = {};
 // rp.choices[rp.url.site][rp.url.type].includes(rp.url.choice) == true
 // SITE -> { TYPE => [ "DEFAULT", "OTHER", "CHOICES" ] }
 rp.choices = {
-    'blogger': {},
+    'blogger': { 't': [] },
     'danbooru': {
         '': [ 'new', 'hot', 'popular', 'popular:day', 'popular:week', 'popular:month', 'viewed'],
     },
@@ -348,7 +348,7 @@ rp.choices = {
         'm':         [ "hot", "new", "top", "top:day", "top:week", "top:month",  "top:year", "top:all",
                        "rising", "controversial", 'gilded' ],
     },
-    'tumblr': { '': [ '' ], 't': [ '' ] },
+    'tumblr': { 't': [] },
     'wp':  { '': [ "new", "old" ], 't': [ "new", "old" ] },
     'wp2': { '': [ "new", "old" ], 't': [ "new", "old" ] },
 };
@@ -646,11 +646,12 @@ $(function () {
         return false;
     };
 
-    var shouldStillPlay = function(index) {
+    var shouldStillPlay = function(index, album) {
         if (index != rp.session.activeIndex)
             return false;
         var photo = rp.photos[index];
-        // @@ album item?
+        if (photo.type == imageTypes.album)
+            photo = photo.album[(album > 0) ?album :0];
         if (!photo || !photo.video)
             return false;
         if (photo.video.times == 1) {
@@ -751,6 +752,10 @@ $(function () {
 
     var localUserIcon = function(user, type) {
         return _infoAnchor(rp.url.base+localUserUrl(user, type), googleIcon("attribution"), user, "info infoa local");
+    };
+
+    var choiceLink = function(path, name, alt) {
+        return _infoAnchor(rp.url.base+path, name, alt, "info infol local");
     };
 
     var titleFaviconLink = function(url, text, site, alt) {
@@ -2582,10 +2587,12 @@ $(function () {
                 else
                     throw "unknown url";
 
-            } else if (hostname == 'blogspot.com') {
-                if (pathnameOf(pic.url).endsWith('.html'))
+            } else if (hostname == 'blogspot.com' ||
+                       fqdn.match(/\bblogspot\.[\w.]+/)) {
+                if (pathnameOf(pic.url).endsWith('.html')) {
+                    pic.url = pic.url.replace(/blogspot\.[.\w]+/, "blogspot.com");
                     pic.type = imageTypes.later;
-                else
+                } else
                     throw "bad blogspot url";
 
             } else if (hostname == 'blogger.com') {
@@ -2594,7 +2601,15 @@ $(function () {
                     initPhotoEmbed(pic, pic.url, false);
                 else if (a.includes('/blog/post/'))
                     pic.type = imageTypes.later;
-                else
+                else if (a.endsWith('post-interstitial.g') ||
+                         a.endsWith('blogin.g')) {
+                    a = decodeURIComponent(searchValueOf(pic.url, "blogspotURL"));
+                    if (a && a.endsWith(".html")) {
+                        pic.url = a;
+                        pic.type = imageTypes.later;
+                    } else
+                        throw "unknown blogger interstitial";
+                } else
                     throw "unknown blogger url";
 
             } else if (hostname == 'cbsnews.com') {
@@ -2610,7 +2625,7 @@ $(function () {
 
             } else if (fqdn == 'danbooru.donmai.us') {
                 a = pathnameOf(pic.url).split('/');
-                if (a[1] == 'posts' && a[2])
+                if (a[1].startsWith('post') && a.length > 2)
                     pic.type = imageTypes.later;
                 else
                     throw "unknown url";
@@ -2644,7 +2659,6 @@ $(function () {
                 a = pathnameOf(pic.url).split('/');
                 if (a[1] == 'watch' ||
                     a[2] == 'videos')
-                    // @@ mute doesn't change with toggle &mute=
                     initPhotoEmbed(pic, 'https://www.facebook.com/plugins/video.php?show_text=0&href='+encodeURIComponent(pic.url), false);
                 else
                     throw "non-media url";
@@ -2970,6 +2984,13 @@ $(function () {
             } else if (hostname == 'worldsex.com') {
                 shortid = url2shortid(pic.url);
                 initPhotoEmbed(pic, originOf(pic.url)+'/videos/embed/'+shortid, false);
+
+            } else if (hostname == 'worldstarhiphop.com') {
+                a = pathnameOf(pic.url).split('/');
+                if (a[1] == 'embed')
+                    initPhotoEmbed(pic, pic.url, false);
+                else
+                    throw "bad url";
 
             } else if (hostname == 'xtube.com') {
                 shortid = url2shortid(pic.url);
@@ -4320,7 +4341,7 @@ $(function () {
 
             $(video).on('ended', function() {
                 log.debug("["+imageIndex+"] video ended");
-                if ($.contains(document, $(video)[0]) && (shouldStillPlay(imageIndex) || !autoNextSlide())) {
+                if ($.contains(document, $(video)[0]) && (shouldStillPlay(imageIndex, albumIndex) || !autoNextSlide())) {
                     var audio = $('#gfyaudio')[0];
                     if (audio) {
                         audio.pause();
@@ -4575,7 +4596,6 @@ $(function () {
             showCB(photo);
         };
         var handleWPError = function(xhr) {
-            // @@ check xhr.responseJSON?
             // timeout: xhr.status == 0 && xhr.statusText == "timeout"
             if (xhr.status != 0) {
                 rp.wp[fqdn] = 0;
@@ -4678,7 +4698,7 @@ $(function () {
                 a = pathnameOf(photo.url).split('/');
                 postid = a.pop();
                 blogid = a.pop();
-                if (!isNaN(parseInt(postid, 10)) || !isNaN(parseInt(blogid, 10))) {
+                if (isNaN(parseInt(postid, 10)) || isNaN(parseInt(blogid, 10))) {
                     log.error("Blogger returned bad value postid:"+postid+" blogid:"+blogid);
                     return;
                 }
@@ -4759,7 +4779,8 @@ $(function () {
                     }
                     flickrAddUserMap(data.photoset.ownername, data.photoset.owner);
                     photo = initPhotoAlbum(photo, false);
-                    // @@TODO: check to see if data.photoset.total > data.photoset.perpage
+                    if (data.photoset.total > data.photoset.perpage)
+                        log.error("@@ More photos ("+data.photoset.total+") in set than on page ("+data.photoset.perpage+"): "+photo.url);
                     data.photoset.photo.forEach( function(item) {
                         var pic = processFlickrPost(item);
                         addPhotoSiteUser(pic, data.photoset.owner);
@@ -5187,6 +5208,9 @@ $(function () {
 
         var path = pathnameOf(url).split('/');
 
+        if (hostname == 'href.li')
+            url = url.replace(/.*href.li\/\?/,"");
+
         if (hostname == 'google.com' && path[1] == 'amp') {
             var n = 2;
             var scheme = 'http';
@@ -5291,7 +5315,7 @@ $(function () {
             var site = osite.toLowerCase().replaceAll(".", "");
             var prefix = "";
             try {
-                if (connector == "" && ["and", "for", "free", "link", "pics", "profile", "story"].includes(name.toLowerCase()))
+                if (connector == "" && ["and", "for", "free", "link", "nudes", "pics", "profile", "story"].includes(name.toLowerCase()))
                     throw "bad username";
                 if (connector == "" && subreddit.match(/news/))
                     throw "bad subreddit";
@@ -5557,42 +5581,42 @@ $(function () {
 
     var setupChoices = function () {
         var arr = rp.choices[rp.url.site][rp.url.type];
-        if (!arr || arr.length == 0)
-            return;
-        var base = rpurlbase();
-        var prefix = (base == '/') ?'' :'/';
+        var list = $('#subredditPopup ul');
+        list.empty();
+        if (arr && arr.length) {
+            var base = rpurlbase();
+            var prefix = (base == '/') ?'' :'/';
+            var choice = rp.url.choice.split(':')[0] || arr[0];
+
+            var i = 0;
+            while (i < arr.length) {
+                var name = arr[i].split(':');
+                var a = choiceLink(base+((i) ?prefix+arr[i] :""), name[0], arr[i]);
+                if (name[0] == choice)
+                    a.addClass('selected');
+                var li = $('<li>').append(a);
+
+                ++i;
+                var next = (i < arr.length) ?arr[i].split(':') :[];
+                while (next[0] == name[0]) {
+                    a = choiceLink(base+prefix+arr[i], next[1][0].toUpperCase(), arr[i]);
+                    if (rp.url.choice == arr[i])
+                        a.addClass('selected');
+                    li.append(a);
+                    ++i;
+                    next = (i < arr.length) ?arr[i].split(':') :[];
+                }
+                list.append(li);
+            }
+            $('#choiceTitle').text(base).show();
+        } else
+            $('#choiceTitle').hide();
+
+        $('#subRedditInfo').html("&nbsp;");
         var user;
         if (rp.url.site == 'reddit')
             user = (rp.url.type == 'm' || rp.url.type == 'submitted')
-                ? (rp.url.sub) ?rp.url.sub :rp.session.loginUser :rp.session.loginUser;
-
-        var choice = rp.url.choice.split(':')[0] || arr[0];
-
-        var list = $('#subredditPopup ul');
-        list.empty();
-        var i = 0;
-        while (i < arr.length) {
-            var name = arr[i].split(':');
-            var a = _infoAnchor(rp.url.base+base+((i) ?prefix+arr[i] :""),
-                                name[0], arr[i], "info infol local");
-            if (name[0] == choice)
-                a.addClass('selected');
-            var li = $('<li>').append(a);
-
-            ++i;
-            var next = (i < arr.length) ?arr[i].split(':') :[];
-            while (next[0] == name[0]) {
-                a = _infoAnchor(rp.url.base+base+prefix+arr[i],
-                                next[1][0].toUpperCase(), arr[i], "info infol local");
-                if (rp.url.choice == arr[i])
-                    a.addClass('selected');
-                li.append(a);
-                ++i;
-                next = (i < arr.length) ?arr[i].split(':') :[];
-            }
-            list.append(li);
-        }
-        $('#subRedditInfo').html("&nbsp;");
+            ? (rp.url.sub) ?rp.url.sub :rp.session.loginUser :rp.session.loginUser;
         if (user) {
             list.append($('<li>').append($('<hr>', { class: "split" })));
             list.append($('<li>').append(redditLink(localUserUrl(user, "reddit"), "submitted", "submitted", true)));
@@ -5624,10 +5648,31 @@ $(function () {
                     crossDomain: true,
                 });
         }
-        // @@ other site links?
 
-        $('#choiceTitle').text(base);
-        $('#choiceLi').show();
+        if (rp.url.type) {
+            switch (rp.url.site) {
+            case 'danbooru':
+            case 'flickr':
+            case 'gfycat':
+            case 'imgur':
+                if (list[0].firstChild)
+                    list.append($('<li>').append($('<hr>', { class: "split" })));
+                // @@ better name
+                list.append($('<li>').append(choiceLink('/'+rp.url.site, '/'+rp.url.site, rp.url.site)));
+                break;
+            case 'wp':
+            case 'wp2':
+                if (list[0].firstChild)
+                    list.append($('<li>').append($('<hr>', { class: "split" })));
+                // @@ name blogTitle() / blogBlogLink()
+                list.append($('<li>').append(choiceLink('/'+rp.url.site+'/'+rp.url.sub, '/'+rp.url.site+'/'+rp.url.sub, rp.url.sub)));
+                break;
+            }
+        }
+        if (list[0].firstChild)
+            $('#choiceLi').show();
+        else
+            $('#choiceLi').hide();
         updateSelected();
 
         // Load Sub Info
@@ -6488,6 +6533,7 @@ $(function () {
                         addPhotoThumb(pic, src);
                         return true;
                     }
+                    delete pic.type;
                 }
 
                 if (!src)
@@ -7186,7 +7232,7 @@ $(function () {
             else
                 rp.session.after = currentTime();
             $('#subredditUrl').val('/tumblr/t/'+rp.url.sub);
-            setSubredditLink('https://www.tumlbr.com/tagged/'+rp.url.sub);
+            setSubredditLink('https://www.tumblr.com/tagged/'+rp.url.sub);
 
         } else {
             var hostname = rp.url.sub;
@@ -7268,10 +7314,12 @@ $(function () {
             photo.url = post.url;
         }
         photo.blog = { t: 'blogger', b: post.blog.id, id: post.id };
+        cacheBlogInfo(photo.blog, "", hostnameOf(photo.url));
         if (post.author) {
             photo.blog.user = post.author.id;
             cacheBlogUser(photo.blog, post.author.displayName, post.author.url);
         }
+        addPhotoBlogTags(photo, post.labels);
         photo = initPhotoAlbum(photo, false);
         var rc = processHaystack(photo, post.content, "", post.url);
         checkPhotoAlbum(photo);
@@ -7336,7 +7384,6 @@ $(function () {
         cacheBlogInfo({t: 'blogger', b: data.id}, data.name || data.description, hostname);
         rp.blogger[hostname] = data.id;
         setConfig(configNames.blogger, rp.blogger);
-
         handleData();
     };
 
@@ -8257,8 +8304,6 @@ $(function () {
 
         document.title = "redditP - " + subredditName;
         $('#subredditUrl').val(subredditName);
-
-        $('#choiceLi').hide();
         setupChoices();
 
         if ((rp.session.loginExpire || rp.session.loginNeeded) &&
