@@ -1,16 +1,9 @@
-#choiceLi { margin: 0 0 0 -30px; }
-
 /* 12 slides wide */
 .navbox { width: 360px; }
 
 .title {
     font-size: 16px;
     line-height: 20px;
-}
-
-.title .favicon {
-    height: 20px;
-    width: 20px;
 }
 
 .linkflair {
@@ -20,7 +13,10 @@
 
 .reddit { display: none; }
 
-.nbmenu li { padding: 2px 1px 0 2px; }
+#subredditUrl { width: 118px; }
+#subredditLink .reddit { display: unset; }
+
+.nbmenu li { padding: 2px 1px 0; }
 
 /* 3 rows of number visible */
 .numberButtonList ul li { height: 24px; }

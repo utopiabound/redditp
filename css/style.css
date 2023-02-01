@@ -30,9 +30,9 @@ ul li { list-style-type: none; }
 /* Generic Styles */
 
 .favicon {
-    height: 16px;
-    width: 16px;
-    vertical-align: baseline;
+    height: 20px;
+    width: 20px;
+    vertical-align: middle;
 }
 
 .title {
@@ -51,11 +51,6 @@ ul li { list-style-type: none; }
     white-space: nowrap;
 }
 
-.title .favicon {
-    vertical-align: middle;
-    margin-bottom: inherit;
-}
-
 .clouds {
     opacity: 0.9;
     background-color: rgba(0, 0, 0, 0.7);
@@ -63,7 +58,6 @@ ul li { list-style-type: none; }
 
 .material-icons { font-size: 24px; }
 .icontoggle { cursor: pointer; }
-.origlink { margin-top: 5px; }
 .origlink i { font-size: 18px; }
 .right { float: right; }
 
@@ -81,8 +75,10 @@ a.failed { text-decoration: line-through; }
 
 .numberButtonList .over18 { color: #f99; }
 
-.nbmenu .favicon {
-    vertical-align: top;
+.multi .favicon,
+#titleDiv .favicon {
+    height: 16px;
+    width: 16px;
 }
 
 #refresh { margin-top: -8px; }
@@ -249,9 +245,13 @@ div.progress {
 
 /* NAVIGATION BOX */
 #navigationBoxes { float: left; }
-#navboxExtra { float: left; }
 #navboxContents ul li { line-height: 24px; }
 #navboxOrigDomain { margin-right: inherit; }
+
+#navboxExtra {
+    float: left;
+    height: 20px;
+}
 
 #navboxExtra .social {
     font-size: 12px;
@@ -387,7 +387,10 @@ div.score {
     left: 10px;
 }
 
+#navboxTitleWrapper { padding: 0 28px 0 0; }
+#albumNumberButtons { border-top: 2px solid grey; }
 #navboxScore { position: relative; }
+#subredditForm label { width: 24px; }
 
 #navboxScore span {
     width: 34px;
@@ -406,10 +409,6 @@ div.score {
     right: 0;
 }
 
-#navboxTitleWrapper { padding: 0 28px 0 0; }
-
-#albumNumberButtons { border-top: 2px solid grey; }
-
 .linkflair .emoji {
     height: 16px;
     width: 16px;
@@ -423,9 +422,8 @@ div.score {
     float: left;
     font-size: 10px;
     font-weight: normal;
-    margin: 1px;
+    margin: 0 1px;
     padding: 2px;
-    line-height: 16px;
 }
 
 .redditp {
@@ -502,7 +500,12 @@ input[type="text"] {
     object-fit: contain;
 }
 
-#choiceLi input:checked ~ #subredditPopup { display: block; }
+#choiceLi { margin: 0 20px 0 -48px; }
+
+#choiceLi input:checked ~ #subredditPopup {
+    left: 24px;
+    display: block;
+}
 #choiceLi ul li.multi { display: inline-block; }
 
 #choiceLi div {

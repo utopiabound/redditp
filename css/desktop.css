@@ -1,7 +1,3 @@
-#choiceLi { margin: 0 14px 0 -44px; }
-
-#subredditPopup { left: 24px; }
-
 /* 14 slides wide */
 .navbox { width: 420px; }
 
@@ -12,7 +8,9 @@
     line-height: 24px;
 }
 
-.title .favicon {
+.title .linkflair { line-height: 16px; }
+
+#titleDiv .title .favicon {
     height: 24px;
     width: 24px;
 }
