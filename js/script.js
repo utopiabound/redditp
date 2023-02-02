@@ -26,7 +26,7 @@
  * redditp-favicons             - hash of strings       - cached result of hostname to favicon url
  * redditp-wordpress            - hash to int           - cached result of speculative wordpress lookup
  * redditp-insecure             - hash to booleans      - cached result of https:// failed, where http:// worked
- * redditp-blogger              - hash of booleans      - cached result of speculative blogger lookup
+ * redditp-bloginfo             - hash to hash          - cached result of cacheBlogInfo
  * redditp-flickrnsid           - hash of strings       - cached userid to NSID
  * 
  * (window.history)
@@ -234,6 +234,7 @@ rp.storage = {};
 // Stored in localStorage or in rp.storage if localStorage isn't available
 rp.wp = {};
 rp.insecure = {};
+// fqdn -> BlogId (set by cacheBlogInfo)
 rp.blogger = {};
 rp.flickr = { nsid2u: {},
               u2nsid: {} };
@@ -419,7 +420,7 @@ $(function () {
         redditBearer: 'redditBearer',
         redditRefresh: 'redditRefresh',
         redditRefreshBy: 'redditRefreshBy',
-        blogger: 'blogger',
+        bloginfo: 'bloginfo',
         wp: 'wordpress',
         nsid: 'flickrnsid',
         favicon: 'favicon',
@@ -1074,7 +1075,7 @@ $(function () {
     rp.fn.url2shortid = url2shortid;
 
     var isGoodExtension = function (url, arr) {
-        var extension = extensionOf(url);
+        var extension = extensionOf(url).toLowerCase();
         if (extension === '')
             return false;
         if (arr.includes(extension))
@@ -1426,10 +1427,12 @@ $(function () {
     var initState = function () {
         rp.wp = getConfig(configNames.wp, rp.defaults.wp);
         rp.insecure = getConfig(configNames.insecure, {});
-        rp.blogger = getConfig(configNames.blogger, {});
-        var o = Object.entries(rp.blogger);
-        for (var i in o) {
-            cacheBlogInfo({t: 'blogger', b: o[i][1]}, '', o[i][0]);
+        rp.blogcache.info = getConfig(configNames.bloginfo, {});
+        if (rp.blogcache.info && rp.blogcache.info.blogger) {
+            var o = Object.entries(rp.blogcache.info.blogger);
+            for (var i in o) {
+                rp.blogger[o[i][1].h] = o[i][0];
+            }
         }
         rp.flickr.u2nsid = getConfig(configNames.nsid, {});
         // Build reverse map
@@ -1442,6 +1445,8 @@ $(function () {
         rp.session.redditRefreshToken = getConfig(configNames.redditRefresh, "");
         var bearer = getConfig(configNames.redditBearer, "");
         var by = getConfig(configNames.redditRefreshBy, 0);
+        // old
+        clearConfig("blogger");
         setupRedditLogin(bearer, by);
 
         ["nsfw", "mute"].forEach(function (item) {
@@ -1696,7 +1701,7 @@ $(function () {
         case 'tumblr':
             return 'https://'+blog.b+'.tumblr.com';
         case 'blogger':
-            return 'https://'+rp.blogcache.info[blog.t][blog.b].h;
+            return 'https://'+blogHostname(blog);
         case 'wp2':
         case 'wp':
             return 'https://'+blog.b;
@@ -1707,6 +1712,7 @@ $(function () {
 
     var blogTagUrl = function(blog, tag) {
         switch (blog.t) {
+        case 'blogger': return blogBlogUrl(blog)+'/search/label/'+tag;
         case 'tumblr': return 'https://www.tumblr.com/tagged/'+tag;
         case 'wp2':
         case 'wp':
@@ -1744,15 +1750,15 @@ $(function () {
 
     var blogTagLink = function(blog, tag) {
         var llink = '/'+blog.t;
-        if (['wp', 'wp2'].includes(blog.t))
-            llink += '/'+blog.b;
+        if (['wp', 'wp2', 'blogger'].includes(blog.t))
+            llink += '/'+blogHostname(blog);
         var display = blogTag(blog, tag);
         var slug = (blog.t == 'wp2') ?toWPslug(display) :tag;
         return localLink(blogTagUrl(blog, tag), blogTag(blog, tag), llink+'/t/'+slug);
     };
 
     var hasPhotoBlogTags = function(pic) {
-        return pic.blog && pic.blog.tags && pic.blog.tags.length > 0 && ['tumblr', 'wp', 'wp2'].includes(pic.blog.t);
+        return pic.blog && pic.blog.tags && pic.blog.tags.length > 0;
     };
 
     var hasPhotoBlogUser = function(pic) {
@@ -1764,11 +1770,15 @@ $(function () {
             return;
         if (!rp.blogcache.info[blog.t])
             rp.blogcache.info[blog.t] = { };
-        rp.blogcache.info[blog.t][blog.b] = { };
+        if (!rp.blogcache.info[blog.t][blog.b])
+            rp.blogcache.info[blog.t][blog.b] = { };
         if (title)
             rp.blogcache.info[blog.t][blog.b].n = title;
         if (hostname && hostname != blog.b)
             rp.blogcache.info[blog.t][blog.b].h = hostname;
+        setConfig(configNames.bloginfo, rp.blogcache.info);
+        if (blog.t == 'blogger' && hostname)
+            rp.blogger[hostname] = blog.b;
     };
 
     var cacheBlogUser = function(blog, name, url) {
@@ -1800,6 +1810,12 @@ $(function () {
                 rp.blogcache.wp2tag[blog.b] = {};
             rp.blogcache.wp2tag[blog.b][toWPslug(name)] = tag;
         }
+    };
+
+    var hasBlogTitle = function(blog) {
+        if (rp.blogcache.info[blog.t] && rp.blogcache.info[blog.t][blog.b])
+            return !!rp.blogcache.info[blog.t][blog.b].n;
+        return false;
     };
 
     var blogTitle = function(blog) {
@@ -2525,6 +2541,9 @@ $(function () {
                     hostname == 'wp.com' ||
                     hostname == 'hotnessrater.com')
                     pic.url = originOf(pic.url)+pathnameOf(pic.url);
+                // Bad domains
+                else if (fqdn == "imagehaha.com")
+                    throw "bad host"
                 initPhotoImage(pic);
 
                 // ###################### //
@@ -2564,9 +2583,14 @@ $(function () {
                 a = pathnameOf(pic.url);
                 if (a.startsWith('/video.g'))
                     initPhotoEmbed(pic, pic.url, false);
-                else if (a.includes('/blog/post/'))
+                else if (a.includes('/blog/post/')) {
+                    a = a.split('/');
+                    if (isNaN(parseInt(a.pop(), 10)))
+                        throw "Blogger bad postid";
+                    if (isNaN(parseInt(a.pop(), 10)))
+                        throw "Blogger bad blogid";
                     pic.type = imageTypes.later;
-                else if (a.endsWith('post-interstitial.g') ||
+                } else if (a.endsWith('post-interstitial.g') ||
                          a.endsWith('blogin.g')) {
                     a = decodeURIComponent(searchValueOf(pic.url, "blogspotURL"));
                     if (a && a.endsWith(".html")) {
@@ -2930,7 +2954,8 @@ $(function () {
                 } else
                     throw "unknown twitter url";
 
-            } else if (hostname == 'vidoza.net' ||
+            } else if (hostname == 'videobin.co' ||
+                       hostname == 'vidoza.net' ||
                        hostname == 'yodbox.com') {
                 shortid = url2shortid(pic.url, 1, '-');
                 initPhotoEmbed(pic, originOf(pic.url)+"/embed-"+shortid+".html", false);
@@ -4665,6 +4690,8 @@ $(function () {
                 blogid = a.pop();
                 if (isNaN(parseInt(postid, 10)) || isNaN(parseInt(blogid, 10))) {
                     log.error("Blogger returned bad value postid:"+postid+" blogid:"+blogid);
+                    initPhotoThumb(photo);
+                    showCB(photo);
                     return;
                 }
             } else
@@ -4676,13 +4703,15 @@ $(function () {
                 showCB(photo);
             };
 
-            // @@ do lookup if no blogger title
-            if (blogid === undefined) {
-                jsonUrl = bloggerBlogLookupUrl(fqdn);
+            if (blogid === undefined || !hasBlogTitle({t:'blogger', b:blogid})) {
+                if (blogid === undefined)
+                    jsonUrl = bloggerBlogLookupUrl(fqdn);
+                else
+                    jsonUrl = 'https://www.googleapis.com/blogger/v3/blogs/'+blogid+'?key='+rp.api_key.blogger;
                 handleData = function(data) {
                     recallBlogger(data, function() {
                         $.ajax({
-                            url: bloggerPostLookupUrl(fqdn, pathnameOf(photo.url)),
+                            url: (postid) ?bloggerPost(blogid, postid) :bloggerPostLookupUrl(fqdn, pathnameOf(photo.url)),
                             success: handleBloggerPost,
                             error: handleError,
                             crossDomain: true,
@@ -4692,9 +4721,9 @@ $(function () {
                 };
             } else {
                 if (postid === undefined)
-                    jsonUrl = bloggerPostLookupUrl(fqdn, pathnameOf(photo.url));
+                    jsonUrl = bloggerPostLookupUrl(blogid, pathnameOf(photo.url));
                 else
-                    jsonUrl = 'https://www.googleapis.com/blogger/v3/blogs/'+blogid+'/posts/'+postid+'?key='+rp.api_key.blogger;
+                    jsonUrl = bloggerPost(blogid, postid);
                 handleData = handleBloggerPost;
             }
 
@@ -5534,10 +5563,10 @@ $(function () {
 
     var setupChoices = function () {
         var arr = rp.choices[rp.url.site][rp.url.type];
+        var base = rpurlbase();
         var list = $('#subredditPopup ul');
         list.empty();
         if (arr && arr.length) {
-            var base = rpurlbase();
             var prefix = (base == '/') ?'' :'/';
             var choice = rp.url.choice.split(':')[0] || arr[0];
 
@@ -5561,10 +5590,9 @@ $(function () {
                 }
                 list.append(li);
             }
-            $('#choiceTitle').text(base).show();
-        } else
-            $('#choiceTitle').hide();
+        }
 
+        $('#choiceTitle').text(base).show();
         $('#subRedditInfo').html("&nbsp;");
         var user;
         if (rp.url.site == 'reddit')
@@ -5613,6 +5641,7 @@ $(function () {
                 // @@ better name
                 list.append($('<li>').append(choiceLink('/'+rp.url.site, '/'+rp.url.site, rp.url.site)));
                 break;
+            case 'blogger':
             case 'wp':
             case 'wp2':
                 if (list[0].firstChild)
@@ -6357,7 +6386,7 @@ $(function () {
         var jsonUrl;
         var handleData;
         var order = rp.url.choice.split(':');
-        var lem = rp.url.sub;
+        rp.url.sub = rp.url.sub.replaceAll(" ", "_");
 
         if (!rp.session.after) {
             rp.session.after = 1;
@@ -6379,9 +6408,9 @@ $(function () {
 
         switch(rp.url.type) {
         case 'u':
-            errmsg = "User "+lem+" has no items";
-            setSubredditLink(siteUserUrl(lem, 'imgur'));
-            jsonUrl = 'https://api.imgur.com/3/account/' + lem + '/submissions/'+rp.session.after+'/';
+            errmsg = "User "+rp.url.sub+" has no items";
+            setSubredditLink(siteUserUrl(rp.url.sub, 'imgur'));
+            jsonUrl = 'https://api.imgur.com/3/account/' + rp.url.sub + '/submissions/'+rp.session.after+'/';
             switch(rp.url.choice) {
             case 'best': jsonUrl += "best"; break;
             case 'old': jsonUrl += "oldest"; break;
@@ -6412,9 +6441,9 @@ $(function () {
             };
             break;
         case 't':
-            errmsg = "Tag "+lem+" has no items";
-            setSubredditLink(siteTagUrl(lem, 'imgur', order));
-            jsonUrl = 'https://api.imgur.com/post/v1/posts/t/'+lem+"?mature=true&page="+rp.session.after;
+            errmsg = "Tag "+rp.url.sub+" has no items";
+            setSubredditLink(siteTagUrl(rp.url.sub, 'imgur', order));
+            jsonUrl = 'https://api.imgur.com/post/v1/posts/t/'+rp.url.sub+"?mature=true&page="+rp.session.after;
             switch(order[0]) {
             case 'top': jsonUrl += "&sort=-top"+((order[1]) ?"&filter[window]="+order[1] :""); break;
             case 'new': jsonUrl += "&sort=-time"; break;
@@ -7276,6 +7305,19 @@ $(function () {
 
     var getBloggerPosts = function(hostname) {
         var jsonUrl = "https://www.googleapis.com/blogger/v3/blogs/"+rp.blogger[hostname]+"/posts?key="+rp.api_key.blogger;
+        var blog = { t: 'blogger', b: rp.blogger[hostname] };
+        switch (rp.url.type) {
+        case 't':
+            jsonUrl = bloggerSearchUrl(hostname, rp.url.multi.split(/[+,]/).map(function(x) { return "label:"+x; }).join("+"));
+            setSubredditLink(blogTagUrl(blog, rp.url.multi));
+            break;
+        case 's':
+            jsonUrl = bloggerSearchUrl(hostname, rp.url.sub);
+            setSubredditLink(blogTagUrl(blog, rp.url.multi));
+            break;
+        default:
+            setSubredditLink("http://"+hostname);
+        }
         if (rp.session.after)
             jsonUrl = jsonUrl+'&pageToken='+rp.session.after;
 
@@ -7316,28 +7358,41 @@ $(function () {
     };
 
     var bloggerPostLookupUrl = function(hostname, path) {
-        return 'https://www.googleapis.com/blogger/v3/blogs/'+rp.blogger[hostname]+'/posts/bypath?path='+encodeURI(path)+'&key='+rp.api_key.blogger;
+        var blogid = (isNaN(parseInt(blogid, 10))) ?rp.blogger[hostname] :hostname;
+        if (!blogid)
+            throw "Unknown Blogger hostname: "+hostname;
+        return 'https://www.googleapis.com/blogger/v3/blogs/'+blogid+'/posts/bypath?path='+encodeURI(path)+'&key='+rp.api_key.blogger;
     };
+
+    var bloggerPost = function(blogid, postid) {
+        return 'https://www.googleapis.com/blogger/v3/blogs/'+blogid+'/posts/'+postid+'?key='+rp.api_key.blogger;
+    };
+
+    var bloggerSearchUrl = function(hostname, search) {
+        if (!rp.blogger[hostname])
+            throw "Unknown Blogger hostname: "+hostname;
+        return 'https://www.googleapis.com/blogger/v3/blogs/'+rp.blogger[hostname]+
+            '/posts/search?q='+encodeURI(search.replaceAll(" ", "+"))+'&key='+rp.api_key.blogger;
+    }
 
     var recallBlogger = function(data, handleData, doneError) {
         var hostname = hostnameOf(data.url);
         if (data.error) {
             log.error("cannot log blogger ["+data.error.message+"]: "+hostname);
             rp.blogger[hostname] = 0;
-            setConfig(configNames.blogger, rp.blogger);
             if (doneError)
                 doneError();
             return;
         }
         cacheBlogInfo({t: 'blogger', b: data.id}, data.name || data.description, hostname);
-        rp.blogger[hostname] = data.id;
-        setConfig(configNames.blogger, rp.blogger);
         handleData();
     };
 
     var getBloggerBlog = function () {
         // Path Schema:
         // /blogger/HOSTNAME
+        // /blogger/HOSTNAME[/t/TAG[+tag2]]
+        // /blogger/HOSTNAME[/s/search string]
         var hostname = rp.url.sub;
 
         if (rp.blogger[hostname] === 0) {
@@ -7348,9 +7403,8 @@ $(function () {
         if (!setupLoading(1, "No photos loaded"))
             return;
 
-        // @@ check if need blogger title
-        if (rp.blogger[hostname]) {
-            setSubredditLink("http://"+hostname);
+        var id = rp.blogger[hostname];
+        if (id && hasBlogTitle({t:'blogger', b:id})) {
             getBloggerPosts(hostname);
             return;
         } // else lookup blogger ID
@@ -7453,7 +7507,7 @@ $(function () {
         // URLs:
         // TRENDING:    /danbooru/[CHOICE]
         // USER:        /danbooru/u/USER
-        // TAG:         /danboorut/t/TAG
+        // TAG:         /danboorut/t/TAG[+tag2]
         var jsonUrl;
         var errmsg = "Tag "+rp.url.sub+" has no posts";
         var order = rp.url.choice.split(':');
@@ -7464,7 +7518,8 @@ $(function () {
             errmsg = "User "+rp.url.sub+" has no posts";
             // fall through
         case "t":
-            // @@ max 2 tags in search (space or '+' seperated)
+            // Max 2 tags/users in search (space or '+' seperated)
+            rp.url.sub = rp.url.sub.split(/[ ,+&]/).slice(0, 2).join("+");
             jsonUrl = 'https://danbooru.donmai.us/posts.json?tags='+rp.url.sub;
             url = siteTagUrl(rp.url.sub, "danbooru");
             break;
@@ -7663,7 +7718,7 @@ $(function () {
             url = siteSearchUrl(rp.url.sub, 'flickr', reqData.sort);
             break;
         case 't':
-            reqData.tags = rp.url.sub.toLowerCase().replaceAll(" ", "").replaceAll("+", ",");
+            reqData.tags = rp.url.sub.toLowerCase().replaceAll(" ", "").replaceAll(/[+&]/, ",");
             reqData.tag_mode = "all";
             url = siteTagUrl(reqData.tags, 'flickr');
             if (rp.url.choice == 'new')
@@ -7920,6 +7975,7 @@ $(function () {
                 break;
             }
             break;
+        case "blogger":
         case "wp2":
         case "wp":
             arr = ['', rp.url.site, rp.url.sub, rp.url.type, rp.url.multi, rp.url.choice ];
