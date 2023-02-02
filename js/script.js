@@ -7358,7 +7358,7 @@ $(function () {
     };
 
     var bloggerPostLookupUrl = function(hostname, path) {
-        var blogid = (isNaN(parseInt(blogid, 10))) ?rp.blogger[hostname] :hostname;
+        var blogid = (isNaN(parseInt(hostname, 10))) ?rp.blogger[hostname] :hostname;
         if (!blogid)
             throw "Unknown Blogger hostname: "+hostname;
         return 'https://www.googleapis.com/blogger/v3/blogs/'+blogid+'/posts/bypath?path='+encodeURI(path)+'&key='+rp.api_key.blogger;
