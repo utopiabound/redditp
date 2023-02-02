@@ -93,7 +93,7 @@
  *      -- Depending on host site --
  *      subreddit:      TEXT of subreddit name
  *      site:           HASH
- *              t:      imgur|gfycat|iloopit|flickr|danbooru
+ *              t:      imgur|gfycat|flickr|danbooru
  *              -- Optional --
  *              users:  ARRAY of TEXT usernames                         [addPhotoSiteUser(), siteUserLink(), hasPhotoSiteUser()]
  *              tags:   ARRAY of TEXT Tags for photo                    [picHasSiteTags(), addPhotoSiteTags()]
@@ -328,7 +328,6 @@ rp.choices = {
         't': [ 'hot', 'new' ],
         's': [ 'hot', 'new' ],
     },
-    'iloopit': {},
     'imgur': {
         '': [ "hot", "new", "top", "top:day", "top:week", "top:month", "top:year", "top:all" ],
         'u': [ "new", "old", "best" ],
@@ -841,8 +840,6 @@ $(function () {
             return 'https://www.redgifs.com/users/'+user;
         if (type == 'imgur')
             return 'https://imgur.com/user/'+user;
-        if (type == 'iloopit')
-            return 'https://iloopit.net/'+user;
         if (type == 'flickr')
             return 'https://flickr.com/photos/'+flickrUserNSID(user);
         throw "Unknown Site type: "+type;
@@ -895,19 +892,13 @@ $(function () {
             return 'https://www.redgifs.com/browse?tags='+tag;
         if (type == 'imgur')
             return 'https://imgur.com/t/'+tag;
-        if (type == 'iloopit')
-            return 'https://iloopit.net/porngifs/'+tag+'/trending/';
         if (type == 'flickr')
             return 'https://www.flickr.com/photos/tags/'+tag.toLowerCase().replaceAll(" ", "");
         throw "Unknown Site type: "+type;
     };
 
     var siteTagLink = function(type, otag) {
-        var tag;
-        if (type == 'iloopit' && rp.sitecache.iloopit[otag])
-            tag = rp.sitecache.iloopit[otag];
-        else
-            tag = encodeURIComponent(otag);
+        var tag = encodeURIComponent(otag);
         return localLink(siteTagUrl(tag, type), otag, '/'+type+'/t/'+tag);
     };
 
@@ -1949,12 +1940,6 @@ $(function () {
         initPhotoEmbed(photo, youtubeURL(shortid, startat), true);
     };
 
-    var initPhotoiLoopit = function(photo, shortid) {
-        initPhotoVideo(photo, ['https://cdn.iloopit.net/resources/'+shortid+'/converted.mp4',
-                               'https://cdn.iloopit.net/resources/'+shortid+'/converted.webm'],
-                       'https://cdn.iloopit.net/resources/'+shortid+'/thumb.jpeg');
-    };
-
     // Return index of inserted duplicate, or -1 if not
     var addPhotoDupe = function(photo, dupe) {
         if (photo.id == dupe.id &&
@@ -2485,26 +2470,6 @@ $(function () {
                 a = pathnameOf(pic.url).split('/');
                 pic.url = sitePhotoUrl(shortid, 'gfycat');
                 pic.type = imageTypes.later;
-
-            } else if (hostname == 'iloopit.net') {
-                if (extensionOf(pic.url) == 'gif' || isVideoExtension(pic.url)) {
-                    shortid = url2shortid(pic.url, 2);
-                    initPhotoiLoopit(pic, shortid);
-
-                } else {
-                    shortid = searchValueOf(pic.url, "loopid");
-                    if (!shortid) {
-                        a = pathnameOf(pic.url).split('/');
-                        if (a[1].match(/^\d+$/))
-                            shortid = a[1];
-                    }
-                    if (shortid) {
-                        loadiLoopitTags();
-                        pic.url = 'https://iloopit.net/porngifs/all/?type=looplayer&loopid='+shortid;
-                        pic.type = imageTypes.later;
-                    } else
-                        throw "unknown iloopit format";
-                }
 
             } else if (hostname == 'clippituser.tv' ||
                        hostname == 'clippit.tv') {
@@ -4852,18 +4817,6 @@ $(function () {
                 showCB(photo);
             };
 
-        } else if (hostname == 'iloopit.net') {
-            shortid = searchValueOf(photo.url, "loopid");
-            jsonUrl = "https://api.iloopit.net/videos/single/"+shortid;
-
-            handleData = function (item) {
-                photo.site = { user: item.username, t: 'iloopit', loop: item.old_id };
-                addPhotoSiteTags(photo, item.tags);
-                initPhotoiLoopit(photo, item.data_id);
-                photo = handleiLoopitAlbum(photo, item);
-                showCB(photo);
-            };
-
         } else if (hostname == 'imgur.com') {
             headerData = { Authorization: "Client-ID "+ rp.api_key.imgur };
             a = pathnameOf(photo.url).split('/');
@@ -5758,11 +5711,6 @@ $(function () {
             else if (fqdn == 'danbooru.donmai.us') {
                 shortid = url2shortid(photo.o_url);
                 site = fqdn;
-
-            } else if (hn == 'iloopit.net') {
-                shortid = searchValueOf(photo.url, "loopid");
-                if (!shortid)
-                    return;
 
             } else
                 return;
@@ -7942,137 +7890,6 @@ $(function () {
         }
     };
 
-    // Build a pic form an iloopit item suitable for adding to an album
-    var iloopit2pic = function(item) {
-        var pic = {
-            title: item.title,
-            url: "https://iloopit.net/porngifs/all/?type=looplayer&loopid="+item.old_id,
-            date: processDate(item.date),
-            over18: true,
-            id: item._id,
-            score: item.likes - item.dislikes,
-            site: { user: item.username, loop: item.old_id, t: 'iloopit' },
-        };
-        addPhotoSiteTags(pic, item.tags);
-        initPhotoiLoopit(pic, item.data_id);
-        return pic;
-    };
-
-    // If item.group has a list, load those and build album
-    var handleiLoopitAlbum = function(photo, item) {
-        if (!item.group || item.group.length == 0)
-            return photo;
-
-        addLoading();
-        photo = initPhotoAlbum(photo, true);
-
-        var jurl = "https://api.iloopit.net/videos/group/"+item._id+"/";
-        var hdata = function(data) {
-            data.forEach(function(item) {
-                var pic = iloopit2pic(item);
-                addAlbumItem(photo, pic);
-            });
-            checkPhotoAlbum(photo);
-            doneLoading();
-        };
-        $.ajax({
-            url: jurl,
-            dataType: 'json',
-            success: hdata,
-            error: failedAjaxDone,
-            timeout: rp.settings.ajaxTimeout,
-            crossDomain: true
-        });
-        return photo;
-    };
-
-    var loadiLoopitTags = function() {
-        if (rp.sitecache.iloopit !== undefined)
-            return;
-        rp.sitecache.iloopit = {};
-        var jsonUrl = "https://api.iloopit.net/tags/all/";
-        var handleData = function(data) {
-            data.forEach(function(item) {
-                rp.sitecache.iloopit[item._id] = item.name;
-            });
-        };
-        $.ajax({
-            url: jsonUrl,
-            dataType: 'json',
-            success: handleData,
-            error: failedAjaxDone,
-            timeout: rp.settings.ajaxTimeout,
-            crossDomain: true
-        });
-    };
-
-    var getiLoopit = function() {
-        // URLs:
-        // /iloopit/            TRENDING        /likelog/user/americ/PAGE/
-        // /iloopit/t/TAG       TRENDING TAG    /videos/tag/TAG/PAGE/
-        // /iloopit/u/USER      User Videos     /videos/user/USER/PAGE/
-        var jsonUrl;
-        var errmsg;
-
-        switch(rp.url.type) {
-        case "u":
-            jsonUrl = "https://api.iloopit.net/videos/user/"+rp.url.sub;
-            setSubredditLink("https://iloopit.net/porngifs/user/"+rp.url.sub);
-            errmsg = "No more user "+rp.url.sub;
-            break;
-        case "t":
-            jsonUrl = "https://api.iloopit.net/videos/tag/"+rp.url.sub;
-            setSubredditLink("https://iloopit.net/porngifs/"+rp.url.sub+"/trending/");
-            errmsg = "No more "+rp.url.sub+" tagged";
-            break;
-        default:
-            jsonUrl = "https://api.iloopit.net/likelog/user/americ";
-            setSubredditLink("https://iloopit.net/");
-            errmsg = "No more trending";
-            break;
-        }
-
-        loadiLoopitTags();
-
-        if (!setupLoading(1, errmsg))
-            return;
-
-        if (!rp.session.after)
-            rp.session.after = 1;
-
-        jsonUrl += "/"+rp.session.after+"/";
-
-        var handleData = function(data) {
-            if (!data || data.length == 0) {
-                rp.session.loadAfter = null;
-                log.info("LOADING Done");
-                return;
-            }
-            rp.session.loadAfter = getiLoopit;
-            rp.session.after++;
-
-            data.forEach(function(item) {
-                var photo = iloopit2pic(item);
-
-                handleiLoopitAlbum(photo, item);
-
-                photo.extra = remoteLink(item.source_url, "Original");
-
-                addImageSlide(photo);
-            });
-            doneLoading();
-        };
-
-        $.ajax({
-            url: jsonUrl,
-            dataType: 'json',
-            success: handleData,
-            error: failedAjaxDone,
-            timeout: rp.settings.ajaxTimeout,
-            crossDomain: true
-        });
-    };
-
     var rpurlReset = function() {
         rp.url.site = 'reddit';
         rp.url.sub = '';
@@ -8201,7 +8018,6 @@ $(function () {
             case 'flickr':
             case 'gfycat':
             case 'imgur':
-            case 'iloopit':
             case 'danbooru':
                 rp.url.site = t;
                 var c = (a.length > 1) ?a[0] :'';
@@ -8386,7 +8202,6 @@ $(function () {
             case 'danbooru': getDanbooru(); break;
             case 'flickr': getFlickr(); break;
             case 'gfycat': getGfycat(); break;
-            case 'iloopit': getiLoopit(); break;
             case 'imgur': getImgur(); break;
             case 'reddit': getRedditImages(); break;
             case 'tumblr': getTumblrBlog(); break;
