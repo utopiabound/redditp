@@ -2608,6 +2608,14 @@ $(function () {
                 else
                     throw "non-video url";
 
+            } else if (hostname == 'cnn.com') {
+                a = pathnameOf(pic.url).split('/');
+                if (a[1] == 'videos')
+                    initPhotoEmbed(pic, 'https://fave.api.cnn.io/v1/fav/?video='+a.slice(2).join("/")+
+                                   "&customer=cnn&edition=domestic&env=prod");
+                else
+                    throw "unknown url";
+
             } else if (hostname == 'd.tube') {
                 a = pathnameOf(pic.url).split('/');
                 initPhotoEmbed(pic, 'https://emb.d.tube/#!/'+a.slice(2,4).join('/'), false);
@@ -5290,22 +5298,20 @@ $(function () {
         // 0x27a1 - right arrow
         var re;
         if (rp.session.regexUnicode)
-            re = /(?:[[{(]\s*|my\s+|on\s+|\b|^)?([\p{L}.$]+\p{L}|[@]+|\u{1f47b})\s*((?:&\w+;)?[-:@][-:@\s]*|(?:&gt;|=|-)+|\b\s*|\]\[|\)\s*\(|(?:\u{25b6}|\u{27a1})\u{fe0f}?)[[\s]*(\w[\w.-]+\w)(?:\s*[)\]}])?/gui;
+            re = /(?:[[{(]\s*|my\s+|on\s+|\b|^)?([\p{L}.$]+\p{L}|\s*|\u{1f47b})\s*((?:&\w+;)?[-:@][-:@\s]*|(?:&gt;|=|-)+|\]\[|\)\s*\(|(?:\u{25b6}|\u{27a1})\u{fe0f}?)[[\s]*(\w[\w.-]+\w)(?:\s*[)\]}])?/gui;
         else
-            re = /(?:[[{(]\s*|\b|my\s+|on\s+|^)?([A-Za-z.$]+[A-Za-z]|[@]+)\s*((?:&\w+;)?[-:@][-:@\s]*|(?:&gt;|=|-)+|\b\s*|\]\[|\)\s*\()[[\s]*([\w.-]+\w)(?:\s*[)\]}])?/gi;
+            re = /(?:[[{(]\s*|\b|my\s+|on\s+|^)?([A-Za-z.$]+[A-Za-z]|\s*)\s*((?:&\w+;)?[-:@][-:@\s]*|(?:&gt;|=|-)+|\]\[|\)\s*\()[[\s]*([\w.-]+\w)(?:\s*[)\]}])?/gi;
         t1 = t1.replace(re, function(match, osite, connector, name) {
             var site = osite.toLowerCase().replaceAll(".", "");
             var prefix = "";
             try {
-                if (connector == "" && ["and", "for", "free", "link", "nudes", "pics", "profile", "story"].includes(name.toLowerCase()))
-                    throw "bad username";
-                if (connector == "" && subreddit.match(/news/))
-                    throw "bad subreddit";
+                if (osite == "" && connector == "")
+                    return match;
                 if (site == "fb")
                     site = "facebook";
                 else if (site == "tk")
                     site = "tiktok";
-                else if (site.match(/^(onlyfans?|of)$/) && !(site == "of" && connector == ""))
+                else if (site.match(/^(onlyfans?|of)$/) && !(site == "of" && ["", "@"].includes(connector)))
                     site = "onlyfans";
                 else if (site.match(/^[sś$](na?pcha?t|np|nap?|c)$/) || site == "\u{1f47b}") // Ghost
                     site = "snapchat";
@@ -5357,8 +5363,7 @@ $(function () {
         });
 
         // Single Word title (might be username)
-        t1 = t1.replace(/^[\w.-]{6,}$/, function(match) {
-            var p1 = match;
+        t1 = t1.replace(/^@?([\w.-]{6,})$/, function(match, p1) {
             var social = metaSocial(hn, subreddit, picFlair(pic));
             if (p1.toLowerCase() == social)
                 return match;
