@@ -92,7 +92,7 @@
  *
  *      -- Depending on host site --
  *      subreddit:      TEXT of subreddit name
- *      site:           HASH
+ *      site:           HASH                                            [addPhotoSite()]
  *              t:      imgur|gfycat|flickr|danbooru
  *              -- Optional --
  *              users:  ARRAY of TEXT usernames                         [addPhotoSiteUser(), siteUserLink(), hasPhotoSiteUser()]
@@ -242,11 +242,16 @@ rp.faviconcache = {};
 
 rp.defaults = {
     wp: {
-        'businessinsider.com': 0,
+        'apnews.com': 0,
         'npr.org': 0,
         'onlyfans.com': 0,
         'rpclip.com': 2,
-        'tmz.com': 0,
+        'www.bbc.com': 0,
+        'www.bbc.co.uk': 0,
+        'www.businessinsider.com': 0,
+        'www.nfl.com': 0,
+        'www.reuters.com': 0,
+        'www.tmz.com': 0,
     },
     favicon: {
         'i.pximg.net': 'https://www.pixiv.net/favicon.ico',
@@ -825,9 +830,9 @@ $(function () {
     var sitePhotoUrl = function(shortid, type) {
         if (type == 'gfycat')
             return 'https://gfycat.com/'+shortid;
-        else if (type == 'redgifs')
+        if (type == 'redgifs')
             return 'https://www.redgifs.com/watch/'+shortid.toLowerCase();
-        else if (type == 'imgur')
+        if (type == 'imgur')
             return 'https://imgur.com/'+shortid;
         throw "Unknown Site type: "+type;
     };
@@ -1869,10 +1874,11 @@ $(function () {
         var jsonUrl;
         var dataType = 'json';
         var handleData;
+        var handleError = failedAjaxDone;
         var handleWPdata = function(data) {
             if (data.id && data.id != blog.b)
                 log.error("Wordpress ("+blog.t+") id:"+data.id+" does not agree with blog:"+blog.b);
-            cacheBlogInfo(blog, data.name || data.description, blog.b);
+            cacheBlogInfo(blog, data.name || data.description, hostnameOf(data.url || data.home));
             var icon = data.site_icon_url;
             if (!icon)
                 icon = (data.icon) ?data.icon.img :undefined;
@@ -1883,6 +1889,16 @@ $(function () {
         case 'wp2':
             jsonUrl = 'https://'+blog.b+'/wp-json/';
             handleData = handleWPdata;
+            handleError = function() {
+                $.ajax({
+                    url: jsonUrl+'?_jsonp=?',
+                    dataType: 'jsonp',
+                    success: handleWPdata,
+                    error: failedAjaxDone,
+                    timeout: rp.settings.ajaxTimeout,
+                    crossDomain: true
+                });
+            };
             break;
         case 'wp':
             jsonUrl = 'https://public-api.wordpress.com/rest/v1.1/sites/'+blog.b;
@@ -1895,7 +1911,7 @@ $(function () {
             url: jsonUrl,
             dataType: dataType,
             success: handleData,
-            error: failedAjaxDone,
+            error: handleError,
             timeout: rp.settings.ajaxTimeout,
             crossDomain: true
         });
@@ -1908,6 +1924,14 @@ $(function () {
     var addPhotoSiteTags = function(photo, tags) {
         if (tags && tags.length > 0)
             photo.site.tags = ((photo.site.tags) ?photo.site.tags :[]).concat(tags);
+    }
+
+    var addPhotoSite = function(photo, type, user) {
+        if (!photo.site)
+            photo.site = {t: type};
+        else if (photo.site.t != type)
+            return log.error("Tried to reset site type old:"+photo.site.t+" new:"+type+": "+photo.url);
+        addPhotoSiteUser(photo, user);
     }
 
     var addPhotoSiteUser = function(photo, user) {
@@ -2480,10 +2504,11 @@ $(function () {
 
             } else if (hostname == 'gfycat.com' ||
                        hostname == 'gifdeliverynetwork.com') {
+                //if (a[2] != 'collections') {
+                // @@ needs bearer token
                 shortid = url2shortid(pic.url, -1, '-', false);
                 if (shortid == 'about')
                     throw "bad url";
-                a = pathnameOf(pic.url).split('/');
                 pic.url = sitePhotoUrl(shortid, 'gfycat');
                 pic.type = imageTypes.later;
 
@@ -2607,6 +2632,12 @@ $(function () {
                     initPhotoEmbed(pic, pic.url, false);
                 else
                     throw "non-video url";
+
+            } else if (hostname == 'clipchamp.com') {
+                a = pathnameOf(pic.url).split('/');
+                if (a[1] != 'watch' || a.length < 3)
+                    throw "bad url";
+                initPhotoEmbed(pic, originOf(pic.url)+'/watch/'+a[2]+'/embed', false);
 
             } else if (hostname == 'cnn.com') {
                 a = pathnameOf(pic.url).split('/');
@@ -3020,7 +3051,7 @@ $(function () {
                 shortid = url2shortid(pic.url, 2, '-');
                 initPhotoEmbed(pic, originOf(pic.url)+'/videos/embed/'+shortid, false);
 
-            } else if (rp.wp[hostname]) {
+            } else if (rp.wp[fqdn]) {
                 shortid = url2shortid(pic.url);
                 if (extensionOf(shortid))
                     throw("bad wpv2 url - extension");
@@ -3096,22 +3127,22 @@ $(function () {
                     log.info("AUTO embed: "+pic.url);
                     initPhotoEmbed(pic);
 
-                } else if (rp.wp[hostname] === undefined) {
+                } else if (rp.wp[fqdn] === undefined) {
                     shortid = url2shortid(pic.url);
                     var re1, re2;
                     if (rp.session.regexUnicode) {
                         re1 = /^(?:\/index.php)?\/(?:\d+\/){3}([\w\p{N}\p{L}]+(?:-[\w\p{N}\p{L}]+)*)\/$/u;
-                        re2 = /^\/(?:\w+\/)?[\w\p{N}\p{L}]+(?:-[\w\p{N}\p{L}]+)+\/$/u;
+                        re2 = /^\/(?:\w+\/)?[\w\p{N}\p{L}]+(?:-[\w\p{N}\p{L}]+)+\/?$/u;
                     } else {
                         re1 = /^(?:\/index.php)?\/(?:\d+\/){3}([\w]+(?:-[\w]+)*)\/$/;
-                        re2 = /^\/(?:\w+\/)?[\w]+(?:-[\w]+)+\/$/;
+                        re2 = /^\/(?:\w+\/)?[\w]+(?:-[\w]+)+\/?$/;
                     }
                     if (path.match(re1))
-                        rp.wp[hostname] = 1;
+                        rp.wp[fqdn] = 1;
                     if (path.match(re2) && !extensionOf(pic.url))
-                        rp.wp[hostname] = 2;
-                    if (rp.wp[hostname]) {
-                        log.info("ATTEMPT wordpress v"+rp.wp[hostname]+": "+pic.url);
+                        rp.wp[fqdn] = 2;
+                    if (rp.wp[fqdn]) {
+                        log.info("ATTEMPT wordpress v"+rp.wp[fqdn]+": "+pic.url);
                         pic.type = imageTypes.later;
                         return true;
                     }
@@ -3557,11 +3588,6 @@ $(function () {
     // Capture all clicks on infop links (links that direct locally
     $(document).on('click', 'a.local', function (event) {
         stopEvent(event);
-        if ($('#login').is(':checked'))
-            $('#login').click();
-        if ($('#choice').is(':checked'))
-            $('#choice').click();
-
         var path = $(this).prop('pathname')+$(this).prop('search');
         processUrl(path);
     });
@@ -3956,6 +3982,10 @@ $(function () {
         // Setup navboxLink and navboxImageSearch
         updateNavboxTypes(image);
         $('.popup').hide();
+        if ($('#login').is(':checked'))
+            $('#login').click();
+        if ($('#choice').is(':checked'))
+            $('#choice').click();
 
         if (albumIndex >= 0) {
             $('#navboxAlbumOrigLink').attr('href', photo.o_url).attr('title', photo.title+" (a)").parent().show();
@@ -4794,7 +4824,7 @@ $(function () {
                 };
 
             } else {
-                photo.site = { t: 'flickr', user: userid };
+                addPhotoSite(photo, 'flickr', userid);
 
                 jsonUrl = flickrJsonURL('flickr.photos.getSizes', { photo_id: shortid })
 
@@ -4842,17 +4872,36 @@ $(function () {
             }
 
         } else if (hostname == 'gfycat.com') {
-            jsonUrl = "https://api.gfycat.com/v1/gfycats/" + shortid;
-
-            handleData = function (data) {
-                processGfycatItem(photo, data.gfyItem);
-                showCB(photo);
-            };
-
-            handleError = function() {
-                initPhotoEmbed(photo, 'https://redgifs.com/ifr/'+shortid.toLowerCase(), false);
-                showCB(photo);
-            };
+            a = pathnameOf(photo.url).split('/');
+            if (a[2] == "collections") {
+                var u = a[1].slice(1, -1);
+                addPhotoSite(photo, 'gfycat', u);
+                jsonUrl = "https://api.gfycat.com/v1/users/"+u+"/collections/"+a[3]+"/gfycats";
+                handleData = function (data) {
+                    var gifs = data.gfycats || data.gifs;
+                    if (!gifs.length) {
+                        initPhotoFailed(photo);
+                        showCB(photo);
+                        return;
+                    }
+                    var p = initPhotoAlbum(photo, false);
+                    gifs.forEach(function(data) {
+                        addAlbumItem(p, gfycat2pic(data));
+                    });
+                    checkPhotoAlbum(p);
+                    showCB(photo);
+                };
+            } else {
+                jsonUrl = "https://api.gfycat.com/v1/gfycats/" + shortid;
+                handleData = function (data) {
+                    processGfycatItem(photo, data.gfyItem);
+                    showCB(photo);
+                };
+                handleError = function() {
+                    initPhotoEmbed(photo, 'https://redgifs.com/ifr/'+shortid.toLowerCase(), false);
+                    showCB(photo);
+                };
+            }
 
         } else if (hostname == 'imgur.com') {
             headerData = { Authorization: "Client-ID "+ rp.api_key.imgur };
@@ -5034,9 +5083,9 @@ $(function () {
                 jsonUrl = 'https://public-api.wordpress.com/rest/v1.1/sites/'+fqdn+'/posts/slug:'+shortid;
                 handleData = handleWPv1Data;
                 handleError = function() {
-                    log.info("ATTEMPT wordpress v2: "+photo.url);
+                    log.info("ATTEMPTING wordpress v2: "+photo.url);
                     $.ajax({
-                        url: wp2BaseJsonUrl(hostname)+'?slug='+shortid+'&_jsonp=?',
+                        url: wp2BaseJsonUrl(fqdn)+'?slug='+shortid+'&_jsonp=?',
                         type: postType,
                         data: postData,
                         headers: headerData,
@@ -5119,9 +5168,7 @@ $(function () {
     };
 
     var handleImgurItemMeta = function(photo, item) {
-        if (!photo.site)
-            photo.site = { t: "imgur" };
-        addPhotoSiteUser(photo, item.account_url);
+        addPhotoSite(photo, "imgur", item.account_url);
         if (item.section) {
             if (photo.subreddit)
                 addPhotoSiteTags(photo, [ item.section ]);
@@ -5330,6 +5377,9 @@ $(function () {
                     return "kik : "+name; // ensure it doesn't get picked up below
                 else if (site == "reddit")
                     return "u/"+name; // this will be picked up below for u/USER
+                else if (site == "vlive" || // dead site
+                         site == "youtube")
+                    return match;
                 else if (connector == "@") {
                     prefix = osite+" ";
                     site = metaSocial(hn, subreddit, picFlair(pic), (pic.over18) ?"instagram" :"twitter");
@@ -5365,7 +5415,15 @@ $(function () {
         // Single Word title (might be username)
         t1 = t1.replace(/^@?([\w.-]{6,})$/, function(match, p1) {
             var social = metaSocial(hn, subreddit, picFlair(pic));
-            if (p1.toLowerCase() == social)
+            var socialuser;
+            var a = pathnameOf(pic.url).split('/');
+            if (hn == 'twitter.com')
+                socialuser = ['twitter', a[1]];
+            else if (hn == 'tiktok.com' && a[1].startsWith('@'))
+                socialuser = ['tiktok', [1].slice(1, -1)];
+            var p = p1.toLowerCase();
+            if (p == social ||
+                (socialuser && socialuser[0] == social && socialuser[1].toLowerCase() != p))
                 return match;
             try {
                 return socialUserLink(p1, social, match);
@@ -5771,7 +5829,7 @@ $(function () {
                         log.info("Failed to getInfo("+shortid+"): "+post.message);
                         return;
                     }
-                    photo.site = { t: 'flickr', user: post.photo.owner.nsid };
+                    addPhotoSite(photo, 'flickr', post.photo.owner.nsid);
                     flickrAddUserMap(post.photo.owner.username, post.photo.owner.nsid);
                     if (post.photo.tags.tag)
                         addPhotoSiteTags(photo, post.photo.tags.tag.map(function(x) { return x.raw }));
@@ -7445,7 +7503,7 @@ $(function () {
     //
     // https://danbooru.donmai.us/wiki_pages/api:posts
     var processDanbooruPost = function(photo, post) {
-        photo.site = { t: "danbooru" };
+        addPhotoSite(photo, "danbooru");
         if (!photo.title && post.tag_string_character)
             photo.title = post.tag_string_character.split(" ")
             .map(function(x) { return titleTagLink(x, "danbooru"); }).join(" and ");
@@ -7799,15 +7857,25 @@ $(function () {
     };
 
     var processGfycatItem = function(photo, item) {
-        photo.site =  { t: 'gfycat' };
+        addPhotoSite(photo, 'gfycat', item.username);
         if (!photo.title) {
             photo.title = gfyItemTitle(item);
             fixupPhotoTitle(photo);
         }
         addPhotoSiteTags(photo, item.tags);
-        addPhotoSiteUser(photo, item.username);
         initPhotoVideo(photo, [ item.webmUrl, item.mp4Url ], item.posterUrl);
         return photo;
+    };
+
+    var gfycat2pic = function(post) {
+        var image = { url: sitePhotoUrl(post.gfyName, 'gfycat'),
+                      over18: (post.nsfw != 0),
+                      title: gfyItemTitle(post),
+                      date: post.createDate,
+                      score: rp.settings.minScore + post.likes - post.dislikes,
+                    };
+        fixupPhotoTitle(image);
+        return processGfycatItem(image, post);
     };
 
     var getGfycat = function() {
@@ -7849,17 +7917,6 @@ $(function () {
         else
             first = true;
 
-        var gfycat2pic = function(post) {
-            var image = { url: sitePhotoUrl(post.gfyName, 'gfycat'),
-                          over18: (post.nsfw != 0),
-                          title: gfyItemTitle(post),
-                          date: post.createDate,
-                          score: rp.settings.minScore + post.likes - post.dislikes,
-                        };
-            fixupPhotoTitle(image);
-            return processGfycatItem(image, post);
-        };
-
         var handleGfycatData = function (data) {
             if (data.gfycats.length) {
                 data.gfycats.forEach(function (post) {
@@ -7895,14 +7952,14 @@ $(function () {
                 var collections = data.gfyCollections || data.gifCollections;
 
                 collections.forEach(function (album) {
-                    var url = 'https://api.gfycat.com/v1/users/'+user+'/collections/'+album.folderId+"/gifs";
+                    var url = 'https://api.gfycat.com/v1/users/'+user+'/collections/'+album.folderId+"/gfycats";
                     if (album.folderSubType != "Album") {
                         log.error("Unknown type ["+album.folderSubType+"]: "+url);
                         return;
                     }
                     var photo = fixupPhotoTitle({
                         url: siteUserUrl(user, 'gfycat')+'/collections/'+album.folderId+"/"+album.linkText,
-                        site: { t: 'gfycat', user: user },
+                        site: { t: 'gfycat', users: [ user ] },
                         title: album.folderName || album.description,
                         date: album.date,
                         over18: Boolean(album.nsfw),
