@@ -105,7 +105,6 @@ See Help (?) popup
 * /blogger/HOSTNAME	(fqdn of blogger hosted site)
 * /flickr			Popular Flickr Items
 * /flickr/USER[/ALBUM] (username of flickr user)
-* /iloopit/[u/USER|t/TAG]
 
 ### Blog Order (Tumblr, WordPress, WordPress (v2)):
 These are available from the popup menu

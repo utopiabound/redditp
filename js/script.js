@@ -93,7 +93,7 @@
  *      -- Depending on host site --
  *      subreddit:      TEXT of subreddit name
  *      site:           HASH                                            [addPhotoSite()]
- *              t:      imgur|gfycat|flickr|danbooru
+ *              t:      imgur|gfycat|flickr|danbooru|e621
  *              -- Optional --
  *              users:  ARRAY of TEXT usernames                         [addPhotoSiteUser(), siteUserLink(), hasPhotoSiteUser()]
  *              tags:   ARRAY of TEXT Tags for photo                    [picHasSiteTags(), addPhotoSiteTags()]
@@ -132,6 +132,7 @@
  * * Better Blogger&Blogspot urls
  * * Handle Categories for blogs in addition to Tags
  * * Finish removing tumblr from dupes
+ * * Allow Differentiated tag types (wp2: Tags vs. Categories, e621: General, Meta, Species, Artists, danbooru: general, character, artist, meta)
  */
 
 var rp = {};
@@ -254,7 +255,9 @@ rp.defaults = {
         'www.tmz.com': 0,
     },
     favicon: {
+        'art.ngfiles.com': 'https://www.newgrounds.com/favicon.ico',
         'i.pximg.net': 'https://www.pixiv.net/favicon.ico',
+        'itaku.ee': 'https://itaku.ee/assets/favicon-yellow.ico',
         'sta.sh': 'https://www.deviantart.com/favicon.ico',
         'snapchat.com': 'https://static.snapchat.com/favicon.ico',
     }
@@ -279,7 +282,7 @@ rp.favicons = {
     wordpress: 'https://s1.wp.com/i/favicon.ico',
     wp: 'https://s1.wp.com/i/favicon.ico',
     dropbox: 'https://cfl.dropboxstatic.com/static/images/favicon.ico',
-    patreon: 'https://c5.patreon.com/external/favicon/favicon-16x16.png',
+    patreon: 'https://c5.patreon.com/external/favicon/favicon.ico',
     redgifs: 'https://www.redgifs.com/assets/favicon.ico',
     xhamster: 'https://static-lvlt.xhcdn.com/xh-mobile/images/favicon/favicon.ico',
     tiktok: 'https://lf16-tiktok-common.ibytedtos.com/obj/tiktok-web-common-sg/mtact/static/pwa/icon_128x128.png',
@@ -326,6 +329,9 @@ rp.choices = {
     'blogger': { 't': [] },
     'danbooru': {
         '': [ 'new', 'hot', 'popular', 'popular:day', 'popular:week', 'popular:month', 'viewed'],
+    },
+    'e621': {
+        '': [ 'new', 'hot', 'popular', 'popular:day', 'popular:week', 'popular:month'],
     },
     'gfycat': {},
     'flickr': {
@@ -791,6 +797,29 @@ $(function () {
         return data.html();
     };
 
+    // Process url to social link
+    var socialUrlLink = function(url) {
+        var a = pathnameOf(url).split('/');
+        var domains = hostnameOf(url).split('.').reverse();
+        var hn = domains[1]+'.'+domains[0];
+        if (hn == 'tumblr.com')
+            return socialUserLink(domains[2], "tumblr", url);
+        if (a.length < 3) {
+            if (hn == 't.me')
+                domains[1] = 'telegram';
+            if (hn == 'reddit.com') {
+                if (path[0] == 'r')
+                    return path; // special case
+            }
+            try {
+                return socialUserLink(a[1], domains[1], url);
+            } catch (e) {
+                // ignore and fall through
+            }
+        }
+        return titleFLink(url, domains.reverse().join('.')+a.join("/"));
+    };
+
     var socialUserLink = function(user, type, alt) {
         if (type === undefined)
             throw "Bad Social Type";
@@ -805,6 +834,8 @@ $(function () {
                 return titleFaviconLink('https://instagram.com/'+user, user, "IG", alt);
             if (type == "onlyfans")
                 return titleFaviconLink('https://onlyfans.com/'+user, user, "OnlyFans", alt);
+            if (type == "patreon")
+                return titleFaviconLink('https://patreon.com/'+user, user, "Patreon", alt);
             if (type == "reddit")
                 return titleRLink(localUserUrl(user, type), 'u/'+user, alt);
             if (type == "snapchat")
@@ -840,6 +871,8 @@ $(function () {
     var siteUserUrl = function(user, type) {
         if (type == 'danbooru')
             return 'https://danbooru.donmai.us/posts?tags='+user;
+        if (type == 'e621')
+            return 'https://e621.net/posts?tags='+user;
         if (type == 'gfycat')
             return 'https://gfycat.com/@'+user;
         if (type == 'redgifs')
@@ -892,6 +925,8 @@ $(function () {
     var siteTagUrl = function(tag, type) {
         if (type == 'danbooru')
             return 'https://danbooru.donmai.us/posts?tags='+tag;
+        if (type == 'e621')
+            return 'https://e621.net/posts?tags='+tag;
         if (type == 'gfycat')
             return siteSearchUrl(tag, type);
         if (type == 'redgifs')
@@ -1080,7 +1115,11 @@ $(function () {
     rp.fn.url2shortid = url2shortid;
 
     var isGoodExtension = function (url, arr) {
-        var extension = extensionOf(url).toLowerCase();
+        var extension;
+        if (url.includes('.'))
+            extension = extensionOf(url).toLowerCase();
+        else
+            extension = url.toLowerCase();
         if (extension === '')
             return false;
         if (arr.includes(extension))
@@ -1937,10 +1976,7 @@ $(function () {
     var addPhotoSiteUser = function(photo, user) {
         if (!user || (photo.site.t == 'gfycat' && user == 'anonymous'))
             return;
-        if (photo.site.users)
-            photo.site.users.push(user);
-        else
-            photo.site.users = [ user ];
+        photo.site.users = ((photo.site.users) ?photo.site.users :[]).concat((Array.isArray(user)) ?user :[user]);
     }
 
     var initPhotoImage = function(photo, url) {
@@ -2651,7 +2687,8 @@ $(function () {
                 a = pathnameOf(pic.url).split('/');
                 initPhotoEmbed(pic, 'https://emb.d.tube/#!/'+a.slice(2,4).join('/'), false);
 
-            } else if (fqdn == 'danbooru.donmai.us') {
+            } else if (fqdn == 'danbooru.donmai.us' ||
+                       hostname == 'e621.net') {
                 a = pathnameOf(pic.url).split('/');
                 if (a[1].startsWith('post') && a.length > 2)
                     pic.type = imageTypes.later;
@@ -4784,6 +4821,13 @@ $(function () {
 
             handleData = handleOembed;
 
+        } else if (hostname == 'e621.net') {
+            jsonUrl = 'https://e621.net/posts/'+shortid+'.json';
+            handleData = function(post) {
+                processE621Post(photo, post);
+                showCB(photo);
+            };
+
         } else if (hostname == 'flickr.com') {
             dataType = 'jsonp';
 
@@ -5285,7 +5329,7 @@ $(function () {
     // TLDs are currently 2 to 6 alphabetic characters
     // "path" match is complient
     // Missing, query (?stuff), and fragment (#stuff)
-    var urlregexp = new RegExp('https?://[\\w\\._-]{1,256}\\.[a-z]{2,6}(/([\\w\\-\\.~]|%[0-9a-f]{2}|[!$&\'()*+,;=@])+)*', 'gi');
+    var urlregexp = new RegExp('https?://[\\w\\._-]{1,256}\\.[a-z]{2,6}(/([\\w\\-\\.~]|%[0-9a-f]{2}|[#!$&\'()*+,;=@])+)*', 'gi');
 
     // Returns pic with updated title
     var fixupPhotoTitle = function(pic, origtitle, parent_sub) {
@@ -5296,24 +5340,7 @@ $(function () {
         var hn = hostnameOf(pic.url, true);
 
         // Do URLs first, so we don't pickup those added later
-        var t1 = title.replace(urlregexp, function(match) {
-            var fqdn = hostnameOf(match);
-            var path = pathnameOf(match);
-
-            var domains = fqdn.split('.').reverse();
-            var hn = domains[1]+'.'+domains[0];
-
-            if (hn == 'tumblr.com') // @@
-                return socialUserLink(domains[2], "tumblr");
-            if (hn == 'instagram.com')
-                return socialUserLink(path.replace(/^[/]/, '').replace(/\/.*/,''), "instagram");
-            if (hn == 'reddit.com') {
-                if (path.startsWith("/r/"))
-                    return path; // will be picked up below
-                // else fall through
-            }
-            return titleFLink(match, fqdn+path);
-        });
+        var t1 = title.replace(urlregexp, socialUrlLink);
 
         var metaSocial = function(hn, subreddit, flair, def) {
             if (hn == "tiktok.com" || subreddit.match(/tiktok/i) || flair.match(/tiktok/i))
@@ -5354,6 +5381,8 @@ $(function () {
             try {
                 if (osite == "" && connector == "")
                     return match;
+                if (name.match(new RegExp('(?:\b|\.|^)'+osite+'(:?\b|\.|$)', 'i')))
+                    throw "site in name";
                 if (site == "fb")
                     site = "facebook";
                 else if (site == "tk")
@@ -5400,7 +5429,7 @@ $(function () {
             log.debug("TITLE 1: `"+title+"'\n      -> `"+t1);
 
         // r/Subreddit
-        t1 = t1.replace(/(?=^|\W|\b)(?:[[{(]\s*)?\/?(r\/[\w-]+)((?:\/[\w-]+)*)\/?\s*(?:\s*[)\]}])?/gi, function(match, p1, p2) {
+        t1 = t1.replace(/(?=^|\s)(?:[[{(]\s*)?\/?(r\/[\w-]+)((?:\/[\w-]+)*)\/?\s*(?:\s*[)\]}])?/gi, function(match, p1, p2) {
             var t = titleRLink('/'+p1, p1, match);
             if (p2)
                 t += titleFLink("https://reddit.com"+match, url2shortid(p2));
@@ -5408,7 +5437,7 @@ $(function () {
         });
 
         // u/RedditUser - https://github.com/reddit-archive/reddit/blob/master/r2/r2/lib/validator/validator.py#L1567
-        t1 = t1.replace(/(?=^|\W|\b)(?:[[{(]\s*)?\/?(?:u|user)\/([\w-]{3,20})\s*(?:\s*[)\]}])?/gi, function(match, p1) {
+        t1 = t1.replace(/(?=^|\s)(?:[[{(]\s*)?\/?(?:u|user)\/([\w-]{3,20})\s*(?:\s*[)\]}])?/gi, function(match, p1) {
             return socialUserLink(p1, "reddit", match);
         });
 
@@ -5695,6 +5724,7 @@ $(function () {
 
         if (rp.url.type) {
             switch (rp.url.site) {
+            case 'e621':
             case 'danbooru':
             case 'flickr':
             case 'gfycat':
@@ -7644,7 +7674,7 @@ $(function () {
             } else
                 rp.session.loadAfter = null;
             doneLoading();
-        }
+        };
 
         $.ajax({
             url: jsonUrl,
@@ -7655,6 +7685,159 @@ $(function () {
             crossDomain: true
         });
     }
+
+    /////////////////////////////////////////////////////////////////
+    // E621
+    //
+
+    var processE621Post = function(photo, post) {
+        addPhotoSite(photo, "e621", post.tags.artist);
+        if (!photo.title && post.description)
+            // @@ fixup post.description (may have [section=Story]...[/section]
+            fixupPhotoTitle(photo, post.description);
+        addPhotoSiteTags(photo, post.tags.general);
+        addPhotoSiteTags(photo, post.tags.species);
+        addPhotoSiteTags(photo, post.tags.character);
+        // also available: copyright, invalid, lore, meta
+        if (post.sources.length && !photo.extra)
+            photo.extra = "";
+        post.sources.forEach(function(src) {
+            if (src.startsWith('http'))
+                photo.extra += remoteLink(src, "Source");
+        });
+        addPhotoThumb(photo, post.preview.url);
+        if (isImageExtension(post.file.ext))
+            initPhotoImage(photo, post.file.url)
+        else if (isVideoExtension(post.file.ext))
+            initPhotoVideo(photo, post.file.url)
+        else {
+            log.error("Unknown extension: "+post.file.ext+": "+photo.o_url);
+            initPhotoThumb(photo);
+        }
+        post.relationships.children.forEach(function(child) {
+            var jsonUrl = 'https://e621.net/posts/'+child+'.json';
+            var handleData = function(data) {
+                var subpost = data.post;
+                var p = initPhotoAlbum(photo, true);
+                if (subpost.id == post.id)
+                    return;
+                var val = dedupVal(':e621', subpost.id);
+                if (val) {
+                    log.info("cannot display child [duplicate "+val+"]: "+subpost.id);
+                    return;
+                }
+                // @@ check for duplicate?
+                var pic = post2picE621(subpost);
+                addAlbumItem(p, pic);
+                dedupAdd(':e621', subpost.id, post.id);
+                checkPhotoAlbum(p);
+            };
+            $.ajax({
+                url: jsonUrl,
+                dataType: 'json',
+                success: handleData,
+                error: failedAjaxDone,
+                timeout: rp.settings.ajaxTimeout,
+                crossDomain: true
+            });
+        });
+    };
+
+    var post2picE621 = function(post) {
+        var photo = {
+            id: post.id,
+            score: post.score.total,
+            o_url: 'https://e621.net/posts/'+post.id,
+            date: processDate(post.created_at),
+            over18: post.rating != 's',
+        };
+        processE621Post(photo, post);
+        return photo
+    };
+
+    var getE621 = function() {
+        // URLs:
+        // TRENDING:    /e621/[CHOICE]
+        // USER:        /e621/u/USER
+        // TAG:         /e621/t/TAG[+tag[+...]]
+        // SEARCH:      /e621/s/TAG TAG TAG
+        var jsonUrl;
+        var errmsg = "Tag "+rp.url.sub+" has no posts";
+        var order = rp.url.choice.split(':');
+        var url = 'https://e621.net/posts';
+        var extra = '';
+
+        switch (rp.url.type) {
+        case "u":
+            errmsg = "User "+rp.url.sub+" has no posts";
+            // fall through
+        case "s":
+        case "t":
+            rp.url.sub = rp.url.sub.split(/[ ,+&]/).join("+");
+            extra = 'tags='+rp.url.sub+'&limit='+rp.settings.count;
+            break;
+        default:
+            switch (order[0]) {
+                // 'new' already handled
+            case 'popular':
+                if (order[1])
+                    extra = 'scale='+order[1];
+                url = 'https://e621.net/popular';
+                break;
+            case 'hot':
+                extra = 'tags=order:rank&limit='+rp.settings.count;
+                break;
+            default:
+                extra = 'limit='+rp.settings.count;
+                break;
+            }
+            errmsg = "No posts";
+            break;
+        }
+        jsonUrl = url+'.json'+((extra) ?'?'+extra :'');
+        if (extra)
+            url += '?'+extra;
+        if (!setupLoading(1, errmsg))
+            return;
+        setSubredditLink(url);
+
+        if (rp.session.after) {
+            ++rp.session.after;
+            var after = "page="+rp.session.after;
+            jsonUrl += ((jsonUrl.includes('?')) ?'&' :'?')+after;
+        } else
+            rp.session.after = 1;
+
+        var handleData = function(data) {
+            if (data.posts && data.posts.length) {
+                data.posts.forEach(function(post) {
+                    if (post.relationships.parent_id) {
+                        log.info("cannot display url [parent "+post.relationships.parent_id+"]: "+post.id);
+                        return;
+                    }
+                    var photo = post2picE621(post);
+                    var val = dedupVal(':e621', post.id);
+                    if (val) {
+                        log.info("cannot display url [duplicate "+val+"]: "+photo.o_url);
+                        return;
+                    }
+                    addImageSlide(photo);
+                    dedupAdd(':e621', photo.id);
+                });
+                rp.session.loadAfter = getE621;
+            } else
+                rp.session.loadAfter = null;
+            doneLoading();
+        };
+        $.ajax({
+            url: jsonUrl,
+            dataType: 'json',
+            success: handleData,
+            error: failedAjaxDone,
+            timeout: rp.settings.ajaxTimeout,
+            crossDomain: true
+        });
+    };
 
     /////////////////////////////////////////////////////////////////
     // Flicker
@@ -8040,10 +8223,10 @@ $(function () {
         case "blogger":
         case "wp2":
         case "wp":
-            arr = ['', rp.url.site, rp.url.sub, rp.url.type, rp.url.multi, rp.url.choice ];
+            arr = ['', rp.url.site, rp.url.sub, rp.url.type, rp.url.multi ];
             break;
         default:
-            arr = ['', rp.url.site, rp.url.type, rp.url.sub, rp.url.choice ];
+            arr = ['', rp.url.site, rp.url.type, rp.url.sub ];
             break;
         }
         return arr.join("/").replace(/\/+/g, '/').replace(/(.)\/$/, '$1');
@@ -8133,10 +8316,11 @@ $(function () {
                     if (inUrlChoice(t, a))
                         a.pop(); // this can't be used, so drop it
                 break;
+            case 'danbooru':
+            case 'e621':
             case 'flickr':
             case 'gfycat':
             case 'imgur':
-            case 'danbooru':
                 rp.url.site = t;
                 var c = (a.length > 1) ?a[0] :'';
                 if (inUrlChoice(c, a))
@@ -8318,6 +8502,7 @@ $(function () {
             switch (rp.url.site) {
             case 'blogger': getBloggerBlog(); break;
             case 'danbooru': getDanbooru(); break;
+            case 'e621': getE621(); break;
             case 'flickr': getFlickr(); break;
             case 'gfycat': getGfycat(); break;
             case 'imgur': getImgur(); break;
