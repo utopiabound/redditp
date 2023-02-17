@@ -14,7 +14,7 @@
     <meta name="twitter:dnt" content="on">
     <meta name="viewport" content="user-scalable=no, initial-scale=1"/>
     <link rel="shortcut icon" href="images/favicon.png" />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,500,1,0" />
     <link rel="stylesheet" type="text/css" href="css/style.css" />
     <link rel="stylesheet" media="screen and (min-width: 1000px)" href="css/desktop.css" />
     <link rel="stylesheet" media="screen and (max-width: 1000px)" href="css/mobile.css" />
@@ -43,16 +43,16 @@
 	<li id="loginLi" class="use-hover">
 	  <input class="checkbox" type="checkbox" name="login" id="login" value="Auto" />
 	  <label class="checkbox colortoggle" for="login" title="show user info">
-	    <i class="material-icons">menu</i></label>
+	    <i class="material-symbols-rounded">menu</i></label>
 	  <div id="multiListDiv" class="clouds">
 	    <ul class="canlogin"><li><i>Login to Load</i></li></ul>
-	    <ul class="iconrow"><li><a href="/" class="info infol selectable local hardlink" title="Front Page"><i class="material-icons">home</i></a></li>
-	      <li><a href="/r/popular" class="info infol selectable local hardlink" title="Popular"><i class="material-icons">whatshot</i></a></li>
-	      <li><a href="/r/all" class="info infol selectable local hardlink" title="All"><i class="material-icons">all_inclusive</i></a></li>
-	      <li><a href="/r/random" class="info infol local hardlink" title="Random"><span class="icon">?</span></a></li>
-	      <li class="show-nsfw"><a href="/r/randnsfw" class="info infol local hardlink" title="Random (NSFW)"><i class="material-icons">wc</i></a></li>
-	      <li class="right canlogin"><a id="loginUsername" class="info infol" href="/"><i class="unset material-icons">account_box</i></a>
-	      <li class="right canlogin needlogin"><a href="/r/friends" class="info infol selectable local" title="Friends"><i class="material-icons">people_outline</i></a></li>
+	    <ul class="iconrow"><li><a href="/" class="info infol selectable local hardlink" title="Front Page"><i class="material-symbols-rounded">home</i></a></li>
+	      <li><a href="/r/popular" class="info infol selectable local hardlink" title="Popular"><i class="material-symbols-rounded">whatshot</i></a></li>
+	      <li><a href="/r/all" class="info infol selectable local hardlink" title="All"><i class="material-symbols-rounded">all_inclusive</i></a></li>
+	      <li><a href="/r/random" class="info infol local hardlink" title="Random"><i class="material-symbols-rounded">question_exchange</i></a></li>
+	      <li class="show-nsfw"><a href="/r/randnsfw" class="info infol local hardlink" title="Random (NSFW)"><i class="material-symbols-rounded">magic_exchange</i></a></li>
+	      <li class="right canlogin"><a id="loginUsername" class="info infol" href="/"><i class="unset material-symbols-rounded">account_box</i></a>
+	      <li class="right canlogin needlogin"><a href="/r/friends" class="info infol selectable local" title="Friends"><i class="material-symbols-rounded">people_outline</i></a></li>
 	    </ul>
 	  </div>
 	</li><li><form id="subredditForm" onsubmit="return false">
@@ -64,7 +64,7 @@
 	</li><li id="choiceLi">
 	  <input class="checkbox" type="checkbox" name="choice" id="choice" value="Auto" />
 	  <label class="checkbox colortoggle" for="choice" title="choice">
-	    <i class="material-icons">arrow_drop_up</i></label>
+	    <i class="material-symbols-rounded">arrow_drop_up</i></label>
 	  <div id="subredditPopup" class="clouds">
 	    <h3 id="choiceTitle">/</h3>
 	    <ul>
@@ -77,57 +77,57 @@
 	  </ul></div>
 	</li><li>
 	  <input class="checkbox icontoggle" type="checkbox" name="nsfw" id="nsfw" value="Auto"
-		 icon-on="wc" icon-off="child_friendly" data-toggleclass="show-nsfw"/>
+		 icon-on="explicit" icon-off="no_adult_content" data-toggleclass="show-nsfw"/>
 	  <label class="checkbox colortoggle over18" for="nsfw" title="Show NSFW content (n)">
-	    <i class="material-icons">child_friendly</i></label>
+	    <i class="material-symbols-rounded">no_adult_content</i></label>
 	</li><li>
-	  <input class="checkbox icontristate material-icons" type="button" name="embed" id="embed" value="personal_video"
+	  <input class="checkbox icontristate material-symbols-rounded" type="button" name="embed" id="embed" value="personal_video"
 		 data-verb="play video" icon-always="ondemand_video" icon-sometimes="queue_play_next" icon-never="personal_video" />
 	</li><li class="volume-mute">
 	  <input class="checkbox icontoggle" type="checkbox" name="mute" id="mute" value="Auto"
 		 icon-on="volume_off" icon-off="volume_up" checked />
 	  <label class="icontoggle colortoggle mute" for="mute" title="toggle video sound (m)">
-	    <i class="material-icons">volume_off</i></label>
+	    <i class="material-symbols-rounded">volume_off</i></label>
 	</li><li>
 	  <input class="checkbox icontoggle" type="checkbox" name="autoNextSlide" id="autoNextSlide" value="Auto"
 		 icon-on="play_circle" icon-off="pause_circle" />
 	  <label class="icontoggle colortoggle" for="autoNextSlide" title="toggle auto refresh (space)">
-	    <i class="material-icons">pause_circle</i></label>
+	    <i class="material-symbols-rounded">pause_circle</i></label>
 	</li><li class="fullscreen-ctrl">
 	  <input class="checkbox icontoggle" type="checkbox" name="fullscreen" id="fullscreen" value="Auto"
 		 icon-on="fullscreen_exit" icon-off="fullscreen" />
 	  <label class="icontoggle" for="fullscreen" title="toggle fullscreen (f)">
-	    <i class="material-icons">fullscreen</i></label>
+	    <i class="material-symbols-rounded">fullscreen</i></label>
 	</li>
       </ul>
       <div id="navboxContents">
 	<ul class="nbmenu">
 	  <li>
-	    <a id='navboxShowHelp' href='#' title="placeholder"><i class="material-icons">help</i></a>
+	    <a id='navboxShowHelp' href='#' title="Shortcuts & Site Links (?)"><i class="material-symbols-rounded">help</i></a>
 	  </li><li id="refresh" title="auto-refresh interval in seconds">
 	    <label for="timeToNextSlide" class="textlabel">Refresh:</label>
 	    <input type="text" pattern="[0-9]*" class="textlabel noInput" name="timeToNextSlide" id="timeToNextSlide" value="8" size="2"/>
 	  </li><li  class="list-start volume">
-	    <a id='navboxVolumeDown' class="volume" data-value="-1" href='#' title="Decrease Volume (-)"><i class="material-icons">volume_down</i></a>
+	    <a id='navboxVolumeDown' class="volume" data-value="-1" href='#' title="Decrease Volume (-)"><i class="material-symbols-rounded">volume_down</i></a>
 	  </li><li class="list-item volume">
 	    <span id='navboxVolume'  class="info"></span>
 	  </li><li class="list-end volume">
-	    <a id='navboxVolumeUp'   class="volume" data-value="+1" href='#' title="Increase Volume (+)"><i class="material-icons">volume_up</i></a>
+	    <a id='navboxVolumeUp'   class="volume" data-value="+1" href='#' title="Increase Volume (+)"><i class="material-symbols-rounded">volume_up</i></a>
 	  </li><li>
-	    <a id='navboxExtraLoad' href='#' title="placeholder"><i class="material-icons">mms</i></a>
+	    <a id='navboxExtraLoad' href='#' title="placeholder"><i class="material-symbols-rounded">more</i></a>
 	  </li><li>
-	    <a id='navboxShowInfo' href='#' title="Photo Info (v)"><i class="material-icons">info</i></a>
+	    <a id='navboxShowInfo' href='#' title="Photo Info (v)"><i class="material-symbols-rounded">info</i></a>
 	    <!-- These are in reverse order because of float: right -->
 	  </li><li class="right">
 	    <a id='navboxOrigDomain' href='#' title="Other posts from domain" class='local'><img alt="RedditP Icon" class="redditp" src="images/favicon.png" /></a>
 	  </li><li class="right origlink">
-	    <a id='navboxAlbumOrigLink' href='#' title='original album link (a)' class="remote redditp"><i class="material-icons">link</i></a>
+	    <a id='navboxAlbumOrigLink' href='#' title='original album link (a)' class="remote redditp"><i class="material-symbols-rounded">link</i></a>
 	  </li><li class="right origlink">
-	    <a id='navboxOrigLink' href='#' title='original link (l)' class="remote"><i class="redditp material-icons">link</i></a>
+	    <a id='navboxOrigLink' href='#' title='original link (l)' class="remote"><i class="redditp material-symbols-rounded">link</i></a>
 	  </li><li class="right">
 	    <a id='navboxLink' href='#' class="remote" title='placeholder'>&nbsp;</a>
 	  </li><li class="right">
-	    <a id='navboxImageSearch' href='#' class="remote" title="Image Search"><i class="material-icons">camera</i></a>
+	    <a id='navboxImageSearch' href='#' class="remote" title="Image Search"><i class="material-symbols-rounded">camera</i></a>
 	  </li>
 	</ul>
 	<div id="allNumberButtonList" class="numberButtonList">
@@ -163,7 +163,7 @@
     </div>
 
     <div id="recommend" class="clouds topper popup" style="display: none;">
-      <div class="collapser parentCloser"><i class="material-icons">close</i></div>
+      <div class="collapser parentCloser"><i class="material-symbols-rounded">close</i></div>
       <div class="title">Sites Supported</div>
       <ul>
 	<li><a href="/" class="infop local">Reddit</A>
@@ -181,7 +181,7 @@
 	  <li class="show-nsfw"><a class="infop local hardlink" href="/r/randnsfw">/r/random (nsfw)</a></li>
 	  <li><a class="infop local hardlink" href="/r/all">All</a></li>
 	  <li><form onsubmit="return false" class="site-search" data-site="reddit">
-		<i class="material-icons">search</i>
+		<i class="material-symbols-rounded">search</i>
 		<input type="text" name="search" class="remote noInput"/>
 	  </form></li>
         </ul></li>
@@ -195,7 +195,7 @@
 	  <a class="infor remote" href="https://flickr.com/explore">
 	    <img alt="Flickr Icon" class="favicon" src="https://flickr.com/favicon.ico"></a>
 	  <ul><li><form onsubmit="return false" class="site-search" data-site="flickr">
-		<i class="material-icons">search</i>
+		<i class="material-symbols-rounded">search</i>
 		<input type="text" name="search" class="remote noInput"/>
 	  </form></li></ul>
 	</li>
@@ -203,7 +203,7 @@
 	  <a class="infor remote" href="https://danbooru.donmai.us/">
 	    <img alt="Danbooru Icon" class="favicon" src="https://danbooru.donmai.us/favicon.ico"></a>
 	  <ul><li><form onsubmit="return false" class="site-search" data-site="danbooru">
-		<i class="material-icons">search</i>
+		<i class="material-symbols-rounded">search</i>
 		<input type="text" name="search" class="remote noInput"/>
 	  </form></li></ul>
 	</li>
@@ -211,7 +211,7 @@
 	  <a class="infor remote" href="https://e621.net/">
 	    <img alt="E621 Icon" class="favicon" src="https://e621.net/favicon.ico"></a>
 	  <ul><li><form onsubmit="return false" class="site-search" data-site="e621">
-		<i class="material-icons">search</i>
+		<i class="material-symbols-rounded">search</i>
 		<input type="text" name="search" class="remote noInput"/>
 	  </form></li></ul>
 	</li>
@@ -219,7 +219,7 @@
     </div>
 
     <div id="help" class="clouds topper popup" style="display: none;">
-      <div class="collapser parentCloser"><i class="material-icons">close</i></div>
+      <div class="collapser parentCloser"><i class="material-symbols-rounded">close</i></div>
       <div class="title">Shortcuts</div>
       <table>
 	<tr><td><i>&rarr;</i></td><td>Next (in album)</td></tr>
@@ -250,7 +250,7 @@
     </div>
 
     <div id="info" class="clouds topper popup" style="display: none;">
-      <div class="collapser parentCloser"><i class="material-icons">close</i></div>
+      <div class="collapser parentCloser"><i class="material-symbols-rounded">close</i></div>
       <div class="title">Sub/Multi Reddit</div>
       <div id="subRedditInfo">&nbsp;</div>
       <div class="title">Info</div>

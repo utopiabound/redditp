@@ -948,7 +948,7 @@ $(function () {
     };
 
     var googleIcon = function(icon_name) {
-        return $('<i>', { class: 'material-icons' }).text(icon_name);
+        return $('<i>', { class: 'material-symbols-rounded' }).text(icon_name);
     };
 
     var playButton = function(cb) {
