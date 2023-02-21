@@ -800,11 +800,21 @@ $(function () {
     // Process url to social link
     var socialUrlLink = function(url) {
         var a = pathnameOf(url).split('/');
+        a.shift();
         var domains = hostnameOf(url).split('.').reverse();
         var hn = domains[1]+'.'+domains[0];
         if (hn == 'tumblr.com')
             return socialUserLink(domains[2], "tumblr", url);
-        if (a.length < 3) {
+        var user, status;
+        if (a.length && a[0] == 'user')
+            a.shift();
+        if (a.length && !['watch', 'view'].includes(a[0].toLowerCase()))
+            user = a.shift();
+        if (a.length && ['post', 'status'].includes(a[0].toLowerCase()))
+            a.shift();
+        if (a.length)
+            status = a.shift();
+        if (user) {
             if (hn == 't.me')
                 domains[1] = 'telegram';
             if (hn == 'reddit.com') {
@@ -812,15 +822,15 @@ $(function () {
                     return path; // special case
             }
             try {
-                return socialUserLink(a[1], domains[1], url);
+                return socialUserLink(user, domains[1], url, status);
             } catch (e) {
                 // ignore and fall through
             }
         }
-        return titleFLink(url, domains.reverse().join('.')+a.join("/"));
+        return titleFLink(url, domains.reverse().join('.')+pathnameOf(url));
     };
 
-    var socialUserLink = function(user, type, alt) {
+    var socialUserLink = function(user, type, alt, status) {
         if (type === undefined)
             throw "Bad Social Type";
         try {
@@ -828,6 +838,8 @@ $(function () {
         } catch (e) {
             if (type == "facebook")
                 return titleFaviconLink('https://facebook.com/'+user, user, "FB", alt);
+            if (type == "furaffinity")
+                return titleFaviconLink('https://www.furaffinity.net/user/'+user, user, type, alt);
             if (type == "fansly")
                 return titleFaviconLink('https://fans.ly/'+user, user, "Fansly", alt);
             if (type == "instagram")
@@ -851,7 +863,7 @@ $(function () {
             if (type == "twitch")
                 return titleFaviconLink('https://twitch.tv/'+user, user, "Twitch", alt);
             if (type == "twitter")
-                return titleFaviconLink('https://twitter.com/'+user, user, "Twitter", alt);
+                return titleFaviconLink('https://twitter.com/'+user+((status) ?"/status/"+status :""), user+((status) ?"/"+status :""), "Twitter", alt);
             if (type == "vsco")
                 return titleFaviconLink('https://vsco.co/'+user, user, "VSCO", alt);
             throw "Unknown Social Type: "+type;
@@ -952,7 +964,7 @@ $(function () {
     };
 
     var playButton = function(cb) {
-        var lem = $('<a>', { title: 'Play Video (Enter)', href: '#' }).html(googleIcon('play_circle_filled'));
+        var lem = $('<a>', { title: 'Play Video (Enter)', href: '#' }).html(googleIcon('play_circle'));
         lem.click(function (event) {
             stopEvent(event);
             clearSlideTimeout();
@@ -1454,13 +1466,14 @@ $(function () {
     };
 
     var updateExtraLoad = function () {
-        var photo = rp.photos[rp.session.activeIndex];
+        var photo = getCurrentPic();
         if (photo.eL)
             $('#navboxExtraLoad').html(googleIcon("check_box")).attr('title', "Extras Already Loaded");
-        else if (!photo.comments || !photo.commentN)
-            $('#navboxExtraLoad').html(googleIcon("speaker_notes_off")).attr('title', 'No Comments Available');
+        else if (!photo.commentN &&
+                 !(photo.dupes && photo.dupes.reduce(function(a, dupe) { return a + ((dupe.commentN) ?dupe.commentN :0)}, 0)))
+            $('#navboxExtraLoad').html(googleIcon("comments_disabled")).attr('title', 'No Comments Available (e)');
         else
-            $('#navboxExtraLoad').html(googleIcon("mms")).attr('title', "Load Extras from Comments (e)");
+            $('#navboxExtraLoad').html(googleIcon("more")).attr('title', "Load Extras (e)");
     };
 
     var updateSelected = function() {
@@ -5381,7 +5394,7 @@ $(function () {
             try {
                 if (osite == "" && connector == "")
                     return match;
-                if (name.match(new RegExp('(?:\b|\.|^)'+osite+'(:?\b|\.|$)', 'i')))
+                if (osite && name.match(new RegExp('(?:\b|.|^)'+osite+'(:?\b|.|$)', 'i')))
                     throw "site in name";
                 if (site == "fb")
                     site = "facebook";
