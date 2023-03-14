@@ -1523,8 +1523,10 @@ $(function () {
             });
             if (config !== undefined)
                 rp.settings[item] = config;
+            var c = rp.settings[item];
 
-            if (ref.is(':checked') != rp.settings[item])
+            ref.click();
+            if (ref.is(':checked') != c)
                 ref.click();
             else
                 fixIconToggle.call(ref)
@@ -3458,6 +3460,7 @@ $(function () {
         case "?":
             showHelp();
             break;
+        case "=":
         case "+":
             volume_adjust(+1);
             break;
