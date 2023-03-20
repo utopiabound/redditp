@@ -806,7 +806,7 @@ $(function () {
         if (hn == 'tumblr.com')
             return socialUserLink(domains[2], "tumblr", url);
         var user, status;
-        if (a.length && a[0] == 'user')
+        if (a.length && ['user', 'gallery'].includes(a[0].toLowerCase()))
             a.shift();
         if (a.length && !['watch', 'view'].includes(a[0].toLowerCase()))
             user = a.shift();
@@ -8273,6 +8273,7 @@ $(function () {
                     rp.choices[rp.url.site][type].includes(arr[arr.length-1]));
         };
 
+        var re, tmp;
         for (var i in arr) {
             var a = arr[i].split(/[/ ]/);
             if (a.length == 1)
@@ -8343,7 +8344,14 @@ $(function () {
                     rp.url.choice = a.pop();
                 rp.url.type = a.shift() || '';
                 if (a.length > 0) {
-                    rp.url.sub = decodeURIComponent(a.join(" "));
+                    tmp = arr[i];
+                    re = RegExp("^[/ ]"+t+"[/ ]"+rp.url.type+"[/ ]", "i");
+                    tmp = tmp.replace(re, '');
+                    if (rp.url.choice) {
+                        re = RegExp("[/ ]"+rp.url.choice+"[/ ]?$", "i");
+                        tmp = tmp.replace(re, '');
+                    }
+                    rp.url.sub = decodeURIComponent(tmp);
                     a = [];
                 }
                 break;
@@ -8368,7 +8376,14 @@ $(function () {
                 rp.url.type = t;
                 if (inUrlChoice(t, a))
                     rp.url.choice = a.pop();
-                rp.url.sub = decodeURIComponent(a.join(" "));
+                re = RegExp("^[/ ]"+t+"[/ ]", "i");
+                tmp = arr[i];
+                tmp = tmp.replace(re, '');
+                if (rp.url.choice) {
+                    re = RegExp("[/ ]"+rp.url.choice+"[/ ]?$", "i");
+                    tmp = tmp.replace(re, '');
+                }
+                rp.url.sub = decodeURIComponent(tmp);
                 a = [];
                 break;
             case '': break;
