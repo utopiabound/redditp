@@ -7980,7 +7980,7 @@ $(function () {
             url = siteSearchUrl(rp.url.sub, 'flickr', reqData.sort);
             break;
         case 't':
-            reqData.tags = rp.url.sub.toLowerCase().replaceAll(" ", "").replaceAll(/[+&]/, ",");
+            reqData.tags = rp.url.sub.toLowerCase().replaceAll(" ", "").replace(/[+&]/g, ",");
             reqData.tag_mode = "all";
             url = siteTagUrl(reqData.tags, 'flickr');
             if (rp.url.choice == 'new')
