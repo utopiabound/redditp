@@ -128,11 +128,12 @@
  * * on rotation/fullscreen event, check icon toggle
  * * Use /api/v1/me/prefs for defaults?
  * * Make title social link alterable (change from twitter to instagram...)
- * * OAuth Flickr
  * * Better Blogger&Blogspot urls
  * * Handle Categories for blogs in addition to Tags
  * * Finish removing tumblr from dupes
  * * Allow Differentiated tag types (wp2: Tags vs. Categories, e621: General, Meta, Species, Artists, danbooru: general, character, artist, meta)
+ * ABANDONED Ideas
+ * * Flickr Login - OAuth 1.0a doesn't work with CORS
  */
 
 var rp = {};
@@ -211,9 +212,7 @@ rp.session = {
     loadAfter: null,
 
     // Login dependent values
-    loginExpire: 0, // Used to determin if login has expired
     loginNeeded: false, // true if current subreddit needs a login to work correctly
-    loginUser: '',
 
     // Loading status - set via setupLoading() / doneLoading()
     loadingNextImages: false,
@@ -228,6 +227,17 @@ rp.session = {
     redditRefreshToken: '',
     redditHdr: {}
 };
+
+rp.login = {
+    reddit: {
+        expire: 0,
+        user: '',
+        hdr: {},
+        refreshToken: '',
+    },
+};
+
+
 // In case browser doesn't support localStorage
 // This can happen in iOS Safari in Private Browsing mode
 rp.storage = {};
@@ -542,7 +552,7 @@ $(function () {
 
     function loadMoreSlides() {
         if (rp.session.loadAfter !== null &&
-            (!rp.session.loginNeeded || rp.session.loginExpire))
+            (!rp.session.loginNeeded || rp.login.reddit.expire))
             rp.session.loadAfter();
     }
 
@@ -4049,7 +4059,7 @@ $(function () {
             $('#navboxAlbumOrigLink').attr('href', "#").parent().hide();
         $('#navboxOrigDomain').attr('href', '/domain/'+hostnameOf(image.o_url));
 
-        if (now > rp.session.loginExpire-30)
+        if (now > rp.login.reddit.expire-30)
             expiredRedditLogin();
 
         // TITLE BOX
@@ -4137,7 +4147,7 @@ $(function () {
     };
 
     var failedAjax = function (xhr, ajaxOptions, thrownError) {
-        if (xhr.status == 401 && rp.session.loginExpire)
+        if (xhr.status == 401 && rp.login.reddit.expire)
             expiredRedditLogin();
         log.info("ActiveIndex:["+rp.session.activeIndex+"]["+rp.session.activeAlbumIndex+"]");
         log.info("xhr:", xhr);
@@ -5326,6 +5336,7 @@ $(function () {
             hostname == 'juicygif.com' ||
             hostname == 'pornhub.com' ||
             hostname == 'sendvid.com' ||
+            hostname == 'smutty.com' ||
             hostname == 'wordpress.com' ||
             hostname == 'xhamster.com' ||
             hostname == 'xvideos.com' ||
@@ -5490,16 +5501,16 @@ $(function () {
 
     var clearRedditLogin = function () {
         $('.needlogin').hide();
-        if (!rp.session.loginExpire)
+        if (!rp.login.reddit.expire)
             return;
 
-        rp.session.loginExpire = 0;
+        rp.login.reddit.expire = 0;
         rp.session.redditHdr = {};
         rp.reddit.api = rp.reddit.base;
-        $('#loginUsername').html(googleIcon('account_box'));
-        $('#loginUsername').attr('title', 'Expired');
+        $('#redditLogin').html(googleIcon('account_box'));
+        $('#redditLogin').attr('title', 'Expired');
         $('label[for=login]').html(googleIcon('menu'));
-        log.info("Clearing bearer is obsolete EOL:"+rp.session.loginExpire+" < now:"+currentTime());
+        log.info("Clearing bearer is obsolete EOL:"+rp.login.reddit.expire+" < now:"+currentTime());
         clearConfig(configNames.redditBearer);
         clearConfig(configNames.redditRefreshBy);
     };
@@ -5557,14 +5568,14 @@ $(function () {
             var list = $('#multiListDiv ul:first-of-type');
             list.empty();
             if (data.length)
-                rp.session.loginUser = data[0].data.owner
+                rp.login.reddit.user = data[0].data.owner
             if (status)
-                updateRedditMultiCache(rp.session.loginUser, data);
+                updateRedditMultiCache(rp.login.reddit.user, data);
             redditMultiAppend(data, list);
         };
 
-        if (checkRedditMultiCache(rp.session.loginUser))
-            handleData(rp.sitecache.reddit.multi[rp.session.loginUser].data)
+        if (checkRedditMultiCache(rp.login.reddit.user))
+            handleData(rp.sitecache.reddit.multi[rp.login.reddit.user].data)
 
         else
             $.ajax({
@@ -5635,13 +5646,13 @@ $(function () {
 
     var setupRedditLogin = function (bearer, by) {
         if ((hostnameOf(rp.redirect) != window.location.hostname) ||
-            rp.session.loginExpire > (currentTime())-60)
+            rp.login.reddit.expire > (currentTime())-60)
             return;
         if (bearer === undefined) {
             bearer = getConfig(configNames.redditBearer, '');
             by = getConfig(configNames.redditRefreshBy, 0);
         }
-        $('#loginUsername').attr('href', rp.reddit.loginUrl + '?' +
+        $('#redditLogin').attr('href', rp.reddit.loginUrl + '?' +
                                  ['client_id=' + rp.api_key.reddit,
                                   'response_type=code',
                                   'state='+encodeURIComponent(rp.url.path),
@@ -5653,11 +5664,11 @@ $(function () {
         if (by-60 > currentTime()) {
             var d = new Date(by*1000);
             log.info("Reddit Token Expire: "+d);
-            rp.session.loginExpire = by;
+            rp.login.reddit.expire = by;
             rp.session.redditHdr = { Authorization: 'bearer '+bearer };
             $('.needlogin').show();
-            $('#loginUsername').html(googleIcon('verified_user'));
-            $('#loginUsername').attr('title', 'Expires at '+d);
+            $('#redditLogin').html(googleIcon('verified_user'));
+            $('#redditLogin').attr('title', 'Expires at '+d);
             $('label[for=login]').html(googleIcon('menu_open'));
             rp.reddit.api = rp.reddit.oauth;
             setConfig(configNames.redditBearer, bearer);
@@ -5705,11 +5716,11 @@ $(function () {
         var user;
         if (rp.url.site == 'reddit')
             user = (rp.url.type == 'm' || rp.url.type == 'submitted')
-            ? (rp.url.sub) ?rp.url.sub :rp.session.loginUser :rp.session.loginUser;
+            ? (rp.url.sub) ?rp.url.sub :rp.login.reddit.user :rp.login.reddit.user;
         if (user) {
             list.append($('<li>').append($('<hr>', { class: "split" })));
             list.append($('<li>').append(redditLink(localUserUrl(user, "reddit"), "submitted", "submitted", true)));
-            if (user == rp.session.loginUser)
+            if (user == rp.login.reddit.user)
                 list.append($('<li>').append(redditLink("/r/friends", "friends", "friends", true)));
 
             var jsonUrl = rp.reddit.api + '/api/multi/user/' + user;
@@ -7935,6 +7946,7 @@ $(function () {
         addPhotoSiteTags(pic, (post.tags) ?post.tags.split(" ") :[]);
         return pic;
     };
+
     // Need user login for safe-search to be off
     // Sizes:
     // o - original
@@ -8429,7 +8441,7 @@ $(function () {
         log.info("LOADING: "+path);
         rp.url.path = path;
 
-        if (initial && rp.session.redditRefreshToken && !rp.session.loginExpire) {
+        if (initial && rp.session.redditRefreshToken && !rp.login.reddit.expire) {
             redditCodeFlow({ refresh_token: rp.session.redditRefreshToken }, path);
             return;
         }
@@ -8455,7 +8467,7 @@ $(function () {
         $('#subredditUrl').val(subredditName);
         setupChoices();
 
-        if ((rp.session.loginExpire || rp.session.loginNeeded) &&
+        if ((rp.login.reddit.expire || rp.session.loginNeeded) &&
              rp.url.site == 'reddit' &&
              (rp.url.type == 'friends' ||
               rp.url.type == 'm' && rp.url.sub == ''))
