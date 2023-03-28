@@ -818,7 +818,7 @@ $(function () {
         var user, status;
         if (a.length && ['user', 'gallery'].includes(a[0].toLowerCase()))
             a.shift();
-        if (a.length && !['watch', 'view'].includes(a[0].toLowerCase()))
+        if (a.length && !['watch', 'posts', 'view'].includes(a[0].toLowerCase()))
             user = a.shift();
         if (a.length && ['post', 'status'].includes(a[0].toLowerCase()))
             a.shift();
@@ -4849,8 +4849,8 @@ $(function () {
 
         } else if (hostname == 'e621.net') {
             jsonUrl = 'https://e621.net/posts/'+shortid+'.json';
-            handleData = function(post) {
-                processE621Post(photo, post);
+            handleData = function(data) {
+                processE621Post(photo, data.post);
                 showCB(photo);
             };
 
@@ -7733,12 +7733,15 @@ $(function () {
                 photo.extra += remoteLink(src, "Source");
         });
         addPhotoThumb(photo, post.preview.url);
-        if (isImageExtension(post.file.ext))
+        if (post.flags.deleted) {
+            log.info("cannot display url [deleted]: "+photo.o_url);
+            initPhotoThumb(photo);
+        } else if (isImageExtension(post.file.ext) && post.file.url)
             initPhotoImage(photo, post.file.url)
-        else if (isVideoExtension(post.file.ext))
+        else if (isVideoExtension(post.file.ext) && post.file.url)
             initPhotoVideo(photo, post.file.url)
         else {
-            log.error("Unknown extension: "+post.file.ext+": "+photo.o_url);
+            log.info("cannot display url [bad "+post.file.url+"]: "+photo.o_url);
             initPhotoThumb(photo);
         }
         post.relationships.children.forEach(function(child) {
