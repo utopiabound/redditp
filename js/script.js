@@ -3458,6 +3458,9 @@ $(function () {
         case "t":
             $('#titleCollapser').click();
             break;
+        case "s":
+            open_in_background("#subredditLink");
+            break;
         case "u":
             $("#duplicatesCollapser").click();
             break;
