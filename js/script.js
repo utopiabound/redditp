@@ -754,7 +754,7 @@ $(function () {
         otag = otag.replace(/_/g, ' ');
         var div = $('<div/>');
         var span = $('<span>', { class: "social infor" });
-        span.append(_localLink(siteTagUrl(tag, type), '/'+type+'/t/'+tag, otag, "", "", ""));
+        span.append(_localLink(siteTagUrl(tag, type), '/'+type+'/t/'+tag, otag, "", "", "selectable"));
         div.append(span);
         return div.html();
     };
@@ -965,7 +965,7 @@ $(function () {
     var siteTagLink = function(type, otag) {
         var tag = encodeURIComponent(otag);
         otag = otag.replace(/_/g, ' ');
-        return localLink(siteTagUrl(tag, type), otag, '/'+type+'/t/'+tag);
+        return _localLink(siteTagUrl(tag, type), '/'+type+'/t/'+tag, otag, undefined, undefined, "info infol selectable");
     };
 
     var tumblrLink = function(blog, alt) {
@@ -1491,7 +1491,22 @@ $(function () {
 
     var updateSelected = function() {
         $('a.selectable').removeClass("selected");
-        $('a.selectable[href="'+rp.url.base+rpurlbase()+'"]').addClass("selected");
+        var arr = [ rpurlbase() ]
+        switch (rp.url.site) {
+        case "danbooru":
+        case "e621":
+            if (rp.url.type == 't' && rp.url.sub.includes('+')) {
+                var p = ['', rp.url.site, rp.url.type, ''].join("/");
+                var a = rp.url.sub.split('+');
+                for (var i in a) {
+                    arr.push(p+encodeURIComponent(a[i]));
+                }
+            }
+            break;
+        }
+        for (var i in arr) {
+            $('a.selectable[href="'+rp.url.base+arr[i]+'"]').addClass("selected");
+        }
     };
 
     var initState = function () {
@@ -4086,6 +4101,7 @@ $(function () {
 
         updateAuthor(image);
         updateDuplicates(image);
+        updateSelected();
 
         if (oldIndex != imageIndex) {
             toggleNumberButton(oldIndex, false);
@@ -5781,7 +5797,6 @@ $(function () {
             $('#choiceLi').show();
         else
             $('#choiceLi').hide();
-        updateSelected();
 
         // Load Sub Info
         if (rp.url.site != "reddit" ||
@@ -7852,6 +7867,7 @@ $(function () {
                         log.info("cannot display url [parent "+post.relationships.parent_id+"]: "+post.id);
                         return;
                     }
+                    // @@ post.pool - alternate album?
                     var photo = post2picE621(post);
                     var val = dedupVal(':e621', post.id);
                     if (val) {
