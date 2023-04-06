@@ -394,6 +394,11 @@ div.score {
 #navboxScore { position: relative; }
 #subredditForm label { width: 24px; }
 
+#navboxTitle {
+    max-height: 15vh;
+    overflow: scroll;
+}
+
 #navboxScore span {
     width: 34px;
     text-align: center;

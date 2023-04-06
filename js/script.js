@@ -749,10 +749,12 @@ $(function () {
         return div.html();
     };
 
-    var titleTagLink = function(tag, type) {
+    var titleTagLink = function(type, otag) {
+        var tag = encodeURIComponent(otag);
+        otag = otag.replace(/_/g, ' ');
         var div = $('<div/>');
         var span = $('<span>', { class: "social infor" });
-        span.append(_localLink(siteTagUrl(tag, type), '/'+type+'/t/'+tag, tag, "", "", ""));
+        span.append(_localLink(siteTagUrl(tag, type), '/'+type+'/t/'+tag, otag, "", "", ""));
         div.append(span);
         return div.html();
     };
@@ -962,6 +964,7 @@ $(function () {
 
     var siteTagLink = function(type, otag) {
         var tag = encodeURIComponent(otag);
+        otag = otag.replace(/_/g, ' ');
         return localLink(siteTagUrl(tag, type), otag, '/'+type+'/t/'+tag);
     };
 
@@ -5359,7 +5362,7 @@ $(function () {
     // TLDs are currently 2 to 6 alphabetic characters
     // "path" match is complient
     // Missing, query (?stuff), and fragment (#stuff)
-    var urlregexp = new RegExp('https?://[\\w\\._-]{1,256}\\.[a-z]{2,6}(/([\\w\\-\\.~]|%[0-9a-f]{2}|[#!$&\'()*+,;=@])+)*', 'gi');
+    var urlregexp = new RegExp('https?://[\\w\\._-]{1,256}\\.[a-z]{2,6}(/([\\w\\-\\.~]|%[0-9a-f]{2}|[?#!$&\'()*+,;=@])+)*', 'gi');
 
     // Returns pic with updated title
     var fixupPhotoTitle = function(pic, origtitle, parent_sub) {
@@ -6003,8 +6006,11 @@ $(function () {
         });
     };
 
+    // Photo is already marked as album
     var processRedditComment = function(photo, comment) {
         var j;
+        if (photo.type != imageTypes.album)
+            throw "Photo must be album"
         if (comment.kind == "more") {
             // @@ API hits CORS issue
             // var jsonUrl = rp.reddit.base+'/api/morechildren';
@@ -6044,7 +6050,6 @@ $(function () {
             } else
                 log.info("cannot display comment [no body]: "+comment.data.permalink);
 
-            photo = initPhotoAlbum(photo);
             for (j = 0; j < links.length; ++j) {
                 var img = { author: comment.data.author,
                             url: links[j].href
@@ -6058,7 +6063,6 @@ $(function () {
                 if (processPhoto(img))
                     addAlbumItem(photo, img);
             }
-            checkPhotoAlbum(photo);
         }
 
         if (comment.data.replies)
@@ -7566,7 +7570,7 @@ $(function () {
         addPhotoSite(photo, "danbooru");
         if (!photo.title && post.tag_string_character)
             photo.title = post.tag_string_character.split(" ")
-            .map(function(x) { return titleTagLink(x, "danbooru"); }).join(" and ");
+            .map(function(x) { return titleTagLink("danbooru", x); }).join(" and ");
         addPhotoSiteTags(photo, post.tag_string_general.split(" ").concat(
             post.tag_string_copyright.split(" ")
         ));
@@ -7642,7 +7646,7 @@ $(function () {
             // fall through
         case "t":
             // Max 2 tags/users in search (space or '+' seperated)
-            rp.url.sub = rp.url.sub.split(/[ ,+&]/).slice(0, 2).join("+");
+            rp.url.sub = rp.url.sub.split(/[,+&]\s*/).slice(0, 2).join("+").replace(/ /g, '_');
             jsonUrl = 'https://danbooru.donmai.us/posts.json?tags='+rp.url.sub;
             url = siteTagUrl(rp.url.sub, "danbooru");
             break;
@@ -7806,7 +7810,7 @@ $(function () {
             // fall through
         case "s":
         case "t":
-            rp.url.sub = rp.url.sub.split(/[ ,+&]/).join("+");
+            rp.url.sub = decodeURIComponent(rp.url.sub).split(/[,+&]\s*/).join("+").replace(/ /g, '_');
             extra = 'tags='+rp.url.sub+'&limit='+rp.settings.count;
             break;
         default:
@@ -8280,7 +8284,7 @@ $(function () {
 
         var pathIsLocation = true;
 
-        path = path.replace(/ +/g, '/').replace(/^\/*/, '/').replace(/^\?+/, '');
+        path = path.replace(/%20/g, ' ').replace(/ +/g, ' ').replace(/^\/*/, '/').replace(/^\?+/, '');
 
         var okay = false;
         var arr = path.split('?').reverse();
