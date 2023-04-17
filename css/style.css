@@ -186,7 +186,8 @@ li.show-nsfw a,
 #recommend ul .material-symbols-rounded { font-size: 16px; }
 
 .error,
-a.selected { color: red; }
+span a.selected,
+li a.selected { color: red; }
 .hidden { display: none; }
 .topper { z-index: 1; }
 

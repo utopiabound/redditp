@@ -540,7 +540,7 @@ $(function () {
         if (index < 0)
             return undefined;
         var photo = rp.photos[index];
-        if (album < 0)
+        if (album == undefined || album < 0 || photo.type != imageTypes.album)
             return photo;
         return photo.album[album];
     };
@@ -670,9 +670,7 @@ $(function () {
     var shouldStillPlay = function(index, album) {
         if (index != rp.session.activeIndex)
             return false;
-        var photo = rp.photos[index];
-        if (photo.type == imageTypes.album)
-            photo = photo.album[(album > 0) ?album :0];
+        var photo = getPic(index, album);
         if (!photo || !photo.video)
             return false;
         if (photo.video.times == 1) {
@@ -2145,7 +2143,10 @@ $(function () {
         var photo = photoParent(pic);
         if (pic == photo)
             return (rp.session.activeAlbumIndex == -1);
-        return (rp.session.activeAlbumIndex == photo.album.indexOf(pic));
+        else if (photo.type == imageTypes.album)
+            return (rp.session.activeAlbumIndex == photo.album.indexOf(pic));
+        else
+            return isActive(photo);
     };
 
     // re-index Album elements starting from index
@@ -2454,7 +2455,7 @@ $(function () {
             if (button == undefined)
                 button = $('#numberButton'+(pic.index+1));
 
-        } else if (!isActive(parent))
+        } else if (!isActive(parent) || (parent.type != imageTypes.album))
             return;
 
         else if (button == undefined)
@@ -4051,9 +4052,7 @@ $(function () {
         rp.session.activeAlbumIndex = albumIndex;
 
         log.debug("animateNavigationBox("+imageIndex+", "+oldIndex+", "+albumIndex+", "+oldAlbumIndex+")");
-        var image = photo;
-        if (albumIndex >= 0)
-            image = photo.album[albumIndex];
+        var image = getCurrentPic();
         var now = currentTime();
 
         // COMMENTS/BUTTON LIST Box
@@ -4239,7 +4238,6 @@ $(function () {
     // Only called with rp.session.activeIndex, rp.session.activeAlbumIndex
     function getBackgroundDiv(index, albumIndex) {
         var divNode;
-        var type;
         var aIndex = albumIndex
 
         if (albumIndex < 0)
@@ -4266,16 +4264,7 @@ $(function () {
             divNode = rp.cache[index][aIndex];
 
         // Read type here, since it may change during createDiv()
-        if (albumIndex < 0) {
-            type = rp.photos[index].type;
-
-            if (type == imageTypes.album) {
-                log.error("["+index+"] type is ALBUM with albumIndex:"+albumIndex);
-                type = rp.photos[index].album[0].type;
-            }
-
-        } else
-            type = rp.photos[index].album[aIndex].type;
+        var type = getPic(index, aIndex).type;
 
         clearSlideTimeout(type);
 
@@ -5478,16 +5467,16 @@ $(function () {
             log.debug("TITLE 1: `"+title+"'\n      -> `"+t1);
 
         // r/Subreddit
-        t1 = t1.replace(/(?=^|\s)(?:[[{(]\s*)?\/?(r\/[\w-]+)((?:\/[\w-]+)*)\/?\s*(?:\s*[)\]}])?/gi, function(match, p1, p2) {
-            var t = titleRLink('/'+p1, p1, match);
+        t1 = t1.replace(/(?:^|\s)(?:[[{(]\s*)?\/?(r\/[\w-]+)((?:\/[\w-]+)*)\/?\s*(?:\s*[)\]}])?/gi, function(match, p1, p2) {
+            var t = titleRLink('/'+p1, p1, match.trim());
             if (p2)
-                t += titleFLink("https://reddit.com"+match, url2shortid(p2));
+                t += titleFLink("https://reddit.com"+match.trim(), url2shortid(p2));
             return " "+t;
         });
 
         // u/RedditUser - https://github.com/reddit-archive/reddit/blob/master/r2/r2/lib/validator/validator.py#L1567
-        t1 = t1.replace(/(?=^|\s)(?:[[{(]\s*)?\/?(?:u|user)\/([\w-]{3,20})\s*(?:\s*[)\]}])?/gi, function(match, p1) {
-            return socialUserLink(p1, "reddit", match);
+        t1 = t1.replace(/(?:^|\s)(?:[[{(]\s*)?\/?(?:u|user)\/([\w-]{3,20})\s*(?:\s*[)\]}])?/gi, function(match, p1) {
+            return socialUserLink(p1, "reddit", match.trim());
         });
 
         // Single Word title (might be username)
@@ -6003,9 +5992,7 @@ $(function () {
                 return;
             data.data.children.forEach(handleT3Dupe);
             if (isActive(photo)) {
-                var pic = photo;
-                if (rp.session.activeAlbumIndex >= 0)
-                    pic = photoParent(photo).album[rp.session.activeAlbumIndex];
+                var pic = getCurrentPic();
                 updateDuplicates(pic);
             }
         };
