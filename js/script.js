@@ -2116,6 +2116,8 @@ $(function () {
             if (!url)
                 return;
             var extension = isVideoExtension(url);
+            if (!extension)
+                extension = isVideoExtension(searchValueOf(url, 'format'));
             if (!extension) {
                 log.debug("video missing extension ("+url+"), using mp4 photo: ", photo.url);
                 extension = 'mp4';
@@ -6392,10 +6394,19 @@ $(function () {
             if (idx.id != photo.id)
                 photo.cross_id = idx.id;
 
-            if (idorig.preview)
+            if (idorig.preview) {
                 addPhotoThumb(photo, idorig.preview.images[0].source.url);
+                // Use MP4 version of GIFs if available
+                if (idorig.domain == 'i.redd.it' &&
+                    extensionOf(photo.url) == 'gif' &&
+                    idorig.preview.images[0].variants &&
+                    idorig.preview.images[0].variants.mp4)
+                {
+                    photo.o_url = photo.url;
+                    initPhotoVideo(photo, unescapeHTML(idorig.preview.images[0].variants.mp4.source.url));
+                }
 
-            else if (idorig.thumbnail != 'default' && idorig.thumbnail != 'nsfw')
+            } else if (idorig.thumbnail != 'default' && idorig.thumbnail != 'nsfw')
                 addPhotoThumb(photo, idorig.thumbnail);
 
             var rc = processRedditT3(photo, idorig);
