@@ -123,7 +123,6 @@
  *              aplay:          BOOL Embeded video will autoplay (with sound)
  *
  * TODO:
- * * Implement dedup via hostname + shortid
  * * Make #navboxExtraLoad.click() better about loading crossposts then comments from photo.dupes
  * * Grey out volume appropriately
  * * use https://oembed.com/providers.json or a processed version for oembed reference?
@@ -776,6 +775,11 @@ $(function () {
         return _localLink(url, local, text, urlalt, favicon);
     };
 
+    // Selectable (highlightable) local Link
+    var localLinkS = function(url, text, local, urlalt, favicon) {
+        return _localLink(url, local, text, urlalt, favicon, "info infol selectable");
+    };
+
     var localLinkFailed = function(url, text, local, urlalt, favicon) {
         return _localLink(url, local, text, urlalt, favicon, "info failed");
     };
@@ -980,7 +984,7 @@ $(function () {
     var siteTagLink = function(type, otag) {
         var tag = encodeURIComponent(otag);
         // @@ add [+]
-        return _localLink(siteTagUrl(tag, type), '/'+type+'/t/'+tag, siteTagDisplay(type, otag), undefined, undefined, "info infol selectable");
+        return localLinkS(siteTagUrl(tag, type), '/'+type+'/t/'+tag, siteTagDisplay(type, otag));
     };
 
     var siteTagDisplay = function(type, otag) {
@@ -1512,21 +1516,29 @@ $(function () {
     };
 
     var updateSelected = function() {
-        var i;
+        var i, a, p;
         $('a.selectable').removeClass("selected");
         var arr = [ rpurlbase() ]
         switch (rp.url.site) {
         case "danbooru":
         case "e621":
         case "flickr":
-            var a = rp.url.sub.split(/[+,]/);
+            a = rp.url.sub.split(/[+,]/);
             if (rp.url.type == 't' && a.length > 1) {
-                var p = ['', rp.url.site, rp.url.type, ''].join("/");
+                p = ['', rp.url.site, rp.url.type, ''].join("/");
                 for (i of a) {
                     arr.push(p+encodeURIComponent(i));
                 }
             }
             break;
+        case "wp2":
+            a = rp.url.multi.split(/[+,]/);
+            if (rp.url.type == 't' && a.length > 1) {
+                p = ['', rp.url.site, rp.url.sub, rp.url.type, ''].join("/");
+                for (i of a) {
+                    arr.push(p+encodeURIComponent(i));
+                }
+            }
         }
         for (i of arr) {
             $('a.selectable[href="'+rp.url.base+i+'"]').addClass("selected");
@@ -1865,7 +1877,7 @@ $(function () {
             llink += '/'+blogHostname(blog);
         var display = blogTag(blog, tag);
         var slug = (blog.t == 'wp2') ?toWPslug(display) :tag;
-        return localLink(blogTagUrl(blog, tag), blogTag(blog, tag), llink+'/t/'+slug);
+        return localLinkS(blogTagUrl(blog, tag), blogTag(blog, tag), llink+'/t/'+slug);
     };
 
     var hasPhotoBlogTags = function(pic) {
@@ -2907,7 +2919,7 @@ $(function () {
                               ].join("/");
                     initPhotoImage(pic, shortid + ".jpg");
                     addPhotoFallback(pic, shortid + ".png");
-                    pic.extra = socailUserLink(a[3], 'hentai-foundry');
+                    pic.extra = socialUserLink(a[3], 'hentai-foundry');
                     shortid = a[4];
 
                 } else
@@ -4089,6 +4101,7 @@ $(function () {
         }
         $('#duplicatesCollapser').data('count', total);
         setVcollapseHtml($('#duplicatesCollapser'));
+        updateSelected();
     };
 
     //
@@ -4154,7 +4167,6 @@ $(function () {
 
         updateAuthor(image);
         updateDuplicates(image);
-        updateSelected();
 
         if (oldIndex != imageIndex) {
             toggleNumberButton(oldIndex, false);
@@ -6355,6 +6367,9 @@ $(function () {
             updateDuplicates(photo);
         };
 
+        if (rp.url.site != 'reddit')
+            return;
+
         // @@ find way to reduce duplication of this call
 
         var jsonUrl = rp.reddit.base + '/duplicates/' + photo.id + '.json?show=all';
@@ -6945,9 +6960,10 @@ $(function () {
     var refreshWP2Tags = function(hostname, tags, doneLoading, errorcb) {
         var scheme = (rp.insecure[hostname]) ?'http' :'https';
         var jsonUrl = scheme+'://'+hostname+'/wp-json/wp/v2/tags?orderby=count&order=desc&per_page=100';
-        if (Array.isArray(tags))
-            jsonUrl += '&include='+tags.join(",");
-        else if (tags)
+        if (Array.isArray(tags)) {
+            if (tags.length)
+                jsonUrl += '&include='+tags.join(",");
+        } else if (tags)
             jsonUrl += '&slug='+toWPslug(tags);
         var handleData = function(tags) {
             // @@ check for err
@@ -6987,20 +7003,29 @@ $(function () {
         var blog = {t: 'wp2', b: hostname};
         refreshBlogTitle(blog);
 
-        if (blogTagCount(blog) == 0)
-            // @@ add loading message
+        if (blogTagCount(blog) == 0) {
+            // @@ UI add loading message
+            log.info("Loading tags for "+hostname);
             return refreshWP2Tags(hostname, undefined, getWordPressBlogV2);
+        }
 
         var jsonUrl = wp2BaseJsonUrl(hostname)+'?orderby=date&order='+((rp.url.choice == 'old') ?'asc' :'desc');
 
-        // @@ could support multiple tags
+        // Multiple tags results in an OR relationship
         if (rp.url.type == 't') {
-            var slug = toWPslug(rp.url.multi);
-            var tag = wp2RevTag(hostname, slug);
-            if (!tag)
-                return refreshWP2Tags(hostname, slug, getWordPressBlogV2, function() { doneLoading("Bad Tag")});
-            jsonUrl += '&tags='+tag;
-            setSubredditLink('https://'+hostname+'/tag/'+slug);
+            var tags = [];
+            var tn = [];
+            for (var tag of decodeURIComponent(rp.url.multi).split(/[,+&]\s*/)) {
+                tag = toWPslug(tag);
+                var xs = wp2RevTag(hostname, tag);
+                if (xs)
+                    tags.push(xs);
+                tn.push(tag);
+            }
+            if (tags.length == 0 || tags.length != tn.length)
+                return refreshWP2Tags(hostname, tn, getWordPressBlogV2, function() { doneLoading("Bad Tag")});
+            jsonUrl += '&tags='+tags.join("+");
+            setSubredditLink('https://'+hostname+'/tag/'+tn.join("+"));
 
         } else
             setSubredditLink('https://'+hostname);
