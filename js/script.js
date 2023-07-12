@@ -148,6 +148,7 @@ RegExp.quote = function(str) {
 // CHANGE THESE FOR A DIFFERENT Reddit Application/Website
 rp.api_key = {
     tumblr:  'sVRWGhAGTVlP042sOgkZ0oaznmUOzD8BRiRwAm5ELlzEaz4kwU',
+    imgchest: '102|KP09I84yWOVAGnprWXYqNYlI5Kfj9h7PLcw62Efg',
     blogger: 'AIzaSyDbkU7e2ewiPeBtPwr1cfExV0XxMAQKhTg',
     flickr:  '24ee6b81f406711f8c7d3a9070fe47a7',
     reddit:  '7yKYY2Z-tUioLA',
@@ -300,6 +301,7 @@ rp.favicons = {
     wp: 'https://s1.wp.com/i/favicon.ico',
     dropbox: 'https://cfl.dropboxstatic.com/static/images/favicon.ico',
     discord: 'https://discord.com/assets/847541504914fd33810e70a0ea73177e.ico',
+    imgchest: 'https://api.imgchest.com/assets/img/favicons/favicon-16x16.png',
     patreon: 'https://c5.patreon.com/external/favicon/favicon.ico',
     xhamster: 'https://static-lvlt.xhcdn.com/xh-mobile/images/favicon/favicon.ico',
     tiktok: 'https://lf16-tiktok-common.ibytedtos.com/obj/tiktok-web-common-sg/mtact/static/pwa/icon_128x128.png',
@@ -2924,6 +2926,12 @@ $(function () {
 
                 } else
                     throw "non-picture";
+            } else if (hostname == 'imgchest.com') {
+                a = pathnameOf(pic.url).split('/');
+                if (a[1] != 'p')
+                    throw "unknown url"
+                shortid = a[2];
+                pic.type = imageTypes.later;
 
             } else if (hostname == 'nbcnews.com') {
                 // https://www.nbcnews.com/widget/video-embed/ID
@@ -5054,6 +5062,23 @@ $(function () {
                     showCB(photo);
                 };
             }
+
+        } else if (hostname == 'imgchest.com') {
+            headerData = { Authorization: "Bearer "+rp.api_key.imgchest };
+            jsonUrl = 'https://api.imgchest.com/v1/post/'+url2shortid(photo.url);
+            handleData = function(data) {
+                photo = initPhotoAlbum(photo, false);
+                data.data.images.forEach(function(item) {
+                    var pic = fixupPhotoTitle({
+                        url: item.link,
+                        type: imageTypes.image,
+                        date: processDate(item.crated, "Z")},
+                                              item.description || data.data.title);
+                    addAlbumItem(photo, pic);
+                });
+                checkPhotoAlbum(photo);
+                showCB(photo);
+            };
 
         } else if (hostname == 'imgur.com') {
             headerData = { Authorization: "Client-ID "+ rp.api_key.imgur };
