@@ -986,7 +986,7 @@ $(function () {
     var siteTagLink = function(type, otag) {
         var tag = encodeURIComponent(otag);
         // @@ add [+]
-        return localLinkS(siteTagUrl(tag, type), '/'+type+'/t/'+tag, siteTagDisplay(type, otag));
+        return localLinkS(siteTagUrl(tag, type), siteTagDisplay(type, otag), '/'+type+'/t/'+tag);
     };
 
     var siteTagDisplay = function(type, otag) {
@@ -2043,7 +2043,7 @@ $(function () {
 
     var addPhotoSiteTags = function(photo, tags) {
         if (tags && tags.length > 0)
-            photo.site.tags = ((photo.site.tags) ?photo.site.tags :[]).concat(tags);
+            photo.site.tags = ((photo.site.tags) ?photo.site.tags :[]).concat(tags.filter(Boolean));
     }
 
     var addPhotoSite = function(photo, type, user) {
@@ -3088,9 +3088,9 @@ $(function () {
                     initPhotoVideo(pic, pic.url.replace(/gifv$/, "mp4"));
                 else if (pic.url.endsWith('.pnj'))
                     initPhotoImage(pic, pic.url.replace(/pnj$/, "jpg"));
-                else if (a.length > 3 &&
+                else if (a.length > 2 &&
                          (!isNaN(parseInt(a[2], 10)) ||
-                          (a[1] == 'blog' && a.length > 5 && !isNaN(parseInt(a[4], 10)))))
+                          (a[1] == 'blog' && a.length > 4 && !isNaN(parseInt(a[4], 10)))))
                     // BLOGNAME.tumblr.com/post/POSTID/...
                     // www.tumblr.com/BLOGNAME/POSTID[...]
                     // www.tumblr.com/blog/view/BLOGNAME/POSTID
@@ -3764,8 +3764,6 @@ $(function () {
         if (photo.subreddit)
             getRedditComments(photo);
 
-        getRedditCrossposts(photo);
-
         getRedditDupe(photo);
         if (rp.session.activeAlbumIndex >= 0)
             getRedditDupe(photo.album[rp.session.activeAlbumIndex]);
@@ -3777,6 +3775,8 @@ $(function () {
                 else
                     getRedditDupe(photo, item);
             });
+
+        getRedditCrossposts(photo);
     });
 
     $(document).on('click', '#navboxShowInfo', showInfo);
@@ -6386,8 +6386,10 @@ $(function () {
                     log.info('existing dupe url [cross-dup: '+cross_link+']: '+item.data.url);
                 if (cross_link == "SELF")
                     log.info('existing dupe url [non-self dup]: '+item.data.url);
-                for (var d of processT3Parents(link, [ redditT3ToDupe(dupe.data) ], dupe, true))
-                    addPhotoDupe(photo, d);
+                for (var d of processT3Parents(link, [ redditT3ToDupe(dupe.data) ], dupe, true)) {
+                    if (addPhotoDupe(photo, d) >= 0)
+                        getRedditComments(photo, d);
+                }
             }
             updateDuplicates(photo);
         };
@@ -7779,9 +7781,9 @@ $(function () {
         case "t":
             if (!errmsg)
                 errmsg = "Tag `"+rp.url.sub+"' has no posts";
-            // Max 2 tags/users in search (space or '+' seperated)
-            rp.url.sub = rp.url.sub.split(/[,+&]\s*/).slice(0, 2).join("+").replace(/ /g, '_');
-            jsonUrl = 'https://danbooru.donmai.us/posts.json?tags='+rp.url.sub;
+            // Max 2 tags/users in search
+            rp.url.sub = rp.url.sub.replace(/([,+&])\s*/g, '$1').replace(/ /g, '_').split(/[,+&]/).slice(0, 2).join("+");
+            jsonUrl = 'https://danbooru.donmai.us/posts.json?tags='+rp.url.sub.split(/\+/).map(encodeURIComponent).join("+");
             url = siteTagUrl(rp.url.sub, "danbooru");
             break;
         default:
