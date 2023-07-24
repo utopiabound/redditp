@@ -848,10 +848,8 @@ $(function () {
         if (user) {
             if (hn == 't.me')
                 domains[1] = 'telegram';
-            if (hn == 'reddit.com') {
-                if (path[0] == 'r')
-                    return path; // special case
-            }
+            else if (hn == 'reddit.com' && path[0] == 'r')
+                return path; // special case
             try {
                 return socialUserLink(user, domains[1], url, status);
             } catch (e) {
@@ -867,75 +865,56 @@ $(function () {
         try {
             return siteUserLink({user: user, t: type}, alt);
         } catch (e) {
-            if (type == "facebook")
-                return titleFaviconLink('https://facebook.com/'+user, user, "FB", alt);
-            if (type == "furaffinity")
-                return titleFaviconLink('https://www.furaffinity.net/user/'+user, user, type, alt);
-            if (type == "fansly")
-                return titleFaviconLink('https://fans.ly/'+user, user, "Fansly", alt);
-            if (type == "hentai-foundry")
-                return titleFaviconLink('https://www.hentai-foundry.com/user/'+user, user, "HentaiFoundry", alt);
-            if (type == "instagram")
-                return titleFaviconLink('https://instagram.com/'+user, user, "IG", alt);
-            if (type == "onlyfans")
-                return titleFaviconLink('https://onlyfans.com/'+user, user, "OnlyFans", alt);
-            if (type == "patreon")
-                return titleFaviconLink('https://patreon.com/'+user, user, "Patreon", alt);
-            if (type == "reddit")
-                return titleRLink(localUserUrl(user, type), 'u/'+user, alt);
-            if (type == "snapchat")
-                return titleFaviconLink('https://snapchat.com/add/'+user, user, "Snap", alt);
-            if (type == "telegram")
-                return titleFaviconLink('https://t.me/'+user, user, "Telegram", alt);
-            if (type == "tiktok")
-                return titleFaviconLink('https://tiktok.com/@'+user, user, "TikTok", alt);
-            if (type == "telegram")
-                return titleFaviconLink('https://t.me/'+user, user, "Telegram", alt);
-            if (type == 'tumblr') // @@
-                return tumblrLink(user, type, alt);
-            if (type == "twitch")
-                return titleFaviconLink('https://twitch.tv/'+user, user, "Twitch", alt);
-            if (type == "twitter")
-                return titleFaviconLink('https://twitter.com/'+user+((status) ?"/status/"+status :""), user+((status) ?"/"+status :""), "Twitter", alt);
-            if (type == "vsco")
-                return titleFaviconLink('https://vsco.co/'+user, user, "VSCO", alt);
+            switch(type) {
+            case "facebook":    return titleFaviconLink('https://facebook.com/'+user, user, "FB", alt);
+            case "furaffinity": return titleFaviconLink('https://www.furaffinity.net/user/'+user, user, type, alt);
+            case "fansly":      return titleFaviconLink('https://fans.ly/'+user, user, "Fansly", alt);
+            case "hentai-foundry": return titleFaviconLink('https://www.hentai-foundry.com/user/'+user, user, "HentaiFoundry", alt);
+            case "instagram":   return titleFaviconLink('https://instagram.com/'+user, user, "IG", alt);
+            case "onlyfans":    return titleFaviconLink('https://onlyfans.com/'+user, user, "OnlyFans", alt);
+            case "patreon":     return titleFaviconLink('https://patreon.com/'+user, user, "Patreon", alt);
+            case "reddit":      return titleRLink(localUserUrl(user, type), 'u/'+user, alt);
+            case "snapchat":    return titleFaviconLink('https://snapchat.com/add/'+user, user, "Snap", alt);
+            case "telegram":    return titleFaviconLink('https://t.me/'+user, user, "Telegram", alt);
+            case "tiktok":      return titleFaviconLink('https://tiktok.com/@'+user, user, "TikTok", alt);
+            case "telegram":    return titleFaviconLink('https://t.me/'+user, user, "Telegram", alt);
+            case "tumblr":      return tumblrLink(user, type, alt); // @@
+            case "twitch":      return titleFaviconLink('https://twitch.tv/'+user, user, "Twitch", alt);
+            case "twitter":     return titleFaviconLink('https://twitter.com/'+user+((status) ?"/status/"+status :""), user+((status) ?"/"+status :""), "Twitter", alt);
+            case "vsco":        return titleFaviconLink('https://vsco.co/'+user, user, "VSCO", alt);
+            }
             throw "Unknown Social Type: "+type;
         }
     };
 
     var sitePhotoUrl = function(shortid, type) {
-        if (type == 'gfycat')
-            return 'https://gfycat.com/'+shortid;
-        if (type == 'redgifs')
-            return 'https://www.redgifs.com/watch/'+shortid.toLowerCase();
-        if (type == 'imgur')
-            return 'https://imgur.com/'+shortid;
+        switch (type) {
+        case 'gfycat':  return 'https://gfycat.com/'+shortid;
+        case 'redgifs': return 'https://www.redgifs.com/watch/'+shortid.toLowerCase();
+        case 'imgur':   return 'https://imgur.com/'+shortid;
+        }
         throw "Unknown Site type: "+type;
     };
 
     var siteUserUrl = function(user, type) {
-        if (type == 'danbooru')
-            return 'https://danbooru.donmai.us/posts?tags='+user;
-        if (type == 'e621')
-            return 'https://e621.net/posts?tags='+user;
-        if (type == 'gfycat')
-            return 'https://gfycat.com/@'+user;
-        if (type == 'redgifs')
-            return 'https://www.redgifs.com/users/'+user;
-        if (type == 'imgur')
-            return 'https://imgur.com/user/'+user;
-        if (type == 'flickr')
-            return 'https://flickr.com/photos/'+flickrUserNSID(user);
+        switch(type) {
+        case 'danbooru':
+        case 'e621':    return siteTagUrl(user, type);
+        case 'gfycat':  return 'https://gfycat.com/@'+user;
+        case 'redgifs': return 'https://www.redgifs.com/users/'+user;
+        case 'imgur':   return 'https://imgur.com/user/'+user;
+        case 'flickr':  return 'https://flickr.com/photos/'+flickrUserNSID(user);
+        }
         throw "Unknown Site type: "+type;
     };
 
     var siteSearchUrl = function(text, type, sort) {
-        if (type == 'flickr')
-            return 'https://flickr.com/search?safe_search=3&view_all=1&text='+text+((sort) ?'&sort='+sort :'');
-        if (type == 'gfycat')
-            return 'https://gfycat.com/gifs/search/'+text.toLowerCase().replaceAll(" ", "+");
-        if (type == 'reddit')
-            return rp.reddit.base+'/search/?q='+text+((sort) ?'&sort='+sort :'');
+        switch (type) {
+        case 'danbooru': return siteTagUrl(text, type);
+        case 'flickr': return 'https://flickr.com/search?safe_search=3&view_all=1&text='+text+((sort) ?'&sort='+sort :'');
+        case 'gfycat': return 'https://gfycat.com/gifs/search/'+text.toLowerCase().replaceAll(" ", "+");
+        case 'reddit': return rp.reddit.base+'/search/?q='+text+((sort) ?'&sort='+sort :'');
+        }
         throw "Unknown Site type: "+type;
     }
 
@@ -968,18 +947,14 @@ $(function () {
     };
 
     var siteTagUrl = function(tag, type) {
-        if (type == 'danbooru')
-            return 'https://danbooru.donmai.us/posts?tags='+tag.replace(/ /g, '_');
-        if (type == 'e621')
-            return 'https://e621.net/posts?tags='+tag.replace(/ /g, '_');
-        if (type == 'gfycat')
-            return siteSearchUrl(tag, type);
-        if (type == 'redgifs')
-            return 'https://www.redgifs.com/browse?tags='+tag;
-        if (type == 'imgur')
-            return 'https://imgur.com/t/'+tag;
-        if (type == 'flickr')
-            return 'https://www.flickr.com/photos/tags/'+tag.toLowerCase().replaceAll(" ", "");
+        switch(type) {
+        case 'danbooru': return 'https://danbooru.donmai.us/posts?tags='+tag.replace(/ /g, '_');
+        case 'e621':     return 'https://e621.net/posts?tags='+tag.replace(/ /g, '_');
+        case 'gfycat':   return siteSearchUrl(tag, type);
+        case 'redgifs':  return 'https://www.redgifs.com/browse?tags='+tag;
+        case 'imgur':    return 'https://imgur.com/t/'+tag;
+        case 'flickr':   return 'https://www.flickr.com/photos/tags/'+tag.toLowerCase().replaceAll(" ", "");
+        }
         throw "Unknown Site type: "+type;
     };
 
@@ -1027,11 +1002,9 @@ $(function () {
             return;
         if (link.attributes.href.value == "#")
             return;
-
         // Pause Auto-Next
         if (rp.settings.shouldAutoNextSlide)
             $("#autoNextSlide").click();
-
         window.open(link.href, '_blank');
     }
 
@@ -1523,7 +1496,7 @@ $(function () {
         var arr = [ rpurlbase() ]
         switch (rp.url.site) {
         case "danbooru":
-        case "e621":
+        case "e621": // @@ could do selected on rp.url.type 's'
         case "flickr":
             a = rp.url.sub.split(/[+,]/);
             if (rp.url.type == 't' && a.length > 1) {
@@ -5485,21 +5458,21 @@ $(function () {
                 return "tiktok";
             if (["facereveals"].includes(subreddit))
                 return "reddit";
-            if (subreddit.match(/onlyfan/) || flair.match(/onlyfan/i))
+            if (subreddit.match(/onlyfan/i) || flair.match(/onlyfan/i))
                 return "onlyfans";
-            if (subreddit.match(/fansly/) || flair.match(/fansly/i))
+            if (subreddit.match(/fansly/i) || flair.match(/fansly/i))
                 return "fansly";
-            if (subreddit.match(/snap/) || flair.match(/snap/i))
+            if (subreddit.match(/snap/i) || flair.match(/snap/i))
                 return "snapchat";
-            if (subreddit.match(/face/))
+            if (subreddit.match(/face/i))
                 return "facebook";
-            if (subreddit.match(/(insta|gram)/) || flair.match(/insta/i))
+            if (subreddit.match(/(insta|gram)/i) || flair.match(/insta/i))
                 return "instagram";
-            if (subreddit.match(/twitch/) || flair.match(/twitch/i))
+            if (subreddit.match(/twitch/i) || flair.match(/twitch/i))
                 return "twitch";
-            if (hn == "twitter.com" || subreddit.match(/twit/) || flair.match(/twit/i))
+            if (hn == "twitter.com" || subreddit.match(/twit/i) || flair.match(/twit/i))
                 return "twitter";
-            if (subreddit.match(/vsco/) || flair.match(/vsco/i))
+            if (subreddit.match(/vsco/i) || flair.match(/vsco/i))
                 return "vsco";
             return def;
         };
@@ -5605,6 +5578,7 @@ $(function () {
         pic.title = t1;
         return pic;
     };
+    rp.fn.fixupPhotoTitle = fixupPhotoTitle;
 
     var decodeUrl = function (url) {
         return decodeURIComponent(url.replace(/\+/g, " "));
@@ -6584,6 +6558,8 @@ $(function () {
 
                 if (t3.author != "[deleted]")
                     photo.author = t3.author;
+
+                photo = fixupPhotoTitle(photo);
 
                 if (processRedditT3(photo, t3) &&
                     processPhoto(photo))
