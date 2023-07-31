@@ -300,7 +300,7 @@ rp.favicons = {
     wordpress: 'https://s1.wp.com/i/favicon.ico',
     wp: 'https://s1.wp.com/i/favicon.ico',
     dropbox: 'https://cfl.dropboxstatic.com/static/images/favicon.ico',
-    discord: 'https://discord.com/assets/847541504914fd33810e70a0ea73177e.ico',
+    discord: 'images/discord.svg',
     imgchest: 'https://api.imgchest.com/assets/img/favicons/favicon-16x16.png',
     patreon: 'https://c5.patreon.com/external/favicon/favicon.ico',
     xhamster: 'https://static-lvlt.xhcdn.com/xh-mobile/images/favicon/favicon.ico',
@@ -3372,7 +3372,7 @@ $(function () {
         if (url === undefined)
             throw "setFavicon() called with empty url";
 
-        // #1 "reddit" is special
+        // ## "reddit" is special
         if (special === "reddit") {
             elem.html($("<img />", {'class': 'favicon reddit', src: rp.url.root+'images/reddit.svg'}));
             return;
@@ -3380,7 +3380,20 @@ $(function () {
 
         var fav = rp.favicons[special];
 
-        // #2 rp.faviconcache
+        // ## rp.favicons[]
+        if (fav === undefined) {
+            var sld = hostnameOf(url, true).match(/[^.]*/)[0];
+            fav = rp.favicons[sld];
+        }
+        if (fav) {
+            if (fav.startsWith('images/')) {
+                fav = rp.url.root+fav;
+            }
+            elem.html($("<img />", {'class': 'favicon', src: fav}));
+            return;
+        }
+
+        // ## rp.faviconcache
         var hostname = hostnameOf(url);
         if (fav === undefined) {
             // cached failed lookup
@@ -3390,22 +3403,13 @@ $(function () {
             }
             fav = rp.faviconcache[hostname];
         }
-        // #3 rp.favicons[]
-        if (fav === undefined) {
-            var sld = hostnameOf(url, true).match(/[^.]*/)[0];
-            fav = rp.favicons[sld];
-        }
-        if (fav) {
-            elem.html($("<img />", {'class': 'favicon', src: fav}));
-            return;
-        }
 
-        // #3 try //site/favicon.ico
+        // ## try //site/favicon.ico
         var origin = originOf(url);
         var img = $("<img />", {'class': 'favicon', src: fixupUrl(origin+'/favicon.ico')});
 
-        // #4a try originOf(pic.url)/favicon.ico (if different from pic.o_url)
-        // #4b try sld-only hostname of url
+        // ##a try originOf(pic.url)/favicon.ico (if different from pic.o_url)
+        // ##b try sld-only hostname of url
         // #FINAL fallback to just link icon
         var backup = [fixupUrl(origin+'/favicon.png'),
                       fixupUrl(origin+'/images/favicon.png'),
