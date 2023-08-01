@@ -133,6 +133,7 @@
  * * Handle Categories for blogs in addition to Tags
  * * Finish removing tumblr from dupes
  * * Allow Differentiated tag types (wp2: Tags vs. Categories, e621: General, Meta, Species, Artists, danbooru: general, character, artist, meta)
+ * * Integrate rp.blogcache.hn2site and wp2 alternate hostnames
  * ABANDONED Ideas
  * * Flickr Login - OAuth 1.0a doesn't work with CORS
  */
@@ -260,13 +261,13 @@ rp.wp = {};
 // If site is insecure
 // SITE -> bool
 rp.insecure = {};
-// fqdn -> BlogId (set by cacheBlogInfo())
-rp.blogger = {};
+
 rp.flickr = { nsid2u: {},
               u2nsid: {} };
 // FQDN -> URL of favicon
 rp.faviconcache = {};
 
+// used to populate local storage values
 rp.defaults = {
     wp: {
         'apnews.com': 0,
@@ -315,6 +316,7 @@ rp.favicons = {
 rp.photos = [];
 
 // cache of recently loaded duplicates
+// [site][shortid] = DATE
 rp.loaded = {};
 
 // per-site local cache
@@ -334,7 +336,9 @@ rp.blogcache = {
     // [type][site][tag] == "Tag Name"
     tags: {},                   // cacheBlogTag, blogTag
     // [site][slug] = TagID
-    wp2tag: {}                  // slug -> tagID: cacheBlogTag
+    wp2tag: {},                 // slug -> tagID: cacheBlogTag
+    // [type][fqdn] = site // blogger hn to site
+    hn2site: { blogger: {} }
 }
 
 // maybe checkout http://engineeredweb.com/blog/09/12/preloading-images-jquery-and-javascript/
@@ -1524,10 +1528,11 @@ $(function () {
         rp.wp = getConfig(configNames.wp, rp.defaults.wp);
         rp.insecure = getConfig(configNames.insecure, {});
         rp.blogcache.info = getConfig(configNames.bloginfo, {});
+        // build reverse map
         if (rp.blogcache.info && rp.blogcache.info.blogger) {
             var o = Object.entries(rp.blogcache.info.blogger);
             for (var i of o) {
-                rp.blogger[i[1].h] = i[0];
+                rp.blogcache.hn2site.blogger[i[1].h] = i[0];
             }
         }
         rp.flickr.u2nsid = getConfig(configNames.nsid, {});
@@ -1872,11 +1877,13 @@ $(function () {
             rp.blogcache.info[blog.t][blog.b] = { };
         if (title)
             rp.blogcache.info[blog.t][blog.b].n = title;
-        if (hostname && hostname != blog.b)
+        if (hostname && hostname != blog.b) {
+            if (!rp.blogcache.hn2site[blog.t])
+                rp.blogcache.hn2site[blog.t] = {};
             rp.blogcache.info[blog.t][blog.b].h = hostname;
+            rp.blogcache.hn2site[blog.t][hostname] = blog.b;
+        }
         setConfig(configNames.bloginfo, rp.blogcache.info);
-        if (blog.t == 'blogger' && hostname)
-            rp.blogger[hostname] = blog.b;
     };
 
     var cacheBlogUser = function(blog, name, url) {
@@ -2703,6 +2710,8 @@ $(function () {
                 if (pathnameOf(pic.url).endsWith('.html')) {
                     pic.url = pic.url.replace(/blogspot\.[.\w]+/, "blogspot.com");
                     pic.type = imageTypes.later;
+                    shortid = url2shortid(pic.url);
+                    hostname = hostnameOf(pic.url);
                 } else
                     throw "bad blogspot url";
 
@@ -2717,12 +2726,16 @@ $(function () {
                     if (isNaN(parseInt(a.pop(), 10)))
                         throw "Blogger bad blogid";
                     pic.type = imageTypes.later;
+                    shortid = url2shortid(pic.url);
+                    hostname = fqdn;
                 } else if (a.endsWith('post-interstitial.g') ||
                          a.endsWith('blogin.g')) {
                     a = decodeURIComponent(searchValueOf(pic.url, "blogspotURL"));
                     if (a && a.endsWith(".html")) {
                         pic.url = a;
                         pic.type = imageTypes.later;
+                        shortid = url2shortid(pic.url);
+                        hostname = hostnameOf(pic.url);
                     } else
                         throw "unknown blogger interstitial";
                 } else
@@ -3016,6 +3029,11 @@ $(function () {
                 shortid = url2shortid(pic.url);
                 initPhotoVideo(pic, 'https://cdnvistreamviz.r.worldssl.net/uploads/'+shortid+'.mp4',
                                'https://cdn.streamvi.com/uploads/'+shortid+'.jpg');
+
+            } else if (hostname == 'sunporno.com' ||
+                       hostname == 'sunporno2.com') {
+                shortid = url2shortid(pic.url, 2);
+                initPhotoEmbed(pic, 'https://embeds.sunporno.com/embed/'+shortid, false);
 
             } else if (hostname == "theasteris.com") {
                 shortid = searchValueOf(pic.url, "vid");
@@ -4863,7 +4881,7 @@ $(function () {
                     return;
                 }
             } else
-                blogid = rp.blogger[fqdn];
+                blogid = rp.blogcache.hn2site.blogger[fqdn];
 
             var handleBloggerPost = function(data) {
                 if (!processBloggerPost(photo, data))
@@ -5444,7 +5462,7 @@ $(function () {
     // TLDs are currently 2 to 6 alphabetic characters
     // "path" match is complient
     // Missing, query (?stuff), and fragment (#stuff)
-    var urlregexp = new RegExp('https?://[\\w\\._-]{1,256}\\.[a-z]{2,6}(/([\\w\\-\\.~]|%[0-9a-f]{2}|[?#!$&\'()*+,;=@])+)*', 'gi');
+    var urlregexp = new RegExp('https?://[\\w\\._-]{1,256}\\.[a-z]{2,6}(/([\\w\\-\\.~]|%[0-9a-f]{2}|[?#!$&\'*+,;=@])+)*/?', 'gi');
 
     // Returns pic with updated title
     var fixupPhotoTitle = function(pic, origtitle, parent_sub) {
@@ -6255,7 +6273,7 @@ $(function () {
 
         // Reddit Gallery Function
         if (t3.gallery_data) {
-            val = dedupAdd(t3.domain, url2shortid(photo.url), link);
+            val = dedupAdd(t3.domain, t3.url_overridden_by_dest, link);
             if (val) {
                 log.info("cannot display url [duplicate:"+val+"]: "+photo.url);
                 return false;
@@ -7535,8 +7553,8 @@ $(function () {
     };
 
     var getBloggerPosts = function(hostname) {
-        var jsonUrl = "https://www.googleapis.com/blogger/v3/blogs/"+rp.blogger[hostname]+"/posts?key="+rp.api_key.blogger;
-        var blog = { t: 'blogger', b: rp.blogger[hostname] };
+        var jsonUrl = "https://www.googleapis.com/blogger/v3/blogs/"+rp.blogcache.hn2site.blogger[hostname]+"/posts?key="+rp.api_key.blogger;
+        var blog = { t: 'blogger', b: rp.blogcache.hn2site.blogger[hostname] };
         switch (rp.url.type) {
         case 't':
             jsonUrl = bloggerSearchUrl(hostname, rp.url.multi.split(/[+,]/).map(function(x) { return "label:"+x; }).join("+"));
@@ -7589,7 +7607,7 @@ $(function () {
     };
 
     var bloggerPostLookupUrl = function(hostname, path) {
-        var blogid = (isNaN(parseInt(hostname, 10))) ?rp.blogger[hostname] :hostname;
+        var blogid = (isNaN(parseInt(hostname, 10))) ?rp.blogcache.hn2site.blogger[hostname] :hostname;
         if (!blogid)
             throw "Unknown Blogger hostname: "+hostname;
         return 'https://www.googleapis.com/blogger/v3/blogs/'+blogid+'/posts/bypath?path='+encodeURI(path)+'&key='+rp.api_key.blogger;
@@ -7600,9 +7618,9 @@ $(function () {
     };
 
     var bloggerSearchUrl = function(hostname, search) {
-        if (!rp.blogger[hostname])
+        if (!rp.blogcache.hn2site.blogger[hostname])
             throw "Unknown Blogger hostname: "+hostname;
-        return 'https://www.googleapis.com/blogger/v3/blogs/'+rp.blogger[hostname]+
+        return 'https://www.googleapis.com/blogger/v3/blogs/'+rp.blogcache.hn2site.blogger[hostname]+
             '/posts/search?q='+encodeURI(search.replaceAll(" ", "+"))+'&key='+rp.api_key.blogger;
     }
 
@@ -7610,7 +7628,7 @@ $(function () {
         var hostname = hostnameOf(data.url);
         if (data.error) {
             log.error("cannot log blogger ["+data.error.message+"]: "+hostname);
-            rp.blogger[hostname] = 0;
+            rp.blogcache.hn2site.blogger[hostname] = 0;
             if (doneError)
                 doneError();
             return;
@@ -7626,7 +7644,7 @@ $(function () {
         // /blogger/HOSTNAME[/s/search string]
         var hostname = rp.url.sub;
 
-        if (rp.blogger[hostname] === 0) {
+        if (rp.blogcache.hn2site.blogger[hostname] === 0) {
             failCleanup("cannot load blogger [Already Failed]: "+hostname);
             return;
         }
@@ -7634,7 +7652,7 @@ $(function () {
         if (!setupLoading(1, "No photos loaded"))
             return;
 
-        var id = rp.blogger[hostname];
+        var id = rp.blogcache.hn2site.blogger[hostname];
         if (id && hasBlogTitle({t:'blogger', b:id})) {
             getBloggerPosts(hostname);
             return;
@@ -7648,10 +7666,9 @@ $(function () {
 
         var failedData = function(xhr) {
             var err = JSON.parse(xhr.responseText);
-            if (xhr.status == 404) {
-                rp.blogger[hostname] = 0;
-                setConfig(configNames.blogger, rp.blogger);
-            } else
+            if (xhr.status == 404)
+                rp.blogcache.hn2site.blogger[hostname] = 0;
+            else
                 log.error("cannot load blogger ["+xhr.status+" "+err.error.message+"]: "+hostname);
 
             doneLoading("cannot load blogger");
