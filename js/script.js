@@ -881,7 +881,6 @@ $(function () {
             case "snapchat":    return titleFaviconLink('https://snapchat.com/add/'+user, user, "Snap", alt);
             case "telegram":    return titleFaviconLink('https://t.me/'+user, user, "Telegram", alt);
             case "tiktok":      return titleFaviconLink('https://tiktok.com/@'+user, user, "TikTok", alt);
-            case "telegram":    return titleFaviconLink('https://t.me/'+user, user, "Telegram", alt);
             case "tumblr":      return tumblrLink(user, type, alt); // @@
             case "twitch":      return titleFaviconLink('https://twitch.tv/'+user, user, "Twitch", alt);
             case "twitter":     return titleFaviconLink('https://twitter.com/'+user+((status) ?"/status/"+status :""), user+((status) ?"/"+status :""), "Twitter", alt);
@@ -5140,7 +5139,8 @@ $(function () {
         } else if (hostname == 'reddit.com') {
             a = pathnameOf(photo.url).split('/');
 
-            jsonUrl = rp.reddit.base + '/comments/' + shortid + '.json';
+            jsonUrl = rp.reddit.api + '/comments/' + shortid + '.json';
+            headerData = rp.session.redditHdr;
 
             handleData = function(data) {
                 if (data[0].data.children.length != 1) {
@@ -6049,7 +6049,7 @@ $(function () {
             if (v !== undefined)
                 log.debug(" not loading duplicate: /r/"+item.data.subreddit+" "+item.data.id);
             else if (item.data.num_crossposts > 0) {
-                var jurl = rp.reddit.base + '/duplicates/' + item.data.id + '.json?show=all';
+                var jurl = rp.reddit.api + '/duplicates/' + item.data.id + '.json?show=all';
                 var hdata = function (data) {
                     var item = data[0].data.children[0];
                     for(var i = 0; i < data[1].data.children.length; ++i) {
@@ -6067,6 +6067,7 @@ $(function () {
                 log.info("loading duplicates: /r/"+item.data.subreddit+" "+item.data.id);
                 $.ajax({
                     url: jurl,
+                    headers: rp.session.redditHdr,
                     dataType: 'json',
                     success: hdata,
                     error: failedAjax,
@@ -6092,7 +6093,8 @@ $(function () {
         };
 
         // https://www.reddit.com/search.json?q=url:SHORTID+site:HOSTNAME
-        var jsonUrl = rp.reddit.base + '/search.json?include_over_18=on&q=url:'+shortid+'%20site:'+site;
+        var jsonUrl = rp.reddit.api + '/search.json?include_over_18=on&q=url:'+shortid+'%20site:'+site;
+        var headerData = rp.session.redditHdr;
         var handleData = function (data) {
             if (isActive(photo))
                 updateExtraLoad();
@@ -6109,6 +6111,7 @@ $(function () {
         $.ajax({
             url: jsonUrl,
             dataType: 'json',
+            headers: headerData,
             success: handleData,
             error: failedAjax,
             timeout: rp.settings.ajaxTimeout,
@@ -6395,13 +6398,14 @@ $(function () {
 
         // @@ find way to reduce duplication of this call
 
-        var jsonUrl = rp.reddit.base + '/duplicates/' + photo.id + '.json?show=all';
+        var jsonUrl = rp.reddit.api + '/duplicates/' + photo.id + '.json?show=all';
 
         // Don't use oauth'd API for this, if oauth has expired,
         // lots of failures happen, and oauth adds nothing here.
         $.ajax({
             url: jsonUrl,
             dataType: 'json',
+            headers: rp.session.redditHdr,
             success: handleDuplicatesData,
             error: failedAjaxDone,
             jsonp: false,
