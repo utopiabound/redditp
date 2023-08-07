@@ -27,7 +27,7 @@
  * redditp-wordpress            - hash to int           - cached result of speculative wordpress lookup
  * redditp-insecure             - hash to booleans      - cached result of https:// failed, where http:// worked
  * redditp-bloginfo             - hash to hash          - cached result of cacheBlogInfo
- * redditp-flickrnsid           - hash of strings       - cached userid to NSID
+ * redditp-usermap              - hash of strings       - cached rp.user.id2name
  * 
  * (window.history)
  * Set/push/replace state
@@ -41,8 +41,9 @@
  *   fixupUrl()     - known https: sites / url munging
  *   fixupPhotoTitle() - any urls that can be added/processed from a photo.title (only affects photo.title)
  *   initPhotoYoutube() - wrapper around initPhotoEmbed()
+ *   remoteLink()   - Common image url to full site artwork url
  *
- *   site{User,Photo}{Link,Url} - social media links
+ *   site{User,Photo,Tag,Search}{Link,Url} - social media links
  *
  * per-Site Duplicate handling:
  *   getRedditDupe()
@@ -262,8 +263,27 @@ rp.wp = {};
 // SITE -> bool
 rp.insecure = {};
 
-rp.flickr = { nsid2u: {},
-              u2nsid: {} };
+// siteUserName(), siteUserId(), cacheSiteUser()
+rp.user = {
+    // [SITE][ID] = name
+    id2name: {},
+    // [SITE][NAME] = id
+    name2id: {},
+};
+
+rp.blogcache = {
+    // [blogger|tumblr|wp][USERID] = { name: "Display Name", url: URL }
+    user: {},                   // cacheBlogUser, blogUserLink, blogUserInfo
+    // [type][site] == { n: "Blog Title", [h: hostname ] }
+    info: {},                   // cacheBlogInfo, blogTitle, blogHostname
+    // [type][site][tag] == "Tag Name"
+    tags: {},                   // cacheBlogTag, blogTag
+    // [site][slug] = TagID
+    wp2tag: {},                 // slug -> tagID: cacheBlogTag
+    // [type][fqdn] = site // blogger hn to site
+    hn2site: { blogger: {} }
+}
+
 // FQDN -> URL of favicon
 rp.faviconcache = {};
 
@@ -319,27 +339,11 @@ rp.photos = [];
 // [site][shortid] = DATE
 rp.loaded = {};
 
-// per-site local cache
-rp.sitecache = {
-    reddit: {
-        multi: {}, // username: { date: DATE, data: [] }
-        sub: {} // subreddit.toLowerCase(): { date: DATE, data: {T5} }
-    },
-    wp2: {} // site: { date: DATE, data: {wp-json.data} }
+// local reddit cache
+rp.redditcache = {
+    multi: {}, // username: { date: DATE, data: [] }
+    sub: {} // subreddit.toLowerCase(): { date: DATE, data: {T5} }
 };
-
-rp.blogcache = {
-    // [blogger|tumblr|wp][USERID] = { name: "Display Name", url: URL }
-    user: {},                   // cacheBlogUser, blogUserLink, blogUserInfo
-    // [type][site] == { n: "Blog Title", [h: hostname ] }
-    info: {},                   // cacheBlogInfo, blogTitle, blogHostname
-    // [type][site][tag] == "Tag Name"
-    tags: {},                   // cacheBlogTag, blogTag
-    // [site][slug] = TagID
-    wp2tag: {},                 // slug -> tagID: cacheBlogTag
-    // [type][fqdn] = site // blogger hn to site
-    hn2site: { blogger: {} }
-}
 
 // maybe checkout http://engineeredweb.com/blog/09/12/preloading-images-jquery-and-javascript/
 // for implementing the old precache
@@ -463,7 +467,7 @@ $(function () {
         redditRefreshBy: 'redditRefreshBy',
         bloginfo: 'bloginfo',
         wp: 'wordpress',
-        nsid: 'flickrnsid',
+        user: 'usermap',
         favicon: 'favicon',
         decivolume:  'decivolume',
         insecure: 'insecure'
@@ -772,7 +776,7 @@ $(function () {
         var d = siteTagDisplay(type, otag);
         var div = $('<div/>');
         var span = $('<span>', { class: "social infor" });
-        span.append(_localLink(siteTagUrl(tag, type), '/'+type+'/t/'+tag, d, "", "", "selectable"));
+        span.append(_localLink(siteTagUrl(type, tag), '/'+type+'/t/'+tag, d, "", "", "selectable"));
         div.append(span);
         return div.html();
     };
@@ -796,8 +800,8 @@ $(function () {
         return data.html();
     };
 
-    var localUserIcon = function(user, type) {
-        return _infoAnchor(rp.url.base+localUserUrl(user, type), googleIcon("attribution"), user, "info infoa local");
+    var localUserIcon = function(type, user) {
+        return _infoAnchor(rp.url.base+localUserUrl(type, user), googleIcon("attribution"), user, "info infoa local");
     };
 
     var choiceLink = function(path, name, alt) {
@@ -825,6 +829,16 @@ $(function () {
 
     var remoteLink = function(url, text) {
         var data = $('<div/>');
+        var fqdn = hostnameOf(url);
+        try {
+            var shortid;
+            if (fqdn == 'i.pximg.net') {
+                shortid = url2shortid(url, -1, '_', false);
+                url = 'https://www.pixiv.net/en/artworks/'+shortid;
+            }
+        } catch (e) {
+            // ignore
+        }
         data.append(_infoAnchor(url, text));
         var link = _infoAnchor(url, '', '', "info infor remote");
         setFavicon(link, url);
@@ -877,7 +891,7 @@ $(function () {
             case "instagram":   return titleFaviconLink('https://instagram.com/'+user, user, "IG", alt);
             case "onlyfans":    return titleFaviconLink('https://onlyfans.com/'+user, user, "OnlyFans", alt);
             case "patreon":     return titleFaviconLink('https://patreon.com/'+user, user, "Patreon", alt);
-            case "reddit":      return titleRLink(localUserUrl(user, type), 'u/'+user, alt);
+            case "reddit":      return titleRLink(localUserUrl(type, user), 'u/'+user, alt);
             case "snapchat":    return titleFaviconLink('https://snapchat.com/add/'+user, user, "Snap", alt);
             case "telegram":    return titleFaviconLink('https://t.me/'+user, user, "Telegram", alt);
             case "tiktok":      return titleFaviconLink('https://tiktok.com/@'+user, user, "TikTok", alt);
@@ -890,7 +904,7 @@ $(function () {
         }
     };
 
-    var sitePhotoUrl = function(shortid, type) {
+    var sitePhotoUrl = function(type, shortid) {
         switch (type) {
         case 'gfycat':  return 'https://gfycat.com/'+shortid;
         case 'redgifs': return 'https://www.redgifs.com/watch/'+shortid.toLowerCase();
@@ -899,21 +913,45 @@ $(function () {
         throw "Unknown Site type: "+type;
     };
 
-    var siteUserUrl = function(user, type) {
+    var siteUserId = function(type, user) {
+        if (rp.user.name2id[type] && rp.user.name2id[type][user])
+            return rp.user.name2id[type][user];
+        return user;
+    };
+
+    var siteUserName = function(type, id) {
+        if (rp.user.id2name[type] && rp.user.id2name[type][id])
+            return rp.user.id2name[type][id];
+        return id;
+    };
+
+    var cacheSiteUser = function(type, name, id) {
+        if (!type || !name || !id || name == id)
+            return;
+        if (!rp.user.id2name[type])
+            rp.user.id2name[type] = {};
+        rp.user.id2name[type][id] = name;
+        if (!rp.user.name2id[type])
+            rp.user.name2id[type] = {};
+        rp.user.name2id[type][name] = id;
+        setConfig(configNames.user, rp.user.id2name);
+    };
+
+    var siteUserUrl = function(type, user) {
         switch(type) {
         case 'danbooru':
-        case 'e621':    return siteTagUrl(user, type);
+        case 'e621':    return siteTagUrl(type, user);
         case 'gfycat':  return 'https://gfycat.com/@'+user;
         case 'redgifs': return 'https://www.redgifs.com/users/'+user;
         case 'imgur':   return 'https://imgur.com/user/'+user;
-        case 'flickr':  return 'https://flickr.com/photos/'+flickrUserNSID(user);
+        case 'flickr':  return 'https://flickr.com/photos/'+siteUserId(type, user);
         }
         throw "Unknown Site type: "+type;
     };
 
-    var siteSearchUrl = function(text, type, sort) {
+    var siteSearchUrl = function(type, text, sort) {
         switch (type) {
-        case 'danbooru': return siteTagUrl(text, type);
+        case 'danbooru': return siteTagUrl(type, text);
         case 'flickr': return 'https://flickr.com/search?safe_search=3&view_all=1&text='+text+((sort) ?'&sort='+sort :'');
         case 'gfycat': return 'https://gfycat.com/gifs/search/'+text.toLowerCase().replaceAll(" ", "+");
         case 'reddit': return rp.reddit.base+'/search/?q='+text+((sort) ?'&sort='+sort :'');
@@ -921,11 +959,10 @@ $(function () {
         throw "Unknown Site type: "+type;
     }
 
-    var localUserUrl = function(user, type) {
+    var localUserUrl = function(type, user) {
         if (type == "reddit")
             return "/user/"+user+"/submitted";
-        else
-            return "/"+type+"/u/"+user;
+        return "/"+type+"/u/"+user;
     };
 
     // Sites that are locally browseable (c.f. localUserUrl, siteUserUrl)
@@ -934,26 +971,24 @@ $(function () {
         var users = (site.users) ?site.users :[ site.user ];
         var ret = "";
         for (var name of users) {
-            var username = name;
+            var username = siteUserName(site.t, name);
             if (!username)
                 continue;
-            if (site.t == 'flickr')
-                username = flickrUserPP(username);
-            var userlink = siteUserUrl(name, site.t);
+            var userlink = siteUserUrl(site.t, name);
             if (site.t == 'redgifs')
                 // CORS
                 ret += titleFaviconLink(userlink, username, site.t, alt);
             else
-                ret += localLink(userlink, username, localUserUrl(username, site.t), alt);
+                ret += localLink(userlink, username, localUserUrl(site.t, username), alt);
         }
         return ret;
     };
 
-    var siteTagUrl = function(tag, type) {
+    var siteTagUrl = function(type, tag) {
         switch(type) {
         case 'danbooru': return 'https://danbooru.donmai.us/posts?tags='+tag.replace(/ /g, '_');
         case 'e621':     return 'https://e621.net/posts?tags='+tag.replace(/ /g, '_');
-        case 'gfycat':   return siteSearchUrl(tag, type);
+        case 'gfycat':   return siteSearchUrl(type, tag);
         case 'redgifs':  return 'https://www.redgifs.com/browse?tags='+tag;
         case 'imgur':    return 'https://imgur.com/t/'+tag;
         case 'flickr':   return 'https://www.flickr.com/photos/tags/'+tag.toLowerCase().replaceAll(" ", "");
@@ -964,7 +999,7 @@ $(function () {
     var siteTagLink = function(type, otag) {
         var tag = encodeURIComponent(otag);
         // @@ add [+]
-        return localLinkS(siteTagUrl(tag, type), siteTagDisplay(type, otag), '/'+type+'/t/'+tag);
+        return localLinkS(siteTagUrl(type, tag), siteTagDisplay(type, otag), '/'+type+'/t/'+tag);
     };
 
     var siteTagDisplay = function(type, otag) {
@@ -1001,9 +1036,7 @@ $(function () {
     function open_in_background_url(link) {
         // as per https://developer.mozilla.org/en-US/docs/Web/API/event.initMouseEvent
         // works on latest chrome, safari and opera
-        if (link === undefined)
-            return;
-        if (link.attributes.href.value == "#")
+        if (link === undefined || link.attributes.href.value == "#")
             return;
         // Pause Auto-Next
         if (rp.settings.shouldAutoNextSlide)
@@ -1137,7 +1170,6 @@ $(function () {
 
         return shortid;
     };
-
     rp.fn.url2shortid = url2shortid;
 
     var isGoodExtension = function (url, arr) {
@@ -1146,9 +1178,7 @@ $(function () {
             extension = extensionOf(url).toLowerCase();
         else
             extension = url.toLowerCase();
-        if (extension === '')
-            return false;
-        if (arr.includes(extension))
+        if (extension && arr.includes(extension))
             return extension;
         return false;
     };
@@ -1391,7 +1421,6 @@ $(function () {
             rp.storage[c_name] = value;
             return;
         }
-
         try {
             window.localStorage[name] = value;
         } catch (e) {
@@ -1534,13 +1563,15 @@ $(function () {
                 rp.blogcache.hn2site.blogger[i[1].h] = i[0];
             }
         }
-        rp.flickr.u2nsid = getConfig(configNames.nsid, {});
+        rp.user.id2name = getConfig(configNames.user, {});
         // Build reverse map
-        if (rp.flickr.u2nsid)
-            rp.flickr.nsid2u = Object.keys(rp.flickr.u2nsid).reduce(function(obj,key) {
-                obj[ rp.flickr.u2nsid[key] ] = key;
-                return obj;
-            }, {});
+        if (rp.user.id2name)
+            for (var site of Object.keys(rp.user.id2name)) {
+                rp.user.name2id[site] = {};
+                for (var key of Object.keys(rp.user.id2name[site])) {
+                    rp.user.name2id[site][ rp.user.id2name[site][key] ] = key;
+                }
+            }
         rp.faviconcache = getConfig(configNames.favicon, rp.defaults.favicon);
         rp.session.redditRefreshToken = getConfig(configNames.redditRefresh, "");
         var bearer = getConfig(configNames.redditBearer, "");
@@ -1800,16 +1831,13 @@ $(function () {
 
     var blogBlogUrl = function(blog) {
         switch (blog.t) {
-        case 'tumblr':
-            return 'https://'+blog.b+'.tumblr.com';
-        case 'blogger':
-            return 'https://'+blogHostname(blog);
+        case 'tumblr':  return 'https://'+blog.b+'.tumblr.com';
+        case 'blogger': return 'https://'+blogHostname(blog);
         case 'wp2':
         case 'wp':
             return 'https://'+blog.b;
-        default:
-            throw "Unknown blog type: "+blog.t;
         }
+        throw "Unknown blog type: "+blog.t;
     };
 
     var blogTagUrl = function(blog, tag) {
@@ -1819,21 +1847,14 @@ $(function () {
         case 'wp2':
         case 'wp':
             return blogBlogUrl(blog)+'/tag/'+tag;
-        default:
-            throw "Unknown Blog Type: "+blog.t;
         }
+        throw "Unknown Blog Type: "+blog.t;
     };
 
     var blogUserInfo = function(blog) {
         if (!rp.blogcache.user[blog.t])
             return undefined;
-        switch (blog.t) {
-        case 'tumblr':
-        case 'wp':
-            return rp.blogcache.user[blog.t][blog.user];
-        default:
-            throw "Unhandled blog type: "+blog.t;
-        }
+        return rp.blogcache.user[blog.t][blog.user];
     };
 
     var blogUserLink = function(blog) {
@@ -1845,9 +1866,8 @@ $(function () {
         case 'tumblr':
         case 'wp':
             return localLink(info.url, info.name, '/'+blog.t+'/'+hostnameOf(info.url));
-        default:
-            throw "Unhandled blog type: "+blog.t;
         }
+        throw "Unhandled blog type: "+blog.t;
     };
 
     var blogTagLink = function(blog, tag) {
@@ -1945,7 +1965,6 @@ $(function () {
             return Object.keys(rp.blogcache.tags[blog.t][blog.b]).length;
         return 0;
     };
-    rp.fn.blogTagCount = blogTagCount;
 
     // Return list of tags missing from cache
     var blogTagMissing = function(blog, tags) {
@@ -1953,7 +1972,6 @@ $(function () {
             return tags.filter(function (x) { return (rp.blogcache.tags[blog.t][blog.b][x] == undefined); });
         return tags;
     };
-    rp.fn.blogTagMissing = blogTagMissing;
 
     var blogBlogLink = function(blog, alt) {
         // name do lookup?
@@ -2316,7 +2334,6 @@ $(function () {
         initPhotoThumb(photo);
     };
 
-
     // Call after all addAlbumItem calls
     // setup number button and session.activeAlbumIndex
     // returns index of image to display
@@ -2542,10 +2559,10 @@ $(function () {
 
                 else if (isVideoExtension(pic.url)) {
                     initPhotoVideo(pic);
-                    pic.url = sitePhotoUrl(shortid, 'imgur');
+                    pic.url = sitePhotoUrl('imgur', shortid);
 
                 } else if (!a) {
-                    pic.url = sitePhotoUrl(shortid, 'imgur');
+                    pic.url = sitePhotoUrl('imgur', shortid);
                     pic.type = imageTypes.later;
 
                 } else if (a == 'gif') {
@@ -2553,9 +2570,9 @@ $(function () {
                     a = pic.url.substr(0, pic.url.lastIndexOf('.'));
                     if (isVideoExtension(a)) {
                         initPhotoVideo(pic, a);
-                        pic.url = sitePhotoUrl(shortid, 'imgur');
+                        pic.url = sitePhotoUrl('imgur', shortid);
                     } else {
-                        pic.url = sitePhotoUrl(shortid, 'imgur');
+                        pic.url = sitePhotoUrl('imgur', shortid);
                         pic.type = imageTypes.later;
                     }
 
@@ -2601,7 +2618,7 @@ $(function () {
                 } else if (a[1] == 'i') {
                     // Use OEmbed
                     shortid = url2shortid(pic.url);
-                    pic.url = sitePhotoUrl(shortid, "redgifs");
+                    pic.url = sitePhotoUrl("redgifs", shortid);
                     pic.type = imageTypes.later;
                 } else
                     throw "bad path";
@@ -2614,7 +2631,7 @@ $(function () {
                 hostname = 'gfycat.com';
                 if (shortid == 'about')
                     throw "bad url";
-                pic.url = sitePhotoUrl(shortid, 'gfycat');
+                pic.url = sitePhotoUrl('gfycat', shortid);
                 pic.type = imageTypes.later;
 
             } else if (hostname == 'clippituser.tv' ||
@@ -2884,7 +2901,7 @@ $(function () {
                 a = pathnameOf(pic.url).split('/');
                 if (a[1] != "video")
                     throw "non-video url";
-                pic.url = sitePhotoUrl(shortid, 'gfycat'); // will fallback to redgifs
+                pic.url = sitePhotoUrl('gfycat', shortid); // will fallback to redgifs
                 pic.type = imageTypes.later;
 
             } else if (hostname == 'msnbc.com') {
@@ -3464,24 +3481,24 @@ $(function () {
     // Check if data is present and current
     var checkRedditMultiCache = function(user) {
         return (user &&
-                rp.sitecache.reddit.multi[user] &&
-                rp.sitecache.reddit.multi[user].date+rp.settings.multiExpire > currentTime());
+                rp.redditcache.multi[user] &&
+                rp.redditcache.multi[user].date+rp.settings.multiExpire > currentTime());
     };
 
     // Check if data is present and current
     var checkRedditSubCache = function(name) {
         var sub = name.toLowerCase();
         return (sub &&
-                rp.sitecache.reddit.sub[sub] &&
-                rp.sitecache.reddit.sub[sub].date+rp.settings.multiExpire > currentTime());
+                rp.redditcache.sub[sub] &&
+                rp.redditcache.sub[sub].date+rp.settings.multiExpire > currentTime());
     };
 
     var _updateRedditCache = function(key, data, type) {
         var now = currentTime();
-        if (rp.sitecache.reddit[type][key] &&
-            rp.sitecache.reddit[type][key].date + rp.settings.multiExpire > now)
+        if (rp.redditcache[type][key] &&
+            rp.redditcache[type][key].date + rp.settings.multiExpire > now)
             return;
-        rp.sitecache.reddit[type][key] = { date: now, data: data };
+        rp.redditcache[type][key] = { date: now, data: data };
     };
 
     var updateRedditMultiCache = function(user, data) {
@@ -3985,7 +4002,7 @@ $(function () {
 
         $('#navboxAuthor').html("").hide();
         if (authName)
-            $('#navboxAuthor').append(redditLink(localUserUrl(authName, "reddit"),  authName, '/u/'+authName)).show();
+            $('#navboxAuthor').append(redditLink(localUserUrl("reddit", authName),  authName, '/u/'+authName)).show();
         if (hasPhotoSiteUser(pic))
             $('#navboxAuthor').append(siteUserLink(pic.site)).show();
         if (hasPhotoBlogUser(photo))
@@ -4068,7 +4085,7 @@ $(function () {
                     li.html(redditLink(subr, item.title));
                 }
                 if (item.a && item.a != photo.author)
-                    li.append(localUserIcon(item.a, "reddit"));
+                    li.append(localUserIcon("reddit", item.a));
                 li.append($("<a>", { href: rp.reddit.base + subr + "/comments/"+item.id,
                                      class: 'info infoc',
                                      title: (new Date(item.date*1000)).toString(),
@@ -4947,7 +4964,7 @@ $(function () {
 
             if (shortid == 'albums' || shortid == 'sets') {
                 var ReqData = { photoset_id: url2shortid(photo.url, 4),
-                                user_id: flickrUserNSID(userid),
+                                user_id: siteUserId("flickr", userid),
                                 extras: 'media,url_o,url_h,url_k,url_b,tags'};
                 jsonUrl = flickrJsonURL('flickr.photosets.getPhotos', ReqData)
                 handleData = function(data) {
@@ -4963,7 +4980,7 @@ $(function () {
                             errFunc(data);
                         return;
                     }
-                    flickrAddUserMap(data.photoset.ownername, data.photoset.owner);
+                    cacheSiteUser("flickr", data.photoset.ownername, data.photoset.owner);
                     photo = initPhotoAlbum(photo, false);
                     if (data.photoset.total > data.photoset.perpage)
                         log.error("@@ More photos ("+data.photoset.total+") in set than on page ("+data.photoset.perpage+"): "+photo.url);
@@ -5629,10 +5646,10 @@ $(function () {
             if (originOf(item.href) == window.location.origin) {
                 $(item).addClass("local");
                 var a = pathnameOf(item.href).split("/");
-                if ((a[1] == "user" || a[1] == "u") && a[3] == "m" && rp.sitecache.reddit.multi[a[2]]) {
-                    for (var i = 0; i < rp.sitecache.reddit.multi[a[2]].data.length; ++i) {
-                        if (a[4] == rp.sitecache.reddit.multi[a[2]].data[i].data.name) {
-                            if (rp.sitecache.reddit.multi[a[2]].data[i].data.visibility == "private")
+                if ((a[1] == "user" || a[1] == "u") && a[3] == "m" && rp.redditcache.multi[a[2]]) {
+                    for (var i = 0; i < rp.redditcache.multi[a[2]].data.length; ++i) {
+                        if (a[4] == rp.redditcache.multi[a[2]].data[i].data.name) {
+                            if (rp.redditcache.multi[a[2]].data[i].data.visibility == "private")
                                 item.href = "/me/m/"+a[4];
                             break;
                         }
@@ -5682,7 +5699,7 @@ $(function () {
         };
 
         if (checkRedditMultiCache(rp.login.reddit.user))
-            handleData(rp.sitecache.reddit.multi[rp.login.reddit.user].data)
+            handleData(rp.redditcache.multi[rp.login.reddit.user].data)
 
         else
             $.ajax({
@@ -5827,7 +5844,7 @@ $(function () {
             ? (rp.url.sub) ?rp.url.sub :rp.login.reddit.user :rp.login.reddit.user;
         if (user) {
             list.append($('<li>').append($('<hr>', { class: "split" })));
-            list.append($('<li>').append(redditLink(localUserUrl(user, "reddit"), "submitted", "submitted", true)));
+            list.append($('<li>').append(redditLink(localUserUrl("reddit", user), "submitted", "submitted", true)));
             if (user == rp.login.reddit.user)
                 list.append($('<li>').append(redditLink("/r/friends", "friends", "friends", true)));
 
@@ -5843,7 +5860,7 @@ $(function () {
             };
 
             if (checkRedditMultiCache(user))
-                handleData(rp.sitecache.reddit.multi[user].data)
+                handleData(rp.redditcache.multi[user].data)
 
             else
                 $.ajax({
@@ -5910,7 +5927,7 @@ $(function () {
         };
 
         if (checkRedditSubCache(rp.url.sub))
-            handleT5Data(rp.sitecache.reddit.sub[rp.url.sub.toLowerCase()])
+            handleT5Data(rp.redditcache.sub[rp.url.sub.toLowerCase()])
 
         else
             $.ajax({
@@ -6005,7 +6022,7 @@ $(function () {
                         return;
                     }
                     addPhotoSite(photo, 'flickr', post.photo.owner.nsid);
-                    flickrAddUserMap(post.photo.owner.username, post.photo.owner.nsid);
+                    cacheSiteUser("flickr", post.photo.owner.username, post.photo.owner.nsid);
                     if (post.photo.tags.tag)
                         addPhotoSiteTags(photo, post.photo.tags.tag.map(function(x) { return x.raw }));
                     if (isActiveCurrent(photo)) {
@@ -6655,7 +6672,7 @@ $(function () {
         switch(rp.url.type) {
         case 'u':
             errmsg = "User "+rp.url.sub+" has no items";
-            setSubredditLink(siteUserUrl(rp.url.sub, 'imgur'));
+            setSubredditLink(siteUserUrl('imgur', rp.url.sub));
             jsonUrl = 'https://api.imgur.com/3/account/' + rp.url.sub + '/submissions/'+rp.session.after+'/';
             switch(rp.url.choice) {
             case 'best': jsonUrl += "best"; break;
@@ -6688,7 +6705,7 @@ $(function () {
             break;
         case 't':
             errmsg = "Tag "+rp.url.sub+" has no items";
-            setSubredditLink(siteTagUrl(rp.url.sub, 'imgur', order));
+            setSubredditLink(siteTagUrl('imgur', rp.url.sub, order));
             jsonUrl = 'https://api.imgur.com/post/v1/posts/t/'+rp.url.sub+"?mature=true&page="+rp.session.after;
             switch(order[0]) {
             case 'top': jsonUrl += "&sort=-top"+((order[1]) ?"&filter[window]="+order[1] :""); break;
@@ -7785,7 +7802,7 @@ $(function () {
             // Max 2 tags/users in search
             rp.url.sub = rp.url.sub.replace(/([,+&])\s*/g, '$1').replace(/ /g, '_').split(/[,+&]/).slice(0, 2).join("+");
             jsonUrl = 'https://danbooru.donmai.us/posts.json?tags='+rp.url.sub.split(/\+/).map(encodeURIComponent).join("+");
-            url = siteTagUrl(rp.url.sub, "danbooru");
+            url = siteTagUrl("danbooru", rp.url.sub);
             break;
         default:
             var extra = '';
@@ -8037,31 +8054,14 @@ $(function () {
             return post.url_b;
         return flickrThumbnail(post);
     };
-    var flickrUserPP = function(nsid) {
-        if (rp.flickr.nsid2u[nsid])
-            return rp.flickr.nsid2u[nsid];
-        return nsid;
-    };
-    var flickrUserNSID = function(userid) {
-        if (rp.flickr.u2nsid[userid])
-            return rp.flickr.u2nsid[userid];
-        return userid;
-    };
-    var flickrAddUserMap = function(userid, nsid) {
-        if (!userid || !nsid || rp.flickr.u2nsid[userid] == nsid || userid == "undefined")
-            return;
-        rp.flickr.u2nsid[userid] = nsid;
-        rp.flickr.nsid2u[nsid] = userid;
-        setConfig(configNames.nsid, rp.flickr.u2nsid);
-    };
 
     var flickrUserLookup = function(user, callback, ReqFunc, ReqData, errFunc) {
         var jsonUrl = flickrJsonURL('flickr.urls.lookupUser', { url: 'https://flickr.com/photos/'+user });
         var handleData = function(data) {
             if (data.stat !== 'ok')
                 return errFunc(data);
-            flickrAddUserMap(user, data.user.id);
-            ReqData.user_id = flickrUserNSID(user);
+            cacheSiteUser("flickr", user, data.user.id);
+            ReqData.user_id = siteUserId("flickr", user);
             $.ajax({
                 url: flickrJsonURL(ReqFunc, ReqData),
                 dataType: 'json',
@@ -8084,7 +8084,7 @@ $(function () {
 
     var processFlickrPost = function(post, url) {
         if (post.ownername)
-            flickrAddUserMap(post.ownername, post.owner);
+            cacheSiteUser("flickr", post.ownername, post.owner);
         var pic = { title: (post.title._content) ?post.title._content :post.title,
                     id: post.id,
                     site: { t: 'flickr', users: [ post.owner ] },
@@ -8123,8 +8123,8 @@ $(function () {
 
         switch (rp.url.type) {
         case 'u':
-            reqData.user_id = flickrUserNSID(rp.url.sub);
-            url = siteUserUrl(reqData.user_id, 'flickr');
+            reqData.user_id = siteUserId("flickr", rp.url.sub);
+            url = siteUserUrl("flickr", reqData.user_id);
             if (rp.url.choice == 'albums') {
                 reqFunc = 'flickr.photosets.getList';
                 url += '/albums';
@@ -8138,12 +8138,12 @@ $(function () {
             else
                 //reqData.sort = 'interestingness-desc';
                 reqData.sort = 'relevance';
-            url = siteSearchUrl(rp.url.sub, 'flickr', reqData.sort);
+            url = siteSearchUrl('flickr', rp.url.sub, reqData.sort);
             break;
         case 't':
             reqData.tags = rp.url.sub.toLowerCase().replaceAll(" ", "").replace(/[+&]/g, ",");
             reqData.tag_mode = "all";
-            url = siteTagUrl(reqData.tags, 'flickr');
+            url = siteTagUrl('flickr', reqData.tags);
             if (rp.url.choice == 'new')
                 reqData.sort = 'date-posted-desc';
             else
@@ -8184,7 +8184,7 @@ $(function () {
                 info = data.photosets;
                 arrData = data.photosets.photoset;
                 arrProcess = function(post) {
-                    flickrAddUserMap(post.username, post.owner);
+                    cacheSiteUser("flickr", post.username, post.owner);
                     var pic = processFlickrPost(post, ['https://www.flickr.com/photos', post.owner, 'sets', post.id].join("/"));
                     addPhotoThumb(pic, flickrPhotoUrl(post.primary_photo_extras));
                     return pic;
@@ -8216,6 +8216,10 @@ $(function () {
         });
     };
 
+    /////////////////////////////////////////////////////////////////
+    // Gfycat
+    //
+
     var processGfycatItem = function(photo, item) {
         addPhotoSite(photo, 'gfycat', item.username);
         if (!photo.title) {
@@ -8228,7 +8232,7 @@ $(function () {
     };
 
     var gfycat2pic = function(post) {
-        var image = { url: sitePhotoUrl(post.gfyName, 'gfycat'),
+        var image = { url: sitePhotoUrl('gfycat', post.gfyName),
                       over18: (post.nsfw != 0),
                       title: gfyItemTitle(post),
                       date: post.createDate,
@@ -8254,12 +8258,12 @@ $(function () {
             user = rp.url.sub;
             errmsg = "User "+user+" has no videos";
             jsonUrl = 'https://api.gfycat.com/v1/users/'+user+'/gfycats?count='+rp.settings.count;
-            url = siteUserUrl(rp.url.sub, 'gfycat');
+            url = siteUserUrl("gfycat", rp.url.sub);
             break;
         case "t":
             errmsg = "Tag "+rp.url.sub+" has no videos";
             jsonUrl = "https://api.gfycat.com/v1/gfycats/search?start=0&count="+rp.settings.count+"&search_text="+rp.url.sub.toLowerCase();
-            url = siteTagUrl(rp.url.sub, 'gfycat');
+            url = siteTagUrl('gfycat', rp.url.sub);
             break;
         default:
             jsonUrl = "https://api.gfycat.com/v1/gfycats/search?start=0&count="+rp.settings.count+"&search_text=trending";
@@ -8318,7 +8322,7 @@ $(function () {
                         return;
                     }
                     var photo = fixupPhotoTitle({
-                        url: siteUserUrl(user, 'gfycat')+'/collections/'+album.folderId+"/"+album.linkText,
+                        url: siteUserUrl("gfycat", user)+'/collections/'+album.folderId+"/"+album.linkText,
                         site: { t: 'gfycat', users: [ user ] },
                         title: album.folderName || album.description,
                         date: album.date,
