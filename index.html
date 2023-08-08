@@ -235,6 +235,7 @@
 	<tr class="volume-mute"><td>m</td><td>Toggle Mute</td></tr>
 	<tr><td>e</td><td>Load extra data</td></tr>
 	<tr><td>n</td><td>Toggle show NSFW</td></tr>
+	<tr><td>p</td><td>Toggle Real/Full size of image</td></tr>
 	<tr class="volume"><td>+</td><td>Increase Volume</td></tr>
 	<tr class="volume"><td>-</td><td>Decrease Volume</td></tr>
 	<tr><td><i>&crarr;</i></td><td>Play Embedded Video</td></tr>
@@ -256,15 +257,17 @@
       <div id="subRedditInfo">&nbsp;</div>
       <div class="title">Info</div>
       <table id="imageInfoTable">
-	<tr class="forAll"><th>Type</th><td id="imageInfoType">&nbsp;</td></tr>
-	<tr class="forImage forVideo"><th>Size</th><td id="imageInfoSize">&nbsp;</td></tr>
-	<tr class="forVideo"><th>Length</th><td id="imageInfoLength">&nbsp;</td></tr>
-	<tr class="forVideo"><th>Has Audio</th><td id="imageInfoAudio">&nbsp;</td></tr>
-	<tr class="forSubs"><th>Subs &forall; Photos</th><td>
+	<tr class="forAll"><th>Type</th><td /><td id="imageInfoType">&nbsp;</td></tr>
+	<tr class="forImage forVideo"><th>Size</th>
+	  <td><a id='imageSizeToggle' href="#" class="local"><i class="material-symbols-rounded">close_fullscreen</i></a></td>
+	  <td id="imageInfoSize">&nbsp;</td></tr>
+	<tr class="forVideo"><th>Length</th><td /><td id="imageInfoLength">&nbsp;</td></tr>
+	<tr class="forVideo"><th>Has Audio</th><td /><td id="imageInfoAudio">&nbsp;</td></tr>
+	<tr class="forSubs"><th>Subs &forall; Photos</th><td /><td>
 	    <a id='imageInfoSubMultiP' href="#" class="local"><img alt="RedditP Icon" class="redditp" src="images/favicon.png" /></a>
 	    <a id='imageInfoSubMulti' href="#" class="remote"><img alt="Reddit Icon" class="reddit redditp" src="images/reddit.svg" /></a>
 	</td></tr>
-	<tr class="forAllSubs"><th>Dups &forall; Photos - Subs</th><td>
+	<tr class="forAllSubs"><th>Dups &forall; Photos - Subs</th><td /><td>
 	    <a id='imageInfoAllSubMultiP' href="#" class="local"><img alt="RedditP Icon" class="redditp" src="images/favicon.png" /></a>
 	    <a id='imageInfoAllSubMulti' href="#" class="remote"><img alt="Reddit Icon" class="reddit redditp" src="images/reddit.svg" /></a>
 	</td></tr>

@@ -185,6 +185,8 @@ rp.settings = {
     // show NSFW Items
     nsfw: false,
     mute: true,
+    // image display actual size (max fullscreen)
+    realsize: false
 };
 
 rp.ALWAYS = 1;
@@ -1587,12 +1589,8 @@ $(function () {
                 var id = $(this).attr('id');
                 rp.settings[id] = $(this).is(':checked');
                 var cl = $(this).data('toggleclass');
-                if (cl) {
-                    if (rp.settings[id])
-                        $('.'+cl).removeClass('hidden');
-                    else
-                        $('.'+cl).addClass('hidden');
-                }
+                if (cl)
+                    $('.'+cl).toggleClass('hidden', rp.settings[id]);
                 setConfig(configNames[id], rp.settings[id]);
             });
             if (config !== undefined)
@@ -1655,6 +1653,10 @@ $(function () {
         $('#timeToNextSlide').keyup(updateTimeToNextSlide);
         $('.prevArrow').click(prevAlbumSlide);
         $('.nextArrow').click(nextAlbumSlide);
+        $('#imageSizeToggle').click(function(event) {
+            stopEvent(event);
+            $('.fullsize,.realsize').toggleClass("fullsize realsize");
+        });
 
         $('#fullscreen').change(function() {
             var elem = document.getElementById('page');
@@ -3556,6 +3558,9 @@ $(function () {
             $('#nsfw').click();
             break;
             // O_KEY is with ZERO_KEY below
+        case "p":
+            $('#imageSizeToggle').click();
+            break;
         case "r":
             open_in_background("#navboxDuplicatesMulti");
             break;
@@ -4395,7 +4400,7 @@ $(function () {
                 thumb = (photo.type == imageTypes.thumb || photo.type == imageTypes.fail);
 
             var url = (thumb) ?photo.thumb :photo.url;
-            var img = $('<img />', { class: "fullscreen", src: url});
+            var img = $('<img />', { class: rp.settings.realsize ?"realsize" :"fullsize", src: url});
 
             img.on('error', function() {
                 log.info("cannot display photo [load error]: "+url);
@@ -4455,7 +4460,11 @@ $(function () {
 
         // Called with showVideo(pic)
         var showVideo = function(pic) {
-            var video = $('<video id="gfyvid" class="fullscreen" preload="metadata" playsinline />');
+            var video = $('<video />', {
+                class: rp.settings.realsize ?"realsize" :"fullsize",
+                id: "gfyvid",
+                preload: "metadata",
+                playsinline: ''});
             var lastsource;
 
             video.prop('playsinline', '');
