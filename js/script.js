@@ -1000,7 +1000,7 @@ $(function () {
 
     var siteTagLink = function(type, otag) {
         var tag = encodeURIComponent(otag);
-        // @@ add [+]
+        // @@ add [+]/[-]
         return localLinkS(siteTagUrl(type, tag), siteTagDisplay(type, otag), '/'+type+'/t/'+tag);
     };
 
@@ -1590,7 +1590,7 @@ $(function () {
                 rp.settings[id] = $(this).is(':checked');
                 var cl = $(this).data('toggleclass');
                 if (cl)
-                    $('.'+cl).toggleClass('hidden', rp.settings[id]);
+                    $('.'+cl).toggleClass('hidden', !rp.settings[id]);
                 setConfig(configNames[id], rp.settings[id]);
             });
             if (config !== undefined)
@@ -7719,15 +7719,17 @@ $(function () {
     // https://danbooru.donmai.us/wiki_pages/api:posts
     var processDanbooruPost = function(photo, post) {
         addPhotoSite(photo, "danbooru");
-        if (!photo.title && post.tag_string_character)
-            photo.title = post.tag_string_character.split(" ")
-            .map(function(x) { return titleTagLink("danbooru", x); }).join(" and ");
-        addPhotoSiteTags(photo, post.tag_string_general.split(" ").concat(
-            post.tag_string_copyright.split(" ")
-        ));
-        post.tag_string_artist.split(" ").forEach(function(user) {
-            addPhotoSiteUser(photo, user);
-        });
+        addPhotoSiteUser(photo, post.tag_string_artist.split(" ").filter(Boolean));
+        addPhotoSiteTags(photo, post.tag_string_general.split(" "))
+        addPhotoSiteTags(photo, post.tag_string_copyright.split(" "))
+        if (post.tag_string_character) {
+            if (photo.title)
+                addPhotoSiteTags(photo, post.tag_string_character.split(" "));
+            else
+                photo.title = post.tag_string_character.split(" ")
+                .map(function(x) { return titleTagLink("danbooru", x); }).join(" and ");
+        }
+
         if (post.source && post.source.startsWith('http'))
             photo.extra = remoteLink(post.source, "Source");
         if (!post.file_url)
@@ -7898,6 +7900,7 @@ $(function () {
         addPhotoSiteTags(photo, post.tags.general);
         addPhotoSiteTags(photo, post.tags.species);
         addPhotoSiteTags(photo, post.tags.character);
+        addPhotoSiteTags(photo, post.tags.lore);
         // also available: copyright, invalid, lore, meta
         if (post.sources.length && !photo.extra)
             photo.extra = "";
