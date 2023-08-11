@@ -353,10 +353,9 @@ rp.cache = {};
 
 // use dedupAdd() and dedupVal()
 // KEY => { ID => LINK }
-// KEY - subreddit, hostname, ":danbooru"
+// KEY - subreddit, hostname
 // * subreddit: T3.ID => "SELF" | "/r/"+sub+"/"+sub_id
-// * hostname: shortid => "/r/"+sub+"/"+sub_id
-// * ":danbooru": postid => "SELF" | parent.postid
+// * hostname: shortid => "/r/"+sub+"/"+sub_id | "SELF" | parent.post
 rp.dedup = {};
 
 // rp.choices[rp.url.site][rp.url.type].includes(rp.url.choice) == true
@@ -2785,9 +2784,10 @@ $(function () {
                 a = pathnameOf(pic.url).split('/');
                 initPhotoEmbed(pic, 'https://emb.d.tube/#!/'+a.slice(2,4).join('/'), false);
 
-            } else if (fqdn == 'danbooru.donmai.us' ||
+            } else if (hostname == 'donmai.us' ||
                        hostname == 'e621.net') {
                 a = pathnameOf(pic.url).split('/');
+                shortid = url2shortid(pic.url);
                 if (a[1].startsWith('post') && a.length > 2)
                     pic.type = imageTypes.later;
                 else
@@ -3134,7 +3134,8 @@ $(function () {
                 } else
                     throw "unknown twitch url";
 
-            } else if (hostname == 'twitter.com') {
+            } else if (hostname == 'twitter.com' ||
+                       hostname == 'x.com') {
                 a = pathnameOf(pic.url).split('/');
                 if (a[2] == "status") {
                     pic.url = 'https://twitter.com/'+a.slice(1,4).join("/");
@@ -5240,7 +5241,8 @@ $(function () {
                 showCB(photo);
             };
 
-        } else if (hostname == 'twitter.com') {
+        } else if (hostname == 'twitter.com' ||
+                   hostname == 'x.com') {
             jsonUrl = 'https://publish.twitter.com/oembed?dnt=true&align=center&url='+photo.url;
             photo.type = imageTypes.html;
             dataType = 'jsonp';
@@ -6301,16 +6303,20 @@ $(function () {
             addPhotoThumb(photo, t3.thumbnail);
 
         // Reddit Gallery Function
-        if (t3.gallery_data) {
-            val = dedupAdd(t3.domain, t3.url_overridden_by_dest, link);
+        if (t3.gallery_data ||
+            (t3.crosspost_parent_list && t3.crosspost_parent_list.length &&
+             t3.crosspost_parent_list[0].gallery_data)) {
+
+            val = dedupAdd(t3.domain, pathnameOf(t3.url_overridden_by_dest), link);
             if (val) {
                 log.info("cannot display url [duplicate:"+val+"]: "+photo.url);
                 return false;
             }
             photo = initPhotoAlbum(photo, false);
+            var t3g = (t3.gallery_data) ?t3 :t3.crosspost_parent_list[0]
 
-            t3.gallery_data.items.forEach(function(item) {
-                var media = t3.media_metadata[item.media_id];
+            t3g.gallery_data.items.forEach(function(item) {
+                var media = t3g.media_metadata[item.media_id];
                 if (media.status == "failed" || media.status == "unprocessed")
                     return false;
                 var pic = fixupPhotoTitle({}, item.caption, photo.subreddit);
@@ -7755,7 +7761,7 @@ $(function () {
                         log.info("cannot display child [no valid url]: "+post.id);
                         return;
                     }
-                    var val = dedupAdd(':danbooru', subpost.id, post.id);
+                    var val = dedupAdd('donmai.us', subpost.id, post.id);
                     if (val) {
                         log.info("cannot display child [duplicate "+val+"]: "+subpost.id);
                         return;
@@ -7865,7 +7871,7 @@ $(function () {
                         log.info("cannot display url [no valid url]: "+post.id);
                         return;
                     }
-                    var val = dedupAdd(':danbooru', post.id);
+                    var val = dedupAdd('donmai.us', post.id);
                     if (val) {
                         log.info("cannot display url [duplicate "+val+"]: "+photo.o_url);
                         return;
@@ -7927,7 +7933,7 @@ $(function () {
                 var p = initPhotoAlbum(photo, true);
                 if (subpost.id == post.id)
                     return;
-                var val = dedupAdd(':e621', subpost.id, post.id);
+                var val = dedupAdd('e621.net', subpost.id, post.id);
                 if (val) {
                     log.info("cannot display child [duplicate "+val+"]: "+subpost.id);
                     return;
@@ -8021,7 +8027,7 @@ $(function () {
                     }
                     // @@ post.pool - alternate album?
                     var photo = post2picE621(post);
-                    var val = dedupAdd(':e621', post.id);
+                    var val = dedupAdd('e621.net', post.id);
                     if (val) {
                         log.info("cannot display url [duplicate "+val+"]: "+photo.o_url);
                         return;
@@ -8684,7 +8690,9 @@ $(function () {
                     else if (photo.blog)
                         dedupAdd(photo.blog.b, photo.blog.id);
                     else if (rp.url.site == 'danbooru')
-                        dedupAdd(':danbooru', photo.id);
+                        dedupAdd('donmai.us', photo.id);
+                    else if (rp.url.site == 'e621')
+                        dedupAdd('e621.net', photo.id);
                     if (!photo.dupes)
                         return;
                     photo.dupes.forEach(function(dupe) {
