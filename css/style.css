@@ -58,8 +58,12 @@ ul li { list-style-type: none; }
 
 .material-symbols-rounded { font-size: 24px; }
 .icontoggle { cursor: pointer; }
-.origlink i { font-size: 18px; }
 .right { float: right; }
+
+.origlink i {
+    font-size: 18px;
+    vertical-align: middle;
+}
 
 /* Decorate Photo Buttons */
 .nbmenu a.image::before { content: "image"; }
@@ -250,11 +254,6 @@ div.progress {
 #navigationBoxes { float: left; }
 #navboxContents ul li { line-height: 24px; }
 #navboxOrigDomain { margin-right: inherit; }
-
-#navboxExtra {
-    float: left;
-    height: 20px;
-}
 
 #navboxExtra .social {
     font-size: 12px;

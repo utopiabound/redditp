@@ -66,7 +66,7 @@
  *      commentN:       INT  Number of comments (if this is set, comments needs to be set too)
  *      eL:             BOOL Have loaded comment images or duplicate listings
  *      cross_id:       TEXT ID in duplictes of original link
- *      extra:          HTML Extra information for links concerning photo
+ *      elinks:         ARRAY of [NAME, URL]    Extra Links                             [addPhotoExtraLink(), picExtraLinks()]
  *      thumb:          URL  thumbnail of image (e.g. cached version from reddit)       [set by addPhotoThumb()]
  *      fb_thumb:       ARRAY of URLs Fallback thumbnail urls (must be images)          [set/use by addPhotoThumb()/nextPhotoThumb()]
  *      score:          INT  Score (upvotes - downvotes)
@@ -322,8 +322,9 @@ rp.favicons = {
     tumblr:  'https://assets.tumblr.com/images/favicons/favicon.ico',
     wordpress: 'https://s1.wp.com/i/favicon.ico',
     wp: 'https://s1.wp.com/i/favicon.ico',
-    dropbox: 'https://cfl.dropboxstatic.com/static/images/favicon.ico',
     discord: 'images/discord.svg',
+    discordapp: 'images/discord.svg',
+    dropbox: 'https://cfl.dropboxstatic.com/static/images/favicon.ico',
     imgchest: 'https://api.imgchest.com/assets/img/favicons/favicon-16x16.png',
     patreon: 'https://c5.patreon.com/external/favicon/favicon.ico',
     xhamster: 'https://static-lvlt.xhcdn.com/xh-mobile/images/favicon/favicon.ico',
@@ -748,12 +749,12 @@ $(function () {
         if (classes === undefined)
             classes = "info infol";
 
-        var data = $('<div/>');
+        var data = $('<span/>');
         data.append(_infoAnchor(rp.url.base+local, text, urlalt, classes+" local"));
         var link = _infoAnchor(url, '', urlalt, classes+" infor remote");
         setFavicon(link, url, favicon);
         data.append(link);
-        return data.html();
+        return data;
     };
 
     var redditLink = function(path, pathalt, pathname, select) {
@@ -820,16 +821,8 @@ $(function () {
         return data.html();
     };
 
-    // info - foreign link
-    // text - Text of foreign link
-    var infoLink = function(url, text) {
-        var data = $('<div/>');
-        data.append(_infoAnchor(url, text));
-        return data.html();
-    };
-
     var remoteLink = function(url, text) {
-        var data = $('<div/>');
+        var data = $('<span/>');
         var fqdn = hostnameOf(url);
         try {
             var shortid;
@@ -841,10 +834,10 @@ $(function () {
             // ignore
         }
         data.append(_infoAnchor(url, text));
-        var link = _infoAnchor(url, '', '', "info infor remote");
+        var link = _infoAnchor(url, '', '', "info infor remote social");
         setFavicon(link, url);
         data.append(link);
-        return data.html();
+        return data;
     };
 
     // Process url to social link
@@ -878,6 +871,7 @@ $(function () {
         return titleFLink(url, domains.reverse().join('.')+pathnameOf(url));
     };
 
+    // return HTML
     var socialUserLink = function(user, type, alt, status) {
         if (type === undefined)
             throw "Bad Social Type";
@@ -888,7 +882,7 @@ $(function () {
             case "facebook":    return titleFaviconLink('https://facebook.com/'+user, user, "FB", alt);
             case "furaffinity": return titleFaviconLink('https://www.furaffinity.net/user/'+user, user, type, alt);
             case "fansly":      return titleFaviconLink('https://fans.ly/'+user, user, "Fansly", alt);
-            case "hentai-foundry": return titleFaviconLink('https://www.hentai-foundry.com/user/'+user, user, "HentaiFoundry", alt);
+            case "hentai-foundry": return titleFaviconLink(siteUserUrl(type, user), user, "HentaiFoundry", alt);
             case "instagram":   return titleFaviconLink('https://instagram.com/'+user, user, "IG", alt);
             case "onlyfans":    return titleFaviconLink('https://onlyfans.com/'+user, user, "OnlyFans", alt);
             case "patreon":     return titleFaviconLink('https://patreon.com/'+user, user, "Patreon", alt);
@@ -896,7 +890,7 @@ $(function () {
             case "snapchat":    return titleFaviconLink('https://snapchat.com/add/'+user, user, "Snap", alt);
             case "telegram":    return titleFaviconLink('https://t.me/'+user, user, "Telegram", alt);
             case "tiktok":      return titleFaviconLink('https://tiktok.com/@'+user, user, "TikTok", alt);
-            case "tumblr":      return tumblrLink(user, type, alt); // @@
+            case "tumblr":      return $('<span />').html(tumblrLink(user, type, alt)).html(); // @@
             case "twitch":      return titleFaviconLink('https://twitch.tv/'+user, user, "Twitch", alt);
             case "twitter":     return titleFaviconLink('https://twitter.com/'+user+((status) ?"/status/"+status :""), user+((status) ?"/"+status :""), "Twitter", alt);
             case "vsco":        return titleFaviconLink('https://vsco.co/'+user, user, "VSCO", alt);
@@ -942,10 +936,11 @@ $(function () {
         switch(type) {
         case 'danbooru':
         case 'e621':    return siteTagUrl(type, user);
-        case 'gfycat':  return 'https://gfycat.com/@'+user;
-        case 'redgifs': return 'https://www.redgifs.com/users/'+user;
-        case 'imgur':   return 'https://imgur.com/user/'+user;
         case 'flickr':  return 'https://flickr.com/photos/'+siteUserId(type, user);
+        case 'gfycat':  return 'https://gfycat.com/@'+user;
+        case 'imgur':   return 'https://imgur.com/user/'+user;
+        case 'redgifs': return 'https://www.redgifs.com/users/'+user;
+        case 'hentai-foundry': return 'https://www.hentai-foundry.com/user/'+user;
         }
         throw "Unknown Site type: "+type;
     };
@@ -970,7 +965,7 @@ $(function () {
     // site == rp.photo[x].site
     var siteUserLink = function(site, alt) {
         var users = (site.users) ?site.users :[ site.user ];
-        var ret = "";
+        var ret = $("<span />");
         for (var name of users) {
             var username = siteUserName(site.t, name);
             if (!username)
@@ -978,9 +973,9 @@ $(function () {
             var userlink = siteUserUrl(site.t, name);
             if (site.t == 'redgifs')
                 // CORS
-                ret += titleFaviconLink(userlink, username, site.t, alt);
+                ret.append(titleFaviconLink(userlink, username, site.t, alt));
             else
-                ret += localLink(userlink, username, localUserUrl(site.t, username), alt);
+                ret.append(localLink(userlink, username, localUserUrl(site.t, username), alt));
         }
         return ret;
     };
@@ -1008,7 +1003,7 @@ $(function () {
     }
 
     var tumblrLink = function(blog, alt) {
-        return _localLink('https://'+blog+'.tumblr.com', '/tumblr/'+blog, blog, (alt || blog), rp.favicons.tumblr);
+        return _localLink('https://'+blog+'.tumblr.com', '/tumblr/'+blog, blog, (alt || blog), rp.favicons.tumblr).html();
     };
 
     var googleIcon = function(icon_name) {
@@ -1217,20 +1212,13 @@ $(function () {
         return "";
     };
 
-    var picExtra = function(pic) {
-        var extra = (pic.aflair) ?$('<span>', { class: 'linkflair' }).html(pic.aflair) :"";
-        if (pic.extra !== undefined)
-            return extra+pic.extra;
-        var photo = photoParent(pic);
-        if (photo.extra !== undefined)
-            extra += photo.extra;
-        return extra;
+    var picExtraLinks = function(pic) {
+        var ret = $("<span />");
+        for (var src of pic.elinks) {
+            ret.append(remoteLink(src[1], src[0]));
+        }
+        return ret;
     };
-
-
-    var hasPhotoSiteTags = function(pic) {
-        return pic.site && pic.site.tags && pic.site.tags.length > 0;
-    }
 
     // **************************************************************
     // rp.dedup Helper functions
@@ -1825,6 +1813,18 @@ $(function () {
         return (photo.type == imageTypes.thumb);
     }
 
+    var addPhotoExtraLink = function(photo, name, url) {
+        if (!name || !url || !url.startsWith('http'))
+            return;
+        if (!photo.elinks)
+            photo.elinks = [];
+        photo.elinks.push([ name, url ]);
+    };
+
+    var hasPhotoExtraLinks = function(photo) {
+        return photo.elinks && photo.elinks.length > 0;
+    };
+
     var addPhotoBlogTags = function(photo, tags) {
         if (tags && tags.length > 0)
             photo.blog.tags = ((photo.blog.tags) ?photo.blog.tags :[]).concat(tags);
@@ -2039,11 +2039,6 @@ $(function () {
         return photo.site && photo.site.users && photo.site.users.length > 0;
     };
 
-    var addPhotoSiteTags = function(photo, tags) {
-        if (tags && tags.length > 0)
-            photo.site.tags = ((photo.site.tags) ?photo.site.tags :[]).concat(tags.filter(Boolean));
-    }
-
     var addPhotoSite = function(photo, type, user) {
         if (!photo.site)
             photo.site = {t: type};
@@ -2052,10 +2047,19 @@ $(function () {
         addPhotoSiteUser(photo, user);
     }
 
+    var addPhotoSiteTags = function(photo, tags) {
+        if (tags && tags.length > 0)
+            photo.site.tags = ((photo.site.tags) ?photo.site.tags :[]).concat(tags.filter(Boolean));
+    };
+
     var addPhotoSiteUser = function(photo, user) {
         if (!user || (photo.site.t == 'gfycat' && user == 'anonymous'))
             return;
         photo.site.users = ((photo.site.users) ?photo.site.users :[]).concat((Array.isArray(user)) ?user :[user]);
+    };
+
+    var hasPhotoSiteTags = function(pic) {
+        return pic.site && pic.site.tags && pic.site.tags.length > 0;
     }
 
     var initPhotoImage = function(photo, url) {
@@ -2925,11 +2929,11 @@ $(function () {
                               ].join("/");
                     initPhotoImage(pic, shortid + ".jpg");
                     addPhotoFallback(pic, shortid + ".png");
-                    pic.extra = socialUserLink(a[3], 'hentai-foundry');
+                    addPhotoExtraLink(pic, a[3], siteUserUrl('hentai-foundry', a[3]));
                     shortid = a[4];
-
                 } else
                     throw "non-picture";
+
             } else if (hostname == 'imgchest.com') {
                 a = pathnameOf(pic.url).split('/');
                 if (a[1] != 'p')
@@ -3011,7 +3015,7 @@ $(function () {
                 a = searchOf(pic.url);
                 shortid = a.viewkey;
                 if (a.pkey)
-                    pic.extra = remoteLink('https://www.pornhub.com/playlist/'+a.pkey, 'Playlist');
+                    addPhotoExtraLink(pic, "Playlist", 'https://www.pornhub.com/playlist/'+a.pkey);
                 if (shortid)
                     initPhotoEmbed(pic, 'https://www.pornhub.com/embed/'+shortid+'?autoplay=1');
                 else
@@ -3382,30 +3386,32 @@ $(function () {
         return true;
     };
 
-    var setFavicon = function(elem, url, special) {
-        var fixFavicon = function(e) {
-            if (e.type == "error" ||
-                this.naturalHeight <= 1 ||
-                this.naturalWidth <= 1) {
-                var b;
-                if (e.data.backup.length > 0) {
-                    var origin = e.data.backup.shift();
-                    b = $("<img />", { 'class': 'favicon', src: origin })
-                        .on('error', e.data, fixFavicon)
-                        .on('load',  e.data, fixFavicon);
-                } else {
-                    rp.faviconcache[e.data.hn] = "";
-                    setConfig(configNames.favicon, rp.faviconcache);
-                    b = googleIcon("link");
-                }
+    var fixFavicon = function(e) {
+        if (e.type == "error" ||
+            this.naturalHeight <= 1 ||
+            this.naturalWidth <= 1) {
 
-                e.data.elem.html(b);
+            var backup = $(this).prop("backup") || [];
+            if (backup.length > 0) {
+                var origin = backup.shift();
+                $(this).prop("backup", backup);
+                $(this).prop("src", origin);
+
             } else {
-                rp.faviconcache[e.data.hn] = $(this).attr('src');
-                setConfig(configNames.favicon, rp.faviconcache);
+                if ($(this).prop("hn")) {
+                    rp.faviconcache[$(this).prop("hn")] = "";
+                    setConfig(configNames.favicon, rp.faviconcache);
+                }
+                $(this).parent().html(googleIcon("link"));
             }
-        };
 
+        } else if ($(this).prop("hn")) {
+            rp.faviconcache[$(this).prop("hn")] = $(this).attr('src');
+            setConfig(configNames.favicon, rp.faviconcache);
+        }
+    };
+
+    var setFavicon = function(elem, url, special) {
         if (url === undefined)
             throw "setFavicon() called with empty url";
 
@@ -3421,13 +3427,8 @@ $(function () {
         if (fav === undefined) {
             var sld = hostnameOf(url, true).match(/[^.]*/)[0];
             fav = rp.favicons[sld];
-        }
-        if (fav) {
-            if (fav.startsWith('images/')) {
+            if (fav && fav.startsWith('images/'))
                 fav = rp.url.root+fav;
-            }
-            elem.html($("<img />", {'class': 'favicon', src: fav}));
-            return;
         }
 
         // ## rp.faviconcache
@@ -3439,6 +3440,11 @@ $(function () {
                 return;
             }
             fav = rp.faviconcache[hostname];
+        }
+
+        if (fav) {
+            elem.html($("<img />", {'class': 'favicon', src: fav}));
+            return;
         }
 
         // ## try //site/favicon.ico
@@ -3469,8 +3475,11 @@ $(function () {
         if (rp.wp[hostname])
             backup.push(rp.favicons.wordpress);
 
-        img.on('error', { hn: hostname, elem: elem, backup: backup }, fixFavicon);
-        img.on('load',  { hn: hostname, elem: elem, backup: backup }, fixFavicon);
+        img.prop('hn', hostname);
+        img.prop('backup', backup);
+        // these don't bubble so must be set here
+        img.on('error', fixFavicon);
+        img.on('load',  fixFavicon);
 
         elem.html(img);
     };
@@ -3989,12 +3998,13 @@ $(function () {
     // Update subreddit, author, and Extras
     var updateAuthor = function(pic) {
         var photo = photoParent(pic);
-        var authName = pic.author || photo.author;
-        $('#navboxExtra').html(picExtra(pic));
+
+        $('#navboxExtra').html("");
+        if (hasPhotoExtraLinks(pic))
+            $('#navboxExtra').append(picExtraLinks(pic))
 
         if (photo.subreddit) {
             $('#navboxSubreddit').html(redditLink('/r/'+photo.subreddit)).show();
-
             if (photo.blog)
                 $('#navboxExtra').append(blogBlogLink(photo.blog));
 
@@ -4007,8 +4017,12 @@ $(function () {
             $('#navboxExtra').append($('<span>', { class: 'info infol' }).text((photo.album.indexOf(pic)+1)+"/"+photo.album.length));
 
         $('#navboxAuthor').html("").hide();
-        if (authName)
+        var authName = pic.author || photo.author;
+        if (authName) {
             $('#navboxAuthor').append(redditLink(localUserUrl("reddit", authName),  authName, '/u/'+authName)).show();
+            if (pic.aflair)
+                $('#navboxAuthor').append($('<span>', { class: 'linkflair' }).html(pic.aflair));
+        }
         if (hasPhotoSiteUser(pic))
             $('#navboxAuthor').append(siteUserLink(pic.site)).show();
         if (hasPhotoBlogUser(photo))
@@ -4835,7 +4849,7 @@ $(function () {
 
         var handleOembed = function(data) {
             if (data.author_name && data.author_url)
-                photo.extra = infoLink(data.author_url, data.author_name);
+                addPhotoExtraLink(data.author_name, data.author_url);
 
             if (data.safety)
                 photo.over18 = (data.safety == "adult");
@@ -6320,8 +6334,7 @@ $(function () {
                 if (media.status == "failed" || media.status == "unprocessed")
                     return false;
                 var pic = fixupPhotoTitle({}, item.caption, photo.subreddit);
-                if (item.outbound_url)
-                    pic.extra = infoLink(item.outbound_url, 'link');
+                addPhotoExtraLink('link', item.outbound_url);
 
                 if (media.e == "Image") {
                     pic.url = media.s.u;
@@ -6761,7 +6774,7 @@ $(function () {
         });
     };
 
-    var processHaystack = function(photo, html, extra, o_link) {
+    var processHaystack = function(photo, html, o_link) {
         var processNeedle = function(pic, item) {
             var src;
             if (item.tagName == 'IMG') {
@@ -6870,8 +6883,6 @@ $(function () {
             };
             if (o_link)
                 pic.o_url = o_link;
-            if (extra)
-                pic.extra = extra;
             if (processNeedle(pic, item) &&
                 processPhoto(pic) &&
                 !isAlbumDupe(photo, pic.url.replace(/-\d+x\d+\./, ".")))
@@ -6919,10 +6930,10 @@ $(function () {
             photo.o_url = photo.url;
         var rc = false;
 
-        if (post.content && processHaystack(photo, post.content.rendered, "", o_link))
+        if (post.content && processHaystack(photo, post.content.rendered, o_link))
             rc = true;
 
-        if (post.description && processHaystack(photo, post.description.rendered, "", o_link))
+        if (post.description && processHaystack(photo, post.description.rendered, o_link))
             rc = true;
 
         if (post.yoast_head_json) {
@@ -7583,7 +7594,7 @@ $(function () {
         }
         addPhotoBlogTags(photo, post.labels);
         photo = initPhotoAlbum(photo, false);
-        var rc = processHaystack(photo, post.content, "", post.url);
+        var rc = processHaystack(photo, post.content, post.url);
         checkPhotoAlbum(photo);
         return rc;
     };
@@ -7735,9 +7746,8 @@ $(function () {
                 photo.title = post.tag_string_character.split(" ")
                 .map(function(x) { return titleTagLink("danbooru", x); }).join(" and ");
         }
+        addPhotoExtraLink(photo, "Source", post.source);
 
-        if (post.source && post.source.startsWith('http'))
-            photo.extra = remoteLink(post.source, "Source");
         if (!post.file_url)
             initPhotoFailed(photo);
         else if (rp.settings.goodImageExtensions.includes(post.file_ext))
@@ -7907,13 +7917,10 @@ $(function () {
         addPhotoSiteTags(photo, post.tags.species);
         addPhotoSiteTags(photo, post.tags.character);
         addPhotoSiteTags(photo, post.tags.lore);
-        // also available: copyright, invalid, lore, meta
-        if (post.sources.length && !photo.extra)
-            photo.extra = "";
-        post.sources.forEach(function(src) {
-            if (src.startsWith('http'))
-                photo.extra += remoteLink(src, "Source");
-        });
+        // also available: copyright, invalid, meta
+        for (var src of post.sources) {
+            addPhotoExtraLink(photo, "Source", src);
+        }
         addPhotoThumb(photo, post.preview.url);
         if (post.flags.deleted) {
             log.info("cannot display url [deleted]: "+photo.o_url);
