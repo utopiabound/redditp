@@ -130,10 +130,9 @@
  * * on rotation/fullscreen event, check icon toggle
  * * Use /api/v1/me/prefs for defaults?
  * * Make title social link alterable (change from twitter to instagram...)
- * * Better Blogger&Blogspot urls
- * * Handle Categories for blogs in addition to Tags
  * * Finish removing tumblr from dupes
  * * Allow Differentiated tag types (wp2: Tags vs. Categories, e621: General, Meta, Species, Artists, danbooru: general, character, artist, meta)
+ * * Unify sites and blogs?
  * * Integrate rp.blogcache.hn2site and wp2 alternate hostnames
  * ABANDONED Ideas
  * * Flickr Login - OAuth 1.0a doesn't work with CORS
@@ -194,6 +193,7 @@ rp.SOMETIMES = 0;
 rp.NEVER = -1;
 
 rp.mime2ext = {
+    'audio/mp4': 'mp4a',
     'audio/mpeg': 'mp3',
     'audio/ogg':  'ogg',
     'audio/wav':  'wav',
@@ -306,6 +306,7 @@ rp.defaults = {
     },
     favicon: {
         'art.ngfiles.com': 'https://www.newgrounds.com/favicon.ico',
+        'hentai-foundry.com': 'https://img.hentai-foundry.com/themes/Dark/favicon.ico',
         'i.pximg.net': 'https://www.pixiv.net/favicon.ico',
         'imgbox.com': 'https://imgbox.com/images/favicon.ico',
         'itaku.ee': 'https://itaku.ee/assets/favicon-yellow.ico',
@@ -402,9 +403,10 @@ rp.choices = {
 
 rp.reddit = {
     base: "https://www.reddit.com",     // const
+    base_api: "https://api.reddit.com", // const
     oauth: "https://oauth.reddit.com",  // const
     loginUrl: "https://www.reddit.com/api/v1/authorize", // setable for mobile in processUrl()
-    api: "https://www.reddit.com", // start as base
+    api: "https://api.reddit.com", // start as base
     // Users to skip comments from
     skipped_bots: [ 'AutoModerator', 'sneakpeekbot' ],
 };
@@ -3646,7 +3648,7 @@ $(function () {
             break;
         case "o": // open comment - fall through
         case "0":
-            open_in_background_url($('#navboxSubreddit a:last-of-type')[0]);
+            open_in_background_url($('#navboxSubreddit a.infoc')[0]);
             break;
         }
     });
@@ -3745,7 +3747,7 @@ $(function () {
         if (length > 100) {
             var newsubs = {};
             var keys = Object.keys(allsubs);
-            for (var key in keys) {
+            for (var key of keys) {
                 if (allsubs[key] > 1)
                     newsubs[key] = allsubs[key];
             }
@@ -5177,6 +5179,19 @@ $(function () {
                 };
             }
 
+        } else if (hostname == 'redd.it') {
+            jsonUrl = photo.url;
+            dataType = 'xml';
+            handleData = function(xml) {
+                // @@ o_url -> pathnameOf(photo.url); mp4a -> BaseUrl.parent.mimeType; .audio -> []
+                var toUrl = function(_i, x) { return photo.o_url+"/"+x.textContent; };
+                var v = $(xml).find("AdaptationSet[contentType=video] BaseURL").map(toUrl);
+                initPhotoVideo(photo, Array.from(v).reverse());
+                var v = $(xml).find("AdaptationSet[contentType=audio] BaseURL").map(toUrl);
+                photo.video.audio = { mp4a: Array.from(v).reverse()[0] };
+                showCB(photo);
+            };
+
         } else if (hostname == 'reddit.com') {
             a = pathnameOf(photo.url).split('/');
 
@@ -5655,7 +5670,7 @@ $(function () {
 
         rp.login.reddit.expire = 0;
         rp.session.redditHdr = {};
-        rp.reddit.api = rp.reddit.base;
+        rp.reddit.api = rp.reddit.base_api;
         $('#redditLogin').html(googleIcon('account_box'));
         $('#redditLogin').attr('title', 'Expired');
         $('label[for=login]').html(googleIcon('menu'));
@@ -6248,7 +6263,7 @@ $(function () {
             comments = photo.comments;
         }
 
-        var jsonUrl = rp.reddit.base + pathnameOf(comments) + '.json';
+        var jsonUrl = rp.reddit.api + pathnameOf(comments) + '.json';
         var failedData = function (xhr, ajaxOptions, thrownError) {
             photo.eL = false;
             failedAjax(xhr, ajaxOptions, thrownError);
@@ -6359,22 +6374,15 @@ $(function () {
                 return false;
             }
             // intentionally load with empty video, load mp4 below
-            initPhotoVideo(photo, []);
             var media = (t3.media) ?t3.media.reddit_video
                 :(t3.secure_media) ?t3.secure_media.reddit_video
                 :undefined;
 
-            if (media) {
-                var ind = media.fallback_url.indexOf('/DASH_');
-                if (ind > 0) {
-                    addVideoUrl(photo, 'mp4', media.fallback_url);
-                    photo.video.audio = { mp3: media.fallback_url.substr(0,ind)+"/DASH_audio.mp4" };
+            if (media && media.dash_url) {
+                photo.type = imageTypes.later;
+                photo.o_url = photo.url;
+                photo.url = media.dash_url;
 
-                } else {
-                    log.error(photo.id+": cannot display video [bad fallback_url]: "+
-                              media.fallback_url);
-                    return false;
-                }
             } else {
                 log.error(photo.id+": cannot display video [no reddit_video]: "+photo.url);
                 return false;
@@ -6514,7 +6522,7 @@ $(function () {
             urlargs.push('q='+encodeURIComponent(rp.url.sub));
 
         } else if (rp.url.sub == 'random' || rp.url.sub == 'randnsfw') {
-            jsonUrl = rp.reddit.base + rpurlbase() + '.json?jsonp=redditcallback';
+            jsonUrl = rp.reddit.api + rpurlbase() + '.json?jsonp=redditcallback';
             dataType = 'jsonp';
             urlargs = [];
         }
