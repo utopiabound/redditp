@@ -5187,7 +5187,7 @@ $(function () {
                 var toUrl = function(_i, x) { return photo.o_url+"/"+x.textContent; };
                 var v = $(xml).find("AdaptationSet[contentType=video] BaseURL").map(toUrl);
                 initPhotoVideo(photo, Array.from(v).reverse());
-                var v = $(xml).find("AdaptationSet[contentType=audio] BaseURL").map(toUrl);
+                v = $(xml).find("AdaptationSet[contentType=audio] BaseURL").map(toUrl);
                 photo.video.audio = { mp4a: Array.from(v).reverse()[0] };
                 showCB(photo);
             };

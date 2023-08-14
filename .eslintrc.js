@@ -302,7 +302,7 @@ module.exports = {
 	"jquery/no-in-array": 2,
 	"jquery/no-is": "off",
 	"jquery/no-load": 2,
-	"jquery/no-map": 2,
+	"jquery/no-map": 1,
 	"jquery/no-merge": 2,
 	"jquery/no-param": 2,
 	"jquery/no-parent": "off",
