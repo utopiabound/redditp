@@ -6302,6 +6302,7 @@ $(function () {
         $.ajax({
             url: jsonUrl,
             dataType: 'json',
+            headers: rp.session.redditHdr,
             success: handleData,
             error: failedData,
             timeout: rp.settings.ajaxTimeout,
