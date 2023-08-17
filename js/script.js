@@ -95,7 +95,7 @@
  *      -- Depending on host site --
  *      subreddit:      TEXT of subreddit name
  *      site:           HASH                                            [addPhotoSite()]
- *              t:      imgur|gfycat|flickr|danbooru|e621
+ *              t:      imgur|giphy|flickr|danbooru|e621|*gfycat
  *              -- Optional --
  *              users:  ARRAY of TEXT usernames                         [addPhotoSiteUser(), siteUserLink(), hasPhotoSiteUser()]
  *              tags:   ARRAY of TEXT Tags for photo                    [picHasSiteTags(), addPhotoSiteTags()]
@@ -150,6 +150,7 @@ RegExp.quote = function(str) {
 rp.api_key = {
     tumblr:  'sVRWGhAGTVlP042sOgkZ0oaznmUOzD8BRiRwAm5ELlzEaz4kwU',
     imgchest: '102|KP09I84yWOVAGnprWXYqNYlI5Kfj9h7PLcw62Efg',
+    giphy:   'kAttEB8mY5C3xu8KuezzlJsbH1Q13B3r',
     blogger: 'AIzaSyDbkU7e2ewiPeBtPwr1cfExV0XxMAQKhTg',
     flickr:  '24ee6b81f406711f8c7d3a9070fe47a7',
     reddit:  '7yKYY2Z-tUioLA',
@@ -370,7 +371,7 @@ rp.choices = {
     'e621': {
         '': [ 'new', 'hot', 'popular', 'popular:day', 'popular:week', 'popular:month'],
     },
-    'gfycat': {},
+    'giphy': {},
     'flickr': {
         '':  [ 'hot', 'new' ],
         'u': [ "photos", "albums" ],
@@ -417,7 +418,7 @@ rp.url = {
     base: '', // path for redditp links
 
     // reset based in rpurlReset
-    site: '', // reddit | gfycat | ... ( rp.choices[rp.url.site] !== undefined )
+    site: '', // reddit | ... ( rp.choices[rp.url.site] !== undefined )
     type: '', // r | t | u | user | ... (site dependent - c.f. rp.choices)
     sub: '', // SUBREDDIT | HOSTNAME | USERNAME
     multi: '', // MULTI | TAG(s)
@@ -824,7 +825,7 @@ $(function () {
     };
 
     var choiceLink = function(path, name, alt, isInfo) {
-        return _infoAnchor(rp.url.base+path, name, alt, (isInfo) ?"info infol infoll local" :"local");
+        return _infoAnchor(rp.url.base+path, name, alt, (isInfo === undefined || isInfo) ?"info infol infoll local" :"local");
     };
 
     var titleFaviconLink = function(url, text, site, alt) {
@@ -963,6 +964,7 @@ $(function () {
         case 'e621':    return siteTagUrl(type, user);
         case 'flickr':  return 'https://flickr.com/photos/'+siteUserId(type, user);
         case 'gfycat':  return 'https://gfycat.com/@'+user;
+        case 'giphy':   return 'https://giphy.com/channel/'+siteUserId(type, user);
         case 'imgur':   return 'https://imgur.com/user/'+user;
         case 'redgifs': return 'https://www.redgifs.com/users/'+user;
         case 'hentai-foundry': return 'https://www.hentai-foundry.com/user/'+user;
@@ -975,14 +977,17 @@ $(function () {
         case 'danbooru': return siteTagUrl(type, text);
         case 'flickr': return 'https://flickr.com/search?safe_search=3&view_all=1&text='+text+((sort) ?'&sort='+sort :'');
         case 'gfycat': return 'https://gfycat.com/gifs/search/'+text.toLowerCase().replaceAll(" ", "+");
+        case 'giphy':  return 'https://giphy.com/search/'+text.replaceAll(" ", "-");
         case 'reddit': return rp.reddit.base+'/search/?q='+text+((sort) ?'&sort='+sort :'');
         }
         throw "Unknown Site type: "+type;
     }
 
     var localUserUrl = function(type, user) {
-        if (type == "reddit")
-            return "/user/"+user+"/submitted";
+        switch (type) {
+        case "reddit": return "/user/"+user+"/submitted";
+        case "flickr": user = siteUserName(type, user); break;
+        }
         return "/"+type+"/u/"+user;
     };
 
@@ -1000,7 +1005,7 @@ $(function () {
                 // CORS
                 ret.append(titleFaviconLink(userlink, username, site.t, alt));
             else
-                ret.append(localLink(userlink, username, localUserUrl(site.t, username), alt));
+                ret.append(localLink(userlink, username, localUserUrl(site.t, name), alt));
         }
         return ret;
     };
@@ -6046,12 +6051,12 @@ $(function () {
                 hn == 'gifs.com' ||
                 hn == 'gfycat.com' ||
                 hn == 'makeagif.com' ||
-                hn == 'redd.it' ||
                 hn == 'redgifs.com' ||
                 hn == 'sta.sh')
                 shortid = url2shortid(photo.url);
 
-            else if (fqdn == 'danbooru.donmai.us') {
+            else if (hn == 'redd.it' ||
+                     fqdn == 'danbooru.donmai.us') {
                 shortid = url2shortid(photo.o_url);
                 site = fqdn;
 
@@ -7067,7 +7072,9 @@ $(function () {
         } else if (tags)
             jsonUrl += '&slug='+toWPslug(tags);
         var handleData = function(tags) {
-            // @@ check for err
+            // If site has no tags, add an invalid one to stop trying to load
+            if (tags.length == 0)
+                cacheBlogTag({t: 'wp2', b: hostname}, -1, "N/A");
             tags.forEach(function(item) {
                 cacheBlogTag({t: 'wp2', b: hostname}, item.id, item.name);
             });
@@ -8305,33 +8312,52 @@ $(function () {
         return processGfycatItem(image, post);
     };
 
-    var getGfycat = function() {
+    /////////////////////////////////////////////////////////////////
+    // Giphy
+    //
+    // https://developers.giphy.com/docs/api
+
+    var processGiphyPost = function(photo, post) {
+        addPhotoSite(photo, 'giphy', post.username);
+        if (post.type != "gif")
+            throw "Unknown Giphy Post Type: "+post.type;
+        initPhotoVideo(photo, 'https://i.giphy.com/media/'+post.id+'/giphy.mp4', 'https://i.giphy.com/media/'+post.id+'/giphy_s.gif');
+        if (post.user)
+            cacheSiteUser('giphy', post.user.display_name, post.username);
+    };
+
+    var giphy2pic = function(post) {
+        var image = { url: post.url,
+                      over18: (post.rating == "r"),
+                      date: processDate(post.import_datetime),
+                      title: post.title,
+                    };
+        processGiphyPost(image, post);
+        return image;
+    };
+
+    var getGiphy = function() {
         // URLs:
-        // TRENDING:    /gfycat/
-        // USER:        /gfycat/u/USER
-        // TAG:         /gfycat/t/TAG
-        var user;
-        var jsonUrl;
-        var errmsg;
-        var first = false;
-        var url = "https://gfycat.com/discover/popular-gifs";
+        // TRENDING:    /giphy/
+        // USER:        /giphy/u/USER
+        // Search:      /giphy/s/Search
+        var jsonUrl, url, errmsg;
 
         switch (rp.url.type) {
         case "u":
-            user = rp.url.sub;
-            errmsg = "User "+user+" has no videos";
-            jsonUrl = 'https://api.gfycat.com/v1/users/'+user+'/gfycats?count='+rp.settings.count;
+            errmsg = "User "+rp.url.sub+" has no videos";
+            jsonUrl = "https://api.giphy.com/v1/gifs/search?api_key="+rp.api_key.giphy+"&q=@"+rp.url.sub;
             url = siteUserUrl("gfycat", rp.url.sub);
             break;
-        case "t":
-            errmsg = "Tag "+rp.url.sub+" has no videos";
-            jsonUrl = "https://api.gfycat.com/v1/gfycats/search?start=0&count="+rp.settings.count+"&search_text="+rp.url.sub.toLowerCase();
-            url = siteTagUrl('gfycat', rp.url.sub);
+        case "s":
+            errmsg = "Search "+rp.url.sub+" has no videos";
+            jsonUrl = "https://api.giphy.com/v1/gifs/search?api_key="+rp.api_key.giphy+"&q="+rp.url.sub;
+            url = siteSearchUrl('giphy', rp.url.sub);
             break;
         default:
-            jsonUrl = "https://api.gfycat.com/v1/gfycats/search?start=0&count="+rp.settings.count+"&search_text=trending";
-            //jsonUrl = 'https://api.gfycat.com/v1/gfycats/trending?tagName=_gfycat_all_trending&count='+rp.settings.count;
             errmsg = "No trending videos";
+            jsonUrl = "https://api.giphy.com/v1/gifs/trending?api_key="+rp.api_key.giphy;
+            url = "https://giphy.com/trending-gifs";
             break;
         }
         setSubredditLink(url);
@@ -8340,22 +8366,21 @@ $(function () {
             return;
 
         if (rp.session.after)
-            jsonUrl += "&cursor="+rp.session.after;
+            jsonUrl += "&offset="+rp.session.after;
         else
-            first = true;
+            rp.session.after = 0;
 
-        var handleGfycatData = function (data) {
-            if (data.gfycats.length) {
-                data.gfycats.forEach(function (post) {
-                    var image = gfycat2pic(post);
+        var handleData = function (data) {
+            if (data.data.length) {
+                data.data.forEach(function (post) {
+                    var image = giphy2pic(post);
                     addImageSlide(image);
                 });
-                if (data.cursor) {
-                    rp.session.after = data.cursor;
-                    rp.session.loadAfter = getGfycat;
-                } else {
+                rp.session.after = data.pagination.count + data.pagination.offset;
+                if (rp.session.after < data.pagination.total_count)
+                    rp.session.loadAfter = getGiphy;
+                else
                     rp.session.loadAfter = null;
-                }
             }
             doneLoading();
         };
@@ -8363,75 +8388,11 @@ $(function () {
         $.ajax({
             url: jsonUrl,
             dataType: 'json',
-            success: handleGfycatData,
+            success: handleData,
             error: failedAjaxDone,
             timeout: rp.settings.ajaxTimeout,
             crossDomain: true
         });
-
-        // Get Albums if loading for User
-        if (user && first) {
-            addLoading();
-            var jsonAlbumUrl = 'https://api.gfycat.com/v1/users/'+user+'/collections';
-            var handleAlbumData = function (data) {
-                if (data.count === 0)
-                    return doneLoading();
-                var collections = data.gfyCollections || data.gifCollections;
-
-                collections.forEach(function (album) {
-                    var url = 'https://api.gfycat.com/v1/users/'+user+'/collections/'+album.folderId+"/gfycats";
-                    if (album.folderSubType != "Album") {
-                        log.error("Unknown type ["+album.folderSubType+"]: "+url);
-                        return;
-                    }
-                    var photo = fixupPhotoTitle({
-                        url: siteUserUrl("gfycat", user)+'/collections/'+album.folderId+"/"+album.linkText,
-                        site: { t: 'gfycat', users: [ user ] },
-                        title: album.folderName || album.description,
-                        date: album.date,
-                        over18: Boolean(album.nsfw),
-                    });
-                    var hd = function(data) {
-                        initPhotoAlbum(photo, false);
-                        var gifs = data.gfycats || data.gifs;
-                        if (!gifs.length) {
-                            doneLoading();
-                            return;
-                        }
-                        gifs.forEach(function(data) {
-                            var pic = gfycat2pic(data);
-                            addAlbumItem(photo, pic);
-                        });
-                        addImageSlide(photo);
-                        doneLoading();
-                    };
-                    addLoading();
-                    $.ajax({
-                        url: url,
-                        dataType: 'json',
-                        success: hd,
-                        error: failedAjaxDone,
-                        timeout: rp.settings.ajaxTimeout,
-                        crossDomain: true
-                    });
-                });
-                doneLoading();
-
-            };
-            var handleAlbumError = function (xhr, ajaxOptions, thrownError) {
-                if (xhr.status == 404 || xhr.status == 403)
-                    return doneLoading();
-                failedAjax(xhr, ajaxOptions, thrownError);
-            };
-            $.ajax({
-                url: jsonAlbumUrl,
-                dataType: 'json',
-                success: handleAlbumData,
-                error: handleAlbumError,
-                timeout: rp.settings.ajaxTimeout,
-                crossDomain: true
-            });
-        }
     };
 
     var rpurlReset = function() {
@@ -8573,6 +8534,7 @@ $(function () {
             case 'e621':
             case 'flickr':
             case 'gfycat':
+            case 'giphy':
             case 'imgur':
                 rp.url.site = t;
                 var c = (a.length > 1) ?a[0] :'';
@@ -8779,7 +8741,7 @@ $(function () {
             case 'danbooru': getDanbooru(); break;
             case 'e621': getE621(); break;
             case 'flickr': getFlickr(); break;
-            case 'gfycat': getGfycat(); break;
+            case 'giphy': getGiphy(); break;
             case 'imgur': getImgur(); break;
             case 'reddit': getRedditImages(); break;
             case 'tumblr': getTumblrBlog(); break;
