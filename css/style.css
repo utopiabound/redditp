@@ -65,6 +65,8 @@ ul li { list-style-type: none; }
     vertical-align: middle;
 }
 
+.title .social i { vertical-align: middle; }
+
 /* Decorate Photo Buttons */
 .nbmenu a.image::before { content: "image"; }
 a.video::before { content: "movie"; }
@@ -337,6 +339,7 @@ div.progress {
 
 /* info link */
 .infol { margin-left: 5px; }
+.infoll { margin-right: -3px; }
 
 li.xorig a.infol { margin-left: 3px; }
 
@@ -363,6 +366,7 @@ input.textlabel {
 #controlsDiv a { position: relative; }
 
 #controlsDiv a::before {
+    /* stylelint-disable-next-line font-family-no-missing-generic-family-keyword */
     font-family: "Material Symbols Rounded";
     font-weight: normal;
     position: absolute;

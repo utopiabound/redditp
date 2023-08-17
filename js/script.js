@@ -419,8 +419,8 @@ rp.url = {
     // reset based in rpurlReset
     site: '', // reddit | gfycat | ... ( rp.choices[rp.url.site] !== undefined )
     type: '', // r | t | u | user | ... (site dependent - c.f. rp.choices)
-    sub: '', // SUBREDDIT | TAG | USERNAME
-    multi: '', // MULTI
+    sub: '', // SUBREDDIT | HOSTNAME | USERNAME
+    multi: '', // MULTI | TAG(s)
     choice: '', // <NONE> | new | hot | ... (c.f. rp.choices)
 
     // Called path
@@ -775,14 +775,30 @@ $(function () {
         return div.html();
     };
 
-    var titleTagLink = function(type, otag) {
+    var _taglink = function(type, otag, isTitle) {
         var tag = encodeURIComponent(otag);
         var d = siteTagDisplay(type, otag);
-        var div = $('<div/>');
-        var span = $('<span>', { class: "social infor" });
-        span.append(_localLink(siteTagUrl(type, tag), '/'+type+'/t/'+tag, d, "", "", "selectable"));
-        div.append(span);
-        return div.html();
+        var span;
+        if (isTitle) {
+            span = _localLink(siteTagUrl(type, tag), '/'+type+'/t/'+tag, d, "", "", "selectable");
+            span.addClass("social infor");
+        } else
+            span = localLinkS(siteTagUrl(type, tag), d, '/'+type+'/t/'+tag);
+
+        if (type == rp.url.site && rp.url.type == "t") {
+            var tags = rp.url.multi.split('+');
+            var included = (tags.includes(tag) || tags.includes(otag));
+            if (tags.length < maxTags(type) && !included)
+                span.prepend(choiceLink('/'+rp.url.site+'/t/'+rp.url.sub+"+"+tag, googleIcon('add_box'), "Add "+otag, !isTitle));
+            else if (included && tags.length > 1)
+                span.prepend(choiceLink('/'+rp.url.site+'/t/'+tags.filter(function(x) { return x != tag; }).join('+'),
+                                        googleIcon("indeterminate_check_box"), "Remove "+otag, !isTitle));
+        }
+        return span;
+    }
+
+    var titleTagLink = function(type, otag) {
+        return $('<div/>').append(_taglink(type, otag, true)).html();
     };
 
     var localLink = function(url, text, local, urlalt, favicon) {
@@ -799,28 +815,25 @@ $(function () {
     };
 
     var titleFLink = function(url, text) {
-        var data = $('<div/>');
-        data.append($('<a>', { href: url, class: "remote infor" }).html(text));
-        return data.html();
+        var data = $('<a>', { href: url, class: "remote infor" }).html(text);
+        return $('<div />').append(data).html();
     };
 
     var localUserIcon = function(type, user) {
         return _infoAnchor(rp.url.base+localUserUrl(type, user), googleIcon("attribution"), user, "info infoa local");
     };
 
-    var choiceLink = function(path, name, alt) {
-        return _infoAnchor(rp.url.base+path, name, alt, "info infol local");
+    var choiceLink = function(path, name, alt, isInfo) {
+        return _infoAnchor(rp.url.base+path, name, alt, (isInfo) ?"info infol infoll local" :"local");
     };
 
     var titleFaviconLink = function(url, text, site, alt) {
-        var data = $('<div/>');
         var span = $('<span>', { class: "remote infor" }).html(" at "+site);
         setFavicon(span, url);
         var a = $('<a>', { href: url, class: "remote infor social" }).html(text).append(span);
         if (alt)
             a[0].title = alt;
-        data.append(a);
-        return data.html();
+        return $('<div/>').append(a).html();
     };
 
     var remoteLink = function(url, text) {
@@ -934,6 +947,16 @@ $(function () {
         setConfig(configNames.user, rp.user.id2name);
     };
 
+    var maxTags = function(type) {
+        switch(type) {
+        case 'danbooru': return 2;
+        case 'gfycat':
+        case 'imgur': return 1;
+        case 'tumblr': return 4; // when /HOST/t/TAG+TAG...
+        }
+        return 100; // ~Infinate
+    }
+
     var siteUserUrl = function(type, user) {
         switch(type) {
         case 'danbooru':
@@ -995,18 +1018,12 @@ $(function () {
     };
 
     var siteTagLink = function(type, otag) {
-        var tag = encodeURIComponent(otag);
-        // @@ add [+]/[-]
-        return localLinkS(siteTagUrl(type, tag), siteTagDisplay(type, otag), '/'+type+'/t/'+tag);
+        return _taglink(type, otag, false);
     };
 
     var siteTagDisplay = function(type, otag) {
         return otag.replace(/_/g, ' ');
     }
-
-    var tumblrLink = function(blog, alt) {
-        return _localLink('https://'+blog+'.tumblr.com', '/tumblr/'+blog, blog, (alt || blog), rp.favicons.tumblr).html();
-    };
 
     var googleIcon = function(icon_name) {
         return $('<i>', { class: 'material-symbols-rounded' }).text(icon_name);
@@ -1519,20 +1536,21 @@ $(function () {
         var arr = [ rpurlbase() ]
         switch (rp.url.site) {
         case "danbooru":
-        case "e621": // @@ could do selected on rp.url.type 's'
+        case "e621":
         case "flickr":
-            a = rp.url.sub.split(/[+,]/);
-            if (rp.url.type == 't' && a.length > 1) {
+            a = rp.url.multi.split(/[+,]/);
+            if (rp.url.type == 't') {
                 p = ['', rp.url.site, rp.url.type, ''].join("/");
                 for (i of a) {
                     arr.push(p+encodeURIComponent(i));
                 }
             }
             break;
+        case "tumblr":
         case "wp2":
-            a = rp.url.multi.split(/[+,]/);
-            if (rp.url.type == 't' && a.length > 1) {
-                p = ['', rp.url.site, rp.url.sub, rp.url.type, ''].join("/");
+            if (rp.url.type == 't') {
+                a = rp.url.multi.split(/[+,]/);
+                p = ['', rp.url.site, rp.url.sub, rp.url.type, ''].join("/").replace('//', '/');
                 for (i of a) {
                     arr.push(p+encodeURIComponent(i));
                 }
@@ -1875,7 +1893,7 @@ $(function () {
 
     var blogTagLink = function(blog, tag) {
         var llink = '/'+blog.t;
-        if (['wp', 'wp2', 'blogger'].includes(blog.t))
+        if (['wp', 'wp2', 'blogger', 'tumblr'].includes(blog.t))
             llink += '/'+blogHostname(blog);
         var display = blogTag(blog, tag);
         var slug = (blog.t == 'wp2') ?toWPslug(display) :tag;
@@ -3532,6 +3550,7 @@ $(function () {
             // or doing something unrelated to redditp UI
             return;
         }
+        stopEvent(e);
 
         var i = 0;
 
@@ -5924,16 +5943,16 @@ $(function () {
                 if (list[0].firstChild)
                     list.append($('<li>').append($('<hr>', { class: "split" })));
                 list.append($('<li>').append(choiceLink('/'+rp.url.site, '/'+rp.url.site, rp.url.site)));
-                arr = rp.url.sub.split(/[+,]/);
-                if (arr.length > 1) {
-                    for (i in arr) {
-                        var d = siteTagDisplay(rp.url.site, arr[i]);
-                        a = arr.slice();
-                        a.splice(i, 1);
-                        list.append(
-                            $('<li>').append(choiceLink('/'+rp.url.site+'/t/'+a.join('+'), '[-]', "Remove `"+d+"' tag"))
-                                .append(choiceLink('/'+rp.url.site+'/t/'+arr[i], d, "Only `"+d+"' tag"))
-                        );
+                break;
+            case 'tumblr':
+                arr = rp.url.multi.split(/[+,]/);
+                // /tumblr/hostname/t/TAG -> /tumblr/t/TAG
+                if (arr.length && rp.url.sub) {
+                    if (list[0].firstChild)
+                        list.append($('<li>').append($('<hr>', { class: "split" })));
+                    for (var tag of arr) {
+                        var d = decodeURIComponent(tag);
+                        list.append($('<li>').append(choiceLink('/'+rp.url.site+'/t/'+tag, d, "Show All Tumblr "+d)));
                     }
                 }
                 break;
@@ -6368,15 +6387,17 @@ $(function () {
             checkPhotoAlbum(photo);
         }
         // Reddit hosted videos
-        else if (t3.domain == 'v.redd.it' && (t3.media || t3.secure_media)) {
+        else if (t3.domain == 'v.redd.it') {
             val = dedupAdd(t3.domain, url2shortid(photo.url), link);
             if (val) {
                 log.info("cannot display url [duplicate:"+val+"]: "+photo.url);
                 return false;
             }
+
             // intentionally load with empty video, load mp4 below
-            var media = (t3.media) ?t3.media.reddit_video
-                :(t3.secure_media) ?t3.secure_media.reddit_video
+            var media = (t3.secure_media) ?t3.secure_media.reddit_video
+                :(t3.crosspost_parent_list && t3.crosspost_parent_list.length)
+                ?t3.crosspost_parent_list[0].secure_media.reddit_video
                 :undefined;
 
             if (media && media.dash_url) {
@@ -6401,7 +6422,6 @@ $(function () {
             initPhotoVideo(photo, unescapeHTML(t3.preview.images[0].variants.mp4.source.url));
 
         } else if (!photo.url && (Object.keys(t3.secure_media_embed).length != 0 || Object.keys(t3.media_embed).length != 0)) {
-            // @@ use .(secure_)media.oembed?
             var html = (t3.secure_media_embed.content) ?t3.secure_media_embed.content :t3.media_embed.content;
             var ownerDocument = document.implementation.createHTMLDocument('virtual');
             var iframe = $('<div />', ownerDocument).html(unescapeHTML(html)).find('iframe')[0];
@@ -7356,6 +7376,10 @@ $(function () {
                  id: (id) ?id :uuid.split('.')[0] };
     };
 
+    var tumblrLink = function(blog, alt) {
+        return _localLink('https://'+blog+'.tumblr.com', '/tumblr/'+blog, blog, (alt || blog), rp.favicons.tumblr).html();
+    };
+
     var processTumblrPost = function(opic, post) {
         var rc = false;
         var isdupe = false;
@@ -7504,41 +7528,47 @@ $(function () {
     var getTumblrBlog = function () {
         // Path Schema:
         // /tumblr/HOSTNAME
+        // /tumblr/HOSTNAME/t/TAG[+...]
         // /tumblr/t/TAG
         var jsonUrl;
 
-        if (rp.url.type == 't') {
-            jsonUrl = tumblrTagJsonURL(rp.url.sub);
-            if (rp.session.after)
-                jsonUrl = jsonUrl+'&before='+rp.session.after;
-            else
-                rp.session.after = currentTime();
-            $('#subredditUrl').val('/tumblr/t/'+rp.url.sub);
-            setSubredditLink('https://www.tumblr.com/tagged/'+rp.url.sub);
-
-        } else {
+        if (rp.url.sub) {
             var hostname = rp.url.sub;
-            if (!hostname)
-                return failCleanup("No tumblr blog provided");
-
             if (!hostname.includes('.'))
                 hostname += '.tumblr.com';
 
             jsonUrl = tumblrJsonURL(hostname);
+            if (rp.url.type == 't')
+                jsonUrl += '&'+$.map(rp.url.multi.split('+'), function(x, i) { return "tag["+i+"]="+x; }).join("&");
             if (rp.session.after)
-                jsonUrl = jsonUrl+'&offset='+rp.session.after;
+                jsonUrl += '&offset='+rp.session.after;
             else
                 rp.session.after = 0;
-        }
+            // tumblr only supports url with single tag
+            setSubredditLink('https://'+hostname+(rp.url.type == 't') ?'/tagged/'+rp.url.multi.split('+')[0] :'/');
+
+        } else if (rp.url.type == 't') {
+            jsonUrl = tumblrTagJsonURL(rp.url.multi);
+            if (rp.session.after)
+                jsonUrl = jsonUrl+'&before='+rp.session.after;
+            else
+                rp.session.after = currentTime();
+            $('#subredditUrl').val('/tumblr/t/'+rp.url.multi);
+            setSubredditLink('https://www.tumblr.com/tagged/'+rp.url.multi);
+
+        } else
+            // @@ support tumblr front page?
+            return failCleanup("No tumblr blog provided");
 
         if (!setupLoading(1, "no Tumblr entries"))
             return;
 
         var handleData = function (data) {
             var posts, nsfw = false;
-            if (rp.url.type == '') {
+            if (data.response.posts) {
                 setSubredditLink(data.response.blog.url);
-                $('#subredditUrl').val('/tumblr/'+data.response.blog.name);
+                rp.url.sub = data.response.blog.name;
+                $('#subredditUrl').val(rpurlpath());
 
                 if (rp.session.after < data.response.total_posts) {
                     rp.session.after = rp.session.after + data.response.posts.length;
@@ -7547,7 +7577,8 @@ $(function () {
                     rp.session.loadAfter = null;
                 posts = data.response.posts;
                 nsfw = data.response.blog.is_nsfw || data.response.blog.is_adult;
-            } else { // t
+
+            } else { // tagged
                 posts = data.response;
                 if (data.response.length == 0)
                     rp.session.loadAfter = null;
@@ -7826,7 +7857,7 @@ $(function () {
         switch (rp.url.type) {
         case "s":
             errmsg = "Search `"+rp.url.sub+"' has no posts";
-            rp.url.sub = rp.url.sub.split(/[,+&\s]+/).slice(0, 2).join("+");
+            rp.url.sub = rp.url.sub.split(/[,+&\s]+/).slice(0, maxTags('danbooru')).join("+");
             // fall through
         case "u":
             if (!errmsg)
@@ -7835,8 +7866,6 @@ $(function () {
         case "t":
             if (!errmsg)
                 errmsg = "Tag `"+rp.url.sub+"' has no posts";
-            // Max 2 tags/users in search
-            rp.url.sub = rp.url.sub.replace(/([,+&])\s*/g, '$1').replace(/ /g, '_').split(/[,+&]/).slice(0, 2).join("+");
             jsonUrl = 'https://danbooru.donmai.us/posts.json?tags='+rp.url.sub.split(/\+/).map(encodeURIComponent).join("+");
             url = siteTagUrl("danbooru", rp.url.sub);
             break;
@@ -8435,6 +8464,7 @@ $(function () {
                 break;
             }
             break;
+        case "tumblr":
         case "blogger":
         case "wp2":
         case "wp":
@@ -8511,15 +8541,22 @@ $(function () {
             case 'blogger':
             case 'wp':
             case 'wp2':
-            case 'tumblr':
                 rp.url.site = t;
-                if (rp.choices[t] && rp.choices[t][a[0]])
-                    rp.url.type = a.shift();
                 rp.url.sub = a.shift();
                 if (rp.choices[t] && rp.choices[t][a[0]]) {
                     rp.url.type = a.shift();
                     if (a.length)
                         rp.url.multi = a.shift();
+                }
+                break;
+            case 'tumblr':
+                rp.url.site = t;
+                if (!rp.choices[t][a[0]])
+                    rp.url.sub = a.shift();
+                if (rp.choices[t][a[0]]) {
+                    rp.url.type = a.shift();
+                    rp.url.multi = a.join(' ').split(/[,+&]\s*/).slice(0, maxTags(t)).join("+");
+                    a = [];
                 }
                 break;
             case 'domain':
@@ -8550,7 +8587,12 @@ $(function () {
                         re = RegExp("[/ ]"+rp.url.choice+"[/ ]?$", "i");
                         tmp = tmp.replace(re, '');
                     }
-                    rp.url.sub = decodeURIComponent(tmp);
+                    tmp = decodeURIComponent(tmp);
+                    if (rp.url.type == 't') {
+                        rp.url.sub = tmp.split(/[,+&]\s*/).slice(0, maxTags(t)).join("+");
+                        rp.url.multi = rp.url.sub;
+                    } else
+                        rp.url.sub = tmp;
                     a = [];
                 }
                 break;
