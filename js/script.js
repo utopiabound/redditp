@@ -106,6 +106,7 @@
  *              id:     TEXT post id
  *              user:   TEXT of username                                [hasPhotoBlogUser, blogUser*, cacheBlogUser]
  *              tags:   ARRAY of TEXT/INT tags (may require lookup)     [addPhotoBlogTags, hasPhotoBlogTags, blogTag*, cacheBlogTag]
+ *              cats:   ARRAY of TEXT
  *
  *      -- Depending on image Type [see initPhotoTYPE()] --
  *      video:          HASH for video ext to url + thumbnail (see showVideo() / rp.mime2ext)   [initPhotoVideo() / addVideoUrl()]
@@ -283,6 +284,8 @@ rp.blogcache = {
     tags: {},                   // cacheBlogTag, blogTag
     // [site][slug] = TagID
     wp2tag: {},                 // slug -> tagID: cacheBlogTag
+    // [site][slug] = TagID
+    wp2cat: {},                 // slug -> tagID: cacheBlogTag
     // [type][fqdn] = site // blogger hn to site
     hn2site: { blogger: {} }
 }
@@ -398,8 +401,8 @@ rp.choices = {
                        "rising", "controversial", 'gilded' ],
     },
     'tumblr': { 't': [] },
-    'wp':  { '': [ "new", "old" ], 't': [ "new", "old" ] },
-    'wp2': { '': [ "new", "old" ], 't': [ "new", "old" ] },
+    'wp':  { '': [ "new", "old" ], 't': [ "new", "old" ], 'c': [ "new", "old" ] },
+    'wp2': { '': [ "new", "old" ], 't': [ "new", "old" ], 'c': [ "new", "old" ] },
 };
 
 rp.reddit = {
@@ -951,6 +954,7 @@ $(function () {
     var maxTags = function(type) {
         switch(type) {
         case 'danbooru': return 2;
+        case 'wp':
         case 'gfycat':
         case 'imgur': return 1;
         case 'tumblr': return 4; // when /HOST/t/TAG+TAG...
@@ -1855,6 +1859,11 @@ $(function () {
             photo.blog.tags = ((photo.blog.tags) ?photo.blog.tags :[]).concat(tags);
     }
 
+    var addPhotoBlogCats = function(photo, cats) {
+        if (cats && cats.length > 0)
+            photo.blog.cats = ((photo.blog.cats) ?photo.blog.cats :[]).concat(cats);
+    }
+
     var blogBlogUrl = function(blog) {
         switch (blog.t) {
         case 'tumblr':  return 'https://'+blog.b+'.tumblr.com';
@@ -1896,17 +1905,27 @@ $(function () {
         throw "Unhandled blog type: "+blog.t;
     };
 
-    var blogTagLink = function(blog, tag) {
+    var blogTagLink = function(blog, tag, isTag) {
+        if (isTag === undefined)
+            isTag = 't';
         var llink = '/'+blog.t;
         if (['wp', 'wp2', 'blogger', 'tumblr'].includes(blog.t))
             llink += '/'+blogHostname(blog);
-        var display = blogTag(blog, tag);
-        var slug = (blog.t == 'wp2') ?toWPslug(display) :tag;
-        return localLinkS(blogTagUrl(blog, tag), blogTag(blog, tag), llink+'/t/'+slug);
+        var display = (isTag) ?blogTag(blog, tag) :blogCat(blog, tag);
+        var slug = (blog.t.startsWith('wp2')) ?toWPslug(display) :tag;
+        return localLinkS(blogTagUrl(blog, tag), display, llink+'/'+((isTag) ?'t' :'c')+'/'+slug);
+    };
+
+    var blogCatLink = function(blog, tag) {
+        return blogTagLink(blog, tag, false);
     };
 
     var hasPhotoBlogTags = function(pic) {
         return pic.blog && pic.blog.tags && pic.blog.tags.length > 0;
+    };
+
+    var hasPhotoBlogCats = function(pic) {
+        return pic.blog && pic.blog.cats && pic.blog.cats.length > 0;
     };
 
     var hasPhotoBlogUser = function(pic) {
@@ -1959,6 +1978,10 @@ $(function () {
             if (!rp.blogcache.wp2tag[blog.b])
                 rp.blogcache.wp2tag[blog.b] = {};
             rp.blogcache.wp2tag[blog.b][toWPslug(name)] = tag;
+        } else if (blog.t == 'wp2-category') {
+            if (!rp.blogcache.wp2cat[blog.b])
+                rp.blogcache.wp2cat[blog.b] = {};
+            rp.blogcache.wp2cat[blog.b][toWPslug(name)] = tag;
         }
     };
 
@@ -1986,6 +2009,10 @@ $(function () {
         return tag;
     };
 
+    var blogCat = function(blog, tag) {
+        return blogTag({b: blog.b, t:blog.t+"-category"}, tag);
+    };
+
     var blogTagCount = function(blog) {
         if (rp.blogcache.tags[blog.t] && rp.blogcache.tags[blog.t][blog.b])
             return Object.keys(rp.blogcache.tags[blog.t][blog.b]).length;
@@ -2005,10 +2032,18 @@ $(function () {
     };
 
     // Return tag ID or undefined
-    var wp2RevTag = function(hostname, slug) {
+    var _id_in = function(cache, hostname, slug) {
         if (!isNaN(parseInt(slug, 10)))
             return slug;
-        return (rp.blogcache.wp2tag[hostname]) ?rp.blogcache.wp2tag[hostname][slug] :undefined;
+        return (cache[hostname]) ?cache[hostname][slug] :undefined;
+    };
+
+    var wp2RevTag = function(hostname, slug) {
+        return _id_in(rp.blogcache.wp2tag, hostname, slug);
+    };
+
+    var wp2RevCat = function(hostname, slug) {
+        return _id_in(rp.blogcache.wp2cat, hostname, slug);
     };
 
     var refreshBlogTitle = function(blog) {
@@ -4074,11 +4109,21 @@ $(function () {
         else
             $('#navboxDuplicatesLink').attr('href', '#').hide();
 
+        // @@ break out categories
         // Add Blog Tags
         if (hasPhotoBlogTags(photo))
             photo.blog.tags.forEach(function(tag) {
                 var li = $("<li>", { class: 'list'});
                 li.html(blogTagLink(photo.blog, tag));
+                ++ total;
+                $('#duplicateUl').append(li);
+            });
+
+        // Add Blog Categories
+        if (hasPhotoBlogCats(photo))
+            photo.blog.cats.forEach(function(tag) {
+                var li = $("<li>", { class: 'list'});
+                li.html(blogCatLink(photo.blog, tag));
                 ++ total;
                 $('#duplicateUl').append(li);
             });
@@ -6952,6 +6997,11 @@ $(function () {
             return refreshWP2Tags(hn, missing_tags, function() {
                 getPostWPv2(photo, post, errorcb, successcb);
             }, function() { if (errorcb) errorcb(photo);});
+        missing_tags = blogTagMissing({t: 'wp2-category', b: hn}, post.categories);
+        if (missing_tags.length)
+            return refreshWP2Tags(hn, missing_tags, function() {
+                getPostWPv2(photo, post, errorcb, successcb);
+            }, function() { if (errorcb) errorcb(photo);}, false);
 
         var o_link = post.link;
 
@@ -6959,6 +7009,7 @@ $(function () {
         if (!photo.blog) {
             photo.blog = { t: 'wp2', b: hn, id: post.id };
             addPhotoBlogTags(photo, post.tags);
+            addPhotoBlogCats(photo, post.categories);
         }
         if (photo.o_url === undefined)
             photo.o_url = photo.url;
@@ -7063,20 +7114,24 @@ $(function () {
     };
 
     // tags can be either [ id, id, id] or "slug"
-    var refreshWP2Tags = function(hostname, tags, doneLoading, errorcb) {
+    var refreshWP2Tags = function(hostname, tags, doneLoading, errorcb, isTag) {
+        if (isTag === undefined)
+            isTag = true;
         var scheme = (rp.insecure[hostname]) ?'http' :'https';
-        var jsonUrl = scheme+'://'+hostname+'/wp-json/wp/v2/tags?orderby=count&order=desc&per_page=100';
+        var jsonUrl = scheme+'://'+hostname+'/wp-json/wp/v2/'+((isTag) ?'tags' :'categories')+'?orderby=count&order=desc&per_page=100';
         if (Array.isArray(tags)) {
             if (tags.length)
                 jsonUrl += '&include='+tags.join(",");
         } else if (tags)
             jsonUrl += '&slug='+toWPslug(tags);
+        var blog = { t: (isTag) ?'wp2' :'wp2-category', b: hostname };
+
         var handleData = function(tags) {
             // If site has no tags, add an invalid one to stop trying to load
             if (tags.length == 0)
-                cacheBlogTag({t: 'wp2', b: hostname}, -1, "N/A");
+                tags.push({id: -1, name: "Redditp Empty Set"});
             tags.forEach(function(item) {
-                cacheBlogTag({t: 'wp2', b: hostname}, item.id, item.name);
+                cacheBlogTag(blog, item.id, item.name);
             });
             if (doneLoading)
                 doneLoading();
@@ -7101,6 +7156,7 @@ $(function () {
         // Path Schema:
         // /wp2/HOSTNAME[/CHOICES]
         // /wp2/HOSTNAME/t/TAG[/CHOICES]
+        // /wp2/HOSTNAME/c/CATEGORY[/CHOICES]
         var hostname = rp.url.sub;
 
         if (rp.wp[hostname] === 0) {
@@ -7120,23 +7176,39 @@ $(function () {
         var jsonUrl = wp2BaseJsonUrl(hostname)+'?orderby=date&order='+((rp.url.choice == 'old') ?'asc' :'desc');
 
         // Multiple tags results in an OR relationship
-        if (rp.url.type == 't') {
-            var tags = [];
-            var tn = [];
-            for (var tag of decodeURIComponent(rp.url.multi).split(/[,+&]\s*/)) {
+        var tags = [];
+        var tn = [];
+        var tag, xs;
+        switch (rp.url.type) {
+        case 't':
+            for (tag of decodeURIComponent(rp.url.multi).split(/[,+&]\s*/)) {
                 tag = toWPslug(tag);
-                var xs = wp2RevTag(hostname, tag);
+                xs = wp2RevTag(hostname, tag);
                 if (xs)
                     tags.push(xs);
                 tn.push(tag);
             }
             if (tags.length == 0 || tags.length != tn.length)
-                return refreshWP2Tags(hostname, tn, getWordPressBlogV2, function() { doneLoading("Bad Tag")});
+                return refreshWP2Tags(hostname, tn.join(","), getWordPressBlogV2, function() { doneLoading("Bad Tag")});
             jsonUrl += '&tags='+tags.join("+");
             setSubredditLink('https://'+hostname+'/tag/'+tn.join("+"));
-
-        } else
+            break;
+        case 'c':
+            for (tag of decodeURIComponent(rp.url.multi).split(/[,+&]\s*/)) {
+                tag = toWPslug(tag);
+                xs = wp2RevCat(hostname, tag);
+                if (xs)
+                    tags.push(xs);
+                tn.push(tag);
+            }
+            if (tags.length == 0 || tags.length != tn.length)
+                return refreshWP2Tags(hostname, tn.join(","), getWordPressBlogV2, function() { doneLoading("Bad Tag")}, false);
+            jsonUrl += '&categories='+tags.join("+");
+            setSubredditLink('https://'+hostname+'/category/'+tn.join("+"));
+        default:
             setSubredditLink('https://'+hostname);
+            break;
+        }
 
         if (rp.session.after !== "")
             jsonUrl += '&offset='+rp.session.after;
@@ -7229,6 +7301,12 @@ $(function () {
             cacheBlogTag(pic.blog, x.slug, x.name);
             return x.slug;
         }));
+        var blog = {t: 'wp-category', b: hn };
+        addPhotoBlogCats(pic, Object.keys(post.categories).map(function(k) {
+            var x = post.categories[k];
+            cacheBlogTag(blog, x.slug, x.name);
+            return x.slug;
+        }));
 
         if (post.is_reblogged) {
             log.info("*@@* DUPLICATE: ", post);
@@ -7278,6 +7356,7 @@ $(function () {
         // Path Schema:
         // /wp/HOSTNAME[/CHOICES]
         // /wp/HOSTNAME/t/TAG
+        // /wp/HOSTNAME/c/CATEGORY
         var hostname = rp.url.sub;
 
         if (!hostname.includes('.'))

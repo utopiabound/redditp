@@ -91,14 +91,23 @@ These are available from the popup menu
 * /user/USER/submitted (also /u/USER/submitted)
 * /user/USER/m/MULTIREDDIT
 
+## Supported Sites (imgur, flickr, ...)
+* /SITE
+* /SITE/u/USER
+* /SITE/t/TAG[+TAG...]
+* /SITE/s/SEARCH
+
+## Supported Blogs (wp, wp2, blogger, tumblr)
+* /TYPE/HOSTNAME
+* /TYPE/HOSTNAME/t/TAG
+* /TYPE/HOSTNAME/u/USER
+* /TYPE/HOSTNAME/c/CATEGORY
+
 ## Other Services:
 See Help (?) popup
 * /imgur			Popular Imgur Items
 * /imgur/u/USER		Images from that USER
 * /imgur/t/TAG		Items with that TAG
-* /gfycat			Trending gfycat items
-* /gfycat/u/USER	Gfycat items from that USER
-* /gfycat/t/TAG		Gfycat items with that TAG
 * /wp/HOSTNAME		(with or without .wordpress.com)
 * /wp2/HOSTNAME		(fqdn of Self-hosted wordpress site aka API version 2)
 * /tumblr/HOSTNAME	(with or without .tumblr.com)
