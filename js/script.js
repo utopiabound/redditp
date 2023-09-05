@@ -98,7 +98,7 @@
  *              t:      imgur|giphy|flickr|danbooru|e621|*gfycat
  *              -- Optional --
  *              users:  ARRAY of TEXT usernames                         [addPhotoSiteUser(), siteUserLink(), hasPhotoSiteUser()]
- *              tags:   ARRAY of TEXT Tags for photo                    [picHasSiteTags(), addPhotoSiteTags()]
+ *              tags:   ARRAY of TEXT Tags for photo                    [hasPhotoSiteTags(), addPhotoSiteTags()]
  * P    blog:           HASH
  *              t:      blogger|tumblr|wp|wp2
  *              b:      TEXT blog name
@@ -132,7 +132,7 @@
  * * Use /api/v1/me/prefs for defaults?
  * * Make title social link alterable (change from twitter to instagram...)
  * * Finish removing tumblr from dupes
- * * Allow Differentiated tag types (wp2: Tags vs. Categories, e621: General, Meta, Species, Artists, danbooru: general, character, artist, meta)
+ * * Allow Differentiated tag types (e621: General, Meta, Species, Artists, danbooru: general, character, artist, meta)
  * * Unify sites and blogs?
  * * Integrate rp.blogcache.hn2site and wp2 alternate hostnames
  * ABANDONED Ideas
@@ -224,6 +224,7 @@ rp.session = {
     // Id of timer
     nextSlideTimeoutId: null,
 
+    // set/clear via moreImages(loadAfter, after), endOfImages(name, [info])
     // Per site data for "next traunch" of data
     after: "",
     // Function called to load more data
@@ -332,6 +333,7 @@ rp.favicons = {
     dropbox: 'https://cfl.dropboxstatic.com/static/images/favicon.ico',
     imgchest: 'https://api.imgchest.com/assets/img/favicons/favicon-16x16.png',
     patreon: 'https://c5.patreon.com/external/favicon/favicon.ico',
+    skype: 'https://skype.com/favicon.ico',
     xhamster: 'https://static-lvlt.xhcdn.com/xh-mobile/images/favicon/favicon.ico',
     tiktok: 'https://lf16-tiktok-common.ibytedtos.com/obj/tiktok-web-common-sg/mtact/static/pwa/icon_128x128.png',
     // i.redd.it/v.redd.it - reddit hosted images
@@ -539,6 +541,16 @@ $(function () {
             event.preventDefault();
             event.stopImmediatePropagation();
         }
+    };
+
+    var endOfImages = function(name, info) {
+        rp.session.loadAfter = null;
+        log.info("No more "+name+" images"+((info) ?": "+info :""));
+    };
+
+    var moreImages = function(fn, after) {
+        rp.session.loadAfter = fn;
+        rp.session.after = after;
     };
 
     var getNextPhotoOk = function(pic) {
@@ -831,9 +843,9 @@ $(function () {
         return _infoAnchor(rp.url.base+path, name, alt, (isInfo === undefined || isInfo) ?"info infol infoll local" :"local");
     };
 
-    var titleFaviconLink = function(url, text, site, alt) {
+    var titleFaviconLink = function(url, text, site, alt, special) {
         var span = $('<span>', { class: "remote infor" }).html(" at "+site);
-        setFavicon(span, url);
+        setFavicon(span, url, special);
         var a = $('<a>', { href: url, class: "remote infor social" }).html(text).append(span);
         if (alt)
             a[0].title = alt;
@@ -906,6 +918,7 @@ $(function () {
             case "onlyfans":    return titleFaviconLink('https://onlyfans.com/'+user, user, "OnlyFans", alt);
             case "patreon":     return titleFaviconLink('https://patreon.com/'+user, user, "Patreon", alt);
             case "reddit":      return titleRLink(localUserUrl(type, user), 'u/'+user, alt);
+            case "skype":       return titleFaviconLink('skype:'+user+'?profile', user, "Skype", alt, "skype");
             case "snapchat":    return titleFaviconLink('https://snapchat.com/add/'+user, user, "Snap", alt);
             case "telegram":    return titleFaviconLink('https://t.me/'+user, user, "Telegram", alt);
             case "tiktok":      return titleFaviconLink('https://tiktok.com/@'+user, user, "TikTok", alt);
@@ -1875,15 +1888,21 @@ $(function () {
         throw "Unknown blog type: "+blog.t;
     };
 
-    var blogTagUrl = function(blog, tag) {
+    var blogTagUrl = function(blog, tag, isTag) {
+        if (isTag === undefined)
+            isTag = true;
         switch (blog.t) {
         case 'blogger': return blogBlogUrl(blog)+'/search/label/'+tag;
         case 'tumblr': return 'https://www.tumblr.com/tagged/'+tag;
         case 'wp2':
         case 'wp':
-            return blogBlogUrl(blog)+'/tag/'+tag;
+            return blogBlogUrl(blog)+'/'+((isTag) ?"tag" :"category")+'/'+tag;
         }
         throw "Unknown Blog Type: "+blog.t;
+    };
+
+    var blogCatUrl = function(blog, tag) {
+        return blogTagUrl(blog, tag, false);
     };
 
     var blogUserInfo = function(blog) {
@@ -5631,9 +5650,9 @@ $(function () {
         // 0x27a1 - right arrow
         var re;
         if (rp.session.regexUnicode)
-            re = /(?:[[{(]\s*|my\s+|on\s+|\b|^)?([\p{L}.$]+\p{L}|\s*|\u{1f47b})\s*((?:&\w+;)?[-:@][-:@\s]*|(?:&gt;|=|-)+|\]\[|\)\s*\(|(?:\u{25b6}|\u{27a1})\u{fe0f}?)[[\s]*(\w[\w.-]+\w)(?:\s*[)\]}])?/gui;
+            re = /(?:[[{(]\s*|my\s+|on\s+|\b|^)?([\p{L}.$!]+\p{L}|\s*|\u{1f47b})\s*((?:&\w+;)?[-:@][-:@\s]*|(?:&gt;|=|-)+|\]\[|\)\s*\(|(?:\u{25b6}|\u{27a1})\u{fe0f}?)[[\s]*((live:|\w)[\w.-]+\w)(?:\s*[)\]}])?/gui;
         else
-            re = /(?:[[{(]\s*|\b|my\s+|on\s+|^)?([A-Za-z.$]+[A-Za-z]|\s*)\s*((?:&\w+;)?[-:@][-:@\s]*|(?:&gt;|=|-)+|\]\[|\)\s*\()[[\s]*([\w.-]+\w)(?:\s*[)\]}])?/gi;
+            re = /(?:[[{(]\s*|\b|my\s+|on\s+|^)?([A-Za-z.$!]+[A-Za-z]|\s*)\s*((?:&\w+;)?[-:@][-:@\s]*|(?:&gt;|=|-)+|\]\[|\)\s*\()[[\s]*((live:|\w)[\w.-]+\w)(?:\s*[)\]}])?/gi;
         t1 = t1.replace(re, function(match, osite, connector, name) {
             var site = osite.toLowerCase().replaceAll(".", "");
             var prefix = "";
@@ -5657,11 +5676,11 @@ $(function () {
                     site = "instagram";
                 else if (site == "tw")
                     site = "twitter";
-                else if (site == "telegran")
+                else if (site.match(/^tel(e(gra[mn])?)?$/))
                     site = "telegram";
                 else if (site == "@")
                     site = metaSocial(hn, subreddit, picFlair(pic), (pic.over18) ?"instagram" :"twitter");
-                else if (site.match(/^k[li]?k$/))
+                else if (site.match(/^k[li!]?k$/))
                     return "kik : "+name; // ensure it doesn't get picked up below
                 else if (site == "reddit")
                     return "u/"+name; // this will be picked up below for u/USER
@@ -6604,12 +6623,10 @@ $(function () {
             //redditData = data //global for debugging data
             // NOTE: if data.data.after is null then this causes us to start
             // from the top on the next getRedditImages which is fine.
-            if (data.data.after !== null && data.data.after != rp.session.after) {
-                rp.session.after = data.data.after;
-                rp.session.loadAfter = getRedditImages;
-
-            } else
-                rp.session.loadAfter = null;
+            if (data.data.after !== null && data.data.after != rp.session.after)
+                moreImages(getRedditImages, data.data.after);
+            else
+                endOfImages("reddit", data.data.after);
 
             if (data.data.children.length === 0) {
                 log.info("No more data");
@@ -6758,10 +6775,8 @@ $(function () {
         var order = rp.url.choice.split(':');
         rp.url.sub = rp.url.sub.replaceAll(" ", "_");
 
-        if (!rp.session.after) {
-            rp.session.after = 1;
-            rp.session.loadAfter = getImgur;
-        }
+        if (!rp.session.after)
+            moreImages(getImgur, 1);
 
         var processPostItem = function(item) {
             var pic = {
@@ -7176,37 +7191,27 @@ $(function () {
         var jsonUrl = wp2BaseJsonUrl(hostname)+'?orderby=date&order='+((rp.url.choice == 'old') ?'asc' :'desc');
 
         // Multiple tags results in an OR relationship
-        var tags = [];
-        var tn = [];
-        var tag, xs;
+        var isTag = false;
         switch (rp.url.type) {
         case 't':
-            for (tag of decodeURIComponent(rp.url.multi).split(/[,+&]\s*/)) {
-                tag = toWPslug(tag);
-                xs = wp2RevTag(hostname, tag);
-                if (xs)
-                    tags.push(xs);
-                tn.push(tag);
-            }
-            if (tags.length == 0 || tags.length != tn.length)
-                return refreshWP2Tags(hostname, tn.join(","), getWordPressBlogV2, function() { doneLoading("Bad Tag")});
-            jsonUrl += '&tags='+tags.join("+");
-            setSubredditLink('https://'+hostname+'/tag/'+tn.join("+"));
-            break;
+            isTag = true;
+            // fall through
         case 'c':
-            for (tag of decodeURIComponent(rp.url.multi).split(/[,+&]\s*/)) {
+            var tags = [], tn = [];
+            for (var tag of decodeURIComponent(rp.url.multi).split(/[,+&]\s*/)) {
                 tag = toWPslug(tag);
-                xs = wp2RevCat(hostname, tag);
+                var xs = (isTag) ?wp2RevTag(hostname, tag) :wp2RevCat(hostname, tag);
                 if (xs)
                     tags.push(xs);
                 tn.push(tag);
             }
             if (tags.length == 0 || tags.length != tn.length)
-                return refreshWP2Tags(hostname, tn.join(","), getWordPressBlogV2, function() { doneLoading("Bad Tag")}, false);
-            jsonUrl += '&categories='+tags.join("+");
-            setSubredditLink('https://'+hostname+'/category/'+tn.join("+"));
+                return refreshWP2Tags(hostname, tn.join(","), getWordPressBlogV2, function() { doneLoading("Bad Tag")}, isTag);
+            jsonUrl += '&'+((isTag) ?"tags" :"categories")+'='+tags.join("+");
+            setSubredditLink(blogTagUrl(blog, tn.join("+"), isTag));
+            break;
         default:
-            setSubredditLink('https://'+hostname);
+            setSubredditLink(blogBlogUrl(blog));
             break;
         }
 
@@ -7228,9 +7233,10 @@ $(function () {
                 failedAjaxDone();
                 return;
 
-            } else
-                rp.session.loadAfter = (data.length) ?getWordPressBlogV2 :null;
-            rp.session.after = rp.session.after + data.length;
+            } else if (data.length)
+                moreImages(getWordPressBlogV2, rp.session.after + data.length);
+            else
+                endOfImages("WP2:"+hostname);
             var missing = blogTagMissing({t:'wp2', b:hostname}, [].concat.apply([], data.map(function(x) { return x.tags; })));
             if (missing.length)
                 return refreshWP2Tags(hostname, missing, function() { handleData(data) }, failedAjaxDone);
@@ -7374,16 +7380,23 @@ $(function () {
         if (!setupLoading(1, "No wordpress entries"))
             return;
 
-        refreshBlogTitle({t:'wp', b: hostname});
+        var blog = {t:'wp', b: hostname};
+        refreshBlogTitle(blog);
 
         var jsonUrl = 'https://public-api.wordpress.com/rest/v1.1/sites/'+hostname+'/posts?order_by=date';
-
-        if (rp.url.type == 't') {
-            setSubredditLink(blogTagUrl({t: 'wp', b: hostname}, rp.url.multi));
+        switch (rp.url.type) {
+        case 't':
+            setSubredditLink(blogTagUrl(blog, rp.url.multi));
             jsonUrl += "&tag="+rp.url.multi;
-
-        } else
-            setSubredditLink('https://'+hostname);
+            break;
+        case 'c':
+            setSubredditLink(blogCatUrl(blog, rp.url.multi));
+            jsonUrl += '&category='+rp.url.multi;
+            break;
+        default:
+            setSubredditLink(blogBlogUrl(blog));
+            break;
+        }
 
         if (rp.url.choice == 'old')
             jsonUrl += '&order=ASC';
@@ -7396,12 +7409,10 @@ $(function () {
             rp.session.after = 0;
 
         var handleData = function (data) {
-            if (rp.session.after < data.found) {
-                rp.session.after = rp.session.after + data.posts.length;
-                rp.session.loadAfter = getWordPressBlog;
-
-            } else // Found all posts
-                rp.session.loadAfter = null;
+            if (rp.session.after < data.found)
+                moreImages(getWordPressBlog, rp.session.after + data.posts.length);
+            else // Found all posts
+                endOfImages("WP:"+hostname);
 
             data.posts.forEach(function(post) {
                 var photo = { title: post.title,
@@ -7656,22 +7667,20 @@ $(function () {
                 rp.url.sub = data.response.blog.name;
                 $('#subredditUrl').val(rpurlpath());
 
-                if (rp.session.after < data.response.total_posts) {
-                    rp.session.after = rp.session.after + data.response.posts.length;
-                    rp.session.loadAfter = getTumblrBlog;
-                } else // Found all posts
-                    rp.session.loadAfter = null;
+                if (rp.session.after < data.response.total_posts)
+                    moreImages(getTumblrBlog, rp.session.after + data.response.posts.length);
+                else
+                    endOfImages("Tumblr:"+hostname, "total posts: "+data.response.total_posts);
+
                 posts = data.response.posts;
                 nsfw = data.response.blog.is_nsfw || data.response.blog.is_adult;
 
             } else { // tagged
                 posts = data.response;
                 if (data.response.length == 0)
-                    rp.session.loadAfter = null;
-                else {
-                    rp.session.loadAfter = getTumblrBlog;
-                    rp.session.after = posts[posts.length-1].timestamp;
-                }
+                    endOfImages("Tumblr:"+hostname);
+                else
+                    moreImages(getTumblrBlog, posts[posts.length-1].timestamp);
             }
 
             posts.forEach(function (post) {
@@ -7744,11 +7753,10 @@ $(function () {
             jsonUrl = jsonUrl+'&pageToken='+rp.session.after;
 
         var handleData = function (data) {
-            if (data.nextPageToken) {
-                rp.session.after = data.nextPageToken;
-                rp.session.loadAfter = getBloggerBlog;
-            } else
-                rp.session.loadAfter = null;
+            if (data.nextPageToken)
+                moreImages(getBloggerBlog, data.nextPageToken);
+            else
+                endOfImages("Blogger:"+hostname);
 
             if (data.items)
                 data.items.forEach(function (post) {
@@ -7932,6 +7940,7 @@ $(function () {
     var getDanbooru = function() {
         // URLs:
         // TRENDING:    /danbooru/[CHOICE]
+        //    * CHOICE == viewed has special "after" handling, it is a date, not a page number
         // USER:        /danbooru/u/USER
         // TAG:         /danboorut/t/TAG[+tag2]
         // SEARCH:      /danboorut/s/TAG[+tag2]
@@ -7982,7 +7991,6 @@ $(function () {
         setSubredditLink(url);
 
         if (rp.session.after) {
-            ++rp.session.after;
             var after = "page="+rp.session.after;
             if (order[0] == 'viewed') {
                 var d = new Date();
@@ -7991,10 +7999,11 @@ $(function () {
             }
             jsonUrl += ((jsonUrl.includes('?')) ?'&' :'?')+after;
         } else
-            rp.session.after = 1;
+            moreImages(getDanbooru, 1);
 
         var handleData = function(data) {
             if (data.length) {
+                moreImages(getDanbooru, rp.session.after+1);
                 data.forEach(function (post) {
                     if (post.parent_id) {
                         log.info("cannot display url [parent "+post.parent_id+"]: "+post.id);
@@ -8012,9 +8021,8 @@ $(function () {
                     }
                     addImageSlide(photo);
                 });
-                rp.session.loadAfter = getDanbooru;
             } else
-                rp.session.loadAfter = null;
+                endOfImages("danbooru");
             doneLoading();
         };
 
@@ -8151,6 +8159,7 @@ $(function () {
 
         var handleData = function(data) {
             if (data.posts && data.posts.length) {
+                moreImages(getE621, data.posts[data.posts.length-1].id);
                 data.posts.forEach(function(post) {
                     if (post.relationships.parent_id) {
                         log.info("cannot display url [parent "+post.relationships.parent_id+"]: "+post.id);
@@ -8165,10 +8174,8 @@ $(function () {
                     }
                     addImageSlide(photo);
                 });
-                rp.session.after = data.posts[data.posts.length-1].id;
-                rp.session.loadAfter = getE621;
             } else
-                rp.session.loadAfter = null;
+                endOfImages("E621");
             doneLoading();
         };
         $.ajax({
@@ -8342,11 +8349,10 @@ $(function () {
             if (info.pages == 0)
                 return failCleanup("Flickr user has no images");
 
-            if (info.page < info.pages) {
-                rp.session.loadAfter = getFlickr;
-                rp.session.after = info.page+1;
-            } else
-                rp.session.loadAfter = null;
+            if (info.page < info.pages)
+                moreImages(getFlickr, info.page+1);
+            else
+                endOfImages("Flickr", "page "+info.page+"/"+info.pages);
 
             arrData.forEach(function(post) {
                 var photo = arrProcess(post);
@@ -8455,11 +8461,10 @@ $(function () {
                     var image = giphy2pic(post);
                     addImageSlide(image);
                 });
-                rp.session.after = data.pagination.count + data.pagination.offset;
                 if (rp.session.after < data.pagination.total_count)
-                    rp.session.loadAfter = getGiphy;
+                    moreImages(getGiphy, data.pagination.count + data.pagination.offset);
                 else
-                    rp.session.loadAfter = null;
+                    endOfImages("Giphy", rp.session.after+" of "+data.pagination.total_count);
             }
             doneLoading();
         };
