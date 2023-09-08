@@ -3326,6 +3326,7 @@ $(function () {
                          'pixabay.com',
                          'pornloupe.com', // embed is SAMEORIGIN
                          'pornzog.com',
+                         'pussywagon.io',
                          'tiktits.com',
                          'watchmygf.me',
                          'xfantasy.com',
@@ -4666,7 +4667,7 @@ $(function () {
                     log.info("cannot display video [copyright claim]: "+pic.url);
                     resetNextSlideTimer();
                     find_fallback(pic, false);
-               }
+                }
                 pic.video.duration = e.target.duration;
                 if (pic.video.duration < rp.settings.timeToNextSlide) {
                     pic.video.times = Math.ceil(rp.settings.timeToNextSlide/pic.video.duration);

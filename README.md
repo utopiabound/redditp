@@ -5,7 +5,7 @@ A full screen reddit presentation or slide show.
 
 http://github.com/utopiabound/redditp
 
-Useable Links:
+Usable Links:
 https://utopiabound.github.io/redditp/?/r/popular
 https://redditp.utopiabound.net/
 file:///path/to/redditp/index.html?/r/gifs
@@ -23,7 +23,7 @@ Hotkeys
 * i - open image in a new tab
 * o - open comments in a new tab
 * d - open duplicates in a new tab
-* u - hide/show duplciates box
+* u - hide/show duplicates box
 * f - toggle full screen mode
 * m - unmute/mute videos
 * n - toggle nsfw
@@ -34,7 +34,7 @@ Hotkeys
 * Swipe gestures on touch interfaces (same as arrow keys)
 * ? - Help popups
 * v - Information popup
-* enter - play embeded
+* enter - play embedded
 
 Features
 --------
@@ -43,8 +43,8 @@ Features
 * Support for /r/random, /r/randnsfw, /r/popular virtual subreddits
 * /user/ , /domain/ , /me/ url's work.
 * Url's ending with ['.jpg', '.jpeg', '.gif', '.bmp', '.png'], or URLs from parsable domains
-* Video support (either direct or embeded)
-* Autonext waits for the end of a video (does not work for gif, but does work for gifv)
+* Video support (either direct or embedded)
+* Auto-next waits for the end of a video (does not work for gif, but does work for gifv)
 * Parsing for a collection of domains including: (see createDiv() and processPhoto() for complete list)
 * Special browsing in addition to reddit.com: (See Help (?) popup)
 	* Imgur		(User/Tag/Trending support)  /imgur/[u/*USER*|t/*TAG*]
@@ -53,12 +53,22 @@ Features
 	* Gfycat	(User/Tag/Trending support) /gfycat/[u/*USER*|t/*TAG*]
 	* Blogger	(Album support) /blogger/*HOSTNAME*
 	* Flickr	(User/Tag/Search/Trending support) /flickr/[u/*USER*[/*ALBUM*]|t/*TAG*[,*tag2*...]|s/*SEARCH*]
-* Deduplication support when browsing mulitple reddits (e.g. a multireddit /user/NAME/m/MULTIREDDIT or /r/funny+pics)
+* Deduplication support when browsing multiple subreddits (e.g. a multireddit /user/NAME/m/MULTIREDDIT or /r/funny+pics)
 * Albums will display inline for subreddits
 * You can use this project locally
 * Albums/Video/More in comments will be detected in title and automatically found
 * For subreddits that have "requests", responses will be shown as albums, also 'PsBattles:' is similarly special cased
 * Works on iOS 9+ and modern browsers
+
+Privacy
+-------
+
+* No Google Analytics
+* Only interaction with the host serving the page is the initial GET.
+* All changes to URL via clicks or typing into the location bar (bottom left) are managed in the browser.
+* History and preferences are stored locally in the browser
+* Obviously, browsing reddit sends requests to reddit, and similarly for other
+  sites.  The minimum information is sent necessary to complete data retrieval.
 
 Supported Browsers
 ------------------
@@ -125,7 +135,7 @@ Installation
 ------------
 * Can be setup to use base url:
 
-Just git checkout in /PATH/TO/, and then setup an apache .conf file as below:
+Just git checkout in /PATH/TO/, and then setup an Apache .conf file as below:
 
         <VirtualHost *:80>
         	ServerName redditp.example.com
@@ -145,7 +155,7 @@ http://redditp.example.com/r/popular
 
 * Can be setup in subdirectory without rewriting
 
-Checkout in a directory available via the web, or have an Alias added to apache:
+Checkout in a directory available via the web, or have an Alias added to Apache:
 
         Alias /redditp /PATH/TO/redditp
 
