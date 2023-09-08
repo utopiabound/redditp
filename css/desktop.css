@@ -1,6 +1,12 @@
 /* 14 slides wide */
 .navbox { width: 420px; }
 
+.slide-out {
+    max-height: 60px;
+    /* navbox.width - 30px */
+    left: -390px;
+}
+
 .reddit { display: inline; }
 
 .title {
@@ -17,7 +23,7 @@
 
 /* 4 rows of numbers visible */
 .numberButtonList ul li { height: 30px; }
-.numberButtonList { max-height: 120px; }
+.numberButtonList ul { max-height: 120px; }
 
 /* info for reddit author link */
 .infoa { margin-left: 2px; }

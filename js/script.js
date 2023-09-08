@@ -238,6 +238,7 @@ rp.session = {
     loadingMessage: "",
     loading: 0,
 
+    albumClosed: false,
     needsPlayButton: false,
     volumeIsMute: false,  // Volume 0/1 should be used as mute/unmount - no volume control
     fakeStorage: false,
@@ -592,7 +593,6 @@ $(function () {
     var getCurrentPic = function() {
         return getPic(rp.session.activeIndex, rp.session.activeAlbumIndex);
     };
-    rp.fn.getCurrentPic = getCurrentPic;
 
     function loadMoreSlides() {
         if (rp.session.loadAfter !== null &&
@@ -1303,66 +1303,41 @@ $(function () {
         preventDefaultEvents: false
     });
 
-    var STATE = "openstate";
-    var closeCollapser = function(item) {
-        if (item.data(STATE) != "closed")
-            item.click();
+    var closeCollapser = function(collapser) {
+        var div = $('#'+collapser.data('controldiv'));
+        if (div.hasClass('slide-in') || div.hasClass('vslide-open'))
+            collapser.click();
     };
 
     $('.hcollapser').click(function () {
-        var state = $(this).data(STATE);
-        if (state == "open") {
-            // close it
+        $(this).parent().toggleClass("slide-in slide-out");
+        if ($(this).parent().hasClass("slide-out"))
             $(this).html($(this).attr('symbol-close') || "&rarr;");
-            // move to the left just enough so the collapser arrow is visible
-            var arrowLeftPoint = $(this).position().left;
-            $(this).parent().animate({
-                left: "-" + arrowLeftPoint + "px",
-                height: ($(this).height() * 2) + "px",
-            });
-            $(this).data(STATE, "closed");
-        } else {
-            // open it
+        else
             $(this).html($(this).attr('symbol-open') || "&larr;");
-            $(this).parent().animate({
-                left: "0px"
-            });
-            // No jquery way to unset height value in animate
-            $(this).parent().height("");
-            $(this).data(STATE, "open");
-        }
     });
 
-    var setVcollapseHtml = function(collapser) {
-        var state = collapser.data(STATE);
-        if (state == "closed") {
+    var setVcollapseHtml = function(collapser, isClosed) {
+        if (isClosed === undefined)
+            isClosed = $('#'+collapser.data('controldiv')).hasClass("vslide-closed");
+        if (isClosed) {
             var count = collapser.data('count');
             if (count)
                 collapser.html('<span class="count">('+count+')</span>');
             else
                 collapser.html(collapser.attr('symbol-close') || "&darr;");
-        } else { // state == open
+        } else
             collapser.html(collapser.attr('symbol-open') || "&uarr;");
-        }
     };
 
     $('.vcollapser').click(function () {
-        var state = $(this).data(STATE);
         var divname = $(this).data('controldiv');
         var div = $('#'+divname);
-        if (state == "open") {
-            // close it
-            $(div).animate({ height: "0px"}, function() { $(div).hide(); $(div).css("height", ""); });
-            $(this).data(STATE, "closed");
-        } else { // closed
-            // open it
-            var h = $(div).height();
-            $(div).css("height", "0px");
-            $(div).show();
-            $(div).animate({ height: h+"px"}, function() { $(div).css("height", ""); });
-            $(this).data(STATE, "open");
-        }
-        setVcollapseHtml($(this));
+        $(div).toggleClass("vslide-opened vslide-closed");
+        var isClosed = div.hasClass("vslide-closed");
+        if (divname == 'albumNumberButtons')
+            rp.session.albumClosed = isClosed;
+        setVcollapseHtml($(this), isClosed);
     });
 
     $('.parentCloser').click(function () {
@@ -2466,7 +2441,7 @@ $(function () {
         $("#albumNumberButtons").remove();
 
         var div = $("<div>", { id: 'albumNumberButtons',
-                               class: 'numberButtonList'
+                               class: 'numberButtonList vslide '+((rp.session.albumClosed) ?"vslide-closed" :"vslide-opened"),
                              });
         var ul = $("<ul />");
         div.append(ul);
@@ -2477,14 +2452,11 @@ $(function () {
                 ul.append(albumButtonLi(pic, index));
                 ++ total;
             }
-
-            if ($('#albumCollapser').data(STATE) == "closed")
-                $(div).hide();
-        } else {
+        } else
             $(div).hide();
-        }
+
         $('#albumCollapser').data("count", total);
-        setVcollapseHtml($('#albumCollapser'));
+        setVcollapseHtml($('#albumCollapser'), rp.session.albumClosed);
         $("#navboxContents").append(div);
     };
 
