@@ -1711,10 +1711,9 @@ $(function () {
         // iOS
         if (/(iPad|iPhone|iPod)/.test(ua)) {
             var v = ua.match(/OS (\d+)/);
-            if (v.length < 2)
-                v[1] = 9;
+            var version = (v.length < 2) ?9 :parseInt(v[1], 10);
 
-            if (parseInt(v[1], 10) < 10) {
+            if (version < 10) {
                 rp.session.needsPlayButton = true;
                 rp.session.regexUnicode = false;
                 // no volume or mute/unmute support
@@ -1731,7 +1730,9 @@ $(function () {
             rp.session.showRedditLink = false;
 
             // Hide useless "fullscreen" button on iOS safari
-            $('.fullscreen-ctrl').remove();
+            // iPad >= 12 support fullscreen mode
+            if (version < 12 || !ua.includes("iPad"))
+                $('.fullscreen-ctrl').remove();
 
             // collapse duplicates by default
             closeCollapser($('#duplicatesCollapser'));
