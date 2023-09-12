@@ -51,30 +51,31 @@
  *   animateNavigationBox()
  *   processUrl() - RESTORE
  */
-/* Data Structures:
+/* Data Structures: ("P" indicates parent-only (i.e. not inside album))
  * rp.photos = ARRAY of HASH
  *      url:            URL link of "photo"    (addImageSlide() will call fixupUrl())
  *      over18:         BOOLEAN image is nsfw
  *      -- Optional --
  *      title:          HTML Title of image     (creator of object needs to call fixupPhotoTitle())
  *      flair:          HTML flair put next to title                                    [read by picFlair()]
- *      id:             TEXT Unique ID based on site+subreddit or blog
+ *      id:             TEXT Unique ID based on site or blog
  *      date:           INT  Date in seconds
  *      author:         TEXT reddit username
  *      aflair:         HTML flair to put next to author
  *      comments:       URL  link to photo comments
  *      commentN:       INT  Number of comments (if this is set, comments needs to be set too)
- *      eL:             BOOL Have loaded comment images or duplicate listings
  *      cross_id:       TEXT ID in duplictes of original link
  *      elinks:         ARRAY of [NAME, URL]    Extra Links                             [addPhotoExtraLink(), picExtraLinks()]
  *      thumb:          URL  thumbnail of image (e.g. cached version from reddit)       [set by addPhotoThumb()]
  *      fb_thumb:       ARRAY of URLs Fallback thumbnail urls (must be images)          [set/use by addPhotoThumb()/nextPhotoThumb()]
  *      score:          INT  Score (upvotes - downvotes)
  *      fallback:       ARRAY of URLs Fallback urls (if pic.url fails)  [set/use by addPhotoFallback()/nextPhotoFallback()]
+ *      o_url:          URL original URL                                [set by processPhoto()]
  *
  *      -- Other, NOT creator setable --
  *      type:           ENUM of imageTypes                              [set by processPhoto()/initPhoto*()]
- *      o_url:          URL original URL                                [set by processPhoto()]
+ *      a:              Float  Aspect Ratio                             [set by setPhotoSize()]
+ *      eL:             BOOL Have loaded comment images or duplicate listings [
  * P    insertAt:       INT where to insert pictures in album           [set by addAlbumItem()]
  * P    index:          INT index in rp.photos, used by album functions [set by addImageSlide()]
  *      dupes:          ARRAY of HASH                                   [set by addPhotoDupe(), redditT3ToDupe]
@@ -216,6 +217,8 @@ rp.session = {
     // init to -1 until the first image is loaded
     activeIndex: -1,
     activeAlbumIndex: -1,
+    // Multi: Number of images displayed
+    totalActive: -1,
 
     // Variable to store if the animation is playing or not
     isAnimating: false,
@@ -554,6 +557,26 @@ $(function () {
         rp.session.after = after;
     };
 
+    var getShowables = function() {
+        var pic = getCurrentPic();
+        var aspect = getAspect();
+        if (!pic || !pic.a)
+            return [[ aspect, [rp.session.activeIndex, rp.session.activeAlbumIndex]]];
+        var index = nextSlideIndex(true);
+        var showables = [ [ pic.a, [rp.session.activeIndex, rp.session.activeAlbumIndex]] ];
+        aspect -= pic.a;
+        while (index) {
+            pic = getPic(index[0], index[1]);
+            if (pic.a === undefined || aspect < pic.a)
+                break;
+            showables.push([pic.a, index])
+            aspect -= pic.a;
+            index = indexAfter(index);
+        }
+        return showables;
+    };
+    rp.fn.getShowables = getShowables;
+
     var getNextPhotoOk = function(pic) {
         var photo = photoParent(pic);
         if (!rp.settings.nsfw && photo.over18)
@@ -604,52 +627,51 @@ $(function () {
         nextSlide(true);
     }
 
-    function nextSlide(inalbum) {
-        var index, albumIndex;
-
-        if (inalbum === undefined || inalbum == false || rp.session.activeIndex < 0) {
-            albumIndex = -1; // need to increment
-            index = getNextSlideIndex(rp.session.activeIndex);
-            if (index == rp.session.activeIndex) {
-                loadMoreSlides()
-                return;
-            }
-
-        } else {
-            albumIndex = rp.session.activeAlbumIndex;
-            if (albumIndex < 0)
-                albumIndex = -1;
-            index = rp.session.activeIndex;
-        }
-
-        while(index < rp.photos.length) {
-            var photo = rp.photos[index];
-            if (photo === undefined) {
-                log.error("FAILED to fetch photo index: "+index);
-                return;
-            }
+    // Takes and returns [imageIndes, albumIndex]
+    function indexAfter(index) {
+        var i = index[0];
+        while(i < rp.photos.length) {
+            var photo = rp.photos[i];
+            if (!photo)
+                throw "FAILED to fetch photo index: "+i;
             if (photo.type == imageTypes.album) {
-                for (var i = albumIndex+1; i < photo.album.length; ++i) {
-                    if (!getNextPhotoOk(photo.album[i]))
+                for (var j = index[1]+1; j < photo.album.length; ++j) {
+                    if (!getNextPhotoOk(photo.album[j]))
                         continue;
-                    startAnimation(index, i);
-                    return;
+                    return [i, j];
                 }
 
-            } else if (index != rp.session.activeIndex) {
-                startAnimation(index);
-                return;
-            }
+            } else if (i != index[0])
+                return [i, -1];
 
-            albumIndex = getNextSlideIndex(index);
-            if (albumIndex == index) {
-                loadMoreSlides();
-                return;
-            }
-
-            index = albumIndex;
-            albumIndex = -1;
+            next = getNextSlideIndex(i);
+            if (next == i)
+                return loadMoreSlides();
+            i = next;
         }
+    }
+
+    function nextSlideIndex(inalbum) {
+        var index = rp.session.activeIndex, albumIndex = -1;
+
+        if (index < 0) {
+            index = getNextSlideIndex(rp.session.activeIndex);
+            if (index == rp.session.activeIndex)
+                return loadMoreSlides();
+        }
+        if (inalbum === undefined || inalbum == false) {
+            var photo = rp.photos[index];
+            if (photo && photo.type == imageTypes.album)
+                albumIndex = photo.album.length;
+        } else if (rp.session.activeAlbumIndex > albumIndex)
+            albumIndex = rp.session.activeAlbumIndex;
+        return indexAfter([index, albumIndex]);
+    }
+
+    function nextSlide(inalbum) {
+        var index = nextSlideIndex(inalbum);
+        if (index)
+            startAnimation(index[0], index[1]);
     }
 
     function prevAlbumSlide() {
@@ -712,8 +734,6 @@ $(function () {
     };
 
     var shouldStillPlay = function(index, album) {
-        if (index != rp.session.activeIndex)
-            return false;
         var photo = getPic(index, album);
         if (!photo || !photo.video)
             return false;
@@ -1303,6 +1323,15 @@ $(function () {
         preventDefaultEvents: false
     });
 
+    $(window).on('resize', function() {
+        if (getShowables().length != rp.session.totalActive)
+            startAnimation(rp.session.activeIndex, rp.session.activeAlbumIndex);
+    });
+
+    var getAspect = function() {
+        return window.innerWidth / window.innerHeight;
+    }
+
     var closeCollapser = function(collapser) {
         var div = $('#'+collapser.data('controldiv'));
         if (div.hasClass('slide-in') || div.hasClass('vslide-open'))
@@ -1487,24 +1516,23 @@ $(function () {
     };
 
     var updateVideoMute = function() {
-        var vid = $('#gfyvid');
-        var aud = $('#gfyaudio');
         var videoMuted = isVideoMuted();
-        if (vid !== undefined) {
-            vid.prop('muted', videoMuted);
+        $('.gfyvid').each(function(_i, vid) {
+            $(vid).prop('muted', videoMuted);
             if (rp.session.volumeIsMute)
-                vid.prop('volume', (videoMuted) ?0 :1);
+                $(vid).prop('volume', (videoMuted) ?0 :1);
             else
-                vid.prop('volume', rp.settings.decivolume/10);
-        }
-        if (aud !== undefined) {
-            aud.prop('muted', videoMuted);
-            if (rp.session.volumeIsMute)
-                aud.prop('volume', (videoMuted) ?0 :1);
-            else
-                aud.currentTime = vid.currentTime;
-                aud.prop('volume', rp.settings.decivolume/10);
-        }
+                $(vid).prop('volume', rp.settings.decivolume/10);
+            var aud = $('#gfyaudio-'+$(vid).data("id"));
+            if (aud) {
+                $(aud).prop('muted', videoMuted);
+                if (rp.session.volumeIsMute)
+                    $(aud).prop('volume', (videoMuted) ?0 :1);
+                else
+                    $(aud).currentTime = $(vid).currentTime;
+                $(aud).prop('volume', rp.settings.decivolume/10);
+            }
+        });
     };
 
     var updateAutoNextSlide = function () {
@@ -2117,6 +2145,12 @@ $(function () {
         return pic.site && pic.site.tags && pic.site.tags.length > 0;
     }
 
+    var setPhotoSize = function(photo, width, height) {
+        photo.a = width/height;
+        if (getShowables().length != rp.session.totalActive)
+            startAnimation(rp.session.activeIndex, rp.session.activeAlbumIndex);
+    };
+
     var initPhotoImage = function(photo, url) {
         photo.type = imageTypes.image;
         if (url)
@@ -2158,8 +2192,7 @@ $(function () {
     var addPhotoDupe = function(photo, dupe) {
         if (photo.id == dupe.id &&
             photo.subreddit == dupe.subreddit &&
-            // @@
-            ((photo.blog) ?photo.blog.b :undefined) == dupe.tumblr)
+            ((photo.blog) ?photo.blog.b :undefined) == dupe.tumblr) // @@ tumblr
             return -1;
         if (!photo.dupes)
             photo.dupes = [];
@@ -2338,7 +2371,7 @@ $(function () {
                     o_url: photo.o_url,
                 };
 
-                for (var key of ["embed", "video", "html", "extra", "site"]) {
+                for (var key of ["a", "embed", "video", "html", "extra", "site"]) {
                     if (photo[key]) {
                         img[key] = photo[key];
                         delete photo[key];
@@ -3433,7 +3466,7 @@ $(function () {
             startAnimation(getNextSlideIndex(-1));
 
         // Preload images if we've missed it initially
-        else if (index < rp.session.activeIndex+2)
+        else if (index < rp.session.activeIndex+3)
             preloadNextImage(rp.session.activeIndex);
 
         return true;
@@ -3735,20 +3768,21 @@ $(function () {
         };
 
         var i, size = '', length = '', audio;
+        var div = $('#pictureSlider div:first-of-type');
         switch (pic.type) {
         case imageTypes.thumb:
         case imageTypes.image:
             t.find('tr.forImage').show();
-            i = $('#pictureSlider').find('img')[0];
+            i = $(div).find('img')[0];
             size = i.naturalWidth + "x" + i.naturalHeight;
             break;
         case imageTypes.video:
             t.find('tr.forVideo').show();
-            i = $('#gfyvid')[0];
+            i = $(div).find('.gfyvid')[0];
             size = i.videoWidth + "x" + i.videoHeight;
             length = sec2dms(pic.video.duration);
-            if ($('#gfyaudio').length > 0)
-                audio = ($('#gfyaudio').children().length > 0) ?2 :0;
+            if ($(div).find('.gfyaudio').length > 0)
+                audio = ($(div).find('gfyaudio').children().length > 0) ?2 :0;
             else
                 audio = hasAudio(i, 1);
             break;
@@ -3918,6 +3952,11 @@ $(function () {
         else if (oldCache[next2])
             rp.cache[next2] = oldCache[next2];
 
+        // save next+3, but don't create it or load if missing
+        var next3 = getNextSlideIndex(next2);
+        if (next3 != next2 && oldCache[next3])
+            rp.cache[next3] = oldCache[next3];
+
         // Create or save previous
         if (prev >= 0) {
             if (oldCache[prev])
@@ -3978,18 +4017,6 @@ $(function () {
             return;
         }
 
-        if (rp.session.activeIndex == imageIndex) {
-            if (rp.photos[imageIndex].type != imageTypes.album)
-                return;
-
-            if (albumIndex >= rp.photos[imageIndex].album.length) {
-                log.error("["+imageIndex+"] album index ("+albumIndex+") past end of album length:"+
-                          rp.photos[imageIndex].album.length);
-                return;
-            }
-            if (rp.session.activeAlbumIndex == albumIndex && albumIndex >= 0)
-                return;
-        }
         if (rp.photos[imageIndex].type == imageTypes.album && albumIndex < 0) {
             if (albumIndex == LOAD_PREV_ALBUM)
                 albumIndex = rp.photos[imageIndex].album.length-1;
@@ -4000,11 +4027,68 @@ $(function () {
         var oldIndex = rp.session.activeIndex;
         var oldAlbumIndex = rp.session.activeAlbumIndex;
 
-        // will be cleared in replaceBackgroundDiv()
         rp.session.isAnimating = true;
         var divNode = getBackgroundDiv(imageIndex, albumIndex);
         animateNavigationBox(imageIndex, oldIndex, albumIndex, oldAlbumIndex);
-        replaceBackgroundDiv(divNode);
+        var aspects = getShowables();
+        rp.session.totalActive = aspects.length;
+
+        var ps = $("#pictureSlider");
+        var aspect = getAspect();
+        var s_aspect = aspects.reduce(function(acc, val) { return acc + val[0]; }, 0);
+        var vig = 100 / s_aspect;
+        var left = 0;
+        ps.find('div.psmulti').each(function (_i, div) {
+            var ind = $(div).data("index");
+            var alb = $(div).data("aindex");
+            if (aspects.some(function(e) { return e[1][0] == ind && e[1][1] == alb; }))
+                return;
+            if (alb == -1 && aspects.some(function(e) { return e[1][0] == ind && e[1][1] == 0; })) {
+                $(div).children().detach(); // @@ big hammer, could be better if initPhotoAlbum() fixed index
+                $(div).remove();
+                return;
+            }
+            $(div).css({ left: (ind < imageIndex || (ind == imageIndex && alb < albumIndex)) ?"-"+$(div).width()+"px" :"100%" });
+            $(div).children().fadeOut(rp.settings.animationSpeed, function () {
+                $(this).detach();
+                $(div).remove();
+            });
+        });
+
+        do {
+            var a = aspects.shift();
+            var index = a[1]
+            var id = 'pic'+index[0]+'_'+index[1];
+            var div = ps.find('#'+id)[0];
+            if (!div) {
+                divNode = getBackgroundDiv(index[0], index[1]);
+                var width = (vig*a[0])+"%";
+                div = $('<div />', { id: id, class: "psmulti" })
+                    .css({ left: (index[0] > oldIndex || (index[0] == oldIndex && index[1] > oldAlbumIndex)) ?"100%" :"-"+width,
+                           width: width })
+                    .data("index", index[0])
+                    .data("aindex", index[1])
+                    .append(divNode);
+                ps.append(div);
+                divNode.fadeIn(rp.settings.animationSpeed);
+                divNode.trigger("rpdisplay");
+            }
+            $(div).find('.gfyvid').each(function(_i, vid) {
+                if (vid && $(vid).length) {
+                    $(vid).prop('autoplay', true);
+                    if (vid)
+                        try {
+                            vid.play();
+                        } catch (e) {
+                            addPlayButton($(div).children()[0], vid);
+                        }
+                }
+                updateVideoMute();
+            });
+            $(div).css({ left: (vig*left)+"%", width: (vig*a[0])+"%" });
+            left += a[0];
+        } while (aspects.length > 0);
+        rp.session.isAnimating = false;
 
         // rp.session.activeAlbumIndex may have changed in createDiv called by slideBackgroundPhoto
         preloadNextImage(imageIndex, rp.session.activeAlbumIndex);
@@ -4277,12 +4361,12 @@ $(function () {
             toggleNumberButton(imageIndex, true);
         }
         populateAlbumButtons(photo);
-
-        if (albumIndex >= 0 &&
-            (albumIndex != oldAlbumIndex || oldIndex != imageIndex)) {
+        if (albumIndex >= 0) {
             toggleAlbumButton(oldAlbumIndex, false);
             toggleAlbumButton(albumIndex, true);
         }
+
+        clearSlideTimeout(image.type);
     };
 
     var setCurrentState = function() {
@@ -4360,8 +4444,8 @@ $(function () {
 
     // Set Autoplay for iOS devices
     var addPlayButton = function (div, vid) {
-        div.prepend(playButton(function() {
-            vid[0].play();
+        $(div).prepend(playButton(function() {
+            $(vid).play();
             $('#playbutton').remove();
         }));
         // if video starts playing, nuke play button
@@ -4369,42 +4453,6 @@ $(function () {
             $('#playbutton').remove();
         });
     };
-
-    function replaceBackgroundDiv(newDiv) {
-        var oldDiv = $("#pictureSlider div:first-of-type");
-        if (oldDiv[0] == newDiv[0]) {
-            rp.session.isAnimating = false;
-            if (rp.session.needReanimation) {
-                rp.session.needReanimation=false;
-                startAnimation(rp.session.activeIndex, rp.session.activeAlbumIndex);
-            }
-            return;
-        }
-        newDiv.prependTo("#pictureSlider");
-        newDiv.fadeIn(rp.settings.animationSpeed);
-        newDiv.trigger("rpdisplay");
-        oldDiv.fadeOut(rp.settings.animationSpeed, function () {
-            oldDiv.detach();
-
-            var vid = $('#gfyvid');
-            if (vid && vid.length) {
-                vid.prop('autoplay', true);
-                if (vid[0])
-                    try {
-                        vid[0].play();
-                    } catch (e) {
-                        addPlayButton(newDiv, vid);
-                    }
-            }
-            updateVideoMute();
-
-            rp.session.isAnimating = false;
-            if (rp.session.needReanimation) {
-                rp.session.needReanimation = false;
-                startAnimation(rp.session.activeIndex, rp.session.activeAlbumIndex);
-            }
-        });
-    }
 
     //
     // Slides the background photos
@@ -4435,11 +4483,6 @@ $(function () {
 
         } else
             divNode = rp.cache[index][aIndex];
-
-        // Read type here, since it may change during createDiv()
-        var type = getPic(index, aIndex).type;
-
-        clearSlideTimeout(type);
 
         return divNode;
     }
@@ -4487,44 +4530,36 @@ $(function () {
             });
 
             var hn = hostnameOf(photo.url, true);
-            // https://i.redd.it/removed.png is 130x60
-            if (hn == 'redd.it')
-                img.on('load', function() {
-                    if ($(this)[0].naturalHeight == 60 &&
-                        $(this)[0].naturalWidth == 130) {
-                        log.info("["+photo.index+"] Image has been removed: "+url);
-                        find_fallback(photo, thumb);
-                    }
-                });
-            // https://i.imgur.com/removed.png is 161x81
-            else if (hn == 'imgur.com')
-                img.on('load', function() {
-                    if ($(this)[0].naturalHeight == 81 &&
-                        $(this)[0].naturalWidth == 161) {
-                        log.info("["+photo.index+"] Image has been removed: "+url);
-                        find_fallback(photo, thumb);
-                    }
-                });
-            // YouTube 404 thumbnail is 120x90
-            else if (hn == 'youtube.com' ||
-                     hn == 'youtu.be' ||
-                     hn == 'ytimg.com')
-                img.on('load', function() {
-                    if ($(this)[0].naturalHeight == 90 &&
-                        $(this)[0].naturalWidth == 120) {
-                        log.info("["+photo.index+"] Image has been removed: "+url);
-                        find_fallback(photo, thumb);
-                    }
-                });
-            // 404 221x80
-            else if (hn == 'ezgif.com')
-                img.on('load', function() {
-                    if ($(this)[0].naturalHeight == 80 &&
-                        $(this)[0].naturalWidth == 221) {
-                        log.info("["+photo.index+"] Image has been removed: "+url);
-                        find_fallback(photo, thumb);
-                    }
-                });
+            img.on('load', function() {
+                if (hn == 'redd.it' &&
+                    $(this)[0].naturalHeight == 60 &&
+                    $(this)[0].naturalWidth == 130) {
+                    // https://i.redd.it/removed.png is 130x60
+                    log.info("["+photo.index+"] Image has been removed: "+url);
+                    find_fallback(photo, thumb);
+                } else if (hn == 'imgur.com' &&
+                           $(this)[0].naturalHeight == 81 &&
+                           $(this)[0].naturalWidth == 161) {
+                    // https://i.imgur.com/removed.png is 161x81
+                    log.info("["+photo.index+"] Image has been removed: "+url);
+                    find_fallback(photo, thumb);
+                } else if (['youtube.com',
+                            'youtu.be',
+                            'ytimg.com'].includes(hn) &&
+                           $(this)[0].naturalHeight == 90 &&
+                           $(this)[0].naturalWidth == 120) {
+                    // YouTube 404 thumbnail is 120x90
+                    log.info("["+photo.index+"] Image has been removed: "+url);
+                    find_fallback(photo, thumb);
+                } else if (hn == 'ezgif.com' &&
+                           $(this)[0].naturalHeight == 80 &&
+                           $(this)[0].naturalWidth == 221) {
+                    // 404 221x80
+                    log.info("["+photo.index+"] Image has been removed: "+url);
+                    find_fallback(photo, thumb);
+                } else
+                    setPhotoSize(photo, $(this)[0].naturalWidth, $(this)[0].naturalHeight);
+            });
             divNode.html(img);
 
             if (needreset && isActive(photo))
@@ -4540,8 +4575,7 @@ $(function () {
         // Called with showVideo(pic)
         var showVideo = function(pic) {
             var video = $('<video />', {
-                class: rp.settings.realsize ?"realsize" :"fullsize",
-                id: "gfyvid",
+                class: "gfyvid "+(rp.settings.realsize ?"realsize" :"fullsize"),
                 preload: "metadata",
                 playsinline: ''});
             var lastsource;
@@ -4568,7 +4602,8 @@ $(function () {
             divNode.html(video);
 
             if (pic.video.audio) {
-                var audio = $('<audio id="gfyaudio" />');
+                video.data('id', pic.id || url2shortid(pic.url));
+                var audio = $('<audio />', { class: "gfyaudio", id: "gfyaudio-"+video.data('id') });
                 if (rp.session.volumeIsMute) {
                     audio.prop('volume', isVideoMuted() ?0 :1);
                 } else {
@@ -4606,7 +4641,8 @@ $(function () {
 
             $(lastsource).on('error', function() {
                 log.info("["+imageIndex+"] video failed to load last source: "+pic.url);
-                resetNextSlideTimer();
+                if (isActiveCurrent(pic))
+                    resetNextSlideTimer();
                 find_fallback(pic, false);
             });
 
@@ -4614,14 +4650,18 @@ $(function () {
                 if (pic.type == imageTypes.album)
                     pic = pic.album[0];
                 log.info("["+imageIndex+"] video failed to load: "+pic.url);
-                resetNextSlideTimer();
+                if (isActiveCurrent(pic))
+                    resetNextSlideTimer();
                 find_fallback(pic, false);
             });
 
             $(video).on('ended', function() {
                 log.debug("["+imageIndex+"] video ended");
-                if ($.contains(document, $(video)[0]) && (shouldStillPlay(imageIndex, albumIndex) || !autoNextSlide())) {
-                    var audio = $('#gfyaudio')[0];
+                if ($.contains($('#pictureSlider')[0], $(video)[0]) &&
+                    (shouldStillPlay(imageIndex, albumIndex) ||
+                     !isActiveCurrent(pic) ||
+                     !autoNextSlide())) {
+                    var audio = $('.gfyaudio')[0];
                     if (audio) {
                         audio.pause();
                         audio.currentTime = 0;
@@ -4638,7 +4678,8 @@ $(function () {
                     e.target.videoHeight == 480 &&
                     hostnameOf(e.target.currentSrc, true) == 'gfycat.com') {
                     log.info("cannot display video [copyright claim]: "+pic.url);
-                    resetNextSlideTimer();
+                    if (isActiveCurrent(pic))
+                        resetNextSlideTimer();
                     find_fallback(pic, false);
                 }
                 pic.video.duration = e.target.duration;
@@ -4647,6 +4688,7 @@ $(function () {
                 } else {
                     pic.video.times = 1;
                 }
+                setPhotoSize(pic, e.target.videoWidth, e.target.videoHeight);
                 log.debug("["+imageIndex+"] Video loadeddata video: "+pic.video.duration+" playing "+pic.video.times);
             });
 
@@ -4706,7 +4748,8 @@ $(function () {
             showThumb(pic);
             // Add play button
             var lem = playButton(function() {
-                replaceBackgroundDiv($('<div>', { class: "fullscreen" }).html(iFrame(pic)));
+                $(div).empty();
+                $(div).append($('<div>', { class: "fullscreen" }).html(iFrame(pic)));
             });
 
             var title = $('<span>', { class: "title" }).html(hostnameOf(pic.url, true));
@@ -4716,12 +4759,10 @@ $(function () {
         var showHtml = function(div, html, needreset) {
             if (needreset === undefined)
                 needreset = true;
-            // can't be <div> because of replaceBackgroundDiv()
-            var iframe = $('<blockquote/>', { id: "gfyhtml",
-                                              class: "fullscreen",
-                                              frameborder: 0,
-                                              webkitallowfullscreen: true,
-                                              allowfullscreen: true });
+            var iframe = $('<div/>', {class: "fullscreen",
+                                       frameborder: 0,
+                                       webkitallowfullscreen: true,
+                                       allowfullscreen: true });
             iframe.html(html);
             div.html(iframe);
 
@@ -4757,7 +4798,7 @@ $(function () {
 
         var rpdisplayVideo = function() {
             var div = $(this);
-            var video = $(this).children('#gfyvid');
+            var video = $(this).children('.gfyvid');
 
             if (video.length == 0)
                 return;
@@ -4808,7 +4849,6 @@ $(function () {
                 break;
             case imageTypes.html:
             case imageTypes.embed:
-                // triggered in replaceBackgroundDiv
                 divNode.bind("rpdisplay", pic, rpdisplayFunc);
                 if (divNode.parent()[0] == $('#pictureSlider')[0])
                     divNode.trigger("rpdisplay");
@@ -6464,17 +6504,21 @@ $(function () {
             photo.o_url = photo.url;
             initPhotoVideo(photo, unescapeHTML(t3.preview.images[0].variants.mp4.source.url));
 
-        } else if (!photo.url && (Object.keys(t3.secure_media_embed).length != 0 || Object.keys(t3.media_embed).length != 0)) {
-            var html = (t3.secure_media_embed.content) ?t3.secure_media_embed.content :t3.media_embed.content;
-            var ownerDocument = document.implementation.createHTMLDocument('virtual');
-            var iframe = $('<div />', ownerDocument).html(unescapeHTML(html)).find('iframe')[0];
-            if (iframe) {
-                photo.url = iframe.src;
+        } else if (Object.keys(t3.secure_media_embed).length != 0 || Object.keys(t3.media_embed).length != 0) {
+            var media = (t3.secure_media_embed) ?t3.secure_media_embed :t3.media_embed;
+            if (!photo.url) {
+                var ownerDocument = document.implementation.createHTMLDocument('virtual');
+                var iframe = $('<div />', ownerDocument).html(unescapeHTML(media.content)).find('iframe')[0];
+                if (iframe) {
+                    photo.url = iframe.src;
 
-            } else {
-                log.error(photo.id+": cannot display embed [bad media_embed]");
-                return false;
+                } else {
+                    log.error(photo.id+": cannot display embed [bad media_embed]");
+                    return false;
+                }
             }
+            if (media.height && media.width)
+                setPhotoSize(photo, media.width, media.height);
 
         } else if (t3.domain == 'reddit.com') {
             // these shouldn't be added via tryPreview nor speculative lookups
@@ -8729,9 +8773,7 @@ $(function () {
 
         // Always nuke old data
         clearSlideTimeout();
-        var vid = $('#gfyvid')[0];
-        if (vid)
-            vid.pause();
+        $("#pictureSlider").empty();
         rp.photos = [];
         rp.cache = {};
         rp.dedup = {};

@@ -191,6 +191,12 @@ li.show-nsfw a,
 #recommend ul { margin-left: 20px; }
 #recommend ul .material-symbols-rounded { font-size: 16px; }
 
+.psmulti {
+    position: absolute;
+    height: 100%;
+    transition: all 0.5s ease-in-out;
+}
+
 .error,
 span a.selected,
 li a.selected { color: red; }
