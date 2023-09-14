@@ -74,7 +74,7 @@
  *
  *      -- Other, NOT creator setable --
  *      type:           ENUM of imageTypes                              [set by processPhoto()/initPhoto*()]
- *      a:              Float  Aspect Ratio                             [set by setPhotoSize()]
+ *      a:              Float  Aspect Ratio                             [set by addPhotoSize()]
  *      eL:             BOOL Have loaded comment images or duplicate listings [
  * P    insertAt:       INT where to insert pictures in album           [set by addAlbumItem()]
  * P    index:          INT index in rp.photos, used by album functions [set by addImageSlide()]
@@ -163,8 +163,6 @@ rp.redirect = 'http://redditp.utopiabound.net/auth';
 rp.settings = {
     // JSON/JSONP timeout in milliseconds
     ajaxTimeout: 10000,
-    // Speed of the animation
-    animationSpeed: 1000,
     shouldAutoNextSlide: false,
     timeToNextSlide: 8,
     dupeCacheTimeout: 360, // 6 minutes
@@ -2146,7 +2144,9 @@ $(function () {
         return pic.site && pic.site.tags && pic.site.tags.length > 0;
     }
 
-    var setPhotoSize = function(photo, width, height) {
+    var addPhotoSize = function(photo, width, height) {
+        if (!width || !height || photo.type == imageTypes.fail)
+            return;
         photo.a = width/height;
         if (getShowables().length != rp.session.totalActive)
             startAnimation(rp.session.activeIndex, rp.session.activeAlbumIndex);
@@ -4049,9 +4049,11 @@ $(function () {
                 return;
             }
             $(div).css({ left: (ind < imageIndex || (ind == imageIndex && alb < albumIndex)) ?"-"+$(div).width()+"px" :"100%" });
-            $(div).children().fadeOut(rp.settings.animationSpeed, function () {
-                $(this).detach();
-                $(div).remove();
+            $(div).children().each(function (_i, item) {
+                setTimeout(function() {
+                    $(item).detach();
+                    $(div).remove();
+                }, 500); // this should match .vslide transition speed
             });
         });
 
@@ -4070,8 +4072,7 @@ $(function () {
                     .data("aindex", index[1])
                     .append(divNode);
                 ps.append(div);
-                divNode.fadeIn(rp.settings.animationSpeed);
-                divNode.trigger("rpdisplay");
+                divNode.show().trigger("rpdisplay");
             }
             var vid = $(div).find('.gfyvid')[0];
             if (vid) {
@@ -4556,7 +4557,7 @@ $(function () {
                     log.info("["+photo.index+"] Image has been removed: "+url);
                     find_fallback(photo, thumb);
                 } else
-                    setPhotoSize(photo, $(this)[0].naturalWidth, $(this)[0].naturalHeight);
+                    addPhotoSize(photo, $(this)[0].naturalWidth, $(this)[0].naturalHeight);
             });
             divNode.html(img);
 
@@ -4686,7 +4687,7 @@ $(function () {
                 } else {
                     pic.video.times = 1;
                 }
-                setPhotoSize(pic, e.target.videoWidth, e.target.videoHeight);
+                addPhotoSize(pic, e.target.videoWidth, e.target.videoHeight);
                 log.debug("["+imageIndex+"] Video loadeddata video: "+pic.video.duration+" playing "+pic.video.times);
             });
 
@@ -5476,6 +5477,7 @@ $(function () {
             initPhotoVideo(photo, arr);
         } else
             initPhotoImage(photo, fixImgurPicUrl(item.link));
+        addPhotoSize(photo, item.width, item.height);
     }
 
     var handleImgurItemAlbum = function(photo, item) {
@@ -6515,8 +6517,7 @@ $(function () {
                     return false;
                 }
             }
-            if (media.height && media.width)
-                setPhotoSize(photo, media.width, media.height);
+            addPhotoSize(photo, media.width, media.height);
 
         } else if (t3.domain == 'reddit.com') {
             // these shouldn't be added via tryPreview nor speculative lookups
@@ -7909,6 +7910,7 @@ $(function () {
             addPhotoThumb(photo, post.preview_file_url);
             initPhotoFailed(photo);
         }
+        addPhotoSize(photo, post.image_width, post.image_height);
         if (post.has_children) {
             var jsonUrl = 'https://danbooru.donmai.us/posts.json?tags=parent:'+post.id;
             var handleData = function(items) {
@@ -8081,6 +8083,8 @@ $(function () {
             log.info("cannot display url [bad "+post.file.url+"]: "+photo.o_url);
             initPhotoThumb(photo);
         }
+        if (post.file)
+            addPhotoSize(photo, post.file.width, post.file.height);
         post.relationships.children.forEach(function(child) {
             var jsonUrl = 'https://e621.net/posts/'+child+'.json';
             var handleData = function(data) {
@@ -8264,6 +8268,7 @@ $(function () {
                     url: url || flickrPhotoUrl(post),
                     o_url: url || ['https://www.flickr.com/photos', post.owner, post.id].join("/"),
                     over18: false };
+        addPhotoSize(pic, post.width_h, post.height_h);
         addPhotoSiteTags(pic, (post.tags) ?post.tags.split(" ") :[]);
         return pic;
     };
@@ -8433,6 +8438,7 @@ $(function () {
                       date: processDate(post.import_datetime),
                       title: post.title,
                     };
+        addPhotoSize(image, post.images.original.width, post.images.original.height);
         processGiphyPost(image, post);
         return image;
     };
