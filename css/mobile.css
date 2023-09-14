@@ -3,8 +3,7 @@
 
 .slide-out {
     max-height: 60px;
-    /* navbox.width - 30px */
-    left: -330px;
+    left: -330px; /* navbox.width - 30px */
 }
 
 .title {

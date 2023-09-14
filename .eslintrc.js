@@ -292,7 +292,7 @@ module.exports = {
 	"jquery/no-deferred": 2,
 	"jquery/no-delegate": 2,
 	"jquery/no-each": "warn",
-	"jquery/no-fade": 2,
+	"jquery/no-fade": "warn",
 	"jquery/no-filter": 2,
 	"jquery/no-find": "off",
 	"jquery/no-global-eval": 2,

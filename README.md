@@ -174,8 +174,9 @@ Credits
 
 * Ubershmekel http://yuvalg.com/
 * [js-cookie](https://github.com/js-cookie/js-cookie) for managing cookies
-* Favicon by Double-J designs http://www.iconfinder.com/icondetails/68600/64/_icon
+* Favicon by Double-J designs http://www.iconfinder.com/icons/68600/ (CC BY 3.0)
 * Slideshow based on http://demo.marcofolio.net/fullscreen_image_slider/
 * Author of slideshow base: Marco Kuiper (http://www.marcofolio.net/)
 * Touch screen swipe code: Andreas Waltl, netCU Internetagentur (http://www.netcu.de)
 * Loglevel v1.5.1: Tim Perry https://github.com/pimterry/loglevel
+* [jquery.unevent.js](https://github.com/yckart/jquery.unevent.js) by [Yannick Albert](http://yckart.com/) for handling multiple resize events (MIT)

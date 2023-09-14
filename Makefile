@@ -6,7 +6,7 @@ help:
 	@echo " checkjs  - eslint all javascript"
 	@echo " checkcss - stylelint all css"
 
-all: check js/jquery.touchwipe.min.js js/loglevel.min.js js/ie_hacks.min.js
+all: check js/jquery.touchwipe.min.js js/loglevel.min.js js/ie_hacks.min.js js/jquery.unevent.min.js
 
 %.min.js: %.js
 	uglifyjs $< --output $@ --compress --comments

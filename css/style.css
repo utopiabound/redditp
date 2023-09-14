@@ -622,7 +622,7 @@ blockquote.tiktok-embed {
 /* Collapser Animations */
 .slide-in {
     max-height: 1000px;
-    left: 0px;
+    left: 0;
 }
 
 .vslide {
@@ -631,5 +631,5 @@ blockquote.tiktok-embed {
     transition: all 0.5s ease-in-out;
 }
 
-.vslide-closed { max-height: 0px; }
+.vslide-closed { max-height: 0; }
 .vslide-opened { max-height: 500px; }

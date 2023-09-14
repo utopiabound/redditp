@@ -644,7 +644,7 @@ $(function () {
             } else if (i != index[0])
                 return [i, -1];
 
-            next = getNextSlideIndex(i);
+            var next = getNextSlideIndex(i);
             if (next == i)
                 return loadMoreSlides();
             i = next;
@@ -1324,9 +1324,10 @@ $(function () {
     });
 
     $(window).on('resize', function() {
+        log.debug("Resize: "+window.innerWidth+"x"+window.innerHeight);
         if (getShowables().length != rp.session.totalActive)
             startAnimation(rp.session.activeIndex, rp.session.activeAlbumIndex);
-    });
+    }, 100); // delay 100ms to catch both width and height change (call via jquery.unevent.js)
 
     var getAspect = function() {
         return window.innerWidth / window.innerHeight;
@@ -4034,7 +4035,6 @@ $(function () {
         rp.session.totalActive = aspects.length;
 
         var ps = $("#pictureSlider");
-        var aspect = getAspect();
         var s_aspect = aspects.reduce(function(acc, val) { return acc + val[0]; }, 0);
         var vig = 100 / s_aspect;
         var left = 0;
@@ -4073,18 +4073,16 @@ $(function () {
                 divNode.fadeIn(rp.settings.animationSpeed);
                 divNode.trigger("rpdisplay");
             }
-            $(div).find('.gfyvid').each(function(_i, vid) {
-                if (vid && $(vid).length) {
-                    $(vid).prop('autoplay', true);
-                    if (vid)
-                        try {
-                            vid.play();
-                        } catch (e) {
-                            addPlayButton($(div).children()[0], vid);
-                        }
+            var vid = $(div).find('.gfyvid')[0];
+            if (vid) {
+                $(vid).prop('autoplay', true);
+                try {
+                    vid.play();
+                } catch (e) {
+                    addPlayButton($(div).children()[0], vid);
                 }
                 updateVideoMute();
-            });
+            }
             $(div).css({ left: (vig*left)+"%", width: (vig*a[0])+"%" });
             left += a[0];
         } while (aspects.length > 0);
@@ -6426,7 +6424,7 @@ $(function () {
 
     // T3 is reddit post
     var processRedditT3 = function(photo, t3) {
-        var val;
+        var val, media;
         var link = '/r/'+photo.subreddit+'/'+photo.id;
 
         if (t3.preview)
@@ -6448,7 +6446,7 @@ $(function () {
             var t3g = (t3.gallery_data) ?t3 :t3.crosspost_parent_list[0]
 
             t3g.gallery_data.items.forEach(function(item) {
-                var media = t3g.media_metadata[item.media_id];
+                media = t3g.media_metadata[item.media_id];
                 if (media.status == "failed" || media.status == "unprocessed")
                     return false;
                 var pic = fixupPhotoTitle({}, item.caption, photo.subreddit);
@@ -6478,7 +6476,7 @@ $(function () {
             }
 
             // intentionally load with empty video, load mp4 below
-            var media = (t3.secure_media) ?t3.secure_media.reddit_video
+            media = (t3.secure_media) ?t3.secure_media.reddit_video
                 :(t3.crosspost_parent_list && t3.crosspost_parent_list.length)
                 ?t3.crosspost_parent_list[0].secure_media.reddit_video
                 :undefined;
@@ -6505,7 +6503,7 @@ $(function () {
             initPhotoVideo(photo, unescapeHTML(t3.preview.images[0].variants.mp4.source.url));
 
         } else if (Object.keys(t3.secure_media_embed).length != 0 || Object.keys(t3.media_embed).length != 0) {
-            var media = (t3.secure_media_embed) ?t3.secure_media_embed :t3.media_embed;
+            media = (t3.secure_media_embed) ?t3.secure_media_embed :t3.media_embed;
             if (!photo.url) {
                 var ownerDocument = document.implementation.createHTMLDocument('virtual');
                 var iframe = $('<div />', ownerDocument).html(unescapeHTML(media.content)).find('iframe')[0];
