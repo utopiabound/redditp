@@ -185,6 +185,10 @@ rp.settings = {
     // show NSFW Items
     nsfw: false,
     mute: true,
+    // How many divs to precreate/save
+    divPrecreate: 4,
+    // How many divs to save after current
+    divSaveNext: 6,
     // image display actual size (max fullscreen)
     realsize: false
 };
@@ -3467,7 +3471,7 @@ $(function () {
             startAnimation(getNextSlideIndex(-1));
 
         // Preload images if we've missed it initially
-        else if (index < rp.session.activeIndex+3)
+        else if (index < rp.session.activeIndex + rp.settings.divPrecreate)
             preloadNextImage(rp.session.activeIndex);
 
         return true;
@@ -3909,21 +3913,10 @@ $(function () {
     };
 
     var preloadNextImage = function(imageIndex, albumIndex) {
-        if (albumIndex === undefined)
-            albumIndex = -1;
         if (imageIndex < 0)
             imageIndex = 0;
-        var next = getNextSlideIndex(imageIndex);
-        var prev = getPrevSlideIndex(imageIndex);
-        if (next == imageIndex) {
-            // Load if last image, but not if first image This is because
-            // for dedup, we'll get called by image 0, before other images
-            // have come in.
-            if (imageIndex != 0)
-                loadMoreSlides();
-            return;
-        }
-
+        if (albumIndex === undefined || albumIndex < 0)
+            albumIndex = 0;
         var oldCache = rp.cache;
         rp.cache = {};
 
@@ -3931,45 +3924,42 @@ $(function () {
         if (oldCache[rp.session.activeIndex])
             rp.cache[rp.session.activeIndex] = oldCache[rp.session.activeIndex];
 
-        // Save or Create next
-        if (oldCache[next])
-            rp.cache[next] = oldCache[next];
-        else
-            rp.cache[next] = { 0: createDiv(next) };
-
-        // Also create next+1
-        var next1 = getNextSlideIndex(next);
-        if (next1 == next)
-            loadMoreSlides();
-        else if (oldCache[next1])
-            rp.cache[next1] = oldCache[next1];
-        else
-            rp.cache[next1] = { 0: createDiv(next1) };
-
-        // save next+2, but don't create it
-        var next2 = getNextSlideIndex(next1);
-        if (next2 == next1 && next2 != next)
-            loadMoreSlides();
-        else if (oldCache[next2])
-            rp.cache[next2] = oldCache[next2];
-
-        // save next+3, but don't create it or load if missing
-        var next3 = getNextSlideIndex(next2);
-        if (next3 != next2 && oldCache[next3])
-            rp.cache[next3] = oldCache[next3];
+        var last = imageIndex - 1;
+        var next = imageIndex;
+        var i = 1;
+        do {
+            if (next == last) {
+                loadMoreSlides();
+                break;
+            } else if (oldCache[next])
+                rp.cache[next] = oldCache[next];
+            else if (i <= rp.settings.divPrecreate)
+                rp.cache[next] = { 0: createDiv(next) };
+            if (rp.photos[next].type == imageTypes.album) {
+                for (var j = albumIndex; j < rp.photos[next].album.length && j <= albumIndex+rp.settings.divPrecreate-i; ++j) {
+                    if (!rp.cache[next][j])
+                        rp.cache[next][j] = createDiv(next, j);
+                }
+            }
+            albumIndex = 0;
+            last = next;
+            next = getNextSlideIndex(last);
+            ++i;
+        } while (i < rp.settings.divSaveNext);
 
         // Create or save previous
+        var prev = getPrevSlideIndex(imageIndex);
         if (prev >= 0) {
             if (oldCache[prev])
                 rp.cache[prev] = oldCache[prev];
             else
                 rp.cache[prev] = { 0: createDiv(prev) };
-        }
-        // Preload previous image
-        if (rp.photos[prev].type == imageTypes.album) {
-            var ind = rp.photos[prev].album.length-1;
-            if (rp.cache[prev][ind] === undefined)
-                rp.cache[prev][ind] = createDiv(prev, ind);
+            // Preload previous image
+            if (rp.photos[prev].type == imageTypes.album) {
+                var ind = rp.photos[prev].album.length-1;
+                if (rp.cache[prev][ind] === undefined)
+                    rp.cache[prev][ind] = createDiv(prev, ind);
+            }
         }
 
         // save prev-1, but don't create it
@@ -3978,18 +3968,6 @@ $(function () {
             rp.cache[next] = oldCache[next];
 
         oldCache = undefined;
-
-        if (albumIndex < 0)
-            return;
-
-        next = albumIndex+1;
-        if (next < rp.photos[imageIndex].album.length) {
-            if (rp.cache[imageIndex] === undefined)
-                rp.cache[imageIndex] = {};
-
-            if (rp.cache[imageIndex][next] === undefined)
-                rp.cache[imageIndex][next] = createDiv(imageIndex, next);
-        }
     };
 
     //
