@@ -632,17 +632,18 @@ $(function () {
     // Takes and returns [imageIndes, albumIndex]
     function indexAfter(index) {
         var i = index[0];
+        var a = index[1];
         while(i < rp.photos.length) {
             var photo = rp.photos[i];
             if (!photo)
                 throw "FAILED to fetch photo index: "+i;
             if (photo.type == imageTypes.album) {
-                for (var j = index[1]+1; j < photo.album.length; ++j) {
+                for (var j = a+1; j < photo.album.length; ++j) {
                     if (!getNextPhotoOk(photo.album[j]))
                         continue;
                     return [i, j];
                 }
-
+                a = -1;
             } else if (i != index[0])
                 return [i, -1];
 
@@ -1501,7 +1502,7 @@ $(function () {
               (type == imageTypes.embed && rp.settings.embed < rp.ALWAYS)))
             return;
         log.debug('clear timout');
-        window.clearTimeout(rp.session.nextSlideTimeoutId);
+        clearTimeout(rp.session.nextSlideTimeoutId);
     };
 
     var resetNextSlideTimer = function (timeout) {
@@ -1509,9 +1510,9 @@ $(function () {
             timeout = rp.settings.timeToNextSlide;
         }
         timeout *= 1000;
-        window.clearTimeout(rp.session.nextSlideTimeoutId);
+        clearTimeout(rp.session.nextSlideTimeoutId);
         log.debug('set timeout (ms): ' + timeout);
-        rp.session.nextSlideTimeoutId = window.setTimeout(autoNextSlide, timeout);
+        rp.session.nextSlideTimeoutId = setTimeout(autoNextSlide, timeout);
     };
 
     var isVideoMuted = function() {
@@ -2357,6 +2358,11 @@ $(function () {
                 photo[key] = pic[key];
         }
         log.debug("moved first album to primary item: "+photo.url);
+        div = $('#pic'+photo.index+'_0')
+        if (div.length) {
+            div[0].id = 'pic'+photo.index+'_-1';
+            div.data('aindex', -1);
+        }
         fixPhotoButton(photo);
         delete photo.album;
     };
@@ -2392,6 +2398,11 @@ $(function () {
                     initPhotoThumb(img);
                 log.debug("moved primary to first album item: "+img.url);
                 addAlbumItem(photo, img);
+                div = $('#pic'+photo.index+'_-1')
+                if (div.length) {
+                    div[0].id = 'pic'+photo.index+'_0';
+                    div.data('aindex', 0);
+                }
             } else if (photo.o_url === undefined)
                 photo.o_url = photo.url;
             return photo;
@@ -4021,11 +4032,6 @@ $(function () {
             var alb = $(div).data("aindex");
             if (aspects.some(function(e) { return e[1][0] == ind && e[1][1] == alb; }))
                 return;
-            if (alb == -1 && aspects.some(function(e) { return e[1][0] == ind && e[1][1] == 0; })) {
-                $(div).children().detach(); // @@ big hammer, could be better if initPhotoAlbum() fixed index
-                $(div).remove();
-                return;
-            }
             $(div).css({ left: (ind < imageIndex || (ind == imageIndex && alb < albumIndex)) ?"-"+$(div).width()+"px" :"100%" });
             $(div).children().each(function (_i, item) {
                 setTimeout(function() {
