@@ -99,7 +99,7 @@
  *              t:      imgur|giphy|flickr|danbooru|e621|*gfycat
  *              -- Optional --
  *              users:  ARRAY of TEXT usernames                         [addPhotoSiteUser(), siteUserLink(), hasPhotoSiteUser()]
- *              tags:   ARRAY of TEXT Tags for photo                    [hasPhotoSiteTags(), addPhotoSiteTags()]
+ *              tags:   HASH of ARRAY of TEXT Tags for photo            [hasPhotoSiteTags(), addPhotoSiteTags(), updateDuplicates()]
  * P    blog:           HASH
  *              t:      blogger|tumblr|wp|wp2
  *              b:      TEXT blog name
@@ -133,7 +133,6 @@
  * * Use /api/v1/me/prefs for defaults?
  * * Make title social link alterable (change from twitter to instagram...)
  * * Finish removing tumblr from dupes
- * * Allow Differentiated tag types (e621: General, Meta, Species, Artists, danbooru: general, character, artist, meta)
  * * Unify sites and blogs?
  * * Integrate rp.blogcache.hn2site and wp2 alternate hostnames
  * ABANDONED Ideas
@@ -182,17 +181,14 @@ rp.settings = {
     //   0  (SOMETIMES) - embedded items are autoloaded if they won't autoplay
     //   1  (ALWAYS)    - embedded items are always loaded
     embed: 0,
-    // show NSFW Items
-    nsfw: false,
-    mute: true,
-    // How many divs to precreate/save
-    divPrecreate: 4,
-    // How many divs to save after current
-    divSaveNext: 6,
-    // image display actual size (max fullscreen)
-    realsize: false
+    nsfw: false,        // show NSFW Items
+    mute: true,         // Mute videos
+    divPrecreate: 4,    // How many divs to precreate/save
+    divSaveNext: 6,     // How many divs to save after current
+    realsize: false     // image display actual size (max fullscreen)
 };
 
+// constants
 rp.ALWAYS = 1;
 rp.SOMETIMES = 0;
 rp.NEVER = -1;
@@ -273,6 +269,9 @@ rp.wp = {};
 // If site is insecure
 // SITE -> bool
 rp.insecure = {};
+// which tag categories are expanded
+// CATEGORY -> bool
+rp.tagCats = {};
 
 // siteUserName(), siteUserId(), cacheSiteUser()
 rp.user = {
@@ -314,6 +313,10 @@ rp.defaults = {
         'www.nfl.com': 0,
         'www.reuters.com': 0,
         'www.tmz.com': 0,
+    },
+    tagCats: {
+        g: true,
+        meta: false,
     },
     favicon: {
         'art.ngfiles.com': 'https://www.newgrounds.com/favicon.ico',
@@ -445,6 +448,7 @@ $(function () {
     $("#navboxTitle").text("Loading Reddit Slideshow");
 
     const LOAD_PREV_ALBUM = -2;
+    const GENERAL_TAG = "g";
 
     // Each must be different, since we compair on value, not on name
     // these map to the below enum for styles.
@@ -481,6 +485,7 @@ $(function () {
         redditBearer: 'redditBearer',
         redditRefresh: 'redditRefresh',
         redditRefreshBy: 'redditRefreshBy',
+        tagCats: 'tagCategories',
         bloginfo: 'bloginfo',
         wp: 'wordpress',
         user: 'usermap',
@@ -1403,17 +1408,9 @@ $(function () {
     };
 
     var nextTristate = function(state) {
-        switch (state) {
-        case rp.ALWAYS:
+        ++ state;
+        if (state > rp.ALWAYS)
             state = rp.NEVER;
-            break;
-        case rp.SOMETIMES:
-            state = rp.ALWAYS;
-            break;
-        case rp.NEVER:
-            state = rp.SOMETIMES;
-            break;
-        }
         return state;
     };
 
@@ -1594,6 +1591,7 @@ $(function () {
         rp.wp = getConfig(configNames.wp, rp.defaults.wp);
         rp.insecure = getConfig(configNames.insecure, {});
         rp.blogcache.info = getConfig(configNames.bloginfo, {});
+        rp.tagCats = getConfig(configNames.tagCats, rp.defaults.tagCats);
         // build reverse map
         if (rp.blogcache.info && rp.blogcache.info.blogger) {
             var o = Object.entries(rp.blogcache.info.blogger);
@@ -2134,9 +2132,14 @@ $(function () {
         addPhotoSiteUser(photo, user);
     }
 
-    var addPhotoSiteTags = function(photo, tags) {
-        if (tags && tags.length > 0)
-            photo.site.tags = ((photo.site.tags) ?photo.site.tags :[]).concat(tags.filter(Boolean));
+    var addPhotoSiteTags = function(photo, tags, type) {
+        if (type === undefined)
+            type = GENERAL_TAG;
+        if (tags && tags.length > 0) {
+            if (!photo.site.tags)
+                photo.site.tags = {};
+            photo.site.tags[type] = ((photo.site.tags[type]) ?photo.site.tags[type] :[]).concat(tags.filter(Boolean));
+        }
     };
 
     var addPhotoSiteUser = function(photo, user) {
@@ -2146,7 +2149,7 @@ $(function () {
     };
 
     var hasPhotoSiteTags = function(pic) {
-        return pic.site && pic.site.tags && pic.site.tags.length > 0;
+        return pic.site && pic.site.tags && Object.values(pic.site.tags).length > 0;
     }
 
     var addPhotoSize = function(photo, width, height) {
@@ -2358,7 +2361,7 @@ $(function () {
                 photo[key] = pic[key];
         }
         log.debug("moved first album to primary item: "+photo.url);
-        div = $('#pic'+photo.index+'_0')
+        var div = $('#pic'+photo.index+'_0')
         if (div.length) {
             div[0].id = 'pic'+photo.index+'_-1';
             div.data('aindex', -1);
@@ -2398,7 +2401,7 @@ $(function () {
                     initPhotoThumb(img);
                 log.debug("moved primary to first album item: "+img.url);
                 addAlbumItem(photo, img);
-                div = $('#pic'+photo.index+'_-1')
+                var div = $('#pic'+photo.index+'_-1')
                 if (div.length) {
                     div[0].id = 'pic'+photo.index+'_0';
                     div.data('aindex', 0);
@@ -3350,6 +3353,7 @@ $(function () {
                          'pornzog.com',
                          'pussywagon.io',
                          'tiktits.com',
+                         'trynectar.ai',
                          'watchmygf.me',
                          'xfantasy.com',
                          'xfantazy.com',
@@ -4169,48 +4173,51 @@ $(function () {
         else
             $('#navboxDuplicatesLink').attr('href', '#').hide();
 
-        // @@ break out categories
-        // Add Blog Tags
-        if (hasPhotoBlogTags(photo))
-            photo.blog.tags.forEach(function(tag) {
+        var showTagCat = function(key) {
+            if ($(this)[0].tags[key].length == 0)
+                return;
+            var ul = $("<ul>", { class: "tagCategory" });
+            $(this)[0].tags[key].forEach(function(tag) {
                 var li = $("<li>", { class: 'list'});
-                li.html(blogTagLink(photo.blog, tag));
+                li.html(siteTagLink($(this)[0].t, tag));
                 ++ total;
-                $('#duplicateUl').append(li);
+                $(ul).append(li);
+            }, $(this));
+            var li = $('<li>', { class: "list" });
+            var id = "tags-"+key;
+            if (key != GENERAL_TAG)
+                li.append($('<span>', { class: "categoryName" }).text(key+":"))
+            var input = $('<input />', {
+                class: "checkbox control icontoggle",
+                type: "checkbox",
+                name: id,
+                id: id,
+                value: "Auto",
+                "icon-on": "expand_less",
+                "icon-off": "expand_more"
             });
-
-        // Add Blog Categories
-        if (hasPhotoBlogCats(photo))
-            photo.blog.cats.forEach(function(tag) {
-                var li = $("<li>", { class: 'list'});
-                li.html(blogCatLink(photo.blog, tag));
-                ++ total;
-                $('#duplicateUl').append(li);
+            input.change(function() {
+                rp.tagCats[key] = $(this).is(':checked');
+                setConfig(configNames.tagCats, rp.tagCats);
             });
+            li.append(input);
+            li.append($('<label>', {
+                class: "checkbox icontoggle",
+                for: id,
+                title: "Tag cagetory "+((key == GENERAL_TAG) ?"general" :key)
+            }).append(googleIcon("expand_less")));
+            li.append(ul);
+            $('#duplicateUl').append(li);
+            if (rp.tagCats[key] === undefined || rp.tagCats[key])
+                input.click();
+            fixIconToggle.call(input)
+        };
 
-        // Add Site Tags
-        if (hasPhotoSiteTags(pic))
-            pic.site.tags.forEach(function(tag) {
-                var li = $("<li>", { class: 'list'});
-                li.html(siteTagLink(pic.site.t, tag));
-                ++ total;
-                $('#duplicateUl').append(li);
-            });
-
-        // Add Site Tags (album)
-        if (photo != pic && hasPhotoSiteTags(photo))
-            photo.site.tags.forEach(function(tag) {
-                var li = $("<li>", { class: 'list'});
-                li.html(siteTagLink(photo.site.t, tag));
-                ++ total;
-                $('#duplicateUl').append(li);
-            });
-
+        // Reddit Duplicates
         var dupes = ((photo.dupes) ?photo.dupes :[]);
         if (pic != photo && pic.dupes)
             dupes = dupes.concat(pic.dupes);
 
-        // Reddit Duplicates
         var multi = [];
         if (photo.subreddit)
             multi.push(photo.subreddit);
@@ -4269,6 +4276,33 @@ $(function () {
             $('#navboxDuplicatesMulti').attr('href', "#");
             $('#navboxDuplicatesMultiP').attr('href', "#");
         }
+
+        // Add Blog Tags
+        if (hasPhotoBlogTags(photo))
+            photo.blog.tags.forEach(function(tag) {
+                var li = $("<li>", { class: 'list'});
+                li.html(blogTagLink(photo.blog, tag));
+                ++ total;
+                $('#duplicateUl').append(li);
+            });
+
+        // Add Blog Categories
+        if (hasPhotoBlogCats(photo))
+            photo.blog.cats.forEach(function(tag) {
+                var li = $("<li>", { class: 'list'});
+                li.html(blogCatLink(photo.blog, tag));
+                ++ total;
+                $('#duplicateUl').append(li);
+            });
+
+        // Add Site Tags
+        if (hasPhotoSiteTags(pic))
+            Object.keys(pic.site.tags).forEach(showTagCat, pic.site);
+
+        // Add Site Tags (album)
+        if (photo != pic && hasPhotoSiteTags(photo))
+            Object.keys(photo.site.tags).forEach(showTagCat, photo.site);
+
         $('#duplicatesCollapser').data('count', total);
         setVcollapseHtml($('#duplicatesCollapser'));
         updateSelected();
@@ -7873,10 +7907,11 @@ $(function () {
         addPhotoSite(photo, "danbooru");
         addPhotoSiteUser(photo, post.tag_string_artist.split(" ").filter(Boolean));
         addPhotoSiteTags(photo, post.tag_string_general.split(" "))
-        addPhotoSiteTags(photo, post.tag_string_copyright.split(" "))
+        addPhotoSiteTags(photo, post.tag_string_copyright.split(" "), "copyright")
+        addPhotoSiteTags(photo, post.tag_string_meta.split(" "), "meta")
         if (post.tag_string_character) {
             if (photo.title)
-                addPhotoSiteTags(photo, post.tag_string_character.split(" "));
+                addPhotoSiteTags(photo, post.tag_string_character.split(" "), "character");
             else
                 photo.title = post.tag_string_character.split(" ")
                 .map(function(x) { return titleTagLink("danbooru", x); }).join(" and ");
@@ -8048,10 +8083,12 @@ $(function () {
             // @@ fixup post.description (may have [section=Story]...[/section]
             fixupPhotoTitle(photo, post.description);
         addPhotoSiteTags(photo, post.tags.general);
-        addPhotoSiteTags(photo, post.tags.species);
-        addPhotoSiteTags(photo, post.tags.character);
-        addPhotoSiteTags(photo, post.tags.lore);
-        // also available: copyright, invalid, meta
+        addPhotoSiteTags(photo, post.tags.species, "species");
+        addPhotoSiteTags(photo, post.tags.character, "character");
+        addPhotoSiteTags(photo, post.tags.lore, "lore");
+        addPhotoSiteTags(photo, post.tags.meta, "meta");
+        addPhotoSiteTags(photo, post.tags.copyright, "copyright");
+        // also available: invalid
         for (var src of post.sources) {
             addPhotoExtraLink(photo, "Source", src);
         }
@@ -8167,6 +8204,10 @@ $(function () {
                 data.posts.forEach(function(post) {
                     if (post.relationships.parent_id) {
                         log.info("cannot display url [parent "+post.relationships.parent_id+"]: "+post.id);
+                        return;
+                    }
+                    if (post.score.total < rp.settings.minScore) {
+                        log.info('cannot display url [score too low: '+post.score.total+']: '+post.id);
                         return;
                     }
                     // @@ post.pool - alternate album?

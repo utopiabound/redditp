@@ -65,6 +65,7 @@ ul li { list-style-type: none; }
     vertical-align: middle;
 }
 
+.icontoggle i,
 .title .social i { vertical-align: middle; }
 
 /* Decorate Photo Buttons */
@@ -308,7 +309,8 @@ div.progress {
     clear: left;
 }
 
-#duplicates ul { display: inline; }
+#duplicatesLink,
+#duplicateUl { display: inline; }
 #subredditLink { padding-left: 4px; }
 #subredditPopup { min-width: 140px; }
 
@@ -530,6 +532,9 @@ input[type="text"] {
 }
 
 #choiceLi { margin: 0 20px 0 -48px; }
+
+ul.tagCategory { display: none; }
+input.control:checked ~ ul.tagCategory { display: inline; }
 
 #choiceLi input:checked ~ #subredditPopup {
     left: 24px;
