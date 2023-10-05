@@ -2053,7 +2053,7 @@ $(function () {
     var blogTagMissing = function(blog, tags) {
         if (rp.blogcache.tags[blog.t] && rp.blogcache.tags[blog.t][blog.b])
             return tags.filter(function (x) { return (rp.blogcache.tags[blog.t][blog.b][x] == undefined); });
-        return tags;
+        return tags || [];
     };
 
     var blogBlogLink = function(blog, alt) {
@@ -3920,13 +3920,14 @@ $(function () {
         stopEvent(event);
         if (rp.session.activeIndex < 0)
             return false;
-        var photo = rp.photos[rp.session.activeIndex];
+        var pic = getCurrentPic();
+        var photo = photoParent(pic);
         if (photo.subreddit)
             getRedditComments(photo);
 
-        getRedditDupe(photo);
-        if (rp.session.activeAlbumIndex >= 0)
-            getRedditDupe(photo.album[rp.session.activeAlbumIndex]);
+        getRedditDupe(pic);
+        if (pic != photo)
+            getRedditDupe(photo);
 
         if (photo.dupes)
             photo.dupes.forEach(function(item) {
@@ -4802,7 +4803,7 @@ $(function () {
         var showHtml = function(div, html, needreset) {
             if (needreset === undefined)
                 needreset = true;
-            var iframe = $('<div/>', {class: "fullscreen",
+            var iframe = $('<div/>', {class: "realsize",
                                        frameborder: 0,
                                        webkitallowfullscreen: true,
                                        allowfullscreen: true });
@@ -4880,8 +4881,11 @@ $(function () {
 
         var showPic = function(opic) {
             var pic = photoParent(opic);
-            if (pic.type == imageTypes.album)
-                pic = pic.album[(albumIndex < 0) ?0 :albumIndex];
+            if (pic.type == imageTypes.album) {
+                if (pic.album.length <= albumIndex)
+                    log.info("showPic on deleted album item ["+albumIndex+"]: "+opic.o_url);
+                pic = pic.album[(albumIndex < 0) ?0 :(albumIndex < pic.album.length) ?albumIndex :pic.album.length-1];
+            }
 
             switch (pic.type) {
             case imageTypes.image:
@@ -7053,7 +7057,7 @@ $(function () {
 
         var o_link = post.link;
 
-        var photo = initPhotoAlbum(photo, false);
+        photo = initPhotoAlbum(photo, false);
         if (!photo.blog) {
             photo.blog = { t: 'wp2', b: hn, id: post.id };
             addPhotoBlogTags(photo, post.tags);
