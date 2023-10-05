@@ -74,7 +74,9 @@
  *
  *      -- Other, NOT creator setable --
  *      type:           ENUM of imageTypes                              [set by processPhoto()/initPhoto*()]
- *      a:              Float  Aspect Ratio                             [set by addPhotoSize()]
+ *      a:              Float   Aspect Ratio                            [set by addPhotoSize()]
+ *      s:              TEXT    shortid or url                          [set by addPhotoShort()]
+ *      h:              HOST    hostname (or fqdn) or url               [set by addPhotoShort()]
  *      eL:             BOOL Have loaded comment images or duplicate listings [
  * P    insertAt:       INT where to insert pictures in album           [set by addAlbumItem()]
  * P    index:          INT index in rp.photos, used by album functions [set by addImageSlide()]
@@ -135,6 +137,9 @@
  * * Finish removing tumblr from dupes
  * * Unify sites and blogs?
  * * Integrate rp.blogcache.hn2site and wp2 alternate hostnames
+ * KNOWN ISSUES:
+ * * HTML embed for twitter and tiktok are wonky on re-viewing cached divs
+ * * auto Next is wierder with multi-image display
  * ABANDONED Ideas
  * * Flickr Login - OAuth 1.0a doesn't work with CORS
  */
@@ -2153,12 +2158,22 @@ $(function () {
     }
 
     var addPhotoSize = function(photo, width, height) {
+        // @@ some html embed only have fixed-width, or fixed-width & height
         if (!width || !height || photo.type == imageTypes.fail)
             return;
         photo.a = width/height;
         if (getShowables().length != rp.session.totalActive)
             startAnimation(rp.session.activeIndex, rp.session.activeAlbumIndex);
     };
+
+    var addPhotoShort = function(photo, shortid, hostname) {
+        if (!shortid)
+            shortid = url2shortid(photo.url);
+        if (!hostname)
+            hostname = hostnameOf(photo.url, true);
+        photo.s = shortid;
+        photo.h = hostname;
+    }
 
     var initPhotoImage = function(photo, url) {
         photo.type = imageTypes.image;
@@ -2399,6 +2414,8 @@ $(function () {
             if (keepfirst) {
                 if (!processPhoto(img))
                     initPhotoThumb(img);
+                if (!img.s)
+                    addPhotoShort(img, photo.s, photo.h);
                 log.debug("moved primary to first album item: "+img.url);
                 addAlbumItem(photo, img);
                 var div = $('#pic'+photo.index+'_-1')
@@ -2755,6 +2772,7 @@ $(function () {
                                'https://clips.clippit.tv/'+shortid+'/thumbnail.jpg');
 
             } else if (fqdn == 'commons.wikimedia.org') {
+                shortid = url2shortid(pic.url);
                 if (isImageExtension(pic.url) ||
                     isVideoExtension(pic.url))
                     pic.type = imageTypes.later;
@@ -2771,6 +2789,7 @@ $(function () {
 
             } else if (fqdn == 'preview.redd.it') {
                 initPhotoImage(pic, 'https://i.redd.it'+pathnameOf(pic.url));
+                shortid = url2shortid(pic.url);
 
             } else if (hostname == 'vidble.com') {
                 shortid = url2shortid(pic.url);
@@ -2896,6 +2915,7 @@ $(function () {
                        hostname == 'e621.net') {
                 a = pathnameOf(pic.url).split('/');
                 shortid = url2shortid(pic.url);
+                hostname = fqdn;
                 if (a[1].startsWith('post') && a.length > 2)
                     pic.type = imageTypes.later;
                 else
@@ -2947,6 +2967,7 @@ $(function () {
                     pic.type = imageTypes.later;
                 else
                     throw "unknown flickr url";
+                shortid = a[3]
 
             } else if (hostname == 'flourish.studio') {
                 a = pathnameOf(pic.url).split('/');
@@ -3098,6 +3119,7 @@ $(function () {
                 a = pathnameOf(pic.url).split('/');
                 i = 1;
                 while (a[i].length == 2 || // language
+                       a[i] == "embed" ||
                        a[i] == "v" ||
                        a[i] == "video")
                     ++i;
@@ -3127,6 +3149,7 @@ $(function () {
 
             } else if (hostname == 'reddit.com') {
                 a = pathnameOf(pic.url).split('/');
+                shortid = url2shortid(pic.url);
                 if (a[1] == 'gallery')
                     pic.type = imageTypes.later;
                 else
@@ -3412,13 +3435,16 @@ $(function () {
                 }
                 throw "unknown host";
             }
-            if (shortid && hostname && pic.subreddit && pic.id) {
-                var link = ['', 'r', pic.subreddit, pic.id].join('/');
-                var val = dedupAdd(hostname, shortid, link);
-                if (val) {
-                    log.info("cannot display url [duplicate: "+val+"]: "+pic.url);
-                    return false;
+            if (shortid && hostname) {
+                if (pic.subreddit && pic.id) {
+                    var link = ['', 'r', pic.subreddit, pic.id].join('/');
+                    var val = dedupAdd(hostname, shortid, link);
+                    if (val) {
+                        log.info("cannot display url [duplicate: "+val+"]: "+pic.url);
+                        return false;
+                    }
                 }
+                addPhotoShort(pic, shortid, hostname);
             }
         } catch (e) {
             var url = pic.url;
@@ -4960,7 +4986,8 @@ $(function () {
                 data,
                 function(photo) {
                     log.info("Failed to load wpv2: "+photo.url);
-                    initPhotoThumb(photo);
+                    if (photo.type != imageTypes.album)
+                        initPhotoThumb(photo);
                     showCB(photo);
                 },
                 showCB,
@@ -5214,6 +5241,7 @@ $(function () {
                     showCB(photo);
                 };
                 handleError = function() {
+                    addPhotoShort(photo, shortid.toLowerCase(), "redgifs.com");
                     initPhotoEmbed(photo, 'https://redgifs.com/ifr/'+shortid.toLowerCase(), false);
                     showCB(photo);
                 };
@@ -6108,57 +6136,22 @@ $(function () {
     // Get duplicate reddit entries for a non-reddit photo.url
     // Also load comments of new subreddits
     var getRedditDupe = function(photo, dupe) {
-        var site;
-        var shortid;
-
-        var hn = hostnameOf(photo.url, true);
-        var fqdn = hostnameOf(photo.o_url, false);
+        var site = photo.h;
+        var shortid = photo.s;
 
         if (dupe) {
             shortid = dupe.id;
-            // @@ blog
+            // @@ blog?
             if (dupe.tumblr)
                 site = dupe.tumblr;
-
             else if (dupe.site) // for fake load
                 site = dupe.site;
-
             else
                 return;
-
-        } else if (photo.tumblr) {
-            site = photo.tumblr.blog;
-            shortid = photo.tumblr.id;
-
-            if (photo.eL)
-                return;
-
-            photo.eL = true;
-
-        } else if (photo.site && photo.site.t == 'flickr') {
-            site = 'flickr.com';
-            shortid = url2shortid(photo.o_url, 3);
         }
 
-        if (site === undefined) {
-            site = hn;
-            if (hn == 'fav.me' ||
-                hn == 'imgur.com' ||
-                hn == 'gifs.com' ||
-                hn == 'gfycat.com' ||
-                hn == 'makeagif.com' ||
-                hn == 'redgifs.com' ||
-                hn == 'sta.sh')
-                shortid = url2shortid(photo.url);
-
-            else if (hn == 'redd.it' ||
-                     fqdn == 'danbooru.donmai.us') {
-                shortid = url2shortid(photo.o_url);
-                site = fqdn;
-
-            } else
-                return;
-        }
+        if (!site || !shortid)
+            return;
 
         var now = currentTime();
         if (!rp.loaded[site])
@@ -6444,7 +6437,7 @@ $(function () {
 
     // T3 is reddit post
     var processRedditT3 = function(photo, t3) {
-        var val, media;
+        var val, media, shortid;
         var link = '/r/'+photo.subreddit+'/'+photo.id;
 
         if (t3.preview)
@@ -6462,6 +6455,7 @@ $(function () {
                 log.info("cannot display url [duplicate:"+val+"]: "+photo.url);
                 return false;
             }
+            addPhotoShort(photo, url2shortid(photo.url));
             photo = initPhotoAlbum(photo, false);
             var t3g = (t3.gallery_data) ?t3 :t3.crosspost_parent_list[0]
 
@@ -6489,7 +6483,8 @@ $(function () {
         }
         // Reddit hosted videos
         else if (t3.domain == 'v.redd.it') {
-            val = dedupAdd(t3.domain, url2shortid(photo.url), link);
+            shortid = url2shortid(photo.url);
+            val = dedupAdd(t3.domain, shortid, link);
             if (val) {
                 log.info("cannot display url [duplicate:"+val+"]: "+photo.url);
                 return false;
@@ -6505,6 +6500,7 @@ $(function () {
                 photo.type = imageTypes.later;
                 photo.o_url = photo.url;
                 photo.url = media.dash_url;
+                addPhotoShort(photo, shortid);
 
             } else {
                 log.error(photo.id+": cannot display video [no reddit_video]: "+photo.url);
@@ -6514,12 +6510,14 @@ $(function () {
         } else if (t3.domain == 'i.redd.it' &&
                    extensionOf(photo.url) == 'gif' &&
                    t3.preview && t3.preview.images[0].variants && t3.preview.images[0].variants.mp4) {
-            val = dedupAdd(t3.domain, url2shortid(photo.url), link);
+            shortid = url2shortid(photo.url);
+            val = dedupAdd(t3.domain, shortid, link);
             if (val) {
                 log.info("cannot display url [duplicate:"+val+"]: "+photo.url);
                 return false;
             }
             photo.o_url = photo.url;
+            addPhotoShort(photo, shortid);
             initPhotoVideo(photo, unescapeHTML(t3.preview.images[0].variants.mp4.source.url));
 
         } else if (Object.keys(t3.secure_media_embed).length != 0 || Object.keys(t3.media_embed).length != 0) {
@@ -7055,11 +7053,14 @@ $(function () {
 
         var o_link = post.link;
 
-        photo = initPhotoAlbum(photo, false);
+        var photo = initPhotoAlbum(photo, false);
         if (!photo.blog) {
             photo.blog = { t: 'wp2', b: hn, id: post.id };
             addPhotoBlogTags(photo, post.tags);
             addPhotoBlogCats(photo, post.categories);
+        } else {
+            log.info("Parent already had blog { type: "+photo.blog.t+" blog:"+photo.blog.hn+" id:"+photo.blog.id+
+                     " } this { type:wp2 blog:"+hn+" id:"+post.id+" }");
         }
         if (photo.o_url === undefined)
             photo.o_url = photo.url;
@@ -7970,6 +7971,7 @@ $(function () {
             over18: post.rating != 'g',
             score: post.up_score - post.down_score,
         };
+        addPhotoShort(photo, post.id, "danbooru.donmai.us");
         processDanbooruPost(photo, post);
         return photo;
     };
