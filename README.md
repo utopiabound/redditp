@@ -50,7 +50,6 @@ Features
 	* Imgur		(User/Tag/Trending support)  /imgur/[u/*USER*|t/*TAG*]
 	* Tumblr	(Album support) /tumblr/*HOSTNAME*[t/*TAG*]
 	* WordPress	(Album support) /wp/*HOSTNAME*[t/*TAG*] (both self, and wp hosted)
-	* Gfycat	(User/Tag/Trending support) /gfycat/[u/*USER*|t/*TAG*]
 	* Blogger	(Album support) /blogger/*HOSTNAME*
 	* Flickr	(User/Tag/Search/Trending support) /flickr/[u/*USER*[/*ALBUM*]|t/*TAG*[,*tag2*...]|s/*SEARCH*]
 * Deduplication support when browsing multiple subreddits (e.g. a multireddit /user/NAME/m/MULTIREDDIT or /r/funny+pics)

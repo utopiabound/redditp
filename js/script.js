@@ -98,7 +98,7 @@
  *      -- Depending on host site --
  *      subreddit:      TEXT of subreddit name
  *      site:           HASH                                            [addPhotoSite()]
- *              t:      imgur|giphy|flickr|danbooru|e621|*gfycat
+ *              t:      imgur|giphy|flickr|danbooru|e621
  *              -- Optional --
  *              users:  ARRAY of TEXT usernames                         [addPhotoSiteUser(), siteUserLink(), hasPhotoSiteUser()]
  *              tags:   HASH of ARRAY of TEXT Tags for photo            [hasPhotoSiteTags(), addPhotoSiteTags(), updateDuplicates()]
@@ -199,16 +199,17 @@ rp.SOMETIMES = 0;
 rp.NEVER = -1;
 
 rp.mime2ext = {
-    'audio/mp4': 'mp4a',
-    'audio/mpeg': 'mp3',
-    'audio/ogg':  'ogg',
-    'audio/wav':  'wav',
-    'image/jpeg': 'jpg',
-    'image/png':  'png',
-    'image/gif':  'gif',
-    'video/webm': 'webm',
-    'video/mp4':  'mp4',
-    'video/quicktime': 'mov'
+    'audio/mp4':        'mp4a',
+    'audio/mpeg':       'mp3',
+    'audio/ogg':        'ogg',
+    'audio/wav':        'wav',
+    'image/jpeg':       'jpg',
+    'image/png':        'png',
+    'image/gif':        'gif',
+    'video/webm':       'webm',
+    'video/x-m4v':      'mp4',
+    'video/mp4':        'mp4',
+    'video/quicktime':  'mov'
 };
 rp.ext2mime = Object.keys(rp.mime2ext).reduce(function(obj,key){
     obj[ rp.mime2ext[key] ] = key;
@@ -966,7 +967,6 @@ $(function () {
 
     var sitePhotoUrl = function(type, shortid) {
         switch (type) {
-        case 'gfycat':  return 'https://gfycat.com/'+shortid;
         case 'redgifs': return 'https://www.redgifs.com/watch/'+shortid.toLowerCase();
         case 'imgur':   return 'https://imgur.com/'+shortid;
         }
@@ -1001,7 +1001,6 @@ $(function () {
         switch(type) {
         case 'danbooru': return 2;
         case 'wp':
-        case 'gfycat':
         case 'imgur': return 1;
         case 'tumblr': return 4; // when /HOST/t/TAG+TAG...
         }
@@ -1013,7 +1012,6 @@ $(function () {
         case 'danbooru':
         case 'e621':    return siteTagUrl(type, user);
         case 'flickr':  return 'https://flickr.com/photos/'+siteUserId(type, user);
-        case 'gfycat':  return 'https://gfycat.com/@'+user;
         case 'giphy':   return 'https://giphy.com/channel/'+siteUserId(type, user);
         case 'imgur':   return 'https://imgur.com/user/'+user;
         case 'redgifs': return 'https://www.redgifs.com/users/'+user;
@@ -1026,7 +1024,6 @@ $(function () {
         switch (type) {
         case 'danbooru': return siteTagUrl(type, text);
         case 'flickr': return 'https://flickr.com/search?safe_search=3&view_all=1&text='+text+((sort) ?'&sort='+sort :'');
-        case 'gfycat': return 'https://gfycat.com/gifs/search/'+text.toLowerCase().replaceAll(" ", "+");
         case 'giphy':  return 'https://giphy.com/search/'+text.replaceAll(" ", "-");
         case 'reddit': return rp.reddit.base+'/search/?q='+text+((sort) ?'&sort='+sort :'');
         }
@@ -1064,7 +1061,6 @@ $(function () {
         switch(type) {
         case 'danbooru': return 'https://danbooru.donmai.us/posts?tags='+tag.replace(/ /g, '_');
         case 'e621':     return 'https://e621.net/posts?tags='+tag.replace(/ /g, '_');
-        case 'gfycat':   return siteSearchUrl(type, tag);
         case 'redgifs':  return 'https://www.redgifs.com/browse?tags='+tag;
         case 'imgur':    return 'https://imgur.com/t/'+tag;
         case 'flickr':   return 'https://www.flickr.com/photos/tags/'+tag.toLowerCase().replaceAll(" ", "");
@@ -1244,6 +1240,8 @@ $(function () {
 
     var isGoodExtension = function (url, arr) {
         var extension;
+        if (!url)
+            return false;
         if (url.includes('.'))
             extension = extensionOf(url).toLowerCase();
         else
@@ -2148,7 +2146,7 @@ $(function () {
     };
 
     var addPhotoSiteUser = function(photo, user) {
-        if (!user || (photo.site.t == 'gfycat' && user == 'anonymous'))
+        if (!user)
             return;
         photo.site.users = ((photo.site.users) ?photo.site.users :[]).concat((Array.isArray(user)) ?user :[user]);
     };
@@ -2749,17 +2747,6 @@ $(function () {
                 } else
                     throw "bad path";
 
-            } else if (hostname == 'gfycat.com' ||
-                       hostname == 'gifdeliverynetwork.com') {
-                //if (a[2] != 'collections') {
-                // @@ needs bearer token
-                shortid = url2shortid(pic.url, -1, '-', false);
-                hostname = 'gfycat.com';
-                if (shortid == 'about')
-                    throw "bad url";
-                pic.url = sitePhotoUrl('gfycat', shortid);
-                pic.type = imageTypes.later;
-
             } else if (hostname == 'clippituser.tv' ||
                        hostname == 'clippit.tv') {
                 hostname = 'clippit.tv';
@@ -3026,15 +3013,6 @@ $(function () {
                 a = pathnameOf(pic.url).split('/');
                 initPhotoImage(pic, "https://img1.hotnessrater.com/"+a[2]+"/"+a[3]+".jpg");
 
-            } else if (hostname == 'hugetits.win') {
-                shortid = url2shortid(pic.url, -1, '-', false);
-                hostname = 'gfycat.com';
-                a = pathnameOf(pic.url).split('/');
-                if (a[1] != "video")
-                    throw "non-video url";
-                pic.url = sitePhotoUrl('gfycat', shortid); // will fallback to redgifs
-                pic.type = imageTypes.later;
-
             } else if (hostname == 'msnbc.com') {
                 // https://www.msnbc.com/SHOW/watch/TITLE-OF-VIDEO-ID
                 a = pathnameOf(pic.url).split('/');
@@ -3095,7 +3073,7 @@ $(function () {
 
             } else if (hostname == 'pixeldrain.com') {
                 a = pathnameOf(pic.url).split('/');
-                if (a[1] == 'u')
+                if (a[1] == 'u' || a[1] == 'l')
                     shortid = a[2];
                 else if (a[1] == "api" && a[2] == "file")
                     shortid = a[3];
@@ -3104,7 +3082,8 @@ $(function () {
 
                 if (a[4] === 'image')
                     initPhotoImage(pic, 'https://pixeldrain.com/api/file/'+shortid);
-
+                else if (a[1] == 'l')
+                    pic.type = imageTypes.later;
                 else {
                     initPhotoVideo(pic, 'https://pixeldrain.com/api/file/'+shortid,
                                    'https://pixeldrain.com/api/file/'+shortid+'/thumbnail');
@@ -3176,19 +3155,13 @@ $(function () {
 
             } else if (hostname == 'streamvi.com') {
                 shortid = url2shortid(pic.url);
-                initPhotoVideo(pic, 'https://cdnvistreamviz.r.worldssl.net/uploads/'+shortid+'.mp4',
-                               'https://cdn.streamvi.com/uploads/'+shortid+'.jpg');
+                initPhotoVideo(pic, 'https://edge1.cdnvi.org/uploads/'+shortid+'.mp4',
+                               'https://cdn2.streamvi.com/uploads/'+shortid+'.jpg');
 
             } else if (hostname == 'sunporno.com' ||
                        hostname == 'sunporno2.com') {
                 shortid = url2shortid(pic.url, 2);
                 initPhotoEmbed(pic, 'https://embeds.sunporno.com/embed/'+shortid, false);
-
-            } else if (hostname == "theasteris.com") {
-                shortid = searchValueOf(pic.url, "vid");
-                if (!shortid)
-                    throw "bad url";
-                initPhotoEmbed(pic, "https://theasteris.com/embed.php?vid="+shortid, false);
 
             } else if (hostname == "tiktok.com") {
                 a = pathnameOf(pic.url).split('/');
@@ -3274,8 +3247,7 @@ $(function () {
                 } else
                     throw "unknown twitter url";
 
-            } else if (hostname == 'videobin.co' ||
-                       hostname == 'vidoza.net' ||
+            } else if (hostname == 'vidoza.net' ||
                        hostname == 'yodbox.com') {
                 shortid = url2shortid(pic.url, 1, '-');
                 initPhotoEmbed(pic, originOf(pic.url)+"/embed-"+shortid+".html", false);
@@ -3346,6 +3318,10 @@ $(function () {
             else {
                 var path = pathnameOf(pic.url);
                 a = path.split('/');
+                if (a[a.length-1] == "")
+                    a.pop();
+                if (a[a.length-1].startsWith('source'))
+                    throw "source request"
                 if (a.length > 2 &&
                     (a[1] == 'video' ||
                      a[1] == 'videos' ||
@@ -3358,10 +3334,10 @@ $(function () {
                          'camwhores.film',
                          'camwhores.tube',
                          'cc.com',
+                         'exporntoons.net',
                          'fodder.gg',
                          'fite.tv',
                          'furaffinity.net',
-                         'gifscroll.com',
                          'gothdporn.com',
                          'hdpornz.biz',
                          'hog.mobi',
@@ -3390,12 +3366,12 @@ $(function () {
                         href.prop('hostname', href.prop('hostname').replace('m.', 'www.'));
 
                     // Sistes that do work w/o autoplay
-                    if (hostname == 'bigfuck.tv' ||
-                        hostname == 'nonktube.com' ||
-                        hostname == 'theporngod.com' ||
-                        hostname == 'vrbangers.com' ||
-                        hostname == 'youporn.com' ||
-                        hostname == 'xxxbox.me')
+                    if (['bigfuck.tv',
+                         'nonktube.com',
+                         'theporngod.com',
+                         'vrbangers.com',
+                         'youporn.com',
+                         'xxxbox.me'].includes(hostname))
                         initPhotoEmbed(pic, href.prop('origin')+'/embed/'+shortid, false);
 
                     else if (shortid.match(/^\d+$/)) {
@@ -4717,15 +4693,6 @@ $(function () {
             $(video).on("loadeddata", function(e) {
                 if (pic.type == imageTypes.album)
                     pic = pic.album[0];
-                if (e.target.duration == 2 &&
-                    e.target.videoWidth == 640 &&
-                    e.target.videoHeight == 480 &&
-                    hostnameOf(e.target.currentSrc, true) == 'gfycat.com') {
-                    log.info("cannot display video [copyright claim]: "+pic.url);
-                    if (isActiveCurrent(pic))
-                        resetNextSlideTimer();
-                    find_fallback(pic, false);
-                }
                 pic.video.duration = e.target.duration;
                 if (pic.video.duration < rp.settings.timeToNextSlide) {
                     pic.video.times = Math.ceil(rp.settings.timeToNextSlide/pic.video.duration);
@@ -4938,10 +4905,6 @@ $(function () {
             showPic(photo);
 
         return divNode;
-    };
-
-    var gfyItemTitle = function(item) {
-        return item.title || item.description;
     };
 
     var fillLaterDiv = function(photo, showCB) {
@@ -5218,39 +5181,6 @@ $(function () {
                 };
             }
 
-        } else if (hostname == 'gfycat.com') {
-            a = pathnameOf(photo.url).split('/');
-            if (a[2] == "collections") {
-                var u = a[1].slice(1, -1);
-                addPhotoSite(photo, 'gfycat', u);
-                jsonUrl = "https://api.gfycat.com/v1/users/"+u+"/collections/"+a[3]+"/gfycats";
-                handleData = function (data) {
-                    var gifs = data.gfycats || data.gifs;
-                    if (!gifs.length) {
-                        initPhotoFailed(photo);
-                        showCB(photo);
-                        return;
-                    }
-                    var p = initPhotoAlbum(photo, false);
-                    gifs.forEach(function(data) {
-                        addAlbumItem(p, gfycat2pic(data));
-                    });
-                    checkPhotoAlbum(p);
-                    showCB(photo);
-                };
-            } else {
-                jsonUrl = "https://api.gfycat.com/v1/gfycats/" + shortid;
-                handleData = function (data) {
-                    processGfycatItem(photo, data.gfyItem);
-                    showCB(photo);
-                };
-                handleError = function() {
-                    addPhotoShort(photo, shortid.toLowerCase(), "redgifs.com");
-                    initPhotoEmbed(photo, 'https://redgifs.com/ifr/'+shortid.toLowerCase(), false);
-                    showCB(photo);
-                };
-            }
-
         } else if (hostname == 'imgchest.com') {
             headerData = { Authorization: "Bearer "+rp.api_key.imgchest };
             jsonUrl = 'https://api.imgchest.com/v1/post/'+url2shortid(photo.url);
@@ -5258,10 +5188,12 @@ $(function () {
                 photo = initPhotoAlbum(photo, false);
                 data.data.images.forEach(function(item) {
                     var pic = fixupPhotoTitle({
+                        o_url: 'https://imgchest.com/p/'+data.data.id,
                         url: item.link,
                         type: imageTypes.image,
                         date: processDate(item.crated, "Z")},
                                               item.description || data.data.title);
+                    addPhotoShort(pic, item.id, 'imgchest.com');
                     addAlbumItem(photo, pic);
                 });
                 checkPhotoAlbum(photo);
@@ -5329,6 +5261,21 @@ $(function () {
                     showCB(photo);
                 };
             }
+
+        } else if (hostname == 'pixeldrain.com') {
+            // for /l/
+            jsonUrl = 'https://pixeldrain.com/api/list/'+url2shortid(photo.url);
+            handleData = function(data) {
+                if (!data.success)
+                    return handleErrorOrig({ status: data.message });
+                photo = initPhotoAlbum(photo, false);
+                data.files.forEach(function(item) {
+                    var pic = pixeldrain2pic(item);
+                    addAlbumItem(photo, pic);
+                });
+                checkPhotoAlbum(photo);
+                showCB(photo);
+            };
 
         } else if (hostname == 'redd.it') {
             jsonUrl = photo.url;
@@ -5645,8 +5592,7 @@ $(function () {
         } else if (url.startsWith('//'))
             url = ((rp.insecure[hostname]) ?"http:" :"https:")+url;
 
-        if (hostname == 'gfycat.com' ||
-            hostname == 'hentai-foundry.com' ||
+        if (hostname == 'hentai-foundry.com' ||
             hostname == 'imgur.com' ||
             hostname == 'juicygif.com' ||
             hostname == 'pornhub.com' ||
@@ -6071,7 +6017,6 @@ $(function () {
             case 'e621':
             case 'danbooru':
             case 'flickr':
-            case 'gfycat':
             case 'imgur':
                 if (list[0].firstChild)
                     list.append($('<li>').append($('<hr>', { class: "split" })));
@@ -8424,32 +8369,6 @@ $(function () {
     };
 
     /////////////////////////////////////////////////////////////////
-    // Gfycat
-    //
-
-    var processGfycatItem = function(photo, item) {
-        addPhotoSite(photo, 'gfycat', item.username);
-        if (!photo.title) {
-            photo.title = gfyItemTitle(item);
-            fixupPhotoTitle(photo);
-        }
-        addPhotoSiteTags(photo, item.tags);
-        initPhotoVideo(photo, [ item.webmUrl, item.mp4Url ], item.posterUrl);
-        return photo;
-    };
-
-    var gfycat2pic = function(post) {
-        var image = { url: sitePhotoUrl('gfycat', post.gfyName),
-                      over18: (post.nsfw != 0),
-                      title: gfyItemTitle(post),
-                      date: post.createDate,
-                      score: rp.settings.minScore + post.likes - post.dislikes,
-                    };
-        fixupPhotoTitle(image);
-        return processGfycatItem(image, post);
-    };
-
-    /////////////////////////////////////////////////////////////////
     // Giphy
     //
     // https://developers.giphy.com/docs/api
@@ -8485,7 +8404,7 @@ $(function () {
         case "u":
             errmsg = "User "+rp.url.sub+" has no videos";
             jsonUrl = "https://api.giphy.com/v1/gifs/search?api_key="+rp.api_key.giphy+"&q=@"+rp.url.sub;
-            url = siteUserUrl("gfycat", rp.url.sub);
+            url = siteUserUrl("giphy", rp.url.sub);
             break;
         case "s":
             errmsg = "Search "+rp.url.sub+" has no videos";
@@ -8531,6 +8450,31 @@ $(function () {
             crossDomain: true
         });
     };
+
+    /////////////////////////////////////////////////////////////////
+    //
+    // Other Sites
+    //
+
+    var pixeldrain2pic = function(item) {
+        var pic = fixupPhotoTitle({ url: 'https://pixeldrain.com/api/file/'+item.id,
+                                    over18: false },
+                                  item.name);
+        addPhotoShort(pic, item.id, 'pixeldrain.com');
+        if (item.mime_type.startsWith('video/'))
+            initPhotoVideo(pic, pic.url, pic.url+'/thumbnail');
+
+        else if (item.mime_type.startsWith('image/'))
+            initPhotoImage(pic);
+
+        else {
+            log.error("cannot display url [unknown mime-type: "+item.mime_type+"]: "+pic.url);
+            initPhotoThumb(pic, pic.url+'/thumbnail');
+        }
+        return pic;
+    };
+
+    /////////////////////////////////////////////////////////////////
 
     var rpurlReset = function() {
         rp.url.site = 'reddit';
@@ -8670,7 +8614,6 @@ $(function () {
             case 'danbooru':
             case 'e621':
             case 'flickr':
-            case 'gfycat':
             case 'giphy':
             case 'imgur':
                 rp.url.site = t;
