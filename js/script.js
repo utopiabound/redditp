@@ -3371,7 +3371,8 @@ $(function () {
                          'theporngod.com',
                          'vrbangers.com',
                          'youporn.com',
-                         'xxxbox.me'].includes(hostname))
+                         'xxxbox.me',
+                         'zetporn.com'].includes(hostname))
                         initPhotoEmbed(pic, href.prop('origin')+'/embed/'+shortid, false);
 
                     else if (shortid.match(/^\d+$/)) {
@@ -4465,7 +4466,7 @@ $(function () {
     // Set Autoplay for iOS devices
     var addPlayButton = function (div, vid) {
         $(div).prepend(playButton(function() {
-            $(vid).play();
+            $(vid)[0].play();
             $('#playbutton').remove();
         }));
         // if video starts playing, nuke play button
@@ -5817,7 +5818,7 @@ $(function () {
             if (path == base)
                 setRedditInfoHtml(item.data.description_html);
 
-            var link = redditLink(path, item.data.description_md, item.data.display_name, true);
+            var link = redditLink(path, unescapeHTML(item.data.description_md), item.data.display_name, true);
 
             list.append($('<li>', {class: cl}).html(link));
         });
@@ -6515,7 +6516,8 @@ $(function () {
                         getRedditComments(photo, d);
                 }
             }
-            updateDuplicates(photo);
+            if (isActive(photo))
+                updateDuplicates(getCurrentPic());
         };
 
         if (rp.url.site != 'reddit')
@@ -6668,7 +6670,7 @@ $(function () {
                     t3x = t3x.crosspost_parent_list[0];
 
                 var photo = {
-                    url: t3x.url || t3x.url_overridden_by_des || t3.url || t3.url_overridden_by_dest,
+                    url: t3x.url_overridden_by_dest || t3x.url || t3.url_overridden_by_dest || t3.url,
                     title: t3.title,
                     id: t3.id,
                     over18: t3.over_18,
@@ -6678,6 +6680,10 @@ $(function () {
                     commentN: t3.num_comments,
                     comments: rp.reddit.base + t3.permalink
                 };
+                if (t3.url && t3.url != photo.url)
+                    photo.o_url = t3.url;
+                else if (t3x.url && t3x.url != photo.url)
+                    photo.o_url = t3x.url;
                 if (duplicates.length)
                     photo.dupes = duplicates;
                 if (t3x.id != photo.id)
@@ -7062,6 +7068,7 @@ $(function () {
             }
             var rc2 = false;
             if (data.length) {
+                photo = initPhotoAlbum(photo, true);
                 data.forEach(function(item) {
                     if (!item)
                         return;
