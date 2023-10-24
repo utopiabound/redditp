@@ -3013,6 +3013,16 @@ $(function () {
                 a = pathnameOf(pic.url).split('/');
                 initPhotoImage(pic, "https://img1.hotnessrater.com/"+a[2]+"/"+a[3]+".jpg");
 
+            } else if (['mastodon.social',
+                        'social.sdf.org'].includes(hostname)) {
+                a = pathnameOf(pic.url).split('/');
+                if (a.length >= 2 && a[1].startsWith('@')) {
+                    initPhotoEmbed(pic, originOf(pic.url)+a.slice(0, 3).join('/')+"/embed", false);
+                    shortid = a[2];
+                    // @@ process other urls
+                } else
+                    throw "unknown path";
+
             } else if (hostname == 'msnbc.com') {
                 // https://www.msnbc.com/SHOW/watch/TITLE-OF-VIDEO-ID
                 a = pathnameOf(pic.url).split('/');
@@ -3386,9 +3396,14 @@ $(function () {
                     }
                     return true;
 
-                } else if (a[1] == 'embed') {
+                } else if (a.includes('embed')) {
                     log.info("AUTO embed: "+pic.url);
                     initPhotoEmbed(pic);
+
+                } else if (a.length >= 2 && a[1].startsWith('@') && !isNaN(parseInt(a[2], 10))) {
+                    log.info("AUTOGENERATE embed [mastodon]: "+pic.url);
+                    initPhotoEmbed(pic, originOf(pic.url)+a.slice(0, 3).join('/')+"/embed", false);
+                    shortid = a[2];
 
                 } else if (rp.wp[fqdn] === undefined) {
                     shortid = url2shortid(pic.url);
