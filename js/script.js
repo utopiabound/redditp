@@ -56,31 +56,33 @@
  *      url:            URL link of "photo"    (addImageSlide() will call fixupUrl())
  *      over18:         BOOLEAN image is nsfw
  *      -- Optional --
- *      title:          HTML Title of image     (creator of object needs to call fixupPhotoTitle())
- *      flair:          HTML flair put next to title                                    [read by picFlair()]
- *      id:             TEXT Unique ID based on site or blog
- *      date:           INT  Date in seconds
- *      author:         TEXT reddit username
- *      aflair:         HTML flair to put next to author
- *      comments:       URL  link to photo comments
- *      commentN:       INT  Number of comments (if this is set, comments needs to be set too)
+ *      title:          HTML  Title of image     (creator of object needs to call fixupPhotoTitle())
+ *      flair:          HTML  flair put next to title                                    [read by picFlair()]
+ *      id:             TEXT  Unique ID based on site or blog
+ *      date:           INT   Date in seconds
+ *      author:         TEXT  reddit username
+ *      aflair:         HTML  flair to put next to author
+ *      comments:       URL   link to photo comments
+ *      commentN:       INT   Number of comments (if this is set, comments needs to be set too)
  *      cross_id:       TEXT ID in duplictes of original link
- *      elinks:         ARRAY of [NAME, URL]    Extra Links                             [addPhotoExtraLink(), picExtraLinks()]
- *      thumb:          URL  thumbnail of image (e.g. cached version from reddit)       [set by addPhotoThumb()]
- *      fb_thumb:       ARRAY of URLs Fallback thumbnail urls (must be images)          [set/use by addPhotoThumb()/nextPhotoThumb()]
- *      score:          INT  Score (upvotes - downvotes)
+ *      thumb:          URL   thumbnail of image (e.g. cached version from reddit)      [set by addPhotoThumb()]
+ *      score:          INT   Score (upvotes - downvotes)
  *      fallback:       ARRAY of URLs Fallback urls (if pic.url fails)  [set/use by addPhotoFallback()/nextPhotoFallback()]
- *      o_url:          URL original URL                                [set by processPhoto()]
+ *      o_url:          URL   original URL                              [set by processPhoto()]
+ *      -- Temporary --
+ *      duration:       FLOAT Length in seconds (moved to .embed during initPhotoEmbed())
  *
  *      -- Other, NOT creator setable --
- *      type:           ENUM of imageTypes                              [set by processPhoto()/initPhoto*()]
- *      a:              Float   Aspect Ratio                            [set by addPhotoSize()]
- *      s:              TEXT    shortid or url                          [set by addPhotoShort()]
- *      h:              HOST    hostname (or fqdn) or url               [set by addPhotoShort()]
- *      eL:             BOOL Have loaded comment images or duplicate listings [
- * P    insertAt:       INT where to insert pictures in album           [set by addAlbumItem()]
- * P    index:          INT index in rp.photos, used by album functions [set by addImageSlide()]
- *      dupes:          ARRAY of HASH                                   [set by addPhotoDupe(), redditT3ToDupe]
+ *      type:           ENUM  of imageTypes                                             [set by processPhoto()/initPhoto*()]
+ *      a:              FLOAT Aspect Ratio                                              [set by addPhotoSize()]
+ *      s:              TEXT  shortid or url                                            [set by addPhotoShort()]
+ *      h:              HOST  hostname (or fqdn) or url                                 [set by addPhotoShort()]
+ *      eL:             BOOL  Have loaded comment images or duplicate listings          [set by getRedditComments()]
+ *      elinks:         ARRAY of [NAME, URL]    Extra Links                             [addPhotoExtraLink(), picExtraLinks()]
+ *      fb_thumb:       ARRAY of URLs Fallback thumbnail urls (must be images)          [addPhotoThumb()/nextPhotoThumb()]
+ * P    insertAt:       INT   where to insert pictures in album                         [set by addAlbumItem()]
+ * P    index:          INT   index in rp.photos, used by album functions               [set by addImageSlide()]
+ *      dupes:          ARRAY of HASH                                                   [set by addPhotoDupe(), redditT3ToDupe()]
  *              id:             TEXT Unique ID (subreddit article id, tumblr post id, etc.)
  *              -- Optional --
  *              eL:             BOOL True if comments already loaded (same as above)
@@ -116,16 +118,18 @@
  *              TYPE:           ARRAY of URLs (type is ext c.f. rp.ext2mime video/*)
  *              audio:          HASH of TYPE to URL (type is ext c.f. rp.ext2mime audio/*)
  *              -- set by showVideo() --
- *              duration:       INT length of video in seconds
- *              times:          INT number of times to play video
+ *              duration:       FLOAT length of video in seconds
  * P    album:          ARRAY of HASH
  *              (hash items are very similar to photo structure, but are not allowed to be albums)
  *              -- Specific to Album Items --
  *              parentIndex:    INT  Index of parent in rp.photos
+ *              -- Temporary --
  *              parent:         POINTER pointer to parent photo (prior to being added to rp.photos)
  *      html:           TEXT html to insert
  *      embed:          HASH
  *              aplay:          BOOL Embeded video will autoplay (with sound)
+ *              -- Optional --
+ *              duration:       FLOAT length of video in seconds
  *
  * TODO:
  * * Make #navboxExtraLoad.click() better about loading crossposts then comments from photo.dupes
@@ -137,9 +141,11 @@
  * * Finish removing tumblr from dupes
  * * Unify sites and blogs?
  * * Integrate rp.blogcache.hn2site and wp2 alternate hostnames
+ * * Rework dedup so that duplcates are added to correct photo
  * KNOWN ISSUES:
  * * HTML embed for twitter and tiktok are wonky on re-viewing cached divs
- * * auto Next is wierder with multi-image display
+ * * Embed auto-next just uses a timer of t3.preview.reddit_video_preview.duration
+ *   length, which will cause auto-next to move to next in middle of video.
  * ABANDONED Ideas
  * * Flickr Login - OAuth 1.0a doesn't work with CORS
  */
@@ -171,7 +177,7 @@ rp.settings = {
     timeToNextSlide: 8,
     dupeCacheTimeout: 360, // 6 minutes
     goodImageExtensions: ['jpg', 'jpeg', 'gif', 'bmp', 'png', 'svg', 'webp'],
-    goodVideoExtensions: ['webm', 'mp4', 'mov', 'm4v'], // Matched entry required in rp.mime2ext
+    goodVideoExtensions: ['webm', 'mp4', 'mov', 'm4v', 'ogv'], // Matched entry required in rp.mime2ext
     minScore: 1,
     decivolume: 5,
     // cache Multi-reddit per-user lifetime (1H)
@@ -203,15 +209,17 @@ rp.mime2ext = {
     'audio/mpeg':       'mp3',
     'audio/ogg':        'ogg',
     'audio/wav':        'wav',
+    'image/gif':        'gif',
     'image/jpeg':       'jpg',
     'image/png':        'png',
-    'image/gif':        'gif',
-    'video/webm':       'webm',
-    'video/x-m4v':      'mp4',
+    'image/webp':       'webp',
+    'video/x-m4v':      'mp4', // this appears before video/mp4 so that mp4 -> video/mp4 in rp.ext2mime
     'video/mp4':        'mp4',
-    'video/quicktime':  'mov'
+    'video/ogg' :       'ogv',
+    'video/quicktime':  'mov',
+    'video/webm':       'webm'
 };
-rp.ext2mime = Object.keys(rp.mime2ext).reduce(function(obj,key){
+rp.ext2mime = Object.keys(rp.mime2ext).reduce(function(obj,key) {
     obj[ rp.mime2ext[key] ] = key;
     return obj;
 },{});
@@ -223,6 +231,8 @@ rp.session = {
     activeAlbumIndex: -1,
     // Multi: Number of images displayed
     totalActive: -1,
+    // Count of times
+    activeVidCount: 0,
 
     // Variable to store if the animation is playing or not
     isAnimating: false,
@@ -747,16 +757,19 @@ $(function () {
         return false;
     };
 
-    var shouldStillPlay = function(index, album) {
-        var photo = getPic(index, album);
+    var playTimes = function(duration) {
+        return Math.ceil(rp.settings.timeToNextSlide / duration);
+    }
+
+    // Called after a video plays through
+    var shouldStillPlay = function(photo) {
         if (!photo || !photo.video)
             return false;
-        if (photo.video.times == 1) {
-            if (photo.video.duration < rp.settings.timeToNextSlide)
-                photo.video.times = Math.ceil(rp.settings.timeToNextSlide/photo.video.duration);
-            return false;
+        if (isActiveCurrent(photo)) {
+            ++ rp.session.activeVidCount;
+            if (rp.session.activeVidCount >= playTimes(photo.video.duration))
+                return !autoNextSlide();
         }
-        photo.video.times -= 1;
         return true;
     };
 
@@ -1494,25 +1507,30 @@ $(function () {
             delete window.localStorage[name];
     };
 
-    var clearSlideTimeout = function(type) {
-        // If type, only clear it we "should"
-        if (type !== undefined &&
-            !(type == imageTypes.video ||
-              type == imageTypes.later ||
-              (type == imageTypes.embed && rp.settings.embed < rp.ALWAYS)))
+    var clearSlideTimeout = function(photo) {
+        // Conditional clear
+        // Clear for videos, later, or embed not playing
+        if (photo &&
+            !(photo.type == imageTypes.video ||
+              photo.type == imageTypes.later ||
+              (photo.type == imageTypes.embed &&
+               rp.settings.embed < rp.ALWAYS &&
+               !photo.embed.duration)))
             return;
         log.debug('clear timout');
         clearTimeout(rp.session.nextSlideTimeoutId);
     };
 
-    var resetNextSlideTimer = function (timeout) {
-        if (timeout === undefined) {
-            timeout = rp.settings.timeToNextSlide;
-        }
-        timeout *= 1000;
+    var resetNextSlideTimer = function () {
+        var timeout = rp.settings.timeToNextSlide;
         clearTimeout(rp.session.nextSlideTimeoutId);
-        log.debug('set timeout (ms): ' + timeout);
-        rp.session.nextSlideTimeoutId = setTimeout(autoNextSlide, timeout);
+        var pic = getCurrentPic();
+        if (!pic || pic.type == imageTypes.video)
+            return;
+        if (pic.type == imageTypes.embed && pic.embed.duration)
+            timeout = pic.embed.duration * playTimes(pic.embed.duration);
+        log.debug('set timeout: ' + timeout+"s");
+        rp.session.nextSlideTimeoutId = setTimeout(autoNextSlide, timeout*1000);
     };
 
     var isVideoMuted = function() {
@@ -2201,6 +2219,10 @@ $(function () {
         if (url)
             photo.url = url;
         photo.embed = { aplay: autoplay };
+        if (photo.duration) {
+            photo.embed.duration = photo.duration;
+            delete photo.duration;
+        }
         fixPhotoButton(photo);
     };
 
@@ -2253,6 +2275,7 @@ $(function () {
             urls = url;
         else
             urls = [ url ];
+        delete photo.duration;
 
         urls.forEach(function(url) {
             if (!url)
@@ -2910,7 +2933,11 @@ $(function () {
 
             } else if (hostname == 'deviantart.com') {
                 a = pathnameOf(pic.url).split('/');
-                if (a.length > 0 && (a[1] == "art" || a[2] == "art"))
+                if (a.length < 3)
+                    throw "short deviantart link";
+                if (a[1] == "embed")
+                    initPhotoEmbed(pic);
+                else if (a[1] == "art" || a[2] == "art")
                     pic.type = imageTypes.later;
                 else
                     throw "bad deviantart oembed";
@@ -3824,6 +3851,12 @@ $(function () {
             else
                 audio = hasAudio(i, 1);
             break;
+        case imageTypes.embed:
+            if (pic.embed.duration) {
+                t.find('tr.forEmbed').show();
+                length = sec2dms(pic.embed.duration);
+            }
+            break;
         }
         $('#imageInfoType').text(imageTypeStyle[pic.type]);
         $('#imageInfoSize').text(size);
@@ -4012,8 +4045,7 @@ $(function () {
         if (albumIndex === undefined)
             albumIndex = -1;
 
-        resetNextSlideTimer();
-
+        clearSlideTimeout();
         log.debug("startAnimation("+imageIndex+", "+albumIndex+")");
 
         // If the same number has been chosen, or the index is outside the
@@ -4045,6 +4077,7 @@ $(function () {
         animateNavigationBox(imageIndex, oldIndex, albumIndex, oldAlbumIndex);
         var aspects = getShowables();
         rp.session.totalActive = aspects.length;
+        rp.session.activeVidCount = 0;
 
         var ps = $("#pictureSlider");
         var s_aspect = aspects.reduce(function(acc, val) { return acc + val[0]; }, 0);
@@ -4095,6 +4128,8 @@ $(function () {
             left += a[0];
         } while (aspects.length > 0);
         rp.session.isAnimating = false;
+
+        resetNextSlideTimer();
 
         // rp.session.activeAlbumIndex may have changed in createDiv called by slideBackgroundPhoto
         preloadNextImage(imageIndex, rp.session.activeAlbumIndex);
@@ -4402,7 +4437,7 @@ $(function () {
             toggleAlbumButton(albumIndex, true);
         }
 
-        clearSlideTimeout(image.type);
+        clearSlideTimeout(image);
     };
 
     var setCurrentState = function() {
@@ -4693,10 +4728,7 @@ $(function () {
 
             $(video).on('ended', function() {
                 log.debug("["+imageIndex+"] video ended");
-                if ($.contains($('#pictureSlider')[0], $(video)[0]) &&
-                    (shouldStillPlay(imageIndex, albumIndex) ||
-                     !isActiveCurrent(pic) ||
-                     !autoNextSlide())) {
+                if ($.contains($('#pictureSlider')[0], $(video)[0]) && shouldStillPlay(pic)) {
                     var audio = $('.gfyaudio')[0];
                     if (audio) {
                         audio.pause();
@@ -4710,11 +4742,6 @@ $(function () {
                 if (pic.type == imageTypes.album)
                     pic = pic.album[0];
                 pic.video.duration = e.target.duration;
-                if (pic.video.duration < rp.settings.timeToNextSlide) {
-                    pic.video.times = Math.ceil(rp.settings.timeToNextSlide/pic.video.duration);
-                } else {
-                    pic.video.times = 1;
-                }
                 addPhotoSize(pic, e.target.videoWidth, e.target.videoHeight);
                 log.debug("["+imageIndex+"] Video loadeddata video: "+pic.video.duration+" playing "+pic.video.times);
             });
@@ -4741,9 +4768,8 @@ $(function () {
                 };
                 $(video).on('canplaythrough', onCanPlay);
 
-                if (rp.session.volumeIsMute && !isVideoMuted())
-                    addPlayButton(divNode, video);
-                else if ($(video)[0].paused)
+                if ((rp.session.volumeIsMute && !isVideoMuted()) ||
+                    $(video)[0].paused)
                     addPlayButton(divNode, video);
             }
         };
@@ -4777,6 +4803,8 @@ $(function () {
             var lem = playButton(function() {
                 $(div).empty();
                 $(div).append($('<div>', { class: "fullscreen" }).html(iFrame(pic)));
+                if (pic.embed.duration && isActiveCurrent(pic))
+                    resetNextSlideTimer();
             });
 
             var title = $('<span>', { class: "title" }).html(hostnameOf(pic.url, true));
@@ -4912,7 +4940,7 @@ $(function () {
         // Preloading, don't mess with timeout
         if (imageIndex == rp.session.activeIndex &&
             albumIndex == rp.session.activeAlbumIndex)
-            clearSlideTimeout();
+            clearSlideTimeout(photo);
 
         if (photo.type == imageTypes.later)
             fillLaterDiv(photo, showPic);
@@ -6499,6 +6527,8 @@ $(function () {
                 }
             }
             addPhotoSize(photo, media.width, media.height);
+            if (t3.preview && t3.preview.reddit_video_preview)
+                photo.duration = t3.preview.reddit_video_preview.duration;
 
         } else if (t3.domain == 'reddit.com') {
             // these shouldn't be added via tryPreview nor speculative lookups
@@ -8796,7 +8826,6 @@ $(function () {
             if (data.loadAfter)
                 rp.session.loadAfter = eval(data.loadAfter);
 
-            clearSlideTimeout();
             var orig_index = data.index;
             data.photos.forEach(function(photo) {
                 var index = photo.index;
