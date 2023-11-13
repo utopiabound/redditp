@@ -179,6 +179,7 @@ rp.settings = {
     goodImageExtensions: ['jpg', 'jpeg', 'gif', 'bmp', 'png', 'svg', 'webp'],
     goodVideoExtensions: ['webm', 'mp4', 'mov', 'm4v', 'ogv'], // Matched entry required in rp.mime2ext
     minScore: 1,
+    otherMinScore: 0, // non-reddit score
     decivolume: 5,
     // cache Multi-reddit per-user lifetime (1H)
     multiExpire: 3600,
@@ -8048,6 +8049,10 @@ $(function () {
                         log.info("cannot display url [no valid url]: "+post.id);
                         return;
                     }
+                    if (post.score.total < rp.settings.otherMinScore) {
+                        log.info('cannot display url [score too low: '+post.score.total+']: '+post.id);
+                        return;
+                    }
                     var val = dedupAdd('donmai.us', post.id);
                     if (val) {
                         log.info("cannot display url [duplicate "+val+"]: "+photo.o_url);
@@ -8203,7 +8208,7 @@ $(function () {
                         log.info("cannot display url [parent "+post.relationships.parent_id+"]: "+post.id);
                         return;
                     }
-                    if (post.score.total < rp.settings.minScore) {
+                    if (post.score.total < rp.settings.otherMinScore) {
                         log.info('cannot display url [score too low: '+post.score.total+']: '+post.id);
                         return;
                     }
