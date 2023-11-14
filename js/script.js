@@ -1,4 +1,4 @@
-/* -*- mode: javascript -*-
+/* -*- mode: javascript; mode: js2 -*-
  * Author: Yuval Greenfield (http://uberpython.wordpress.com)
  * Also: Nathaniel Clark <nathaniel.clark@misrule.us>
  * 
@@ -195,6 +195,7 @@ rp.settings = {
     embed: 0,
     nsfw: false,        // show NSFW Items
     mute: true,         // Mute videos
+    multiView: true,    // Show multiple images
     divPrecreate: 4,    // How many divs to precreate/save
     divSaveNext: 6,     // How many divs to save after current
     realsize: false     // image display actual size (max fullscreen)
@@ -586,8 +587,10 @@ $(function () {
         var aspect = getAspect();
         if (!pic || !pic.a)
             return [[ aspect, [rp.session.activeIndex, rp.session.activeAlbumIndex]]];
-        var index = nextSlideIndex(true);
         var showables = [ [ pic.a, [rp.session.activeIndex, rp.session.activeAlbumIndex]] ];
+        if (!rp.settings.multiView)
+            return showables;
+        var index = nextSlideIndex(true);
         aspect -= pic.a;
         while (index) {
             pic = getPic(index[0], index[1]);
@@ -1638,7 +1641,7 @@ $(function () {
         clearConfig("blogger");
         setupRedditLogin(bearer, by);
 
-        ["nsfw", "mute"].forEach(function (item) {
+        ["nsfw", "mute", "multiView"].forEach(function (item) {
             var config = getConfig(configNames[item]);
             var ref = $('#'+item);
             ref.change(function () {
@@ -1662,6 +1665,9 @@ $(function () {
         $('#nsfw').change(function() {
             if ($(this).is(':checked') && rp.session.activeIndex < 0)
                 nextAlbumSlide();
+        });
+        $('#multiView').change(function() {
+            startAnimation(rp.session.activeIndex, rp.session.activeAlbumIndex);
         });
 
         // Convert binary state to tristate button
@@ -3699,8 +3705,11 @@ $(function () {
         case "l":
             open_in_background("#navboxOrigLink");
             break;
-        case "m":
+        case "0":
             $('#mute').click();
+            break;
+        case "m":
+            $('#multiView').click();
             break;
         case "n":
             $('#nsfw').click();
@@ -3783,7 +3792,6 @@ $(function () {
                 open_in_background_url($('#duplicateUl li .infor')[i]);
             break;
         case "o": // open comment - fall through
-        case "0":
             open_in_background_url($('#navboxSubreddit a.infoc')[0]);
             break;
         }
