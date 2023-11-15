@@ -30,7 +30,7 @@ if (String.prototype.includes === undefined) {
 
 // prior to ES5
 if (Date.now === undefined) {
-    Date.now = function() { return +new Date; };
+    Date.now = function() { return +new Date(); };
 }
 
 // IE prior to 11, iOS prior to 10, Android (all)
@@ -43,7 +43,7 @@ if (String.prototype.localeCompare === undefined) {
 // IE all, iOS prior to 13.4, Android prior to 5
 if (String.prototype.replaceAll === undefined) {
     String.prototype.replaceAll = function(str, replacement) {
-        var re = RegExp(str, 'g')
+        var re = RegExp(str, 'g');
         return str.replace(re, replacement);
     };
 }
