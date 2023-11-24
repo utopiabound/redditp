@@ -146,6 +146,7 @@
  * * HTML embed for twitter and tiktok are wonky on re-viewing cached divs
  * * Embed auto-next just uses a timer of t3.preview.reddit_video_preview.duration
  *   length, which will cause auto-next to move to next in middle of video.
+ * * Display overlap on some android phones on "fullscreen" toggle
  * ABANDONED Ideas
  * * Flickr Login - OAuth 1.0a doesn't work with CORS
  */
@@ -4830,6 +4831,7 @@ $(function () {
             var pic = event.data;
             if (pic.type == imageTypes.album)
                 pic = pic.album[0];
+            log.info("rpdisplay: "+imageTypeStyle[pic.type]+": "+pic.url);
             switch (pic.type) {
             case imageTypes.html:
                 showHtml(div, pic.html);
@@ -4840,7 +4842,7 @@ $(function () {
             case imageTypes.image:
             case imageTypes.thumb:
             case imageTypes.fail:
-                log.error("rpdislay: Bad image type "+imageTypeStyle[pic.type]+": "+pic.url);
+                log.error("rpdisplay: Bad image type "+imageTypeStyle[pic.type]+": "+pic.url);
                 div.unbind("rpdisplay");
                 showImage(pic, false);
                 break;
@@ -4907,7 +4909,7 @@ $(function () {
             case imageTypes.html:
             case imageTypes.embed:
                 divNode.bind("rpdisplay", pic, rpdisplayFunc);
-                if (divNode.parent()[0] == $('#pictureSlider')[0])
+                if ($.contains($('#pictureSlider')[0], $(divNode)[0]))
                     divNode.trigger("rpdisplay");
                 break;
             case imageTypes.thumb:
