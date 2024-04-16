@@ -331,6 +331,7 @@ div.progress {
 }
 
 .icontristate { appearance: none; }
+.inactive { color: grey; }
 
 /* infoLink:   infol infop [infoc]  infod  [infol infop [infoc]] */
 

@@ -3,7 +3,6 @@
     "rules": {
 	"alpha-value-notation": "number",
 	"color-function-notation": "legacy",
-	"indentation": 4,
 	"selector-id-pattern": [
 	    "^([a-z][a-z0-9]*)([A-Z][a-z0-9]*)*$",
 	    {

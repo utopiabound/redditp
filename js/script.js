@@ -3673,7 +3673,7 @@ $(function () {
         }
         stopEvent(e);
 
-        var i = 0;
+        var index, i;
 
         switch (e.key.toLowerCase()) {
         case "a":
@@ -3703,16 +3703,18 @@ $(function () {
         case "l":
             open_in_background("#navboxOrigLink");
             break;
-        case "0":
+        case "m":
             $('#mute').click();
             break;
-        case "m":
+        case "1":
             $('#multiView').click();
             break;
         case "n":
             $('#nsfw').click();
             break;
-            // O_KEY is with ZERO_KEY below
+        case "o":
+            open_in_background_url($('#navboxSubreddit a.infoc')[0]);
+            break;
         case "p":
             $('#imageSizeToggle').click();
             break;
@@ -3761,37 +3763,6 @@ $(function () {
         case "arrowright":
             nextAlbumSlide();
             break;
-        case "9":
-            ++i;
-            // fall through
-        case "8":
-            ++i;
-            // fall through
-        case "7":
-            ++i;
-            // fall through
-        case "6":
-            ++i;
-            // fall through
-        case "5":
-            ++i;
-            // fall through
-        case "4":
-            ++i;
-            // fall through
-        case "3":
-            ++i;
-            // fall through
-        case "2":
-            ++i;
-            // fall through
-        case "1":
-            if ($('#duplicateUl li .infor')[i])
-                open_in_background_url($('#duplicateUl li .infor')[i]);
-            break;
-        case "o": // open comment - fall through
-            open_in_background_url($('#navboxSubreddit a.infoc')[0]);
-            break;
         }
     });
 
@@ -3805,6 +3776,22 @@ $(function () {
         }
     };
 
+    // Check if div has audio
+    // Return 0 - no audio, 1 - video with audio, 2 - audio tracks
+    var hasAudio = function(div) {
+        var obj = $(div).find('.gfyaudio');
+        if (obj.length > 0)
+            return ($(obj).children().length > 0) ?2 :0;
+        obj = $(div).find('.gfyvid')[0];
+        if (obj.webkitAudioDecodedByteCount != undefined)
+            return (obj.webkitAudioDecodedByteCount > 0) ?1 :0;
+        if (obj.mozHasAudio != undefined)
+            return (obj.mozHasAudio) ?1 :0;
+        if (obj.audioTracks != undefined)
+            return (obj.audioTracks.length > 0) ?1 :0;
+        return 0;
+    };
+
     var showInfo = function() {
         if ($('#info').is(':visible'))
             return $('#info').hide();
@@ -3813,16 +3800,6 @@ $(function () {
             return false;
         var t = $('#imageInfoTable');
         t.find('tr').hide();
-
-        var hasAudio = function(obj, trueValue) {
-            if (obj.webkitAudioDecodedByteCount != undefined)
-                return (obj.webkitAudioDecodedByteCount > 0) ?trueValue :0;
-            if (obj.mozHasAudio != undefined)
-                return (obj.mozHasAudio) ?trueValue :0;
-            if (obj.audioTracks != undefined)
-                return (obj.audioTracks.length > 0) ?trueValue :0;
-            return undefined;
-        };
 
         var i, size = '', length = '', audio;
         var div = $('#pictureSlider div:first-of-type');
@@ -3838,10 +3815,7 @@ $(function () {
             i = $(div).find('.gfyvid')[0];
             size = i.videoWidth + "x" + i.videoHeight;
             length = sec2dms(pic.video.duration);
-            if ($(div).find('.gfyaudio').length > 0)
-                audio = ($(div).find('gfyaudio').children().length > 0) ?2 :0;
-            else
-                audio = hasAudio(i, 1);
+            audio = hasAudio(div);
             break;
         case imageTypes.embed:
             if (pic.embed.duration) {
