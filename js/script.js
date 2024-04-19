@@ -602,7 +602,8 @@ $(function () {
     };
     rp.fn.getShowables = getShowables;
 
-    var getNextPhotoOk = function(pic) {
+    // Check if photo is okay with current settings
+    var isPhotoOk = function(pic) {
         var photo = photoParent(pic);
         if (!rp.settings.nsfw && photo.over18)
             return false;
@@ -613,7 +614,7 @@ $(function () {
 
     var getNextSlideIndex = function(currentIndex) {
         for(var i = currentIndex + 1; i < rp.photos.length; i++) {
-            if (!getNextPhotoOk(rp.photos[i]))
+            if (!isPhotoOk(rp.photos[i]))
                 continue;
             return i;
         }
@@ -622,7 +623,7 @@ $(function () {
 
     var getPrevSlideIndex = function(currentIndex) {
         for(var i = currentIndex - 1; i >= 0; i--) {
-            if (!getNextPhotoOk(rp.photos[i]))
+            if (!isPhotoOk(rp.photos[i]))
                 continue;
              return i;
         }
@@ -662,7 +663,7 @@ $(function () {
                 throw "FAILED to fetch photo index: "+i;
             if (photo.type == imageTypes.album) {
                 for (var j = a+1; j < photo.album.length; ++j) {
-                    if (!getNextPhotoOk(photo.album[j]))
+                    if (!isPhotoOk(photo.album[j]))
                         continue;
                     return [i, j];
                 }
