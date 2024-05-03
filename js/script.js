@@ -440,7 +440,7 @@ rp.reddit = {
     base: "https://www.reddit.com",     // const
     base_api: "https://api.reddit.com", // const
     oauth: "https://oauth.reddit.com",  // const
-    loginUrl: "https://www.reddit.com/api/v1/authorize", // setable for mobile in processUrl()
+    loginUrl: "https://old.reddit.com/api/v1/authorize", // setable for mobile in processUrl()
     api: "https://api.reddit.com", // start as base
     // Users to skip comments from
     skipped_bots: [ 'AutoModerator', 'sneakpeekbot' ],
@@ -580,15 +580,25 @@ $(function () {
         rp.session.after = after;
     };
 
-    var getShowables = function() {
-        var pic = getCurrentPic();
+    var getCurrentShowables = function() {
+        return getShowables([rp.session.activeIndex, rp.session.activeAlbumIndex]);
+    };
+
+    var getShowables = function(index) {
+        var pic = getPic(index[0], index[1]);
+        if (index[1] == LOAD_PREV_ALBUM) {
+            if (pic.album)
+                index[1] = pic.album.length-1;
+            else
+                index[1] = -1;
+        }
         var aspect = getAspect();
         if (!pic || !pic.a)
-            return [[ aspect, [rp.session.activeIndex, rp.session.activeAlbumIndex]]];
-        var showables = [ [ pic.a, [rp.session.activeIndex, rp.session.activeAlbumIndex]] ];
+            return [[ aspect, index ]];
+        var showables = [ [ pic.a, index] ];
         if (!rp.settings.multiView)
             return showables;
-        var index = nextSlideIndex(true);
+        index = indexAfter(index);
         aspect -= pic.a;
         while (index) {
             pic = getPic(index[0], index[1]);
@@ -662,6 +672,8 @@ $(function () {
             if (!photo)
                 throw "FAILED to fetch photo index: "+i;
             if (photo.type == imageTypes.album) {
+                if (a == LOAD_PREV_ALBUM)
+                    a = photo.album.length - 2;
                 for (var j = a+1; j < photo.album.length; ++j) {
                     if (!isPhotoOk(photo.album[j]))
                         continue;
@@ -677,6 +689,35 @@ $(function () {
             i = next;
         }
         return loadMoreSlides();
+    }
+
+    // Takes and returns [imageIndes, albumIndex]
+    function indexBefore(index) {
+        var i = index[0];
+        var a = index[1];
+        while (i >= 0) {
+            var photo = rp.photos[i];
+            if (!photo)
+                throw "FAILED to fetch photo index: "+i;
+            if (photo.type == imageTypes.album) {
+                if (a == LOAD_PREV_ALBUM)
+                    a = photo.album.length;
+                if (a > 0) {
+                    for (var j = a-1; j >= 0; --j) {
+                        if (isPhotoOk(photo.album[j]))
+                            return [i, j];
+                    }
+                }
+
+            } else if (i != index[0])
+                return [i, LOAD_PREV_ALBUM];
+
+            i = getPrevSlideIndex(i);
+            if (i == index[0])
+                return [i, a];
+            a = LOAD_PREV_ALBUM;
+        }
+        return undefined;
     }
 
     function nextSlideIndex(inalbum) {
@@ -706,50 +747,27 @@ $(function () {
         prevSlide(true);
     }
 
-    function prevSlide(inalbum) {
-        var index, albumIndex;
+    function prevSlideIndex(inalbum) {
+        var albumIndex, index = rp.session.activeIndex;
 
         if (inalbum === undefined || inalbum == false) {
-            index = getPrevSlideIndex(rp.session.activeIndex);
-            // short circuit if there's no earlier available index
-            if (index == rp.session.activeIndex)
-                return;
-
-            albumIndex = 1; // need to decrement later
-            inalbum = false;
-        } else {
-            albumIndex = rp.session.activeAlbumIndex;
-            index = rp.session.activeIndex;
-        }
-        if (index < 0)
-            return;
-
-        do {
-            if (rp.photos[index] === undefined)
-                log.error("FAILED to fetch photo index: "+index);
-            if (rp.photos[index].type == imageTypes.album) {
-                if (albumIndex == LOAD_PREV_ALBUM)
-                    albumIndex = rp.photos[index].album.length;
-
-                if (albumIndex > 0) {
-                    for (var i = albumIndex-1; i >= 0; --i) {
-                        if (!getNextPhotoOk(rp.photos[index].album[i]))
-                            continue;
-                        startAnimation(index, i);
-                        return;
-                    }
-                }
-
-            } else if (index != rp.session.activeIndex || index == 0) {
-                startAnimation(index, LOAD_PREV_ALBUM);
-                return;
-            }
-            index = getPrevSlideIndex(index);
-            if (inalbum)
-                albumIndex = LOAD_PREV_ALBUM;
-            else
+            var i = getPrevSlideIndex(index);
+            var photo = rp.photos[i];
+            if (photo.type == imageTypes.album) {
+                index = i;
                 albumIndex = 1;
-        } while (index >= 0 && index != rp.session.activeIndex);
+            } else
+                albumIndex = 0;
+        } else
+            albumIndex = rp.session.activeAlbumIndex;
+
+        return indexBefore([index, albumIndex]);
+    }
+
+    function prevSlide(inalbum) {
+        var index = prevSlideIndex(inalbum);
+        if (index)
+            startAnimation(index[0], index[1]);
     }
 
     var autoNextSlide = function () {
@@ -1353,7 +1371,7 @@ $(function () {
 
     $(window).on('resize', function() {
         log.debug("Resize: "+window.innerWidth+"x"+window.innerHeight);
-        if (getShowables().length != rp.session.totalActive)
+        if (getCurrentShowables().length != rp.session.totalActive)
             startAnimation(rp.session.activeIndex, rp.session.activeAlbumIndex);
     }, 100); // delay 100ms to catch both width and height change (call via jquery.unevent.js)
 
@@ -2185,7 +2203,7 @@ $(function () {
         if (!width || !height || photo.type == imageTypes.fail)
             return;
         photo.a = width/height;
-        if (getShowables().length != rp.session.totalActive)
+        if (getCurrentShowables().length != rp.session.totalActive)
             startAnimation(rp.session.activeIndex, rp.session.activeAlbumIndex);
     };
 
@@ -3750,14 +3768,39 @@ $(function () {
         case "enter":
             $('#playbutton a').click();
             break;
-        case "pageup":
-        case "arrowup":
-            prevSlide();
+        case "pagedown":
+            index = nextSlideIndex(true);
+            for (i = 1; i < rp.session.totalActive; ++i) {
+                index = indexAfter(index);
+            }
+            if (index)
+                startAnimation(index[0], index[1]);
             break;
+        case "pageup":
+            if (rp.settings.multiView) {
+                index = prevSlideIndex(true);
+                var aspect = getShowables(index);
+                while (aspect.find(function(value) {
+                    return value[1][0] == rp.session.activeIndex && value[1][1] == rp.session.activeAlbumIndex;
+                })) {
+                    var ind = indexBefore(index);
+                    if (ind)
+                        index = ind;
+                    else
+                        break;
+                    aspect = getShowables(index);
+                }
+                if (index)
+                    startAnimation(index[0], index[1]);
+                break;
+            }
+            // fall through
         case "arrowleft":
             prevAlbumSlide();
             break;
-        case "pagedown":
+        case "arrowup":
+            prevSlide();
+            break;
         case "arrowdown":
             nextSlide();
             break;
@@ -4044,7 +4087,7 @@ $(function () {
         rp.session.isAnimating = true;
         var divNode = getBackgroundDiv(imageIndex, albumIndex);
         animateNavigationBox(imageIndex, oldIndex, albumIndex, oldAlbumIndex);
-        var aspects = getShowables();
+        var aspects = getCurrentShowables();
         rp.session.totalActive = aspects.length;
         rp.session.activeVidCount = 0;
 
