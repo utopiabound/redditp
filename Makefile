@@ -12,9 +12,9 @@ all: check js/jquery.touchwipe.min.js js/loglevel.min.js js/ie_hacks.min.js js/j
 	uglifyjs $< --output $@ --compress --comments
 
 checkjs:
-	eslint js/script.js js/ie_hacks.js
+	npx eslint js/script.js js/ie_hacks.js
 
 check: checkjs checkcss
 
 checkcss:
-	stylelint --mw --rd --risd css/*.css
+	npx stylelint --mw --rd --risd css/*.css

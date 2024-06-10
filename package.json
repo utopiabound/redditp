@@ -1,0 +1,21 @@
+{
+    "name": "redditp",
+    "version": "0.0.1",
+    "description": "A full screen reddit presentation or slide show",
+    "keywords": [
+        "reddit",
+        "reddit-client",
+        "webapp"
+    ],
+    "author": "Nathaniel Clark",
+    "homepage": "https://github.com/utopiabound/redditp",
+    "license": "MIT",
+    "devDependencies": {
+        "@eslint/js": "^9.4.0",
+        "eslint": "^9.4.0",
+        "globals": "^15.3.0",
+        "npm": "^10.8.1",
+        "stylelint": "^16.6.1",
+        "stylelint-config-standard": "^36.0.0"
+    }
+}

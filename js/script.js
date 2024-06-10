@@ -581,7 +581,13 @@ $(function () {
     };
 
     var getCurrentShowables = function() {
-        return getShowables([rp.session.activeIndex, rp.session.activeAlbumIndex]);
+        var showables = getShowables([rp.session.activeIndex, rp.session.activeAlbumIndex]);
+        var len = showables.length;
+        if ((len * 2) > rp.settings.divPrecreate) {
+            rp.settings.divPrecreate = len * 2;
+            rp.settings.divSaveNext = len * 3;
+        }
+        return showables;
     };
 
     var getShowables = function(index) {
@@ -930,7 +936,7 @@ $(function () {
                 shortid = url2shortid(url, -1, '_', false);
                 url = 'https://www.pixiv.net/en/artworks/'+shortid;
             }
-        } catch (e) {
+        } catch {
             // ignore
         }
         data.append(_infoAnchor(url, text));
@@ -964,7 +970,7 @@ $(function () {
                 return path; // special case
             try {
                 return socialUserLink(user, domains[1], url, status);
-            } catch (e) {
+            } catch {
                 // ignore and fall through
             }
         }
@@ -977,7 +983,7 @@ $(function () {
             throw "Bad Social Type";
         try {
             return siteUserLink({user: user, t: type}, alt);
-        } catch (e) {
+        } catch {
             switch(type) {
             case "facebook":    return titleFaviconLink('https://facebook.com/'+user, user, "FB", alt);
             case "furaffinity": return titleFaviconLink('https://www.furaffinity.net/user/'+user, user, type, alt);
@@ -3264,7 +3270,9 @@ $(function () {
             } else if (hostname == 'twitch.tv') {
                 try {
                     shortid = url2shortid(pic.url);
-                } catch (e) {}
+                } catch {
+                    // ignore
+                }
 
                 a = searchOf(pic.url);
                 host = window.location.host;
@@ -4135,7 +4143,7 @@ $(function () {
                 $(vid).prop('autoplay', true);
                 try {
                     vid.play();
-                } catch (e) {
+                } catch {
                     addPlayButton($(div).children()[0], vid);
                 }
                 updateVideoMute();
@@ -4298,7 +4306,7 @@ $(function () {
                 var nli, subr = '/r/' +item.subreddit;
                 try {
                     nli = $('#duplicateUl').find('[subreddit='+item.subreddit+']');
-                } catch(e) {
+                } catch {
                     log.error("Failed to find duplicateLi subreddit = "+item.subreddit);
                     return;
                 }
@@ -4780,7 +4788,7 @@ $(function () {
                     if ($.contains(document, $(video)[0]))
                         try {
                             $(video)[0].play();
-                        } catch (e) {
+                        } catch {
                             addPlayButton(divNode, video);
                         }
                 };
@@ -5768,12 +5776,12 @@ $(function () {
                 }
                 try {
                     return prefix+socialUserLink(name, site, match);
-                } catch (e) {
+                } catch {
                     // fall through and attempt to match just name + subreddit/flair
                     prefix = site+" ";
                 }
                 throw "unknown";
-            } catch (e) {
+            } catch {
                 return match;
             }
         });
@@ -5809,7 +5817,7 @@ $(function () {
                 return match;
             try {
                 return socialUserLink(p1, social, match);
-            } catch (e) {
+            } catch {
                 return match;
             }
         });
