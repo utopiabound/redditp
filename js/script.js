@@ -4107,16 +4107,23 @@ $(function () {
             var ind = $(div).data("index");
             var alb = $(div).data("aindex");
             if ($(div).children().length == 0) {
+                log.debug("  ["+ind+"]["+alb+"] Removing");
                 $(div).remove();
                 return;
             }
-            if (aspects.some(function(e) { return e[1][0] == ind && e[1][1] == alb; }))
+            if (aspects.some(function(e) { return e[1][0] == ind && e[1][1] == alb; })) {
+                log.debug("  ["+ind+"]["+alb+"] leaving");
                 return;
+            }
             $(div).css({ left: (ind < imageIndex || (ind == imageIndex && alb < albumIndex)) ?"-"+$(div).width()+"px" :"100%" });
             $(div).children().each(function (_i, item) {
+                log.debug("  ["+ind+"]["+alb+"] Detaching");
                 setTimeout(function() {
-                    $(item).detach();
-                    $(div).remove();
+                    if ($(div).css("left").startsWith('-')) {
+                        $(item).detach();
+                        $(div).remove();
+                    } else
+                        log.debug("  ["+ind+"]["+alb+"] Ignoring Detach");
                 }, 500); // this should match .vslide transition speed
             });
         });
@@ -4136,6 +4143,7 @@ $(function () {
                     .data("aindex", index[1])
                     .append(divNode);
                 ps.append(div);
+                log.debug("  ["+index[0]+"]["+index[1]+"] Attaching");
                 divNode.show().trigger("rpdisplay");
             }
             var vid = $(div).find('.gfyvid')[0];
@@ -4997,6 +5005,8 @@ $(function () {
             log.info('failed to load url [error '+xhr.status+']: ' + photo.url);
             initPhotoThumb(photo);
             showCB(photo);
+            if (getCurrentShowables().length != rp.session.totalActive)
+                startAnimation(rp.session.activeIndex, rp.session.activeAlbumIndex);
         };
         var handleWPError = function(xhr) {
             // timeout: xhr.status == 0 && xhr.statusText == "timeout"
