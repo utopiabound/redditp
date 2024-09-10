@@ -3988,6 +3988,13 @@ $(function () {
     $(document).on('click', '#navboxShowInfo', showInfo);
     $(document).on('click', '#navboxShowHelp', showHelp);
 
+    $(document).on('click', '#logout', function (event) {
+        stopEvent(event);
+        clearRedditLogin();
+        clearConfig(configNames.redditRefresh);
+        rp.session.redditRefreshToken = '';
+        return false;
+    });
     // Bind to PopState Event
     //rp.history.Adapter.bind(window, 'popstate', function(e) {
     window.onpopstate = function(e) {
