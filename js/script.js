@@ -3776,6 +3776,7 @@ $(function () {
         case "enter":
             $('#playbutton a').click();
             break;
+        case "]":
         case "pagedown":
             index = nextSlideIndex(true);
             for (i = 1; i < rp.session.totalActive; ++i) {
@@ -3784,6 +3785,7 @@ $(function () {
             if (index)
                 startAnimation(index[0], index[1]);
             break;
+        case "[":
         case "pageup":
             if (rp.settings.multiView) {
                 index = prevSlideIndex(true);
@@ -6748,7 +6750,8 @@ $(function () {
                 try {
                     duplicates = processT3Parents(link, duplicates, t3);
                 } catch (e) {
-                    return log.info('cannot display url [duplicate:'+e+']: '+t3.url);
+                    log.info('cannot display url [duplicate:'+e+']: '+t3.url);
+                    return;
                 }
                 duplicates.sort(subredditCompare);
 
