@@ -100,7 +100,7 @@
  *      -- Depending on host site --
  *      subreddit:      TEXT of subreddit name
  *      site:           HASH                                            [addPhotoSite()]
- *              t:      imgur|giphy|flickr|danbooru|e621
+ *              t:      imgur|giphy|flickr|danbooru|e621|rule34
  *              -- Optional --
  *              users:  ARRAY of TEXT usernames                         [addPhotoSiteUser(), siteUserLink(), hasPhotoSiteUser()]
  *              tags:   HASH of ARRAY of TEXT Tags for photo            [hasPhotoSiteTags(), addPhotoSiteTags(), updateDuplicates()]
@@ -228,6 +228,9 @@ rp.ext2mime = Object.keys(rp.mime2ext).reduce(function(obj,key) {
     return obj;
 },{});
 
+// Used for album creation for sites that only has parent pointers
+rp.children = {};
+
 rp.session = {
     // 0-based index to set which picture to show first
     // init to -1 until the first image is loaded
@@ -340,6 +343,7 @@ rp.defaults = {
     },
     favicon: {
         'art.ngfiles.com': 'https://www.newgrounds.com/favicon.ico',
+        'bsky.app': 'https://web-cdn.bsky.app/static/favicon-16x16.png',
         'hentai-foundry.com': 'https://img.hentai-foundry.com/themes/Dark/favicon.ico',
         'i.pximg.net': 'https://www.pixiv.net/favicon.ico',
         'imgbox.com': 'https://imgbox.com/images/favicon.ico',
@@ -431,6 +435,7 @@ rp.choices = {
         m:         [ "hot", "new", "top", "top:day", "top:week", "top:month",  "top:year", "top:all",
                        "rising", "controversial", 'gilded' ],
     },
+    rule34: { },
     tumblr: { t: [] },
     wp:  { '': [ "new", "old" ], t: [ "new", "old" ], c: [ "new", "old" ] },
     wp2: { '': [ "new", "old" ], t: [ "new", "old" ], c: [ "new", "old" ] },
@@ -866,6 +871,10 @@ $(function () {
         return div.html();
     };
 
+    // Generate <span> for tag
+    // Args
+    //   type - string
+    //   otag - tag to add/remove
     var _taglink = function(type, otag, isTitle) {
         var tag = encodeURIComponent(otag);
         var d = siteTagDisplay(type, otag);
@@ -1057,6 +1066,7 @@ $(function () {
         case 'giphy':   return 'https://giphy.com/channel/'+siteUserId(type, user);
         case 'imgur':   return 'https://imgur.com/user/'+user;
         case 'redgifs': return 'https://www.redgifs.com/users/'+user;
+        case 'rule34':  return 'https://rule34.xxx/index.php?page=account&s=profile&uname='+user;
         case 'hentai-foundry': return 'https://www.hentai-foundry.com/user/'+user;
         }
         throw "Unknown Site type: "+type;
@@ -1099,6 +1109,20 @@ $(function () {
         return ret;
     };
 
+    var photoSiteUserNames = function(pic) {
+        var users = (pic.site.users) ?pic.site.users :[ pic.site.user ];
+        var ret = '';
+        for (var name of users) {
+            var username = siteUserName(pic.site.t, name);
+            if (!username)
+                continue;
+            if (ret)
+                ret += " ";
+            ret += "@"+username;
+        }
+        return ret;
+    };
+
     var siteTagUrl = function(type, tag) {
         switch(type) {
         case 'danbooru': return 'https://danbooru.donmai.us/posts?tags='+tag.replace(/ /g, '_');
@@ -1106,6 +1130,7 @@ $(function () {
         case 'redgifs':  return 'https://www.redgifs.com/browse?tags='+tag;
         case 'imgur':    return 'https://imgur.com/t/'+tag;
         case 'flickr':   return 'https://www.flickr.com/photos/tags/'+tag.toLowerCase().replaceAll(" ", "");
+        case 'rule34':   return 'https://rule34.xxx/index.php?page=post&s=list&tags='+tag;
         }
         throw "Unknown Site type: "+type;
     };
@@ -1610,12 +1635,14 @@ $(function () {
         var i, a, p;
         $('a.selectable').removeClass("selected");
         var arr = [ rpurlbase() ];
+
         switch (rp.url.site) {
         case "danbooru":
         case "e621":
         case "flickr":
-            a = rp.url.multi.split(/[+,]/);
+        case "rule34":
             if (rp.url.type == 't') {
+                a = rp.url.multi.split(/[+,]/);
                 p = ['', rp.url.site, rp.url.type, ''].join("/");
                 for (i of a) {
                     arr.push(p+encodeURIComponent(i));
@@ -3186,6 +3213,12 @@ $(function () {
                 else
                     throw "search not supported";
 
+            } else if (hostname == 'pornotree.com') {
+                if (a[1] != 'watch')
+                    throw "Bad url";
+                shortid = url2shortid(pic.url, -1, '_');
+                initPhotoEmbed(pic, originOf(pic.url) +'/embed/'+shortid);
+
             } else if (hostname == 'reddit.com') {
                 shortid = url2shortid(pic.url);
                 if (a[1] == 'gallery')
@@ -3531,6 +3564,8 @@ $(function () {
         var title = picTitleText(rp.photos[index]);
         if (rp.photos[index].subreddit && rp.photos[index].subreddit != rp.url.sub)
             title += "\nr/"+rp.photos[index].subreddit;
+        if (!title && hasPhotoSiteUser(rp.photos[index]))
+            title = photoSiteUserNames(rp.photos[index]);
 
         var numberButton = $("<a />", { title: title,
                                         id: "numberButton" + (index + 1),
@@ -3932,7 +3967,7 @@ $(function () {
             // Sub list is capped at 250 (for non-gold accounts)
             length = Object.keys(allsubs).length;
         }
-        // @@ fitler based on number? (> once?)
+        // @@ filter based on number? (> once?)
         if (length <= 250)
             i = Object.keys(allsubs).join("+");
         else
@@ -3970,6 +4005,8 @@ $(function () {
         var photo = photoParent(pic);
         if (photo.subreddit)
             getRedditComments(photo);
+
+        rule34children(pic);
 
         getRedditDupe(pic);
         if (pic != photo)
@@ -4231,7 +4268,7 @@ $(function () {
         } else if (photo.blog)
             $('#navboxSubreddit').html(blogBlogLink(photo.blog)).show();
         else
-            $('#navboxSubreddit').hide();
+            $('#navboxSubreddit').html("").hide();
 
         if (photo != pic)
             $('#navboxExtra').append($('<span>', { class: 'info infol' }).text((photo.album.indexOf(pic)+1)+"/"+photo.album.length));
@@ -4252,7 +4289,7 @@ $(function () {
             $('#navboxSubreddit').append($('<a>', { href: photo.comments,
                                                     class: "info infoc",
                                                     title: "Comments (o)" }
-                                          ).text('('+photo.commentN+")"));
+                                          ).text('('+photo.commentN+")")).show();
     };
 
     var updateDuplicates = function(pic) {
@@ -6110,9 +6147,16 @@ $(function () {
             case 'danbooru':
             case 'flickr':
             case 'imgur':
+            case 'rule34':
                 if (list[0].firstChild)
                     list.append($('<li>').append($('<hr>', { class: "split" })));
                 list.append($('<li>').append(choiceLink('/'+rp.url.site, '/'+rp.url.site, rp.url.site)));
+                if (rp.url.type == 't') {
+                    a = rp.url.multi.split('+');
+                    for(var lem of a.filter(function(x) { return x.startsWith('-'); })) {
+                        list.append($('<li>').append(_taglink(rp.url.site, lem, false)));
+                    }
+                }
                 break;
             case 'tumblr':
                 arr = rp.url.multi.split(/[+,]/);
@@ -8561,6 +8605,172 @@ $(function () {
     };
 
     /////////////////////////////////////////////////////////////////
+    // Rule34.xxx
+    //
+    // https://rule34.xxx/index.php?page=help&topic=dapi
+
+    var processRule34Post = function(photo, post) {
+        addPhotoSite(photo, "rule34");
+        addPhotoSiteUser(photo, post.owner);
+        addPhotoSiteTags(photo, post.tags.split(" "));
+        addPhotoExtraLink(photo, "Source", post.source);
+
+        if (!post.file_url)
+            initPhotoFailed(photo);
+        else if (isImageExtension(post.file_url))
+            initPhotoImage(photo, post.file_url);
+        else if (isVideoExtension(post.file_url))
+            initPhotoVideo(photo, post.file_url, post.preview_file_url);
+        else {
+            log.error("Unknown Extension: "+post.file_url);
+            addPhotoThumb(photo, post.preview_url);
+            initPhotoFailed(photo);
+        }
+        addPhotoSize(photo, post.image_width, post.image_height);
+    };
+
+    var rule34pic = function(post) {
+        var o_url = 'https://rule34.xxx/index.php?page=post&s=view&id='+post.id;
+        var photo = {
+            id: post.id,
+            o_url: o_url,
+            date: post.change,
+            over18: post.rating != 'safe',
+            score: post.score,
+            comments: o_url,
+            commentN: post.comment_count,
+        };
+        addPhotoShort(photo, post.id, "rule34.xxx");
+        processRule34Post(photo, post);
+        return photo;
+    };
+
+    var rule34children = function(photo) {
+        if (photo.h != 'rule34.xxx')
+            return;
+
+        var jsonUrl = 'https://api.rule34.xxx//index.php?page=dapi&s=post&q=index&json=1&tags=parent:'+photo.s;
+        var handleData = function(items) {
+            var p = initPhotoAlbum(photo, true);
+            items.forEach(function(subpost) {
+                if (subpost.id == photo.s)
+                    return;
+                var pic = rule34pic(subpost);
+                if (pic.type == imageTypes.fail) {
+                    log.info("cannot display child [no valid url]: "+subpost.id);
+                    return;
+                }
+                var val = dedupAdd('rule34.xxx', subpost.id, photo.s);
+                if (val) {
+                    log.info("cannot display child [duplicate "+val+"]: "+subpost.id);
+                    return;
+                }
+                addAlbumItem(p, pic);
+            });
+            checkPhotoAlbum(p);
+        };
+
+        log.info("loading children: "+photo.h+":"+photo.s);
+        $.ajax({
+            url: jsonUrl,
+            dataType: 'json',
+            success: handleData,
+            error: failedAjaxDone,
+            timeout: rp.settings.ajaxTimeout,
+            crossDomain: true
+        });
+    };
+
+    var getRule34 = function() {
+        // URLs:
+        // USER:        /rule34/u/USER
+        // TAG:         /rule34/t/TAG[+tag[+...]]
+        // SEARCH:      /rule34/s/TAG TAG TAG
+        var errmsg = "Tag "+rp.url.sub+" has no posts";
+        var url = 'https://rule34.xxx/index.php?page=post&s=list';
+        var jsonUrl = 'https://api.rule34.xxx/index.php?page=dapi&s=post&q=index&json=1&limit='+rp.settings.count;
+        var extra = '';
+
+        switch (rp.url.type) {
+        case "u":
+            errmsg = "User "+rp.url.sub+" has no posts";
+            extra = 'tags=user:'+rp.url.sub;
+            break;
+        case "s":
+        case "t":
+            rp.url.sub = decodeURIComponent(rp.url.sub).split(/[,+&]\s*/).join("+").replace(/ /g, '_');
+            extra = 'tags='+rp.url.sub;
+            break;
+        default:
+            errmsg = "No posts";
+            break;
+        }
+
+        if (extra) {
+            jsonUrl += '&'+extra;
+            url += '&'+extra;
+        }
+        if (!setupLoading(1, errmsg))
+            return;
+        setSubredditLink(url);
+
+        if (rp.session.after)
+            jsonUrl += '&pid='+rp.session.after;
+        else
+            moreImages(getRule34, 0);
+
+        var handleData = function(data) {
+            if (data.length) {
+                moreImages(getRule34, rp.session.after+1);
+                data.forEach(function(post) {
+                    if (post.score < rp.settings.otherMinScore) {
+                        log.info('cannot display url [score too low: '+post.score+']: '+post.id);
+                        return;
+                    }
+                    if (post.parent_id) {
+                        log.info("cannot display url [parent "+post.parent_id+"]: "+post.id);
+                        if (!rp.children[post.parent_id])
+                            rp.children[post.parent_id] = [];
+                        rp.children[post.parent_id].unshift(post);
+                        return;
+                    }
+
+                    var photo = rule34pic(post);
+                    if (rp.children[post.id]) {
+                        initPhotoAlbum(photo, true);
+                        rp.children[post.id].forEach(function(post) {
+                            var pic = rule34pic(post);
+                            addAlbumItem(photo, pic);
+                        });
+                        delete rp.children[post.id];
+                    }
+                    var val = dedupAdd('rule34.xxx', post.id);
+                    if (val) {
+                        log.info("cannot display url [duplicate "+val+"]: "+photo.o_url);
+                        return;
+                    }
+                    if (photo.type == imageTypes.fail) {
+                        log.info("cannot display child [no valid url]: "+post.id);
+                        return;
+                    }
+
+                    addImageSlide(photo);
+                });
+            } else
+                endOfImages("Rule34");
+            doneLoading();
+        };
+        $.ajax({
+            url: jsonUrl,
+            dataType: 'json',
+            success: handleData,
+            error: failedAjaxDone,
+            timeout: rp.settings.ajaxTimeout,
+            crossDomain: true
+        });
+    };
+
+    /////////////////////////////////////////////////////////////////
     //
     // Other Sites
     //
@@ -8725,6 +8935,7 @@ $(function () {
             case 'flickr':
             case 'giphy':
             case 'imgur':
+            case 'rule34':
                 rp.url.site = t;
                 c = (a.length > 1) ?a[0] :'';
                 if (inUrlChoice(c, a))
@@ -8862,6 +9073,7 @@ $(function () {
         rp.cache = {};
         rp.dedup = {};
         rp.loaded = {};
+        rp.children = {};
         rp.session.after = '';
         rp.session.loadAfter = null;
         rp.session.activeIndex = -1;
@@ -8923,6 +9135,7 @@ $(function () {
             case 'blogger': getBloggerBlog(); break;
             case 'danbooru': getDanbooru(); break;
             case 'e621': getE621(); break;
+            case 'rule34': getRule34(); break;
             case 'flickr': getFlickr(); break;
             case 'giphy': getGiphy(); break;
             case 'imgur': getImgur(); break;

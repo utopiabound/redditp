@@ -23,6 +23,7 @@ RewriteRule ^e621(.*) /index.html
 RewriteRule ^flickr(.*) /index.html
 RewriteRule ^giphy(.*) /index.html
 RewriteRule ^imgur(.*) /index.html
+RewriteRule ^rule34(.*) /index.html
 RewriteRule ^tumblr(.*) /index.html
 RewriteRule ^wp(.*) /index.html
 RewriteRule ^wp2(.*) /index.html
