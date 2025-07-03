@@ -4519,6 +4519,8 @@ $(function () {
     };
 
     var setCurrentState = function() {
+        if (!rp.history)
+            return;
         var state = { photos: rp.photos,
                       index: rp.session.activeIndex,
                       album: rp.session.activeAlbumIndex,
@@ -9043,11 +9045,16 @@ $(function () {
             item.classList.remove('hardlink');
         });
 
-        if (initial)
-            rp.history.replaceState({}, "", path);
+        try {
+            if (initial)
+                rp.history.replaceState({}, "", path);
 
-        else if (data === undefined && path != "")
-            rp.history.pushState({}, "", path);
+            else if (data === undefined && path != "")
+                rp.history.pushState({}, "", path);
+        } catch (e) {
+            log.error("Failed to set History state: "+e);
+            rp.history = false;
+        }
 
         var subredditName = rpurlpath();
         var visitSubreddit = rp.reddit.base + rpurlpath();
