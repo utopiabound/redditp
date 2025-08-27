@@ -28,6 +28,7 @@
  * redditp-insecure             - hash to booleans      - cached result of https:// failed, where http:// worked
  * redditp-bloginfo             - hash to hash          - cached result of cacheBlogInfo
  * redditp-usermap              - hash of strings       - cached rp.user.id2name
+ * redditp-apikey               - hash of strings       - cached rp.api_key
  *
  * (window.history)
  * Set/push/replace state
@@ -341,6 +342,15 @@ rp.defaults = {
         g: true,
         meta: false,
     },
+    api: {
+        tumblr:  'sVRWGhAGTVlP042sOgkZ0oaznmUOzD8BRiRwAm5ELlzEaz4kwU',
+        imgchest: '102|KP09I84yWOVAGnprWXYqNYlI5Kfj9h7PLcw62Efg',
+        giphy:   'kAttEB8mY5C3xu8KuezzlJsbH1Q13B3r',
+        blogger: 'AIzaSyDbkU7e2ewiPeBtPwr1cfExV0XxMAQKhTg',
+        flickr:  '24ee6b81f406711f8c7d3a9070fe47a7',
+        reddit:  '7yKYY2Z-tUioLA',
+        imgur:   'ae493e76de2e724'
+    },
     favicon: {
         'art.ngfiles.com': 'https://www.newgrounds.com/favicon.ico',
         'bsky.app': 'https://web-cdn.bsky.app/static/favicon-16x16.png',
@@ -501,6 +511,7 @@ $(function () {
     };
 
     const configNames = {
+        api: "apikey",
         nsfw: "nsfw",
         embed: "showEmbed",
         mute: "videoMute",
@@ -1397,7 +1408,7 @@ $(function () {
         wipeDown: nextSlide,
         min_move_x: 20,
         min_move_y: 20,
-        preventDefaultEvents: false
+        preventDefaultEvents: true
     });
 
     $(window).on('resize', function() {
@@ -1666,6 +1677,7 @@ $(function () {
 
     var initState = function () {
         rp.wp = getConfig(configNames.wp, rp.defaults.wp);
+        rp.api_key = getConfig(configNames.api, rp.defaults.api);
         rp.insecure = getConfig(configNames.insecure, {});
         rp.blogcache.info = getConfig(configNames.bloginfo, {});
         rp.tagCats = getConfig(configNames.tagCats, rp.defaults.tagCats);
@@ -1714,12 +1726,19 @@ $(function () {
             else
                 fixIconToggle.call(ref);
         });
+
         $('#nsfw').change(function() {
             if ($(this).is(':checked') && rp.session.activeIndex < 0)
                 nextAlbumSlide();
         });
+
         $('#multiView').change(function() {
             startAnimation(rp.session.activeIndex, rp.session.activeAlbumIndex);
+        });
+
+        // Site settings
+        ["rule34"].forEach(function (name) {
+            $('.site-api[data-site="'+name+'"] input').val(rp.api_key[name]);
         });
 
         // Convert binary state to tristate button
@@ -1806,6 +1825,13 @@ $(function () {
                 processUrl("/search/"+value);
             else
                 processUrl("/"+event.target.dataset.site+"/s/"+value);
+        });
+
+        $('form.site-api').on('submit', function (event) {
+            stopEvent(event);
+            var value = $(event.target).find("input")[0].value;
+            rp.api_key[event.target.dataset.site] = value;
+            setConfig(configNames.api, rp.api_key);
         });
 
         $('.noInput').keyup(stopEvent);
@@ -3429,6 +3455,7 @@ $(function () {
                          'hdpornz.biz',
                          'hog.mobi',
                          'hog.tv',
+                         'it.com',
                          'iceporn.tv',
                          'javtiful.com',
                          'madnsfw.com',
@@ -8652,7 +8679,13 @@ $(function () {
             return;
 
         var jsonUrl = 'https://api.rule34.xxx//index.php?page=dapi&s=post&q=index&json=1&tags=parent:'+photo.s;
+        if (rp.api_key.rule34)
+            jsonUrl += rp.api_key.rule34;
         var handleData = function(items) {
+            if (typeof items == 'string') {
+                log.error("Failed to get items: "+items);
+                return;
+            }
             var p = initPhotoAlbum(photo, true);
             items.forEach(function(subpost) {
                 if (subpost.id == photo.s)
@@ -8712,6 +8745,10 @@ $(function () {
             jsonUrl += '&'+extra;
             url += '&'+extra;
         }
+
+        if (rp.api_key.rule34)
+            jsonUrl += rp.api_key.rule34;
+
         if (!setupLoading(1, errmsg))
             return;
         setSubredditLink(url);
@@ -8722,6 +8759,10 @@ $(function () {
             moreImages(getRule34, 0);
 
         var handleData = function(data) {
+            if (typeof data != "object") {
+                failCleanup(data);
+                return;
+            }
             if (data.length) {
                 moreImages(getRule34, rp.session.after+1);
                 data.forEach(function(post) {
