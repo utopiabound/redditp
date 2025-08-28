@@ -5362,6 +5362,7 @@ $(function () {
         } else if (hostname == 'imgur.com') {
             headerData = { Authorization: "Client-ID "+ rp.api_key.imgur };
             a = pathnameOf(photo.url).split('/');
+            shortid = url2shortid(photo.url, -1, '-');
 
             var handleImgurAlbum = function(data) {
                 handleImgurItemMeta(photo, data.data);
@@ -5373,10 +5374,10 @@ $(function () {
                 handleData = handleImgurAlbum;
 
             } else if (a[1] == 'gallery') {
-                jsonUrl = "https://api.imgur.com/3/gallery/" + a[2];
+                jsonUrl = "https://api.imgur.com/3/gallery/" + shortid;
 
                 handleError = function () {
-                    jsonUrl = "https://api.imgur.com/3/album/" + a[2];
+                    jsonUrl = "https://api.imgur.com/3/album/" + shortid;
                     var hdata = handleImgurAlbum;
                     var herr = function() {
                         initPhotoImage(photo, "https://i.imgur.com/"+shortid+".jpg");
