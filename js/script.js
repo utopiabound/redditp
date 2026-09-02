@@ -4192,7 +4192,7 @@ $(function () {
             $(div).children().each(function (_i, item) {
                 log.debug("  ["+ind+"]["+alb+"] Detaching");
                 setTimeout(function() {
-                    if ($(div).css("left").startsWith('-')) {
+                    if ($(div).css("left").startsWith('-') || $(div).prop("style").left == "100%") {
                         $(item).detach();
                         $(div).remove();
                     } else
